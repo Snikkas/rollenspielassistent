@@ -1,0 +1,58 @@
+====================================================================
+SCHERBENSTURM v17 – NETLIFY EINRICHTUNG (SCHRITT FÜR SCHRITT)
+====================================================================
+
+Du musst in Netlify NICHTS manuell konfigurieren! Alle Einstellungen
+stecken bereits fertig in den beiden Dateien "netlify.toml" und
+"package.json" in diesem ZIP-Archiv.
+
+WICHTIG: Damit Netlify das Backend ("netlify/functions/sheets.mjs")
+und den Cloud-Speicher ("@netlify/blobs") automatisch installiert,
+verbindest du Netlify einmalig mit einem kostenlosen GitHub-Ordner.
+Das dauert nur ca. 3 Minuten:
+
+--------------------------------------------------------------------
+SCHRITT 1: Dateien auf GitHub hochladen (1 Minute)
+--------------------------------------------------------------------
+1. Gehe auf https://github.com und logge dich ein (oder erstelle ein
+   kostenloses Konto).
+2. Klicke oben rechts auf das "+"-Symbol -> "New repository".
+3. Gib dem Repository einen Namen (z.B. "scherbensturm-bogen"), wähle
+   "Private" (oder "Public") und klicke unten auf "Create repository".
+4. Klicke auf der nächsten Seite auf den Link "uploading an existing file".
+5. Entpacke dieses ZIP-Archiv auf deinem PC und ziehe ALLE darin
+   enthaltenen Dateien und den Ordner "netlify" direkt in das
+   GitHub-Browserfenster:
+   - index.html
+   - netlify.toml
+   - package.json
+   - netlify/functions/sheets.mjs
+6. Klicke unten auf den grünen Button "Commit changes".
+
+--------------------------------------------------------------------
+SCHRITT 2: Mit Netlify verbinden – Null Konfiguration nötig! (2 Min.)
+--------------------------------------------------------------------
+1. Logge dich auf https://app.netlify.com ein.
+2. Klicke auf "Add new site" -> "Import an existing project".
+3. Wähle "GitHub" aus und wähle dein eben erstelltes Repository
+   "scherbensturm-bogen" aus.
+4. Du musst KEINE Einstellungen ändern (Netlify liest automatisch die
+   beiliegende "netlify.toml" aus).
+5. Klicke einfach ganz unten auf "Deploy [Name]".
+
+Fertig! Nach ca. 30 Sekunden ist deine Seite online (z.B. unter
+https://dein-wunschname.netlify.app). Unter "Site configuration" ->
+"Change site name" kannst du der URL einen schönen Namen geben.
+
+--------------------------------------------------------------------
+SO NUTZT EURE RUNDE DIE GRUPPEN-LOBBY:
+--------------------------------------------------------------------
+- Jeder Spieler öffnet eure Netlify-URL.
+- Über den neuen Button "☁️ Gruppen-Lobby" oben rechts kann jeder
+  seinen Charakter per Klick in die Lobby hochladen und "Auto-Sync"
+  aktivieren.
+- In der Lobby sieht jeder sofort die Kurzwerte (LP, mLP, AP, mAP,
+  Ini, Stufe) aller Gruppenmitglieder.
+- Klickt jemand auf "👁️ Einsehen", öffnet sich der Bogen des
+  Mitspielers im geschützten Ansichtsmodus, ohne den eigenen
+  Charakterbogen zu überschreiben!
