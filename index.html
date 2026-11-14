@@ -128,7 +128,7 @@
     const TABS=[{id:'attributes',l:'1. Attribute & Status'},{id:'skills',l:'2. Fertigkeiten'},{id:'powers',l:'3. Kräfte & Augmente'},{id:'chronicle',l:'4. Steigerungschronik & Log'},{id:'equipment',l:'5. Ausrüstung & Bio'}];
     const QTABS=[{k:'bestehen',l:'Testen / Bestehen',ph:'Notizen zu Proben, Vorteilen & Bestehen...'},{k:'schaden',l:'Schaden',ph:'Waffenschaden, Schadenscodes & Effekte...'},{k:'ruestung',l:'Rüstung / Widerstände',ph:'Rüstungsschutz, Resistenzen & Immunitäten...'}];
     const BIO_FIELDS=[{k:'aussehen',l:'Aussehen',w:0},{k:'persoenlichkeit',l:'Persönlichkeit',w:0},{k:'faehigkeiten',l:'Fähigkeiten & Volksmerkmale',w:0},{k:'persoenlicheDaten',l:'Persönliche Daten',w:0},{k:'geschichte',l:'Geschichte',w:1},{k:'notizen',l:'Allgemeine Notizen',w:1}];
-    const COL_PRESETS=['#d97777','#f43f5e','#fb923c','#f59e0b','#fde047','#6eb888','#34d399','#22d3ee','#38bdf8','#6aa3d8','#818cf8','#a58ad6','#c084fc','#f472b6','#e2d9c5','#94a3b8'];
+    const COL_PRESETS=['#ffffff','#000000','#d97777','#f43f5e','#fb923c','#f59e0b','#fde047','#6eb888','#34d399','#22d3ee','#38bdf8','#6aa3d8','#818cf8','#a58ad6','#c084fc','#f472b6','#e2d9c5','#94a3b8'];
     const CRIT_SEQ=['1','2','3','4','5','6','7','8','9','0'];
     const PALETTES={
       azur:['Azur-Sturm','Blau & Indigo',['#020617','#0ea5e9','#6366f1'],[0,'#020617','#0ea5e9','#6366f1','#f1f5f9','#94a3b8','#fff'],[1,'#f1f5f9','#0284c7','#4f46e5','#0f172a','#64748b','#fff']],
@@ -265,7 +265,7 @@
         attrColors:{...DEF_ATTR_COLS},secColors:{...DEF_SEC_COLS},
         artList:[...DEF_ARTS],subcatList:[...DEF_SUBS],useResList:[...DEF_USERES],customStats:[],
         weaponTagList:JSON.parse(JSON.stringify(DEF_WEAPON_TAGS)),armorTagList:[],ammoTagList:[],
-        attributes,secondary:{lpCurrent:8,lpMod:0,iniMod:0,mlpCurrent:8,mlpMod:0,apCurrent:3,apMax:3,mapCurrent:3,mapMax:3},
+        attributes,secondary:{lpCurrent:8,lpMod:0,lpRegenOvr:'',iniMod:0,mlpCurrent:8,mlpMod:0,mlpRegenOvr:'',apCurrent:3,apMax:3,mapCurrent:3,mapMax:3},
         customRes:{name:'Benutzerdefiniert',current:3,max:3,color:'#c084fc'},extraSecList:[],
         statusCollapsed:false,statusEffects:makeDefaultStatusEffects(),inspiration:0,inspirationActive:false,
         thresholds:{woundLight:3,woundMedium:6,woundHeavy:9,traumaLight:3,traumaMedium:6,traumaHeavy:9},
@@ -1044,7 +1044,7 @@
     function getStatGroups(){
       const cn=cresName(), exMax=(S.extraSecList||[]).map(x=>`${getExtraSecName(x)}-Max`), g=[
         ['Attribute',['ST','KO','PR','GW','WA','IN','AU','WK','Alle Attribute']],
-        ['Sekundärwerte',['LP-Max','mLP-Max','Ini','AP-Max','mAP-Max',`${cn}-Max`,...exMax,'SP-Mod']],
+        ['Sekundärwerte',['LP-Max','mLP-Max','LP-Regeneration','mLP-Regeneration','Regeneration (LP & mLP)','Ini','AP-Max','mAP-Max',`${cn}-Max`,...exMax,'SP-Mod']],
         ['Schwellenwerte',['Verwundungsschwellen','Alle Verwundungsstufen','Verwundung (leicht)','Verwundung (mittel)','Verwundung (schwer)','Traumaschwellen','Alle Traumastufen','Trauma (leicht)','Trauma (mittel)','Trauma (schwer)']],
         ['Kampf & Bewegung',['BSt','Basis-Bewegung','Rüstungsschutz','Testschwelle','Kritische Ziffer (Trefferwürfe)','Kritische Ziffer (Alle Tests)']],
         ['Vor- & Nachteile',['Vorteile (Trefferwürfe)','Nachteile (Trefferwürfe)','Vorteile (Abwehr/Parieren/Blocken)','Nachteile (Abwehr/Parieren/Blocken)','Vorteile (Parieren)','Nachteile (Parieren)','Vorteile (Blocken)','Nachteile (Blocken)','Vorteile (Ausweichen)','Nachteile (Ausweichen)','Vorteile (Alle Proben)','Nachteile (Alle Proben)']],
@@ -1087,7 +1087,7 @@
         if(/^(?:vorteil|nachteil|status\s*:)/i.test(m[2].trim())) continue;
         out.push({raw:m[0],val:parseInt(m[1],10),name:m[2].trim(),idx:m.index,len:m[0].length});
       }
-      const cn=cresName(), exKnown=(S.extraSecList||[]).flatMap(x=>[`${getExtraSecName(x)}-Max`,getExtraSecName(x)]), known=['Alle Attribute','LP-Max','mLP-Max','AP-Max','mAP-Max',`${cn}-Max`,cn,...exKnown,'SP-Mod','SP','Alle Verwundungsstufen','Verwundungsstufen','Alle Verwundungsschwellen','Verwundungsschwellen','Verwundung (leicht)','Verwundung (mittel)','Verwundung (schwer)','Alle Traumastufen','Traumastufen','Alle Traumaschwellen','Traumaschwellen','Trauma (leicht)','Trauma (mittel)','Trauma (schwer)','Basis-Bewegung','Rüstungsschutz','Testschwelle','Kritische Ziffer (Trefferwürfe)','Kritische Ziffer (Alle Tests)','Kritische Ziffer (Alle Proben)','Kritische Ziffer','Initiative','Ini','BSt','mLP','mAP','LP','AP','ST','KO','PR','GW','WA','IN','AU','WK',...(S.customStats||[])].filter(Boolean).sort((a,b)=>b.length-a.length).map(s=>s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'));
+      const cn=cresName(), exKnown=(S.extraSecList||[]).flatMap(x=>[`${getExtraSecName(x)}-Max`,getExtraSecName(x)]), known=['Alle Attribute','LP-Max','mLP-Max','LP-Regeneration','mLP-Regeneration','Regeneration (LP & mLP)','Alle Regenerationsraten','Regenerationsrate','LP-Reg','mLP-Reg','AP-Max','mAP-Max',`${cn}-Max`,cn,...exKnown,'SP-Mod','SP','Alle Verwundungsstufen','Verwundungsstufen','Alle Verwundungsschwellen','Verwundungsschwellen','Verwundung (leicht)','Verwundung (mittel)','Verwundung (schwer)','Alle Traumastufen','Traumastufen','Alle Traumaschwellen','Traumaschwellen','Trauma (leicht)','Trauma (mittel)','Trauma (schwer)','Basis-Bewegung','Rüstungsschutz','Testschwelle','Kritische Ziffer (Trefferwürfe)','Kritische Ziffer (Alle Tests)','Kritische Ziffer (Alle Proben)','Kritische Ziffer','Initiative','Ini','BSt','mLP','mAP','LP','AP','ST','KO','PR','GW','WA','IN','AU','WK',...(S.customStats||[])].filter(Boolean).sort((a,b)=>b.length-a.length).map(s=>s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'));
       const reP=new RegExp(`([+-]\d+)\s+(${known.join('|')})(?![a-zA-ZäöüÄÖÜß])`,'gi');
       while((m=reP.exec(plain))!==null){
         const s=m.index, e=s+m[0].length;
@@ -1265,7 +1265,7 @@
       return [...st,...ad,...stToks].sort((a,b)=>a.idx-b.idx);
     }
     function calcActiveMods(){
-      const keys=['ST','KO','PR','GW','WA','IN','AU','WK','lpMax','mlpMax','ini','apMax','mapMax','cresMax','spMod','woundLight','woundMedium','woundHeavy','traumaLight','traumaMedium','traumaHeavy','bst','moveBase','armor','testTh','critHit','critAll'];
+      const keys=['ST','KO','PR','GW','WA','IN','AU','WK','lpMax','mlpMax','lpRegen','mlpRegen','ini','apMax','mapMax','cresMax','spMod','woundLight','woundMedium','woundHeavy','traumaLight','traumaMedium','traumaHeavy','bst','moveBase','armor','testTh','critHit','critAll'];
       const M={src:{},extraSec:{},advDis:[],crits:[]}; keys.forEach(k=>{M[k]=0;M.src[k]=[];});
       (S.extraSecList||[]).forEach(x=>{M.extraSec[x.id]=0;M.src['ex_'+x.id]=[];});
       const add=(k,v,it,isAug)=>{if(!v)return;M[k]+=v;const nm=String(it.name||'').trim()||(isAug?'Unbenanntes Augment':'Unbenannte Kraft');M.src[k].push({val:v,name:nm,kind:isAug?'Augment':'Kraft'});};
@@ -1280,6 +1280,9 @@
           else if(nl==='alle attribute') ATTRS.forEach(a=>add(a.k,val,it,isAug));
           else if(nl==='lp-max'||nl==='lp') add('lpMax',val,it,isAug);
           else if(nl==='mlp-max'||nl==='mlp') add('mlpMax',val,it,isAug);
+          else if(nl==='lp-regeneration'||nl==='lp-reg'||nl==='lp regeneration'||nl==='regenerationsrate lp') add('lpRegen',val,it,isAug);
+          else if(nl==='mlp-regeneration'||nl==='mlp-reg'||nl==='mlp regeneration'||nl==='regenerationsrate mlp') add('mlpRegen',val,it,isAug);
+          else if(nl==='regeneration (lp & mlp)'||nl==='alle regenerationsraten'||nl==='regenerationsrate'||nl==='regeneration'){add('lpRegen',val,it,isAug);add('mlpRegen',val,it,isAug);}
           else if(nl==='ini'||nl==='initiative') add('ini',val,it,isAug);
           else if(nl==='ap-max'||nl==='ap') add('apMax',val,it,isAug);
           else if(nl==='map-max'||nl==='map') add('mapMax',val,it,isAug);
@@ -1685,6 +1688,14 @@
         const au=getAttrTot('AU',M),wk=getAttrTot('WK',M),base=Math.floor((au+wk)/5),mod=toInt(S.secondary.mlpMod),tot=getMlpMax(M),sl=fmtSrcLines(M,'mlpMax');
         return `mLP-Max Gesamt: ${tot}\n• Basis ⌊(AU ${au} + WK ${wk}) / 5⌋: ${base}${mod?`\n• Manuelles Mod: ${fmtSign(mod)}`:''}${sl?`\n${sl}`:''}`;
       }
+      if(key==='lpRegen'){
+        const auto=getLpRegenAuto(M),tot=getLpRegen(M),ovr=hasLpRegenOvr(),sl=fmtSrcLines(M,'lpRegen');
+        return `LP-Regenerationsrate: ${tot} (Erholsame Rast 4×: +${tot*4} LP)\n• Basiswert: ${LP_REGEN_BASE}${sl?`\n${sl}`:''}${ovr?`\n• Manueller Overwrite aktiv (Automatisch: ${auto})`:''}`;
+      }
+      if(key==='mlpRegen'){
+        const auto=getMlpRegenAuto(M),tot=getMlpRegen(M),ovr=hasMlpRegenOvr(),sl=fmtSrcLines(M,'mlpRegen');
+        return `mLP-Regenerationsrate: ${tot} (Erholsame Rast 4×: +${tot*4} mLP)\n• Basiswert: ${MLP_REGEN_BASE}${sl?`\n${sl}`:''}${ovr?`\n• Manueller Overwrite aktiv (Automatisch: ${auto})`:''}`;
+      }
       if(key==='ini'){
         const wa=getAttrTot('WA',M),inV=getAttrTot('IN',M),base=wa-inV,mod=toInt(S.secondary.iniMod),tot=getIniTot(M),sl=fmtSrcLines(M,'ini');
         return `Initiative Gesamt: ${fmtSign(tot)}\n• Basis (WA ${wa} − IN ${inV}): ${fmtSign(base)}${mod?`\n• Manuelles Mod: ${fmtSign(mod)}`:''}${sl?`\n${sl}`:''}`;
@@ -1767,6 +1778,8 @@
       const def=defaultState(), cid=String(raw.charId||def.charId), restoredTab=getSavedTabForChar(cid,raw.activeTab);
       const rawCampId=String(raw.campaignId||raw._summary?.campaignId||CLOUD.registry?.charCampaigns?.[cid]||'default').trim()||'default'; S={...def,...raw,version:11,charId:cid,activeTab:restoredTab,owner:String(raw.owner||''),campaignId:rawCampId,cloudPin:String(raw.cloudPin||''),cloudAutoSync:Boolean(raw.cloudAutoSync),profile:{...def.profile,...(raw.profile||{})},secondary:{...def.secondary,...(raw.secondary||{})},customRes:{...def.customRes,...(raw.customRes||{})},statusCollapsed:Boolean(raw.statusCollapsed),statusEffects:normStatusEffects(raw.statusEffects),inspiration:Math.max(0,toInt(raw.inspiration,0)),inspirationActive:Boolean(raw.inspirationActive),thresholds:{...def.thresholds,...(raw.thresholds||{})},combatNotes:{...def.combatNotes,...(raw.combatNotes||{})},progression:{...def.progression,...(raw.progression||{})},bio:{...def.bio,...(raw.bio||{})},equipNotes:raw.equipNotes??raw.equipFreeNotes??''};
       if(!isHex(S.customRes.color)) S.customRes.color='#c084fc';
+      S.secondary.lpRegenOvr=S.secondary.lpRegenOvr!==undefined&&S.secondary.lpRegenOvr!==null&&String(S.secondary.lpRegenOvr).trim()!==''?String(Math.max(0,toInt(S.secondary.lpRegenOvr,5))):'';
+      S.secondary.mlpRegenOvr=S.secondary.mlpRegenOvr!==undefined&&S.secondary.mlpRegenOvr!==null&&String(S.secondary.mlpRegenOvr).trim()!==''?String(Math.max(0,toInt(S.secondary.mlpRegenOvr,5))):'';
       S.extraSecList=Array.isArray(raw.extraSecList)?raw.extraSecList.filter(x=>x&&typeof x==='object').map((x,i)=>({id:x.id||uid(),name:String(x.name||`Ressource ${i+1}`),current:toInt(x.current,3),max:toInt(x.max,3),color:isHex(x.color)?x.color:(COL_PRESETS[(i+6)%COL_PRESETS.length]||'#34d399')})):[];
       S.attrColors={...DEF_ATTR_COLS}; if(raw.attrColors) Object.keys(DEF_ATTR_COLS).forEach(k=>{if(isHex(raw.attrColors[k]))S.attrColors[k]=raw.attrColors[k];});
       S.secColors={...DEF_SEC_COLS}; if(raw.secColors) Object.keys(DEF_SEC_COLS).forEach(k=>{if(isHex(raw.secColors[k]))S.secColors[k]=raw.secColors[k];});
@@ -1814,7 +1827,7 @@
         const hasBonOvr=sk.bonusOvr!==undefined&&sk.bonusOvr!==null&&String(sk.bonusOvr).trim()!=='';
         const bonusOvr=hasBonOvr?String(toInt(sk.bonusOvr,0)):'';
         const sectionId=sk.sectionId&&S.skillSections.some(s=>s.id===sk.sectionId)?String(sk.sectionId):'';
-        return {id:sk.id||uid(),name:String(sk.name||'Fertigkeit'),linkedAttr:ATTRS.some(a=>a.k===sk.linkedAttr)?sk.linkedAttr:'PR',category,rank,bonusOvr,sectionId,manualCost,customSp,customMsp,notes:String(sk.notes||'')};
+        return {id:sk.id||uid(),name:String(sk.name||'Fertigkeit'),color:isHex(sk.color)?sk.color:'',bgColor:isHex(sk.bgColor)?sk.bgColor:'',linkedAttr:ATTRS.some(a=>a.k===sk.linkedAttr)?sk.linkedAttr:'PR',category,rank,bonusOvr,sectionId,manualCost,customSp,customMsp,notes:String(sk.notes||'')};
       }):[];
       S.powerSections=Array.isArray(raw.powerSections)?raw.powerSections.map(sec=>({id:sec?.id||uid(),name:String(sec?.name||'Sektion'),color:isHex(sec?.color)?sec.color:'',bgColor:isHex(sec?.bgColor)?sec.bgColor:'',collapsed:Boolean(sec?.collapsed),filterArt:String(sec?.filterArt||''),parentSectionId:String(sec?.parentSectionId||'')})):[];
       sanitizeSecHierarchy(S.powerSections);
@@ -2243,6 +2256,34 @@
     const getLpMax=(M=calcActiveMods())=>Math.floor((getAttrTot('KO',M)+getAttrTot('ST',M))/5)+toInt(S.secondary.lpMod)+M.lpMax;
     const getMlpBase=()=>Math.floor((getAttrBase('AU')+getAttrBase('WK'))/5)+toInt(S.secondary.mlpMod);
     const getMlpMax=(M=calcActiveMods())=>Math.floor((getAttrTot('AU',M)+getAttrTot('WK',M))/5)+toInt(S.secondary.mlpMod)+M.mlpMax;
+    const LP_REGEN_BASE=5, MLP_REGEN_BASE=5;
+    const getLpRegenAuto=(M=calcActiveMods())=>Math.max(0,LP_REGEN_BASE+(M.lpRegen||0));
+    const getMlpRegenAuto=(M=calcActiveMods())=>Math.max(0,MLP_REGEN_BASE+(M.mlpRegen||0));
+    const hasLpRegenOvr=()=>S.secondary.lpRegenOvr!==undefined&&S.secondary.lpRegenOvr!==null&&String(S.secondary.lpRegenOvr).trim()!=='';
+    const hasMlpRegenOvr=()=>S.secondary.mlpRegenOvr!==undefined&&S.secondary.mlpRegenOvr!==null&&String(S.secondary.mlpRegenOvr).trim()!=='';
+    const getLpRegen=(M=calcActiveMods())=>hasLpRegenOvr()?Math.max(0,toInt(S.secondary.lpRegenOvr,getLpRegenAuto(M))):getLpRegenAuto(M);
+    const getMlpRegen=(M=calcActiveMods())=>hasMlpRegenOvr()?Math.max(0,toInt(S.secondary.mlpRegenOvr,getMlpRegenAuto(M))):getMlpRegenAuto(M);
+    function performSimpleRest(){
+      const M=calcActiveMods(), apMax=getApMax(M), mapMax=getMapMax(M);
+      S.secondary.apCurrent=apMax;
+      S.secondary.mapCurrent=mapMax;
+      logChron(`🔥 Einfache Rast: AP (${apMax}/${apMax}) und mAP (${mapMax}/${mapMax}) wiederhergestellt.`);
+      save(); renderHeader(); renderMain();
+      toast(`🔥 Einfache Rast: AP (${apMax}) & mAP (${mapMax}) wiederhergestellt!`);
+    }
+    function performFullRest(){
+      const M=calcActiveMods(), lpReg=getLpRegen(M), mlpReg=getMlpRegen(M);
+      const lpHeal=lpReg*4, mlpHeal=mlpReg*4;
+      const lpMax=getLpMax(M), mlpMax=getMlpMax(M), apMax=getApMax(M), mapMax=getMapMax(M);
+      const oldLp=toInt(S.secondary.lpCurrent,lpMax), oldMlp=toInt(S.secondary.mlpCurrent,mlpMax);
+      S.secondary.lpCurrent=oldLp<lpMax?Math.min(lpMax,oldLp+lpHeal):oldLp;
+      S.secondary.mlpCurrent=oldMlp<mlpMax?Math.min(mlpMax,oldMlp+mlpHeal):oldMlp;
+      S.secondary.apCurrent=apMax;
+      S.secondary.mapCurrent=mapMax;
+      logChron(`🌙 Erholsame Rast: +${lpHeal} LP (4×${lpReg} → ${S.secondary.lpCurrent}/${lpMax}), +${mlpHeal} mLP (4×${mlpReg} → ${S.secondary.mlpCurrent}/${mlpMax}) sowie AP & mAP wiederhergestellt.`);
+      save(); renderHeader(); renderMain();
+      toast(`🌙 Erholsame Rast: +${lpHeal} LP & +${mlpHeal} mLP (4× Reg.) wiederhergestellt!`);
+    }
     const getIniBase=()=>getAttrBase('WA')-getAttrBase('IN')+toInt(S.secondary.iniMod);
     const getIniTot=(M=calcActiveMods())=>getAttrTot('WA',M)-getAttrTot('IN',M)+toInt(S.secondary.iniMod)+M.ini;
     const getApBase=()=>toInt(S.secondary.apMax,3);
@@ -2457,11 +2498,26 @@
     }
 
     function buildHdrPillsHtml(P){
+      const M=calcActiveMods(), apMax=getApMax(M), mapMax=getMapMax(M), lpReg=getLpRegen(M), mlpReg=getMlpRegen(M), lpMax=getLpMax(M), mlpMax=getMlpMax(M);
       const spTip=`Steigerungspunkte (aufgewendet / gesamt)\n• Basis (Stufe ${P.lvl}): ${P.baseSp} SP${P.bonusSp?`\n• Bonus-SP: ${fmtSign(P.bonusSp)} SP`:''}${P.spMod?`\n• SP-Mod (Effekte): ${fmtSign(P.spMod)} SP\n${P.spModSrc}`:''}\nNoch frei verfügbar: ${P.spRem} SP`;
-      return `<button type="button" data-action="switch-tab" data-tab="chronicle" data-tip="Charakterstufe\nPro Stufe: +5 SP\nJede 10. Stufe: +1 MsP" class="pill">Stufe <span class="text-acc">${P.lvl}</span></button>
-      <button type="button" data-action="switch-tab" data-tab="chronicle" data-tip="Erfahrungspunkte\nJe 100 EP = +1 Stufe (mit Rest-Übertrag)\nPro Stufe: +5 SP • Jede 10. Stufe: +1 MsP" class="pill">EP: <span>${S.progression.ep}/100</span></button>
-      <button type="button" data-action="switch-tab" data-tab="chronicle" data-tip="${esc(spTip)}" class="pill ${P.spRem<0?'!border-rose-500 !bg-rose-500/15 text-rose-500':''}">SP: <span>${P.spSpent}/${P.totSp}</span></button>
-      <button type="button" data-action="switch-tab" data-tab="chronicle" data-tip="Meisterschaftspunkte (aufgewendet / gesamt)\nNoch frei verfügbar: ${P.mspRem} MsP" class="pill ${P.mspRem<0?'!border-rose-500 !bg-rose-500/15 text-rose-500':''}">MsP: <span>${P.mspSpent}/${P.totMsp}</span></button>`;
+      const simpleRestTip=`🔥 Einfache Rast ausführen\nStellt AP (${apMax}) und mAP (${mapMax}) vollständig wieder her.`;
+      const fullRestTip=`🌙 Erholsame Rast ausführen\nStellt vierfache Regeneration wieder her:\n• +${lpReg*4} LP (4 × ${lpReg} LP-Reg., bis max. ${lpMax})\n• +${mlpReg*4} mLP (4 × ${mlpReg} mLP-Reg., bis max. ${mlpMax})\n• Stellt zudem AP (${apMax}) & mAP (${mapMax}) wieder her.`;
+      return `<div class="flex flex-col items-start xl:items-end gap-1.5">
+        <div class="flex flex-wrap items-center gap-1.5">
+          <button type="button" data-action="switch-tab" data-tab="chronicle" data-tip="Charakterstufe\nPro Stufe: +5 SP\nJede 10. Stufe: +1 MsP" class="pill">Stufe <span class="text-acc">${P.lvl}</span></button>
+          <button type="button" data-action="switch-tab" data-tab="chronicle" data-tip="Erfahrungspunkte\nJe 100 EP = +1 Stufe (mit Rest-Übertrag)\nPro Stufe: +5 SP • Jede 10. Stufe: +1 MsP" class="pill">EP: <span>${S.progression.ep}/100</span></button>
+          <button type="button" data-action="switch-tab" data-tab="chronicle" data-tip="${esc(spTip)}" class="pill ${P.spRem<0?'!border-rose-500 !bg-rose-500/15 text-rose-500':''}">SP: <span>${P.spSpent}/${P.totSp}</span></button>
+          <button type="button" data-action="switch-tab" data-tab="chronicle" data-tip="Meisterschaftspunkte (aufgewendet / gesamt)\nNoch frei verfügbar: ${P.mspRem} MsP" class="pill ${P.mspRem<0?'!border-rose-500 !bg-rose-500/15 text-rose-500':''}">MsP: <span>${P.mspSpent}/${P.totMsp}</span></button>
+        </div>
+        <div class="flex flex-wrap items-center gap-1.5">
+          <button type="button" data-action="rest-simple" data-tip="${esc(simpleRestTip)}" class="pill hover:border-amber-400 text-xs py-1 px-2.5">
+            <span class="text-sm leading-none">🔥</span><span>Einfache Rast</span>
+          </button>
+          <button type="button" data-action="rest-full" data-tip="${esc(fullRestTip)}" class="pill hover:border-indigo-400 text-xs py-1 px-2.5">
+            <span class="text-sm leading-none">🌙</span><span>Erholsame Rast</span>
+          </button>
+        </div>
+      </div>`;
     }
 
     function renderHeader(){
@@ -2626,7 +2682,7 @@
     }
 
     function tplAttributes(){
-      const M=calcActiveMods(),iniBase=getIniBase(),ini=getIniTot(M),iniDiff=ini-iniBase,bst=getEffBst(M),crCol=getSecCol('cres'),iniCol=getSecCol('ini'),cresBase=getCresBase(),cresMax=getCresMax(M);
+      const M=calcActiveMods(),iniBase=getIniBase(),ini=getIniTot(M),iniDiff=ini-iniBase,bst=getEffBst(M),crCol=getSecCol('cres'),iniCol=getSecCol('ini'),cresBase=getCresBase(),cresMax=getCresMax(M),lpRegAuto=getLpRegenAuto(M),lpReg=getLpRegen(M),lpRegOvr=hasLpRegenOvr(),lpRegTip=esc(buildSecTip('lpRegen',M)),mlpRegAuto=getMlpRegenAuto(M),mlpReg=getMlpRegen(M),mlpRegOvr=hasMlpRegenOvr(),mlpRegTip=esc(buildSecTip('mlpRegen',M));
       const mkRow=(lbl,f,tip)=>`<tr><td class="text-left text-xs font-extrabold t-mut cursor-help" data-tip="${tip}">${lbl}</td>${ATTRS.map(a=>`<td class="ac-cell" style="--ac:${getAttrCol(a.k)}"><input data-at="${a.k}:${f}" type="text" inputmode="numeric" value="${esc(S.attributes[a.k][f])}" class="inp w-full text-center font-bold py-1 px-1"/></td>`).join('')}<td class="text-right text-xs font-extrabold t-mut">${lbl}</td></tr>`;
       const pool=(key,lbl,form,curF,modF,maxId,baseVal,maxVal)=>{const col=getSecCol(key),diff=maxVal-baseVal,tip=esc(buildSecTip(key,M));return `<div class="md:col-span-4 card sc-card flex flex-col justify-between gap-2.5" style="--sc:${esc(col)}"><div class="flex items-center justify-between gap-2"><div id="tip_${maxId}_hdr" data-tip="${tip}" class="min-w-0 cursor-help"><div class="text-xs font-extrabold flex items-center gap-1.5 truncate" style="color:${esc(col)}"><span>${lbl}</span><span id="chip_${key}Max">${modChip(diff)}</span></div><div class="text-[11px] t-mut">${form}</div></div><div class="flex items-center gap-1.5 shrink-0"><label class="text-xs t-mut flex items-center gap-1">Mod <input id="inp_${modF}" data-sec="${modF}" type="text" inputmode="numeric" value="${esc(S.secondary[modF])}" class="inp w-12 text-center font-bold py-1 px-1"/></label>${secGearBtn(key,col)}</div></div><div class="flex items-center justify-between gap-1.5"><button type="button" data-action="sec-step" data-field="${curF}" data-delta="-1" class="btn btn-err w-8 h-8">−</button><div class="flex items-center gap-1.5"><input id="inp_${curF}" data-sec="${curF}" type="text" inputmode="numeric" value="${esc(S.secondary[curF])}" class="inp w-14 text-center text-base font-black"/><span class="t-mut font-bold">/</span><input id="${maxId}" data-sec-max="${key}" data-tip="${tip}" type="text" inputmode="numeric" value="${maxVal}" style="color:${esc(col)}" class="inp w-14 text-center text-base font-black cursor-help"/><span id="val_${key}MaxEff" data-tip="${tip}" class="text-xs font-black cursor-help ${diff?'':'hidden'}" style="color:${esc(col)}">(${baseVal})</span></div><button type="button" data-action="sec-step" data-field="${curF}" data-delta="1" class="btn btn-ok w-8 h-8">+</button></div></div>`;};
       const stam=(key,lbl,curF,maxF,effVal)=>{const col=getSecCol(key),base=toInt(S.secondary[maxF],3),mx=base+effVal,tip=esc(buildSecTip(key,M));return `<div class="md:col-span-4 card sc-card flex flex-col justify-between gap-2.5" style="--sc:${esc(col)}"><div class="flex items-center justify-between gap-2"><span id="tip_${key}Max_hdr" class="text-xs font-extrabold flex items-center gap-1.5 truncate cursor-help" style="color:${esc(col)}" data-tip="${tip}">${lbl}<span id="chip_${key}Max">${modChip(effVal)}</span></span>${secGearBtn(key,col)}</div><div class="flex items-center justify-between gap-1.5"><button type="button" data-action="sec-step" data-field="${curF}" data-delta="-1" class="btn w-8 h-8">−</button><div class="flex items-center gap-1.5"><input id="inp_${curF}" data-sec="${curF}" type="text" inputmode="numeric" value="${esc(S.secondary[curF])}" class="inp w-14 text-center text-base font-black"/><span class="t-mut font-bold">/</span><input id="inp_${maxF}" data-sec="${maxF}" data-tip="${tip}" type="text" inputmode="numeric" value="${mx}" style="color:${esc(col)}" class="inp w-14 text-center text-base font-black cursor-help"/><span id="val_${key}MaxEff" data-tip="${tip}" class="text-xs font-black cursor-help ${effVal?'':'hidden'}" style="color:${esc(col)}">(${base})</span></div><button type="button" data-action="sec-step" data-field="${curF}" data-delta="1" class="btn w-8 h-8">+</button></div></div>`;};
@@ -2636,7 +2692,29 @@
       <tbody>${mkRow('Vw','vw','Volkswert (Standard: 20)')}${mkRow('Pot','pot','Individuelles Startpotenzial')}
       <tr><td class="text-left text-xs font-extrabold text-acc cursor-help" data-tip="Block 1 & 2: je +5 (2 SP)\nBlock 3 & 4: je +5 (3 SP)\nBlock 5: +10 (5 SP + 1 MsP)\nSP-Kosten sind in der Steigerungschronik manuell überschreibbar.">Tr</td>${ATTRS.map(a=>{const c=getAttrCol(a.k);return `<td class="ac-cell" style="--ac:${c}"><div class="flex flex-col items-center gap-1 max-w-[96px] mx-auto" style="--ac:${c}">${renderTrPairs(a.k,a.n,'Attributtabelle')}</div></td>`;}).join('')}<td class="text-right text-xs font-extrabold text-acc">Tr</td></tr>
       ${mkRow('Mod','mod','Situative / permanente Modifikatoren')}
-      <tr><td class="text-left text-xs font-black">Ges</td>${ATTRS.map(a=>{const c=getAttrCol(a.k),em=M[a.k]||0;return `<td class="ac-cell rounded-b-lg" style="--ac:${c}"><button type="button" id="ges_${a.k}" data-action="roll-attr" data-attr="${a.k}" data-tip="${esc(buildAttrTip(a.k,M))}" class="btn ac-btn w-full py-1.5 text-base font-black" style="--ac:${c}"><span>${getAttrTot(a.k,M)}</span>${em?`<span class="text-[10px]">(${fmtSign(em)})</span>`:''}</button></td>`;}).join('')}<td class="text-right text-xs font-black">Ges</td></tr></tbody></table></div></section>
+      <tr><td class="text-left text-xs font-black">Ges</td>${ATTRS.map(a=>{const c=getAttrCol(a.k),em=M[a.k]||0;return `<td class="ac-cell rounded-b-lg" style="--ac:${c}"><button type="button" id="ges_${a.k}" data-action="roll-attr" data-attr="${a.k}" data-tip="${esc(buildAttrTip(a.k,M))}" class="btn ac-btn w-full py-1.5 text-base font-black" style="--ac:${c}"><span>${getAttrTot(a.k,M)}</span>${em?`<span class="text-[10px]">(${fmtSign(em)})</span>`:''}</button></td>`;}).join('')}<td class="text-right text-xs font-black">Ges</td></tr></tbody></table></div>
+      <div class="mt-2 pt-1.5 border-t bdr-line flex flex-wrap items-center justify-between gap-2 text-[11px] t-mut tabular">
+        <div class="flex flex-wrap items-center gap-2.5">
+          <span class="inline-flex items-center gap-1 font-semibold">
+            <span class="text-acc">•</span>
+            <span class="cursor-help" data-tip="Standard-Regenerationsrate für LP und mLP ist separat jeweils 5.\nAnpassbar über Kräfte/Augmente ([+1 LP-Regeneration], [+1 mLP-Regeneration]) oder direkt hier per manuellem Overwrite.">Regenerationsrate:</span>
+          </span>
+          <label id="tip_lpRegen" data-tip="${lpRegTip}" class="inline-flex items-center gap-1 cursor-help">
+            <span class="font-extrabold" style="color:${esc(getSecCol('lp'))}">LP</span>
+            <input id="inp_lpRegenOvr" data-regen-ovr="lp" type="text" inputmode="numeric" value="${lpReg}" class="inp !py-0 !px-1 w-9 h-5 text-center text-[11px] font-black ${lpRegOvr?'!border-amber-400 text-amber-300':'text-acc'}"/>
+            <span id="chip_lpRegen">${modChip(M.lpRegen)}</span>
+            <button type="button" id="rst_lpRegenOvr" data-action="reset-regen-ovr" data-key="lp" data-tip="Manueller Overwrite aktiv – Klicken für Standardberechnung (${lpRegAuto})" class="text-[10px] font-black text-amber-400 hover:underline ${lpRegOvr?'':'hidden'}">(${lpRegAuto})</button>
+          </label>
+          <span class="opacity-40">•</span>
+          <label id="tip_mlpRegen" data-tip="${mlpRegTip}" class="inline-flex items-center gap-1 cursor-help">
+            <span class="font-extrabold" style="color:${esc(getSecCol('mlp'))}">mLP</span>
+            <input id="inp_mlpRegenOvr" data-regen-ovr="mlp" type="text" inputmode="numeric" value="${mlpReg}" class="inp !py-0 !px-1 w-9 h-5 text-center text-[11px] font-black ${mlpRegOvr?'!border-amber-400 text-amber-300':'text-acc'}"/>
+            <span id="chip_mlpRegen">${modChip(M.mlpRegen)}</span>
+            <button type="button" id="rst_mlpRegenOvr" data-action="reset-regen-ovr" data-key="mlp" data-tip="Manueller Overwrite aktiv – Klicken für Standardberechnung (${mlpRegAuto})" class="text-[10px] font-black text-amber-400 hover:underline ${mlpRegOvr?'':'hidden'}">(${mlpRegAuto})</button>
+          </label>
+        </div>
+        <span class="text-[10px] opacity-75">Erholsame Rast (4×): <strong id="val_lpReg4" style="color:${esc(getSecCol('lp'))}">+${lpReg*4} LP</strong> / <strong id="val_mlpReg4" style="color:${esc(getSecCol('mlp'))}">+${mlpReg*4} mLP</strong></span>
+      </div></section>
       <section class="grid grid-cols-1 md:grid-cols-12 gap-4 tabular">
         ${pool('lp','LP • Lebenspunkte','(KO + ST) / 5','lpCurrent','lpMod','val_lpMax',getLpBase(),getLpMax(M))}
         <div class="md:col-span-4 card sc-card flex flex-col justify-between gap-2" style="--sc:${esc(iniCol)}"><div class="flex items-center justify-between gap-2"><div id="tip_ini_hdr" data-tip="${iniTip}" class="cursor-help"><div class="text-xs font-extrabold flex items-center gap-1.5" style="color:${esc(iniCol)}"><span>Ini • Initiative</span><span id="chip_ini">${modChip(iniDiff)}</span></div><div class="text-[11px] t-mut">WA − IN</div></div><div class="flex items-center gap-1.5"><label class="text-xs t-mut flex items-center gap-1">Mod <input id="inp_iniMod" data-sec="iniMod" type="text" inputmode="numeric" value="${esc(S.secondary.iniMod)}" class="inp w-12 text-center font-bold py-1 px-1"/></label>${secGearBtn('ini',iniCol)}</div></div><div class="flex items-center justify-between gap-1.5"><button type="button" data-action="sec-step" data-field="iniMod" data-delta="-1" class="btn w-8 h-8">−</button><div class="flex items-center justify-center gap-1.5"><input id="val_iniTot" data-sec-max="ini" data-tip="${iniTip}" type="text" inputmode="numeric" value="${ini}" style="color:${esc(iniCol)}" class="inp w-16 text-center text-base font-black cursor-help"/><span id="val_iniOrig" data-tip="${iniTip}" class="text-xs font-black cursor-help ${iniDiff?'':'hidden'}" style="color:${esc(iniCol)}">(${iniBase})</span></div><button type="button" data-action="sec-step" data-field="iniMod" data-delta="1" class="btn w-8 h-8">+</button></div><div id="val_iniSub" class="text-center text-[11px] t-mut">${getAttrTot('WA',M)} (WA) − ${getAttrTot('IN',M)} (IN)${S.secondary.iniMod||M.ini?` + (${toInt(S.secondary.iniMod)+M.ini})`:''} = ${ini}</div></div>
@@ -2652,7 +2730,7 @@
       <section class="card"><div class="flex flex-wrap items-center justify-between gap-2 mb-3"><h3 class="text-sm sm:text-base font-extrabold" data-tip="Meter pro Bewegen-Aktion (Basis + aktive BSt). Bew (BSt) kann pro Zeile auch manuell überschrieben werden.">Bewegungen (Bew &amp; BSt)</h3><div class="flex items-center gap-2"><div id="bstBox" data-tip="${bstTip}" class="subcard py-1 px-2.5 flex items-center gap-2 cursor-help"><span class="text-xs font-extrabold text-acc">BSt:</span><button type="button" data-action="bst-step" data-delta="-1" class="btn w-7 h-7 p-0">−</button><input id="val_bstEff" data-bst-inp="1" type="text" inputmode="numeric" value="${bst>0?'+'+bst:bst}" class="inp w-12 text-center font-black text-sm tabular py-0.5 px-1"/><span id="val_bstOrig" class="text-xs font-black text-acc ${M.bst?'':'hidden'}">(${fmtSign(toInt(S.bst,0))})</span><span id="chip_bstMod">${modChip(M.bst)}</span><button type="button" data-action="bst-step" data-delta="1" class="btn w-7 h-7 p-0">+</button></div><button type="button" data-action="add-move" class="btn">+ Bewegungsart</button></div></div>
       <div class="overflow-x-auto"><table class="tbl min-w-[540px] text-sm tabular"><thead><tr><th class="text-left">Art</th><th class="text-center">Basis (m)</th><th class="text-center">Bew (BSt)</th><th class="text-center">Bew/2</th><th class="text-center">Bew*2</th><th></th></tr></thead><tbody>${S.movements.map((mv,idx)=>{const autoBew=Math.max(0,toFlt(mv.base,5)+M.moveBase+bst),hasOvr=mv.ovr!==undefined&&mv.ovr!==null&&String(mv.ovr).trim()!=='',bew=hasOvr?Math.max(0,toFlt(mv.ovr,autoBew)):autoBew;return `<tr><td><input data-mv="${mv.id}:type" type="text" value="${esc(mv.type)}" class="inp-line w-full font-bold"/></td><td class="text-center"><input data-mv="${mv.id}:base" type="text" inputmode="decimal" value="${esc(mv.base)}" class="inp w-16 text-center font-bold py-1"/></td><td class="text-center"><div class="inline-flex items-center justify-center gap-1"><input id="mv1_${mv.id}" data-mv="${mv.id}:ovr" type="text" inputmode="decimal" value="${fmtN(bew)}" data-tip="${hasOvr?`Manueller Overwrite aktiv (Automatisch: ${fmtN(autoBew)} m)\nFeld leeren oder auf (${fmtN(autoBew)}) klicken für Automatik`:`Automatisch berechnet: ${fmtN(autoBew)} m (Basis + BSt)\nDirekt eintippen für manuellen Overwrite`}" class="inp w-16 text-center font-extrabold py-1 text-acc ${hasOvr?'!border-amber-400 text-amber-300':''}"/><span class="text-xs font-bold t-mut">m</span><button type="button" id="mvOvrReset_${mv.id}" data-action="reset-mv-ovr" data-id="${mv.id}" data-tip="Manueller Overwrite aktiv – Klicken für Standardberechnung (${fmtN(autoBew)} m)" class="text-xs font-black text-amber-400 hover:underline ${hasOvr?'':'hidden'}">(${fmtN(autoBew)})</button></div></td><td id="mv2_${mv.id}" class="text-center font-bold">${fmtN(bew/2)} m</td><td id="mv3_${mv.id}" class="text-center font-bold">${fmtN(bew*2)} m</td><td class="text-right">${idx>0?`<button type="button" data-action="del-move" data-id="${mv.id}" class="t-mut hover:text-rose-500 font-bold px-1">✕</button>`:''}</td></tr>`;}).join('')}</tbody></table></div></section>
       <section class="grid grid-cols-1 lg:grid-cols-12 gap-4"><div class="lg:col-span-7 card"><div class="flex flex-wrap items-center justify-between gap-2 mb-2.5"><div class="flex items-center gap-2"><h3 class="text-sm sm:text-base font-extrabold">Trefferzonen</h3>${M.armor?`<span class="tag">${fmtSign(M.armor)} RS aktiv</span>`:''}${S.lastHzRoll?`<span class="pill cursor-default text-amber-400 text-xs">W100 = ${S.lastHzRoll}</span>`:''}</div><div class="flex gap-1.5"><button type="button" data-action="add-hz" class="btn py-1 px-2.5 text-xs">+ Zone</button><button type="button" data-action="reset-hz" data-tip="Standard-Trefferzonen wiederherstellen (mit doppelter Sicherheitsabfrage)" class="btn py-1 px-2.5 text-xs">Standard</button><button type="button" data-action="roll-hz" class="btn border-amber-400/60 text-amber-500">🎯 Würfeln</button></div></div>
-      <div class="overflow-x-auto"><table class="tbl min-w-[480px] text-sm tabular"><thead><tr><th class="text-left w-24">Wurf</th><th class="text-left">Zone</th><th class="text-left w-24">Größe</th><th class="text-right w-44">Rüstung / Notiz</th><th class="w-6"></th></tr></thead><tbody>${S.hitZones.map(z=>{const m=String(z.range||'').match(/\d+/g),hit=S.lastHzRoll!==null&&m&&S.lastHzRoll>=Math.min(+m[0],+(m[1]??m[0]))&&S.lastHzRoll<=Math.max(+m[0],+(m[1]??m[0]));return `<tr class="${hit?'bg-amber-500/20 font-bold':''}"><td><input data-hz="${z.id}:range" type="text" value="${esc(z.range)}" class="inp-line w-20 font-bold text-xs"/></td><td><div class="flex items-center gap-1">${hit?'<span>🎯</span>':''}<input data-hz="${z.id}:zone" type="text" value="${esc(z.zone)}" class="inp-line w-full font-bold"/></div></td><td><input data-hz="${z.id}:size" type="text" value="${esc(z.size)}" class="inp-line w-20 text-xs t-mut"/></td><td class="text-right"><input data-hz="${z.id}:armor" type="text" value="${esc(z.armor)}" placeholder="RS / Schutz..." class="inp w-full text-right text-xs py-1"/></td><td class="text-right">${S.hitZones.length>1?`<button type="button" data-action="del-hz" data-id="${z.id}" class="t-mut hover:text-rose-500 text-xs font-bold">✕</button>`:''}</td></tr>`;}).join('')}</tbody></table></div></div>
+      <div class="overflow-x-auto"><table class="tbl min-w-[480px] text-sm tabular"><thead><tr><th class="text-left w-24">Wurf</th><th class="text-left">Zone</th><th class="text-left w-24">Größe</th><th class="text-right w-44">Rüstung / Notiz</th><th class="w-6"></th></tr></thead><tbody>${S.hitZones.map(z=>{const m=String(z.range||'').match(/\d+/g),hit=S.lastHzRoll!==null&&m&&S.lastHzRoll>=Math.min(+m[0],+(m[1]??m[0]))&&S.lastHzRoll<=Math.max(+m[0],+(m[1]??m[0]));return `<tr class="${hit?'bg-amber-500/20 font-bold':''}"><td><input data-hz="${z.id}:range" type="text" value="${esc(z.range)}" class="inp-line w-20 font-bold text-xs"/></td><td><div class="flex items-center gap-1">${hit?'<span>🎯</span>':''}<input data-hz="${z.id}:zone" type="text" value="${esc(z.zone)}" class="inp-line w-full font-bold"/></div></td><td><input data-hz="${z.id}:size" type="text" value="${esc(z.size)}" class="inp-line w-20 text-xs t-mut"/></td><td class="text-right"><input data-hz="${z.id}:armor" type="text" value="${esc(z.armor)}" placeholder="Notiz" class="inp w-full text-right text-xs py-1"/></td><td class="text-right">${S.hitZones.length>1?`<button type="button" data-action="del-hz" data-id="${z.id}" class="t-mut hover:text-rose-500 text-xs font-bold">✕</button>`:''}</td></tr>`;}).join('')}</tbody></table></div></div>
       <div class="lg:col-span-5 card flex flex-col"><div class="flex items-center justify-between mb-2.5"><h3 class="text-sm sm:text-base font-extrabold">Schnellzugriff</h3><span class="text-[10px] t-mut" data-tip="Markierten Text formatieren:\nStrg+B = Fett\nStrg+I = Kursiv\nStrg+U = Unterstrichen">Shortcuts: <b>B</b> / <i>I</i> / <u>U</u></span></div><div class="flex flex-wrap gap-1.5 mb-3">${QTABS.map(q=>`<button type="button" data-action="switch-qtab" data-qtab="${q.k}" class="btn text-xs py-1 px-2.5 ${S.quickTab===q.k?'btn-pri':''}">${q.l}</button>`).join('')}</div>${QTABS.filter(q=>q.k===S.quickTab).map(q=>`<div contenteditable="true" data-qnote="${q.k}" data-ph="${esc(q.ph)}" class="inp w-full flex-1 resize-y text-xs sm:text-sm rtf-box min-h-[140px]">${toRtfHtml(S.combatNotes[q.k])}</div>`).join('')}</div></section>`;
     }
 
@@ -2667,9 +2745,13 @@
         const dragBtn=`<span draggable="true" data-drag-sk="${sk.id}" data-tip="Ziehen zum Sortieren oder Verschieben in eine Sektion" class="px-1.5 py-0.5 rounded bg-black/20 border bdr-line t-mut text-xs font-black cursor-grab select-none shrink-0">⠿</span>`;
         const moveBtns=arr.length>1?`<span class="inline-flex flex-col leading-none shrink-0"><button type="button" data-action="move-sk" data-id="${sk.id}" data-dir="-1" data-chron="${isChron?'1':'0'}" ${idx===0?'disabled':''} class="text-[9px] t-mut hover:text-acc disabled:opacity-25">▲</button><button type="button" data-action="move-sk" data-id="${sk.id}" data-dir="1" data-chron="${isChron?'1':'0'}" ${idx===arr.length-1?'disabled':''} class="text-[9px] t-mut hover:text-acc disabled:opacity-25">▼</button></span>`:'';
         const secSel=!isChron&&S.skillSections.length?`<select data-sk-sec-sel="${sk.id}" data-tip="Sektion / Ordner zuordnen" class="inp py-0.5 px-1.5 text-[11px] font-semibold max-w-[130px] shrink-0"><option value="" ${!sk.sectionId?'selected':''}>📁 Ohne</option>${S.skillSections.map(s=>`<option value="${s.id}" ${sk.sectionId===s.id?'selected':''}>📁 ${esc(s.name||'Sektion')}</option>`).join('')}</select>`:'';
+        const skColStyle=sk.color?`style="color:${esc(sk.color)}"`:'';
+        const skColBtns=isChron
+          ?`<button type="button" data-action="open-sk-color" data-id="${sk.id}" data-cmode="text" data-tip="Textfarbe der Fertigkeit anpassen" class="btn w-6 h-6 p-0 text-[10px] shrink-0" ${sk.color?`style="border-color:${esc(sk.color)}"`:''}>🎨</button><button type="button" data-action="open-sk-color" data-id="${sk.id}" data-cmode="bg" data-tip="Fensterfarbe der Fertigkeit anpassen" class="btn w-6 h-6 p-0 text-[10px] shrink-0" ${sk.bgColor?`style="border-color:${esc(sk.bgColor)};background:color-mix(in srgb,${esc(sk.bgColor)} 35%,var(--surf2))"`:''}>🪟</button>`
+          :`<button type="button" data-action="open-sk-color" data-id="${sk.id}" data-cmode="text" data-tip="Textfarbe der Fertigkeit anpassen" class="btn w-7 h-7 p-0 text-xs shrink-0" ${sk.color?`style="border-color:${esc(sk.color)}"`:''}>🎨</button><button type="button" data-action="open-sk-color" data-id="${sk.id}" data-cmode="bg" data-tip="Fensterfarbe der Fertigkeit anpassen" class="btn w-7 h-7 p-0 text-xs shrink-0" ${sk.bgColor?`style="border-color:${esc(sk.bgColor)};background:color-mix(in srgb,${esc(sk.bgColor)} 35%,var(--surf2))"`:''}>🪟</button>`;
         const nm=isChron
-          ?`<td><div class="flex items-center gap-1.5">${dragBtn}${moveBtns}<input data-sk="${sk.id}:name" type="text" value="${esc(sk.name)}" class="inp-line w-full font-bold"/></div></td>`
-          :`<td><div class="flex items-center gap-1.5">${dragBtn}${moveBtns}${(()=>{const skAd=getAdvDisForContext({skillId:sk.id,attrKey:sk.linkedAttr}),adTip=fmtAdvSrcLines(skAd.src),skBadge=(skAd.autoAdv||skAd.autoDis)?`<span class="text-[10px] font-black ${skAd.autoAdv>=skAd.autoDis?'text-emerald-400':'text-rose-400'}">${skAd.autoAdv?`+${skAd.autoAdv}V`:''}${skAd.autoDis?`${skAd.autoAdv?'/':''}+${skAd.autoDis}N`:''}</span>`:'';return `<button type="button" id="skRollBtn_${sk.id}" data-action="roll-skill" data-id="${sk.id}" data-tip="${esc(`Probe auf ${sk.name} (${pool} = ${sk.linkedAttr} ${av} ${fmtSign(effB)}${hasOvr?` • Manuell, Grad: +${autoB}`:''})${adTip?'\n'+adTip:''}`)}" class="btn bg-acc-soft bdr-acc text-acc font-black py-1 px-2.5 shrink-0 tabular"><span>🎲 ${pool}</span>${skBadge}</button>`;})()}<input data-sk="${sk.id}:name" type="text" value="${esc(sk.name)}" class="inp-line w-full font-extrabold"/>${secSel}</div></td>`;
+          ?`<td><div class="flex items-center gap-1.5">${dragBtn}${moveBtns}<input data-sk="${sk.id}:name" type="text" value="${esc(sk.name)}" ${skColStyle} class="inp-line w-full font-bold"/>${skColBtns}</div></td>`
+          :`<td><div class="flex items-center gap-1.5">${dragBtn}${moveBtns}${(()=>{const skAd=getAdvDisForContext({skillId:sk.id,attrKey:sk.linkedAttr}),adTip=fmtAdvSrcLines(skAd.src),skBadge=(skAd.autoAdv||skAd.autoDis)?`<span class="text-[10px] font-black ${skAd.autoAdv>=skAd.autoDis?'text-emerald-400':'text-rose-400'}">${skAd.autoAdv?`+${skAd.autoAdv}V`:''}${skAd.autoDis?`${skAd.autoAdv?'/':''}+${skAd.autoDis}N`:''}</span>`:'';return `<button type="button" id="skRollBtn_${sk.id}" data-action="roll-skill" data-id="${sk.id}" data-tip="${esc(`Probe auf ${sk.name} (${pool} = ${sk.linkedAttr} ${av} ${fmtSign(effB)}${hasOvr?` • Manuell, Grad: +${autoB}`:''})${adTip?'\n'+adTip:''}`)}" class="btn bg-acc-soft bdr-acc text-acc font-black py-1 px-2.5 shrink-0 tabular"><span>🎲 ${pool}</span>${skBadge}</button>`;})()}<input data-sk="${sk.id}:name" type="text" value="${esc(sk.name)}" ${skColStyle} class="inp-line w-full font-extrabold"/>${skColBtns}${secSel}</div></td>`;
         const bonCtrl=`<div class="inline-flex items-center justify-center gap-1 tabular">
           <input id="skBon_${isChron?'chr_':''}${sk.id}" data-sk-bon="${sk.id}" type="text" inputmode="numeric" value="${fmtSign(effB)}" data-tip="${hasOvr?`Manueller Bonus-Overwrite aktiv (Grad-Standard: +${autoB})\nFeld leeren oder auf (+${autoB}) klicken für Standard`:`Fertigkeitsbonus (${SK_RANKS[sk.rank]?.n||'Ungelernt'}: +${autoB})\nDirekt eintippen für eigenen Bonus außerhalb von +10/+15/+20/+30`}" class="inp w-14 text-center py-0.5 px-1 text-xs font-extrabold ${hasOvr?'!border-amber-400 text-amber-300':'text-acc'}"/>
           <button type="button" id="skBonReset_${isChron?'chr_':''}${sk.id}" data-action="reset-sk-bon" data-id="${sk.id}" data-tip="Manueller Bonus aktiv – Klicken für Grad-Standard (+${autoB})" class="text-[11px] font-black text-amber-400 hover:underline ${hasOvr?'':'hidden'}">(+${autoB})</button>
@@ -2683,7 +2765,7 @@
         const mid=isChron
           ?`<td><div class="flex items-center gap-1.5"><select data-sk-sel="${sk.id}:rank" class="inp py-1 px-1.5 text-xs font-bold">${SK_RANKS.map(r=>`<option value="${r.r}" ${sk.rank===r.r?'selected':''}>${r.n} (+${r.b})</option>`).join('')}</select>${bonCtrl}</div></td><td class="text-center">${costControls}</td>`
           :`${[1,2,3,4].map(rk=>{const on=sk.rank>=rk;return `<td class="text-center"><button type="button" data-action="set-sk-rank" data-id="${sk.id}" data-rank="${rk}" class="btn w-7 h-7 p-0 text-xs ${on?(rk===4?'bg-amber-500 text-slate-950 border-amber-400 font-black':'btn-ok font-black'):''}">${on?'✕':''}</button></td>`;}).join('')}<td class="text-center">${bonCtrl}</td><td class="text-center">${costControls}</td>`;
-        return `<tr data-sk-row="${sk.id}">${nm}<td><select data-sk-sel="${sk.id}:linkedAttr" class="inp py-1 px-1.5 text-xs font-bold">${skAttrOpts(sk.linkedAttr)}</select></td><td><select data-sk-sel="${sk.id}:category" class="inp py-1 px-1.5 text-xs font-semibold">${skCatOpts(sk.category)}</select></td>${mid}<td><input data-sk="${sk.id}:notes" type="text" value="${esc(sk.notes)}" placeholder="Notiz..." class="inp-line w-full text-xs"/></td><td class="text-right"><button type="button" data-action="del-skill" data-id="${sk.id}" class="t-mut hover:text-rose-500 font-bold px-1">✕</button></td></tr>`;
+        return `<tr data-sk-row="${sk.id}" ${sk.bgColor?`style="background:color-mix(in srgb,${esc(sk.bgColor)} 22%,transparent)"`:''}>${nm}<td><select data-sk-sel="${sk.id}:linkedAttr" class="inp py-1 px-1.5 text-xs font-bold">${skAttrOpts(sk.linkedAttr)}</select></td><td><select data-sk-sel="${sk.id}:category" class="inp py-1 px-1.5 text-xs font-semibold">${skCatOpts(sk.category)}</select></td>${mid}<td><input data-sk="${sk.id}:notes" type="text" value="${esc(sk.notes)}" placeholder="Notiz..." class="inp-line w-full text-xs"/></td><td class="text-right"><button type="button" data-action="del-skill" data-id="${sk.id}" class="t-mut hover:text-rose-500 font-bold px-1">✕</button></td></tr>`;
       }).join('');
     }
 
@@ -3016,9 +3098,9 @@
     }
 
     function buildPwCatPillsHtml(){
-      const st={basisaktion:{c:0,sp:0,m:0},marginal:{c:0,sp:0,m:0},fundamental:{c:0,sp:0,m:0},grandios:{c:0,sp:0,m:0}};
-      [...S.powers,...S.augments].forEach(it=>{const k=PW_TIERS[it.tier]?it.tier:'marginal',c=calcPwCost(it);if(!st[k])st[k]={c:0,sp:0,m:0};st[k].c++;st[k].sp+=c.sp;st[k].m+=c.msp;});
-      return Object.entries(PW_TIERS).map(([k,t])=>`<span class="subcard py-1 px-2.5 text-[11px] font-bold inline-flex gap-1.5 tabular"><strong class="text-acc">${t.l}:</strong> ${st[k].c}× (${st[k].sp} SP${st[k].m?` + ${st[k].m} MsP`:''})</span>`).join('');
+      const st={marginal:{c:0,sp:0,m:0},fundamental:{c:0,sp:0,m:0},grandios:{c:0,sp:0,m:0}};
+      [...S.powers,...S.augments].filter(it=>it.tier!=='basisaktion').forEach(it=>{const k=PW_TIERS[it.tier]?it.tier:'marginal',c=calcPwCost(it);if(!st[k])st[k]={c:0,sp:0,m:0};st[k].c++;st[k].sp+=c.sp;st[k].m+=c.msp;});
+      return Object.entries(PW_TIERS).filter(([k])=>k!=='basisaktion').map(([k,t])=>`<span class="subcard py-1 px-2.5 text-[11px] font-bold inline-flex gap-1.5 tabular"><strong class="text-acc">${t.l}:</strong> ${st[k].c}× (${st[k].sp} SP${st[k].m?` + ${st[k].m} MsP`:''})</span>`).join('');
     }
 
     function renderChrSection(secKey,secIdx,totalSecs,P,activeTrRows,trainedAttrCnt,allPw){
@@ -3058,7 +3140,7 @@
       return `<section data-chrsec="powers" class="card space-y-3" ${winStyle}>
         ${hdrCommon('Kräfte &amp; Augmente','Marginal: 1 SP • Fundamental: 2 SP • Grandios: 2 SP + 1 MsP\nZiehe Zeilen an ⠿ per Drag & Drop zum Sortieren.','',`<button type="button" data-action="add-power" class="btn py-1 px-2.5 text-xs">+ Kraft</button><button type="button" data-action="add-augment" class="btn py-1 px-2.5 text-xs border-amber-400/60 text-amber-500">+ Augment</button><span id="chrPwBadge" class="pill cursor-default text-acc tabular">${P.pwSp} SP | ${P.pwMsp||'-'} MsP</span>`)}
         ${!meta.collapsed?`<div id="chrPwCats" class="flex flex-wrap gap-2">${buildPwCatPillsHtml()}</div>
-        <div class="overflow-x-auto"><table class="tbl min-w-[780px] text-xs sm:text-sm tabular"><thead><tr><th class="text-left w-44">⠿ Typ</th><th class="text-left">Name</th><th class="text-left w-60">Kategorie</th><th class="text-center w-24">SP</th><th class="text-center w-24">MsP</th><th class="text-right w-40">Status</th></tr></thead><tbody>${allPw.length?allPw.map(({kind,lbl,it})=>{const c=calcPwCost(it),isAug=kind==='augment',par=isAug&&it.parentPowerId?S.powers.find(p=>p.id===it.parentPowerId):null,listArr=isAug?S.augments:S.powers,idx=listArr.indexOf(it);return `<tr data-chr-pw="${kind}:${it.id}" ${it.bgColor?`style="background:color-mix(in srgb,${esc(it.bgColor)} 22%,transparent)"`:''}><td><div class="flex items-center gap-1.5"><span draggable="true" data-drag-chr-pw="${kind}:${it.id}" data-tip="Ziehen zum Sortieren in der Steigerungschronik" class="px-1.5 py-0.5 rounded bg-black/20 border bdr-line t-mut text-xs font-black cursor-grab select-none shrink-0">⠿</span>${listArr.length>1?`<span class="inline-flex flex-col leading-none shrink-0"><button type="button" data-action="move-chr-pw" data-kind="${kind}" data-id="${it.id}" data-dir="-1" ${idx===0?'disabled':''} class="text-[9px] t-mut hover:text-acc disabled:opacity-25">▲</button><button type="button" data-action="move-chr-pw" data-kind="${kind}" data-id="${it.id}" data-dir="1" ${idx===listArr.length-1?'disabled':''} class="text-[9px] t-mut hover:text-acc disabled:opacity-25">▼</button></span>`:''}<div><span class="px-2 py-0.5 rounded text-[10px] font-black ${isAug?'bg-amber-500/15 text-amber-400 border border-amber-500/40':'bg-acc-soft text-acc border bdr-acc'}">${lbl}</span>${par?`<div class="text-[10px] t-mut truncate mt-0.5 max-w-[110px]">↳ ${esc(par.name||'Kraft')}</div>`:''}</div></div></td><td><div class="flex items-center gap-1.5"><input data-pwf="${kind}:${it.id}:name" type="text" value="${esc(it.name)}" ${it.color?`style="color:${esc(it.color)}"`:''} placeholder="Unbenannt..." class="inp-line w-full font-bold"/><button type="button" data-action="open-pw-color" data-kind="${kind}" data-id="${it.id}" data-cmode="text" data-tip="Textfarbe" class="btn w-6 h-6 p-0 text-[10px] shrink-0">🎨</button><button type="button" data-action="open-pw-color" data-kind="${kind}" data-id="${it.id}" data-cmode="bg" data-tip="Fensterfarbe" class="btn w-6 h-6 p-0 text-[10px] shrink-0">🪟</button></div></td><td>${renderPwCostSelect(kind,it)}</td><td class="text-center"><input data-pwcost="${kind}:${it.id}:sp" type="text" inputmode="numeric" value="${c.sp}" class="inp w-16 text-center py-0.5 px-1 font-extrabold ${it.manualCost?'!border-amber-400 text-amber-300':''}"/></td><td class="text-center"><input data-pwcost="${kind}:${it.id}:msp" type="text" inputmode="numeric" value="${c.msp}" class="inp w-16 text-center py-0.5 px-1 font-extrabold ${c.msp?'text-amber-400':''}"/></td><td class="text-right"><div class="inline-flex items-center justify-end gap-1"><button type="button" data-action="gift-pw" data-kind="${kind}" data-id="${it.id}" data-tip="${it.manualCost&&c.sp===0&&c.msp===0?'Geschenkt aktiv (0 SP) – Klicken für Standardkosten':'Geschenkt (0 SP) – Toggle'}" class="btn py-0.5 px-1.5 text-[10px] ${it.manualCost&&c.sp===0&&c.msp===0?'btn-ok':''}">🎁</button>${it.manualCost?`<span class="text-[10px] font-extrabold text-amber-400">Manuell</span>`:`<span class="text-[10px] t-mut">Standard</span>`}${renderDelConfirm(kind,it.id,true)}</div></td></tr>`;}).join(''):`<tr><td colspan="6" class="text-center text-xs t-mut py-3">Keine Kräfte oder Augmente vorhanden.</td></tr>`}</tbody></table></div>`:''}
+        <div class="overflow-x-auto"><table class="tbl min-w-[780px] text-xs sm:text-sm tabular"><thead><tr><th class="text-left w-44">⠿ Typ</th><th class="text-left">Name</th><th class="text-left w-60">Kategorie</th><th class="text-center w-24">SP</th><th class="text-center w-24">MsP</th><th class="text-right w-40">Status</th></tr></thead><tbody>${allPw.length?allPw.map(({kind,lbl,it})=>{const c=calcPwCost(it),isAug=kind==='augment',par=isAug&&it.parentPowerId?S.powers.find(p=>p.id===it.parentPowerId):null,listArr=isAug?S.augments:S.powers,idx=listArr.indexOf(it);return `<tr data-chr-pw="${kind}:${it.id}" ${it.bgColor?`style="background:color-mix(in srgb,${esc(it.bgColor)} 22%,transparent)"`:''}><td><div class="flex items-center gap-1.5"><span draggable="true" data-drag-chr-pw="${kind}:${it.id}" data-tip="Ziehen zum Sortieren in der Steigerungschronik" class="px-1.5 py-0.5 rounded bg-black/20 border bdr-line t-mut text-xs font-black cursor-grab select-none shrink-0">⠿</span>${listArr.length>1?`<span class="inline-flex flex-col leading-none shrink-0"><button type="button" data-action="move-chr-pw" data-kind="${kind}" data-id="${it.id}" data-dir="-1" ${idx===0?'disabled':''} class="text-[9px] t-mut hover:text-acc disabled:opacity-25">▲</button><button type="button" data-action="move-chr-pw" data-kind="${kind}" data-id="${it.id}" data-dir="1" ${idx===listArr.length-1?'disabled':''} class="text-[9px] t-mut hover:text-acc disabled:opacity-25">▼</button></span>`:''}<div><span class="px-2 py-0.5 rounded text-[10px] font-black ${isAug?'bg-amber-500/15 text-amber-400 border border-amber-500/40':'bg-acc-soft text-acc border bdr-acc'}">${lbl}</span>${par?`<div class="text-[10px] t-mut truncate mt-0.5 max-w-[110px]">↳ ${esc(par.name||'Kraft')}</div>`:''}</div></div></td><td><div class="flex items-center gap-1.5"><input data-pwf="${kind}:${it.id}:name" type="text" value="${esc(it.name)}" ${it.color?`style="color:${esc(it.color)}"`:''} placeholder="Unbenannt..." class="inp-line w-full font-bold"/><button type="button" data-action="open-pw-color" data-kind="${kind}" data-id="${it.id}" data-cmode="text" data-tip="Textfarbe" class="btn w-6 h-6 p-0 text-[10px] shrink-0">🎨</button><button type="button" data-action="open-pw-color" data-kind="${kind}" data-id="${it.id}" data-cmode="bg" data-tip="Fensterfarbe" class="btn w-6 h-6 p-0 text-[10px] shrink-0">🪟</button></div></td><td>${renderPwCostSelect(kind,it)}</td><td class="text-center"><input data-pwcost="${kind}:${it.id}:sp" type="text" inputmode="numeric" value="${c.sp}" class="inp w-16 text-center py-0.5 px-1 font-extrabold ${it.manualCost?'!border-amber-400 text-amber-300':''}"/></td><td class="text-center"><input data-pwcost="${kind}:${it.id}:msp" type="text" inputmode="numeric" value="${c.msp}" class="inp w-16 text-center py-0.5 px-1 font-extrabold ${c.msp?'text-amber-400':''}"/></td><td class="text-right"><div class="inline-flex items-center justify-end gap-1"><button type="button" data-action="gift-pw" data-kind="${kind}" data-id="${it.id}" data-tip="${it.manualCost&&c.sp===0&&c.msp===0?'Geschenkt aktiv (0 SP) – Klicken für Standardkosten':'Geschenkt (0 SP) – Toggle'}" class="btn py-0.5 px-1.5 text-[10px] ${it.manualCost&&c.sp===0&&c.msp===0?'btn-ok':''}">🎁</button>${it.manualCost?`<span class="text-[10px] font-extrabold text-amber-400">Manuell</span>`:''}${renderDelConfirm(kind,it.id,true)}</div></td></tr>`;}).join(''):`<tr><td colspan="6" class="text-center text-xs t-mut py-3">Keine Kräfte oder Augmente vorhanden.</td></tr>`}</tbody></table></div>`:''}
       </section>`;
     }
 
@@ -3097,7 +3179,7 @@
           <td class="text-center">
             <div class="inline-flex items-center gap-1">
               <button type="button" data-action="gift-tr-attr" data-attr="${a.k}" data-tip="${allGift?`Geschenkt aktiv (0 SP) – Klicken für Standardkosten (${sumDefSp} SP${sumDefMsp?` + ${sumDefMsp} MsP`:''})`:`Alle aktiven Stufen von ${a.n} als geschenkt setzen (0 SP / 0 MsP) – Toggle`}" class="btn py-0.5 px-1.5 text-[10px] ${allGift?'btn-ok':''}">🎁</button>
-              ${anyManual?`<span class="text-[10px] font-extrabold text-amber-400">Manuell</span>`:`<span class="text-[10px] t-mut">Standard</span>`}
+              ${anyManual?`<span class="text-[10px] font-extrabold text-amber-400">Manuell</span>`:''}
             </div>
           </td>
           <td>
@@ -3115,13 +3197,13 @@
               <td class="text-center font-bold text-acc text-xs">+${b.b}</td>
               <td class="text-center"><input data-trcost="${a.k}:${b.i}:sp" type="text" inputmode="numeric" value="${tc.sp}" data-tip="SP-Kosten für ${a.k} Block ${b.i+1} direkt überschreiben (Standard: ${tc.defSp} SP)" class="inp w-14 text-center py-0.5 px-1 font-extrabold ${tc.manual?'!border-amber-400 text-amber-300':''}"/></td>
               <td class="text-center"><input data-trcost="${a.k}:${b.i}:msp" type="text" inputmode="numeric" value="${tc.msp}" data-tip="MsP-Kosten direkt überschreiben (Standard: ${tc.defMsp} MsP)" class="inp w-14 text-center py-0.5 px-1 font-extrabold ${tc.msp?'text-amber-400':''}"/></td>
-              <td class="text-center"><div class="inline-flex items-center gap-1"><button type="button" data-action="gift-tr" data-attr="${a.k}" data-idx="${b.i}" data-tip="${tc.manual&&tc.sp===0&&tc.msp===0?`Geschenkt aktiv (0 SP) – Klicken für Standardkosten (${tc.defSp} SP)`:'Als geschenkt setzen (0 SP / 0 MsP) – Toggle'}" class="btn py-0.5 px-1.5 text-[10px] ${tc.manual&&tc.sp===0&&tc.msp===0?'btn-ok':''}">🎁</button>${tc.manual?`<span class="text-[10px] font-extrabold text-amber-400">Manuell</span>`:`<span class="text-[10px] t-mut">Standard</span>`}</div></td>
+              <td class="text-center"><div class="inline-flex items-center gap-1"><button type="button" data-action="gift-tr" data-attr="${a.k}" data-idx="${b.i}" data-tip="${tc.manual&&tc.sp===0&&tc.msp===0?`Geschenkt aktiv (0 SP) – Klicken für Standardkosten (${tc.defSp} SP)`:'Als geschenkt setzen (0 SP / 0 MsP) – Toggle'}" class="btn py-0.5 px-1.5 text-[10px] ${tc.manual&&tc.sp===0&&tc.msp===0?'btn-ok':''}">🎁</button>${tc.manual?`<span class="text-[10px] font-extrabold text-amber-400">Manuell</span>`:''}</div></td>
               <td><input data-trnote="${a.k}:${b.i}" type="text" value="${esc(S.attributes[a.k].trNotes[b.i])}" placeholder="Notiz zu ${a.k} ${b.i+1}..." class="inp-line w-full text-xs"/></td>
             </tr>`);
           });
         }
       });
-      const allPw=[...S.powers.map(p=>({kind:'power',lbl:'Kraft',it:p})),...S.augments.map(a=>({kind:'augment',lbl:'Augment',it:a}))];
+      const allPw=[...S.powers.filter(p=>p.tier!=='basisaktion').map(p=>({kind:'power',lbl:'Kraft',it:p})),...S.augments.filter(a=>a.tier!=='basisaktion').map(a=>({kind:'augment',lbl:'Augment',it:a}))];
       const ord=Array.isArray(S.chrSecOrder)&&S.chrSecOrder.length===3?S.chrSecOrder:DEF_CHR_SEC_ORDER;
       return `<section class="card space-y-4"><div class="flex flex-wrap items-center justify-between gap-2"><h2 class="text-base sm:text-lg font-extrabold cursor-help" data-tip="Je 100 EP = +1 Stufe (mit Rest-Übertrag)\nPro Stufe = +5 SP • Jede 10. Stufe = +1 MsP">Steigerungschronik – Stufe, EP, SP &amp; MsP</h2><div class="flex flex-wrap gap-1.5"><button type="button" data-action="collapse-all-chr" data-val="1" class="btn py-1 px-2.5 text-xs">▸ Alle Fenster einklappen</button><button type="button" data-action="collapse-all-chr" data-val="0" class="btn py-1 px-2.5 text-xs">▾ Alle Fenster ausklappen</button></div></div>
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 tabular">
@@ -3951,12 +4033,12 @@
         return;
       }
       if(UI.modal==='color'){
-        const isAttr=UI.colTarget==='attr', isPw=UI.colTarget==='pw', isSecF=UI.colTarget==='sec-folder', isSkSecF=UI.colTarget==='sksec-folder', isEq=UI.colTarget==='eq', isEqSec=UI.colTarget==='eqsec', isChrSec=UI.colTarget==='chrsec';
-        const hasDual=isPw||isSecF||isSkSecF||isEq||isEqSec||isChrSec, isBg=hasDual&&UI.colMode==='bg', col=isHex(UI.colDraft)?UI.colDraft:'#38bdf8';
+        const isAttr=UI.colTarget==='attr', isPw=UI.colTarget==='pw', isSecF=UI.colTarget==='sec-folder', isSkSecF=UI.colTarget==='sksec-folder', isSk=UI.colTarget==='sk-item', isEq=UI.colTarget==='eq', isEqSec=UI.colTarget==='eqsec', isChrSec=UI.colTarget==='chrsec';
+        const hasDual=isPw||isSecF||isSkSecF||isSk||isEq||isEqSec||isChrSec, isBg=hasDual&&UI.colMode==='bg', col=isHex(UI.colDraft)?UI.colDraft:'#38bdf8';
         const eqSecNames={weapons:'Kategorie: Waffen',ammos:'Kategorie: Munition',armors:'Kategorie: Rüstungen',inventory:'Kategorie: Inventar'};
         const chrSecNames={training:'Fenster: Training',skills:'Fenster: Fertigkeiten',powers:'Fenster: Kräfte & Augmente'};
-        const pwIt=isPw?findPwItem(UI.colPwKind,UI.colPwId):isSecF?S.powerSections.find(s=>s.id===UI.colPwId):isSkSecF?S.skillSections.find(s=>s.id===UI.colPwId):isEq?findEqItem(UI.colPwKind,UI.colPwId):isEqSec?S.equipSecMeta?.[UI.colPwId]:isChrSec?S.chrSecMeta?.[UI.colPwId]:null;
-        const baseName=isAttr?(ATTR_GROUPS.find(g=>g.k===UI.attrGroupSel)?.l||''):isPw?(pwIt?.name||(UI.colPwKind==='augment'?'Augment':'Kraft')):(isSecF||isSkSecF)?(pwIt?.name||'Sektion'):isEq?(pwIt?.name||({weapon:'Waffe',ammo:'Munition',armor:'Rüstung',inv:'Gegenstand'}[UI.colPwKind]||'Eintrag')):isEqSec?(eqSecNames[UI.colPwId]||'Kategorie'):isChrSec?(chrSecNames[UI.colPwId]||'Chronik-Fenster'):(UI.colTarget==='cres'?cresName():String(UI.colTarget||'').startsWith('ex_')?getResLabel(UI.colTarget):SEC_META[UI.colTarget]);
+        const pwIt=isPw?findPwItem(UI.colPwKind,UI.colPwId):isSecF?S.powerSections.find(s=>s.id===UI.colPwId):isSkSecF?S.skillSections.find(s=>s.id===UI.colPwId):isSk?S.skills.find(s=>s.id===UI.colPwId):isEq?findEqItem(UI.colPwKind,UI.colPwId):isEqSec?S.equipSecMeta?.[UI.colPwId]:isChrSec?S.chrSecMeta?.[UI.colPwId]:null;
+        const baseName=isAttr?(ATTR_GROUPS.find(g=>g.k===UI.attrGroupSel)?.l||''):isPw?(pwIt?.name||(UI.colPwKind==='augment'?'Augment':'Kraft')):(isSecF||isSkSecF)?(pwIt?.name||'Sektion'):isSk?(pwIt?.name||'Fertigkeit'):isEq?(pwIt?.name||({weapon:'Waffe',ammo:'Munition',armor:'Rüstung',inv:'Gegenstand'}[UI.colPwKind]||'Eintrag')):isEqSec?(eqSecNames[UI.colPwId]||'Kategorie'):isChrSec?(chrSecNames[UI.colPwId]||'Chronik-Fenster'):(UI.colTarget==='cres'?cresName():String(UI.colTarget||'').startsWith('ex_')?getResLabel(UI.colTarget):SEC_META[UI.colTarget]);
         const lbl=hasDual?`${baseName} • ${isBg?'Fensterfarbe (Hintergrund)':'Textfarbe (Name)'}`:baseName;
         const prevStyle=isBg?`background:color-mix(in srgb,${esc(col)} 38%,var(--surf));border-color:color-mix(in srgb,${esc(col)} 75%,var(--bdr))`:`border-color:color-mix(in srgb,${esc(col)} 55%,var(--bdr))`;
         const prevTxtStyle=isBg?(pwIt?.color?`color:${esc(pwIt.color)}`:''):`color:${esc(col)}`;
@@ -3964,7 +4046,7 @@
           `${isAttr?`<div class="grid grid-cols-2 gap-1.5">${ATTR_GROUPS.map(g=>`<button type="button" data-action="sel-attr-grp" data-grp="${g.k}" class="btn text-xs ${UI.attrGroupSel===g.k?'btn-pri':''}"><span class="w-3 h-3 rounded-full" style="background:${S.attrColors[g.k]}"></span>${g.l}</button>`).join('')}</div>`:''}
           ${hasDual?`<div class="grid grid-cols-2 gap-1.5"><button type="button" data-action="switch-col-mode" data-cmode="text" class="btn text-xs ${!isBg?'btn-pri':''}">🎨 Textfarbe (Name)</button><button type="button" data-action="switch-col-mode" data-cmode="bg" class="btn text-xs ${isBg?'btn-pri':''}">🪟 Fensterfarbe (Kasten)</button></div>`:''}
           <div id="colPrevBox" class="subcard flex items-center justify-between px-3.5 py-2.5" style="${prevStyle}"><span id="colPrevTxt" class="font-extrabold text-sm" style="${prevTxtStyle}">${esc(baseName)}</span><span class="font-mono text-xs t-mut" id="colPrevHex">${esc(col.toUpperCase())}</span></div>
-          <div class="grid grid-cols-8 gap-2">${COL_PRESETS.map(c=>`<button type="button" data-action="col-preset" data-col="${c}" class="h-7 rounded-lg border-2 ${col.toLowerCase()===c.toLowerCase()?'border-white ring-2 ring-sky-400':'border-black/30'}" style="background:${c}"></button>`).join('')}</div>
+          <div class="grid grid-cols-9 gap-2">${COL_PRESETS.map(c=>`<button type="button" data-action="col-preset" data-col="${c}" data-tip="${c==='#ffffff'?'Weiß (#FFFFFF)':c==='#000000'?'Schwarz (#000000)':c.toUpperCase()}" class="h-7 rounded-lg border-2 ${col.toLowerCase()===c.toLowerCase()?'border-sky-400 ring-2 ring-sky-400':'border-slate-500/45'}" style="background:${c}"></button>`).join('')}</div>
           <div class="flex items-center gap-2.5"><input id="colPickerInp" type="color" value="${esc(col)}" class="w-11 h-10 shrink-0"/><input id="colHexInp" type="text" maxlength="7" value="${esc(col.toUpperCase())}" class="inp flex-1 font-mono font-extrabold uppercase"/></div>`,
           `<button type="button" data-action="reset-col" class="btn mr-auto">↺ Standard</button><button type="button" data-action="close-modal" class="btn">Abbrechen</button><button type="button" data-action="save-col" class="btn btn-pri px-5">Speichern</button>`,'max-w-md');
         return;
@@ -4452,7 +4534,7 @@
       const sId=secId&&S.skillSections.some(s=>s.id===secId)?secId:'';
       const ex=S.skills.find(s=>s.name.trim().toLowerCase()===clean.toLowerCase());
       if(ex){ex.name=clean;ex.category=c;ex.rank=r;if(linkedAttr)ex.linkedAttr=ak;if(bOvr!=='')ex.bonusOvr=bOvr;if(sId)ex.sectionId=sId;if(!ex.manualCost){ex.customSp=auto.sp;ex.customMsp=auto.msp;}logChron(`Fertigkeit aktualisiert (${src}): "${clean}" → ${SK_RANKS[r].n} (${ex.linkedAttr}).`);}
-      else{S.skills.push({id:uid(),name:clean,linkedAttr:ak,category:c,rank:r,bonusOvr:bOvr,sectionId:sId,manualCost:false,customSp:auto.sp,customMsp:auto.msp,notes:''});logChron(`Fertigkeit erworben (${src}): "${clean}" [${ak}] (${SK_RANKS[r].n}).`);}
+      else{S.skills.push({id:uid(),name:clean,color:'',bgColor:'',linkedAttr:ak,category:c,rank:r,bonusOvr:bOvr,sectionId:sId,manualCost:false,customSp:auto.sp,customMsp:auto.msp,notes:''});logChron(`Fertigkeit erworben (${src}): "${clean}" [${ak}] (${SK_RANKS[r].n}).`);}
       syncDiceFromSheet(); renderAll(); toast(`"${clean}" gespeichert`);
     }
 
@@ -4467,6 +4549,15 @@
       const act=el.dataset.action; if(act==='close-modal-bg'&&e.target!==el) return;
       switch(act){
         case 'switch-tab': S.activeTab=el.dataset.tab; UI.confirmDelId=null; UI.confirmDelExSecId=null; saveLastActiveTab(S.charId,S.activeTab); applyTheme(); renderHeader(); renderMain(); save(false); break;
+        case 'rest-simple': performSimpleRest(); break;
+        case 'rest-full': performFullRest(); break;
+        case 'reset-regen-ovr':{
+          const k=el.dataset.key;
+          if(k==='lp') S.secondary.lpRegenOvr='';
+          else if(k==='mlp') S.secondary.mlpRegenOvr='';
+          save(); renderHeader(); renderMain();
+          break;
+        }
         case 'insp-step':{
           const d=toInt(el.dataset.d,0);
           S.inspiration=Math.max(0,toInt(S.inspiration,0)+d);
@@ -4621,11 +4712,12 @@
         case 'open-pw-color': {const it=findPwItem(el.dataset.kind,el.dataset.id);if(it){UI.colTarget='pw';UI.colPwKind=el.dataset.kind;UI.colPwId=el.dataset.id;UI.colMode=el.dataset.cmode==='bg'?'bg':'text';const cur=UI.colMode==='bg'?it.bgColor:it.color;UI.colDraft=isHex(cur)?cur:(UI.colMode==='bg'?'#1e293b':'#38bdf8');UI.modal='color';renderModal();}break;}
         case 'open-sec-folder-color': {const sec=S.powerSections.find(s=>s.id===el.dataset.id);if(sec){UI.colTarget='sec-folder';UI.colPwId=sec.id;UI.colMode=el.dataset.cmode==='bg'?'bg':'text';const cur=UI.colMode==='bg'?sec.bgColor:sec.color;UI.colDraft=isHex(cur)?cur:(UI.colMode==='bg'?'#1e293b':'#38bdf8');UI.modal='color';renderModal();}break;}
         case 'open-sksec-color': {const sec=S.skillSections.find(s=>s.id===el.dataset.id);if(sec){UI.colTarget='sksec-folder';UI.colPwId=sec.id;UI.colMode=el.dataset.cmode==='bg'?'bg':'text';const cur=UI.colMode==='bg'?sec.bgColor:sec.color;UI.colDraft=isHex(cur)?cur:(UI.colMode==='bg'?'#1e293b':'#38bdf8');UI.modal='color';renderModal();}break;}
+        case 'open-sk-color': {const sk=S.skills.find(s=>s.id===el.dataset.id);if(sk){UI.colTarget='sk-item';UI.colPwId=sk.id;UI.colMode=el.dataset.cmode==='bg'?'bg':'text';const cur=UI.colMode==='bg'?sk.bgColor:sk.color;UI.colDraft=isHex(cur)?cur:(UI.colMode==='bg'?'#1e293b':'#38bdf8');UI.modal='color';renderModal();}break;}
         case 'open-eq-color': {const it=findEqItem(el.dataset.kind,el.dataset.id);if(it){UI.colTarget='eq';UI.colPwKind=el.dataset.kind;UI.colPwId=el.dataset.id;UI.colMode=el.dataset.cmode==='bg'?'bg':'text';const cur=UI.colMode==='bg'?it.bgColor:it.color;UI.colDraft=isHex(cur)?cur:(UI.colMode==='bg'?'#1e293b':'#38bdf8');UI.modal='color';renderModal();}break;}
         case 'open-eqsec-color': {if(!S.equipSecMeta)S.equipSecMeta=makeEqSecMeta();const m=S.equipSecMeta[el.dataset.sec];if(m){UI.colTarget='eqsec';UI.colPwId=el.dataset.sec;UI.colMode=el.dataset.cmode==='bg'?'bg':'text';const cur=UI.colMode==='bg'?m.bgColor:m.color;UI.colDraft=isHex(cur)?cur:(UI.colMode==='bg'?'#1e293b':'#38bdf8');UI.modal='color';renderModal();}break;}
         case 'switch-col-mode': {
           UI.colMode=el.dataset.cmode==='bg'?'bg':'text';
-          const it=UI.colTarget==='pw'?findPwItem(UI.colPwKind,UI.colPwId):UI.colTarget==='sec-folder'?S.powerSections.find(s=>s.id===UI.colPwId):UI.colTarget==='sksec-folder'?S.skillSections.find(s=>s.id===UI.colPwId):UI.colTarget==='eq'?findEqItem(UI.colPwKind,UI.colPwId):UI.colTarget==='chrsec'?S.chrSecMeta?.[UI.colPwId]:S.equipSecMeta?.[UI.colPwId];
+          const it=UI.colTarget==='pw'?findPwItem(UI.colPwKind,UI.colPwId):UI.colTarget==='sec-folder'?S.powerSections.find(s=>s.id===UI.colPwId):UI.colTarget==='sksec-folder'?S.skillSections.find(s=>s.id===UI.colPwId):UI.colTarget==='sk-item'?S.skills.find(s=>s.id===UI.colPwId):UI.colTarget==='eq'?findEqItem(UI.colPwKind,UI.colPwId):UI.colTarget==='chrsec'?S.chrSecMeta?.[UI.colPwId]:S.equipSecMeta?.[UI.colPwId];
           const cur=UI.colMode==='bg'?it?.bgColor:it?.color;
           UI.colDraft=isHex(cur)?cur:(UI.colMode==='bg'?'#1e293b':'#38bdf8');
           renderModal(); break;
@@ -4633,8 +4725,8 @@
         case 'col-preset': UI.colDraft=el.dataset.col; renderModal(); break;
         case 'reset-col':
           if(UI.colTarget==='attr') UI.colDraft=DEF_ATTR_COLS[UI.attrGroupSel];
-          else if(UI.colTarget==='pw'||UI.colTarget==='sec-folder'||UI.colTarget==='sksec-folder'||UI.colTarget==='eq'||UI.colTarget==='eqsec'||UI.colTarget==='chrsec'){
-            const it=UI.colTarget==='pw'?findPwItem(UI.colPwKind,UI.colPwId):UI.colTarget==='sec-folder'?S.powerSections.find(s=>s.id===UI.colPwId):UI.colTarget==='sksec-folder'?S.skillSections.find(s=>s.id===UI.colPwId):UI.colTarget==='eq'?findEqItem(UI.colPwKind,UI.colPwId):UI.colTarget==='chrsec'?S.chrSecMeta?.[UI.colPwId]:S.equipSecMeta?.[UI.colPwId];
+          else if(UI.colTarget==='pw'||UI.colTarget==='sec-folder'||UI.colTarget==='sksec-folder'||UI.colTarget==='sk-item'||UI.colTarget==='eq'||UI.colTarget==='eqsec'||UI.colTarget==='chrsec'){
+            const it=UI.colTarget==='pw'?findPwItem(UI.colPwKind,UI.colPwId):UI.colTarget==='sec-folder'?S.powerSections.find(s=>s.id===UI.colPwId):UI.colTarget==='sksec-folder'?S.skillSections.find(s=>s.id===UI.colPwId):UI.colTarget==='sk-item'?S.skills.find(s=>s.id===UI.colPwId):UI.colTarget==='eq'?findEqItem(UI.colPwKind,UI.colPwId):UI.colTarget==='chrsec'?S.chrSecMeta?.[UI.colPwId]:S.equipSecMeta?.[UI.colPwId];
             if(it){if(UI.colMode==='bg')it.bgColor='';else it.color='';}
             UI.modal=null;renderMain();renderModal();save();toast(UI.colMode==='bg'?'Standard-Fensterfarbe wiederhergestellt':'Standard-Textfarbe wiederhergestellt');break;
           }
@@ -4645,8 +4737,8 @@
         case 'save-col': {
           const raw=$('colHexInp')?$('colHexInp').value.trim():UI.colDraft, hx=raw.startsWith('#')?raw:'#'+raw, fin=isHex(hx)?hx.toLowerCase():UI.colDraft;
           if(UI.colTarget==='attr'){S.attrColors[UI.attrGroupSel]=fin;renderMain();save();renderModal();toast('Paarfarbe gespeichert');}
-          else if(UI.colTarget==='pw'||UI.colTarget==='sec-folder'||UI.colTarget==='sksec-folder'||UI.colTarget==='eq'||UI.colTarget==='eqsec'||UI.colTarget==='chrsec'){
-            const it=UI.colTarget==='pw'?findPwItem(UI.colPwKind,UI.colPwId):UI.colTarget==='sec-folder'?S.powerSections.find(s=>s.id===UI.colPwId):UI.colTarget==='sksec-folder'?S.skillSections.find(s=>s.id===UI.colPwId):UI.colTarget==='eq'?findEqItem(UI.colPwKind,UI.colPwId):UI.colTarget==='chrsec'?S.chrSecMeta?.[UI.colPwId]:S.equipSecMeta?.[UI.colPwId];
+          else if(UI.colTarget==='pw'||UI.colTarget==='sec-folder'||UI.colTarget==='sksec-folder'||UI.colTarget==='sk-item'||UI.colTarget==='eq'||UI.colTarget==='eqsec'||UI.colTarget==='chrsec'){
+            const it=UI.colTarget==='pw'?findPwItem(UI.colPwKind,UI.colPwId):UI.colTarget==='sec-folder'?S.powerSections.find(s=>s.id===UI.colPwId):UI.colTarget==='sksec-folder'?S.skillSections.find(s=>s.id===UI.colPwId):UI.colTarget==='sk-item'?S.skills.find(s=>s.id===UI.colPwId):UI.colTarget==='eq'?findEqItem(UI.colPwKind,UI.colPwId):UI.colTarget==='chrsec'?S.chrSecMeta?.[UI.colPwId]:S.equipSecMeta?.[UI.colPwId];
             if(it){if(UI.colMode==='bg')it.bgColor=fin;else it.color=fin;}
             UI.modal=null;renderMain();renderModal();save();toast(UI.colMode==='bg'?'Fensterfarbe gespeichert':'Textfarbe gespeichert');
           }
@@ -4817,7 +4909,7 @@
         }
         case 'add-sk-in-sec': {
           const secId=el.dataset.sec||'', auto=calcAutoSkCost('fundamental',1);
-          const nSk={id:uid(),name:'Neue Fertigkeit',linkedAttr:'PR',category:'fundamental',rank:1,bonusOvr:'',sectionId:secId,manualCost:false,customSp:auto.sp,customMsp:auto.msp,notes:''};
+          const nSk={id:uid(),name:'Neue Fertigkeit',color:'',bgColor:'',linkedAttr:'PR',category:'fundamental',rank:1,bonusOvr:'',sectionId:secId,manualCost:false,customSp:auto.sp,customMsp:auto.msp,notes:''};
           S.skills.push(nSk);
           const sec=S.skillSections.find(s=>s.id===secId); if(sec) sec.collapsed=false;
           logChron('Neue Fertigkeit in Sektion angelegt.');
@@ -5417,6 +5509,31 @@
     document.addEventListener('focusin',e=>{if(e.target.dataset?.cres==='name') e.target.dataset.prevCres=cresName();if(e.target.dataset?.exsec?.endsWith(':name')){const id=e.target.dataset.exsec.split(':')[0],ex=(S.extraSecList||[]).find(x=>x.id===id);if(ex)e.target.dataset.prevExName=getExtraSecName(ex);}});
 
     document.addEventListener('input',e=>{
+      if(e.target&&e.target.dataset?.regenOvr){
+        const el=e.target, k=el.dataset.regenOvr, raw=el.value.trim();
+        const M=calcActiveMods(), auto=k==='lp'?getLpRegenAuto(M):getMlpRegenAuto(M);
+        const f=k==='lp'?'lpRegenOvr':'mlpRegenOvr';
+        if(raw===''||raw==='-'){
+          S.secondary[f]='';
+        }else{
+          const n=toInt(raw,auto);
+          S.secondary[f]=String(Math.max(0,n));
+        }
+        const hasOvr=k==='lp'?hasLpRegenOvr():hasMlpRegenOvr();
+        const eff=k==='lp'?getLpRegen(M):getMlpRegen(M);
+        el.classList.toggle('!border-amber-400',hasOvr);
+        el.classList.toggle('text-amber-300',hasOvr);
+        el.classList.toggle('text-acc',!hasOvr);
+        const rst=$(k==='lp'?'rst_lpRegenOvr':'rst_mlpRegenOvr');
+        if(rst){rst.textContent=`(${auto})`;rst.classList.toggle('hidden',!hasOvr);}
+        const r4=$(k==='lp'?'val_lpReg4':'val_mlpReg4');
+        if(r4) r4.textContent=`+${eff*4} ${k==='lp'?'LP':'mLP'}`;
+        const tipEl=$(k==='lp'?'tip_lpRegen':'tip_mlpRegen');
+        if(tipEl) tipEl.dataset.tip=buildSecTip(k==='lp'?'lpRegen':'mlpRegen',M);
+        const hp=$('hdrPills'); if(hp) hp.innerHTML=buildHdrPillsHtml(calcProg());
+        save();
+        return;
+      }
       if(e.target&&e.target.dataset?.inspInp){
         S.inspiration=Math.max(0,toInt(e.target.value,0));
         if($('inspBadgeCnt')) $('inspBadgeCnt').textContent=`${S.inspiration} Stapel`;
