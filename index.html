@@ -71,7 +71,7 @@
   <button type="button" data-action="open-info" data-tip="Scherbensturm Regelreferenz, Tabellen &amp; Glossar" class="fixed bottom-5 left-5 z-40 w-12 h-12 rounded-2xl btn-pri font-serif italic font-black text-2xl shadow-xl">i</button>
   <div id="toast" class="fixed bottom-5 left-1/2 -translate-x-1/2 z-[90] px-4 py-2 rounded-xl bg-slate-900 text-white border border-slate-700 text-xs font-bold shadow-xl opacity-0 transition-opacity duration-200"></div>
   <div id="tooltip" class="fixed z-[90] max-w-xs px-3 py-2 rounded-xl text-xs font-medium bg-slate-950/95 text-slate-100 border border-slate-700 shadow-2xl opacity-0 transition-opacity duration-150" style="top:-9999px;left:-9999px"></div>
-  <input id="fileAvatar" type="file" accept="image/*" class="hidden" /><input id="fileBg" type="file" accept="image/*" class="hidden" /><input id="fileItemImg" type="file" accept="image/*" class="hidden" /><input id="fileBioImg" type="file" accept="image/*" class="hidden" /><input id="fileImport" type="file" accept=".json,application/json" class="hidden" />
+  <input id="fileAvatar" type="file" accept="image/*" class="hidden" /><input id="fileBg" type="file" accept="image/*" class="hidden" /><input id="fileItemImg" type="file" accept="image/*" class="hidden" /><input id="fileBioImg" type="file" accept="image/*" class="hidden" /><input id="fileImport" type="file" accept=".json,application/json" class="hidden" /><input id="fileLobbyLogo" type="file" accept="image/*" class="hidden" /><input id="fileCampImg" type="file" accept="image/*" class="hidden" />
   <script>
   (function(){
     'use strict';
@@ -101,8 +101,15 @@
       {name:'Vielseitig (X)',desc:'Kann sowohl einhändig als auch zweihändig geführt werden. (Zweihändiges Führen erhöht den verursachten Stichschaden um X.)'},
       {name:'Weitereichende Klinge',desc:'Bei schneidenden Angriffen ohne „Zweiter Griff“ attackierst du immer in einem 45° Winkel (meistens sind also 2-3 Felder betroffen).'},
       {name:'Wuchtklinge',desc:'Bei einem Treffer mit der Waffe wird Einschlag-Schnittschaden verursacht.'},
+      {name:'Beidhändig',desc:'Du kannst als Schnellaktion die Waffe in der Mitte auseinander drehen, um in jeder Hand einen Teil der Waffe zu führen. Dabei verlierst du „Reichweite (1)“.'},
+      {name:'Schwungvoll (X)',desc:'+X auf das Würfelergebnis. (Nach einem Würfelwurf wird das Ergebnis der geworfenen Zahl um +X erhöht.)'},
       {name:'Wuchtpieke',desc:'Bei einem Treffer mit der Waffe wird Einschlag-Stichschaden verursacht.'},
       {name:'Zweiter Griff',desc:'Stoßende Attacken mit der Waffe ignorieren die Reichweite(1)- und Langsam(1)-Eigenschaften.'}
+    ].sort((a,b)=>a.name.localeCompare(b.name,'de'));
+    const DEF_ARMOR_TAGS=[
+      {name:'Überwurf',desc:'Diese Rüstung kann üblicherweise mit anderen Rüstungsteilen kombiniert werden, die dieselbe Körperzone abdecken.'},
+      {name:'Warm',desc:'+1 Vorteil bei Tests gegen Kälte.'},
+      {name:'Wasserundurchlässig',desc:'Kann effektiv vor Regen schützen.'}
     ].sort((a,b)=>a.name.localeCompare(b.name,'de'));
     const ATTRS=[{k:'ST',n:'Stärke',g:'ST_KO'},{k:'KO',n:'Konstitution',g:'ST_KO'},{k:'PR',n:'Präzision',g:'PR_GW'},{k:'GW',n:'Gewandtheit',g:'PR_GW'},{k:'WA',n:'Wahrnehmung',g:'WA_IN'},{k:'IN',n:'Intelligenz',g:'WA_IN'},{k:'AU',n:'Ausdruck',g:'AU_WK'},{k:'WK',n:'Willenskraft',g:'AU_WK'}];
     const DEF_ATTR_COLS={ST_KO:'#d97777',PR_GW:'#6eb888',WA_IN:'#6aa3d8',AU_WK:'#a58ad6'};
@@ -266,7 +273,7 @@
         appearance:{dark:true,mode:'global',editScope:'attributes',global:makeStyleSlot(),tabs:tabStyles},
         attrColors:{...DEF_ATTR_COLS},secColors:{...DEF_SEC_COLS},
         artList:[...DEF_ARTS],subcatList:[...DEF_SUBS],useResList:[...DEF_USERES],customStats:[],
-        weaponTagList:JSON.parse(JSON.stringify(DEF_WEAPON_TAGS)),armorTagList:[],ammoTagList:[],
+        weaponTagList:JSON.parse(JSON.stringify(DEF_WEAPON_TAGS)),armorTagList:JSON.parse(JSON.stringify(DEF_ARMOR_TAGS)),ammoTagList:[],
         attributes,secondary:{lpCurrent:8,lpMod:0,lpRegenOvr:'',iniMod:0,mlpCurrent:8,mlpMod:0,mlpRegenOvr:'',apCurrent:3,apMax:3,mapCurrent:3,mapMax:3},
         customRes:{name:'Benutzerdefiniert',current:3,max:3,color:'#c084fc'},extraSecList:[],
         statusCollapsed:false,statusEffects:makeDefaultStatusEffects(),inspiration:0,inspirationActive:false,
@@ -773,26 +780,30 @@
     let S=defaultState(), D={...DICE_DEF}, CN={...CNOTES_DEF}, LD={...LIVEDICE_DEF}, diceLogs=[], toastTimer=null, dragPwId=null, dragAugId=null, dragSecId=null, dragSkSecId=null, dragSkId=null, dragChrPw=null, dragChrSec=null, dragEqSec=null, dragEqItem=null, dragToken='';
     let dragMouseY=null, dragScrollRaf=null;
     const savedEffRanges={};
-    let UI={modal:null,infoTab:'dice',listType:'art',ammoModalWeaponId:'',skSort:{col:'',asc:true},imgTargetKind:'',imgTargetId:'',confirmNew:false,confirmLog:false,confirmDelId:null,confirmDelSecId:null,confirmSecPullId:null,confirmDelSkSecId:null,confirmSkSecPullId:null,confirmDelExSecId:null,confirmHzStep:1,pwFilterOpen:false,pwFilterMode:'or',pwFilterArts:[],pwFilterTiers:[],pwFilterSubs:[],statusIniPromptKey:'',lastRollHtml:'',lastBlockBaseHtml:'',lastBlockFollowRes:null,colTarget:'cres',colMode:'text',colPwKind:'power',colPwId:'',colDraft:'#c084fc',attrGroupSel:'ST_KO',savedOnce:true,palBuilderOpen:false,palDraft:{name:'',isLt:false,bg:'#020617',acc:'#0ea5e9',acc2:'#6366f1',txt:'#f1f5f9',mut:'#94a3b8',btnTxt:'#ffffff'}};
+    let UI={inLobby:true,sheetLoaded:false,modal:null,infoTab:'dice',listType:'art',ammoModalWeaponId:'',skSort:{col:'',asc:true},imgTargetKind:'',imgTargetId:'',confirmNew:false,confirmLog:false,confirmDelId:null,confirmDelSecId:null,confirmSecPullId:null,confirmDelSkSecId:null,confirmSkSecPullId:null,confirmDelExSecId:null,confirmHzStep:1,pwFilterOpen:false,pwFilterMode:'or',pwFilterArts:[],pwFilterTiers:[],pwFilterSubs:[],statusIniPromptKey:'',lastRollHtml:'',lastBlockBaseHtml:'',lastBlockFollowRes:null,colTarget:'cres',colMode:'text',colPwKind:'power',colPwId:'',colDraft:'#c084fc',attrGroupSel:'ST_KO',savedOnce:true,palBuilderOpen:false,palDraft:{name:'',isLt:false,bg:'#020617',acc:'#0ea5e9',acc2:'#6366f1',txt:'#f1f5f9',mut:'#94a3b8',btnTxt:'#ffffff'}};
     const REGISTRY_ID='_lobby_meta_registry_', LIVE_TAB_ID=uid();
     function normalizeCampaigns(rawCamps){
       const list=Array.isArray(rawCamps)?rawCamps.filter(c=>c&&typeof c==='object'&&String(c.id||'').trim()).map(c=>{
         const id=String(c.id).trim();
-        const hasName=c.name!==undefined&&c.name!==null&&String(c.name).trim()!=='';
+        const rawName=c.name!==undefined&&c.name!==null?String(c.name).trim():'';
+        const hasName=rawName!==''&&!(id==='default'&&rawName==='Hauptkampagne');
         return {
           id,
-          name:hasName?String(c.name).trim():(id==='default'?'Hauptkampagne':'Kampagne'),
-          allowedUsers:Array.isArray(c.allowedUsers)?[...new Set(c.allowedUsers.map(u=>String(u||'').trim()).filter(Boolean))]:[]
+          name:hasName?rawName:(id==='default'?'Ohne Kampagne / Allgemein':'Kampagne'),
+          allowedUsers:Array.isArray(c.allowedUsers)?[...new Set(c.allowedUsers.map(u=>String(u||'').trim()).filter(Boolean))]:[],
+          gmUsers: id==='default'?[]:(Array.isArray(c.gmUsers)?[...new Set(c.gmUsers.map(u=>String(u||'').trim()).filter(Boolean))]:[]),
+          coGmUsers: id==='default'?[]:(Array.isArray(c.coGmUsers)?[...new Set(c.coGmUsers.map(u=>String(u||'').trim()).filter(Boolean))]:[]),
+          img: String(c.img||'')
         };
       }):[];
       if(!list.length){
-        list.push({id:'default',name:'Hauptkampagne',allowedUsers:[]});
+        list.push({id:'default',name:'Ohne Kampagne / Allgemein',allowedUsers:[],gmUsers:[],coGmUsers:[],img:''});
       }else if(!list.some(c=>c.id==='default')){
-        list.unshift({id:'default',name:'Hauptkampagne',allowedUsers:[]});
+        list.unshift({id:'default',name:'Ohne Kampagne / Allgemein',allowedUsers:[],gmUsers:[],coGmUsers:[],img:''});
       }
       return list;
     }
-    let CLOUD={serverUrl:'',list:[],loading:false,syncing:false,error:'',lastSyncTs:'',viewingRemote:false,remoteCharId:'',ownBackupJson:null,confirmDelCloudId:null,filterMine:false,currentUser:'',isAdmin:false,showAdminBar:false,userMgmtOpen:false,showPwChange:false,activeCampaignId:'default',campAction:'',registryLoaded:false,diceFeed:[],diceConnected:false,diceToast:true,diceCollapsed:false,confirmClearDice:false,registry:{users:{},claims:{},pins:{},charCampaigns:{},campaigns:[{id:'default',name:'Hauptkampagne',allowedUsers:[]}],adminHash:'',diceFeed:[],diceClearedAt:0}}, cloudSyncTimer=null, liveDiceES=null, liveDiceBC=null, liveDiceTopicCur='', liveDicePollTimer=null, registryPushInFlight=0, lastRegistryPushMs=0;
+    let CLOUD={serverUrl:'',list:[],loading:false,syncing:false,error:'',lastSyncTs:'',viewingRemote:false,remoteCharId:'',ownBackupJson:null,confirmDelCloudId:null,filterMine:false,currentUser:'',isAdmin:false,showAdminBar:false,userMgmtOpen:false,showPwChange:false,activeCampaignId:'default',campAction:'',newCharOpen:false,newCharName:'',newCharAncestry:'',newCharConcept:'',newCharCampId:'default',registryLoaded:false,diceFeed:[],diceConnected:false,diceToast:true,diceCollapsed:false,confirmClearDice:false,registry:{users:{},claims:{},pins:{},charCampaigns:{},campaigns:[{id:'default',name:'Ohne Kampagne / Allgemein',allowedUsers:[],gmUsers:[],coGmUsers:[],img:''}],gmUsers:[],lobbyLogo:'',adminHash:'',diceFeed:[],diceClearedAt:0}}, cloudSyncTimer=null, liveDiceES=null, liveDiceBC=null, liveDiceTopicCur='', liveDicePollTimer=null, registryPushInFlight=0, lastRegistryPushMs=0;
     try{
       CLOUD.serverUrl=localStorage.getItem('scherbensturm_cloud_url')||'';
       CLOUD.currentUser=localStorage.getItem('scherbensturm_cloud_user')||'';
@@ -807,7 +818,9 @@
           ...CLOUD.registry,
           ...parsedReg,
           charCampaigns:(parsedReg.charCampaigns&&typeof parsedReg.charCampaigns==='object')?parsedReg.charCampaigns:{},
-          campaigns:normalizeCampaigns(parsedReg.campaigns)
+          campaigns:normalizeCampaigns(parsedReg.campaigns),
+          gmUsers:Array.isArray(parsedReg.gmUsers)?parsedReg.gmUsers:[],
+          lobbyLogo:String(parsedReg.lobbyLogo||'')
         };
       }
       const locDice=localStorage.getItem('scherbensturm_live_dice_feed');
@@ -829,6 +842,19 @@
       const u=String(username||'').trim().toLowerCase();
       if(!u) return false;
       return Array.isArray(camp?.allowedUsers)&&camp.allowedUsers.some(x=>String(x||'').trim().toLowerCase()===u);
+    }
+    function isGlobalGM(username=CLOUD.currentUser){const u=String(username||'').trim().toLowerCase();return Boolean(u&&Array.isArray(CLOUD.registry?.gmUsers)&&CLOUD.registry.gmUsers.some(x=>String(x||'').trim().toLowerCase()===u));}
+    function isCampaignMainGM(campOrId,username=CLOUD.currentUser){const u=String(username||'').trim().toLowerCase();if(!u||!isGlobalGM(u))return false;const c=typeof campOrId==='string'?getCampaigns().find(x=>x.id===campOrId):campOrId;if(!c||c.id==='default')return false;return Array.isArray(c.gmUsers)&&c.gmUsers.some(x=>String(x||'').trim().toLowerCase()===u);}
+    function isCampaignCoGM(campOrId,username=CLOUD.currentUser){const u=String(username||'').trim().toLowerCase();if(!u||!isGlobalGM(u))return false;const c=typeof campOrId==='string'?getCampaigns().find(x=>x.id===campOrId):campOrId;if(!c||c.id==='default')return false;return Array.isArray(c.coGmUsers)&&c.coGmUsers.some(x=>String(x||'').trim().toLowerCase()===u);}
+    function canManageCampaign(campOrId,username=CLOUD.currentUser){if(CLOUD.isAdmin)return true;return isCampaignMainGM(campOrId,username)||isCampaignCoGM(campOrId,username);}
+    function canManageCampaignCoGMs(campOrId,username=CLOUD.currentUser){if(CLOUD.isAdmin)return true;return isCampaignMainGM(campOrId,username);}
+    function getAccessibleCampaigns(username=CLOUD.currentUser){
+      const all=getCampaigns(); if(CLOUD.isAdmin) return all;
+      return all.filter(c=>c.id==='default'||(username&&(isUserInCampaign(c,username)||isCampaignMainGM(c,username)||isCampaignCoGM(c,username))));
+    }
+    function getCreatableCampaigns(username=CLOUD.currentUser){
+      if(!username&&!CLOUD.isAdmin) return [];
+      return getAccessibleCampaigns(username);
     }
     const simpleHash=str=>{let h=2166136261;const s=String(str||'');for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619);}return (h>>>0).toString(36);};
     function saveRegistryLocal(){try{localStorage.setItem('scherbensturm_lobby_registry',JSON.stringify(CLOUD.registry));}catch(e){}}
@@ -854,8 +880,7 @@
       return merged;
     }
     function getActiveLiveCampaignId(){
-      const camps=getCampaigns();
-      const allowed=CLOUD.isAdmin?camps:(CLOUD.currentUser?camps.filter(c=>isUserInCampaign(c,CLOUD.currentUser)):camps);
+      const allowed=getAccessibleCampaigns(CLOUD.currentUser);
       if(allowed.some(c=>c.id===CLOUD.activeCampaignId)) return CLOUD.activeCampaignId;
       const ownCamp=S.charId?getCharCampaignId(S.charId):'';
       if(ownCamp&&allowed.some(c=>c.id===ownCamp)) return ownCamp;
@@ -901,7 +926,7 @@
           const stCol=x.crit?'text-amber-400':x.ok?'text-emerald-400':'text-rose-400';
           resHtml=`<div class="flex flex-wrap items-center justify-between gap-2 pt-1.5 border-t border-white/10 tabular">
             <div class="flex items-center gap-2.5">
-              <span class="px-2.5 py-1 rounded-xl bg-black/35 border bdr-line text-xl sm:text-2xl font-black ${stCol}">🎲 ${x.r}</span>
+              <span class="px-2.5 py-1 rounded-xl bg-black/35 border bdr-line text-xl sm:text-2xl font-black ${stCol}">🎲 ${x.r}${x.rollMod&&x.rawR!==undefined?`<span class="text-xs font-bold text-cyan-300 ml-1">(Wurf ${x.rawR}${fmtSign(x.rollMod)})</span>`:''}</span>
               <div>
                 <div class="text-xs sm:text-sm font-black uppercase ${stCol}">${stTxt}</div>
                 <div class="text-[11px] t-mut">Schwelle ≤ <strong>${entry.th}</strong> (${entry.chance??Math.max(1,Math.min(99,entry.th))}%)</div>
@@ -919,7 +944,7 @@
               <span class="t-mut">${res.length}× W100 gegen Schwelle ≤ <strong>${entry.th}</strong> (${entry.chance??Math.max(1,Math.min(99,entry.th))}%)</span>
               <span class="${w>0?'text-emerald-400':'text-rose-400'}">${w}/${res.length} Erfolge${c?` • <strong class="text-amber-400">★ ${c} Krit</strong>`:''}</span>
             </div>
-            <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-1.5">${res.map((x,i)=>`<div class="px-2 py-1 rounded-lg border flex items-center justify-between gap-1 text-xs ${x.crit?'border-amber-400 bg-amber-500/20 text-amber-200':x.ok?'border-emerald-500/40 bg-emerald-500/15 text-emerald-200':'border-rose-500/40 bg-rose-500/15 text-rose-200'}"><span class="font-black">#${i+1}: ${x.r}</span><span class="font-extrabold text-[11px]">${x.crit?'★ ':''}${x.ok?'EG '+x.eg:'MEG '+x.meg}</span></div>`).join('')}</div>
+            <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-1.5">${res.map((x,i)=>`<div class="px-2 py-1 rounded-lg border flex items-center justify-between gap-1 text-xs ${x.crit?'border-amber-400 bg-amber-500/20 text-amber-200':x.ok?'border-emerald-500/40 bg-emerald-500/15 text-emerald-200':'border-rose-500/40 bg-rose-500/15 text-rose-200'}"><span class="font-black">#${i+1}: ${x.r}${x.rollMod&&x.rawR!==undefined?` (${x.rawR}${fmtSign(x.rollMod)})`:""}</span><span class="font-extrabold text-[11px]">${x.crit?'★ ':''}${x.ok?'EG '+x.eg:'MEG '+x.meg}</span></div>`).join('')}</div>
           </div>`;
         }
         return `<div class="subcard p-3 space-y-2 border-2 ${bdrCls} ${isFirst?' ring-1 ring-sky-400/30':''}">
@@ -1037,7 +1062,7 @@
       }catch(e){}
       if(!liveDicePollTimer){
         liveDicePollTimer=setInterval(()=>{
-          if(UI.modal==='lobby' || LD.open) syncCloudRegistry(false);
+          if((UI.modal==='lobby'||UI.inLobby) || LD.open) syncCloudRegistry(false);
         },4000);
       }
     }
@@ -1402,7 +1427,7 @@
       return (primaryList||[]).find(t=>t&&t.name.toLowerCase()===low)||null;
     }
     function analyzeEqTagTooltip(tg,tagList,itemKind='weapon',itemObj=null){
-      const res={mods:[],crits:[],counters:[]};
+      const res={mods:[],crits:[],counters:[],rollMods:[]};
       if(!tg||!tg.name) return res;
       const rawName=String(tg.name||'').trim(), baseName=rawName.replace(/\(\s*X\s*\)/i,'').trim(), baseLow=baseName.toLowerCase();
       const xVal=toInt(tg.x,1), tagLbl=fmtTagLabel(rawName,hasTagX(rawName)?xVal:tg.x);
@@ -1417,6 +1442,12 @@
       const reOppAtk=/\b(?:gegnerisch\w*\s+(?:angriff\w*|trefferw(?:ü|ue)rf\w*|attacke\w*|sch(?:ü|ue)ss\w*)|(?:angriff\w*|trefferw(?:ü|ue)rf\w*|attacke\w*)\s+(?:des\s+gegners|(?:haben\s+|sind\s+)?gegen\s+(?:dich|den\s+tr[äa]ger|diese\s+r[üu]stung)))/i;
       const reOppDetect=/\btests?,?\s+um\s+(?:dich|den\s+sch[üu]tzen|den\s+angreifer|den\s+tr[äa]ger|sie)\s+zu\s+(?:entdecken|bemerken|h[öo]ren|finden|orten)/i;
       sents.forEach(sent=>{
+        if(baseLow==='schwungvoll'||/([+-]?\d+)\s+auf\s+das\s+w(?:ü|ue)rfelergebnis/i.test(sent)){
+          const rmM=sent.match(/([+-]?\d+)\s+auf\s+das\s+w(?:ü|ue)rfelergebnis/i);
+          const rv=rmM?toInt(rmM[1],xVal):xVal;
+          if(rv) res.rollMods.push({val:rv,scope:itemKind==='armor'?'all':'hit',tagLbl,srcName:`${srcLabel} • ${tagLbl}`,srcKind});
+          return;
+        }
         if(/(?:keine[n]?|ohne)\s+nachteil\w*[\s\S]*?(?:waffenwerfen|werfen\s+dieser\s+waffe|beim\s+werfen)|(?:beim\s+werfen|waffenwerfen)[\s\S]*?(?:keine[n]?|ohne)\s+nachteil/i.test(sent)){
           res.counters.push({counterKey:'negate_throw_dis',val:99,tagLbl,srcLabel,srcKind});
           return;
@@ -1450,6 +1481,7 @@
           sitKey='melee_mount'; sitLabel='Im Nahkampf/Reiten';
         }else if(/\b(?:aus\s+(?:der\s+|schwerer\s+)?deckung(?:\s+heraus)?|in\s+deckung|hinter\s+deckung)\b/i.test(sent)){
           sitKey='cover'; sitLabel='Aus Deckung';
+        }else if(/\b(?:gegen|bei)\s+k[äa]lte\b/i.test(sent)){sitKey='cold';sitLabel='❄️ Gegen Kälte';
         }else if(/\b(?:beim\s+werfen|waffenwerfen|waffenwurf|geworfen\w*)\b/i.test(sent)){
           sitKey='throw'; sitLabel=`Waffenwurf (${baseName})`;
         }else if(/\b(?:einh[äa]ndig\w*\s+f[üu]hr\w*|beim\s+einh[äa]ndigen)\b/i.test(sent)){
@@ -1541,6 +1573,7 @@
       const parts=[];
       r.mods.forEach(m=>{parts.push(`${fmtSign(m.val)} ${m.kind==='dis'?'Nachteil(e)':'Vorteil(e)'} (${m.sitKey?'Situativ: '+m.sitLabel:m.label})`);});
       r.crits.forEach(c=>{parts.push(`Kritische Ziffer ${fmtSign(c.val)} (${c.scope==='all'?'Alle Proben':c.scope==='parry'?'Parieren':c.scope==='block'?'Blocken':c.scope==='dodge'?'Ausweichen':'Trefferwurf'})`);});
+      (r.rollMods||[]).forEach(rm=>{parts.push(`Würfelergebnis ${fmtSign(rm.val)} (${rm.scope==='all'?'Alle Proben':'Trefferwurf'})`);});
       r.counters.forEach(c=>{
         if(c.counterKey==='reduce_melee_mount') parts.push(`Reduziert Nahkampf-/Reiten-Nachteile um ${c.val}`);
         else if(c.counterKey==='negate_throw_dis') parts.push(`Kein Nachteil beim Waffenwurf`);
@@ -1621,8 +1654,8 @@
           else if(c.counterKey==='thrust_grip') thrustGripVal=Math.max(thrustGripVal,c.val);
         });
       });
-      let autoCrit=0, langsamDisTotal=0;
-      const critSrc=[], sitMap=new Map();
+      let autoCrit=0, langsamDisTotal=0, autoRollMod=0;
+      const critSrc=[], rollModSrc=[], sitMap=new Map();
       (M.crits||[]).forEach(cr=>{
         if(matchesScope(cr)&&cr.val){autoCrit+=cr.val;critSrc.push(cr);}
       });
@@ -1639,6 +1672,7 @@
         es.crits.forEach(cr=>{
           if(matchesScope(cr)&&cr.val){autoCrit+=cr.val;critSrc.push(cr);}
         });
+        (es.rollMods||[]).forEach(rm=>{if(matchesScope(rm)&&rm.val){autoRollMod+=rm.val;rollModSrc.push(rm);}});
         es.mods.forEach(m=>{
           if(!matchesScope(m)||!m.val) return;
           if(m.sitKey){
@@ -1708,7 +1742,7 @@
         autoAdv+=1;
         src.push({val:1,kind:'adv',scope:'all',label:'Inspiration (Nächster Wurf)',tagLbl:'✨ Inspiration',srcName:'✨ Inspiration',srcKind:'Inspiration'});
       }
-      return {autoAdv:Math.max(0,autoAdv),autoDis:Math.max(0,autoDis),rawAutoAdv:autoAdv,rawAutoDis:autoDis,src,autoCrit,critSrc,sitOptions};
+      return {autoAdv:Math.max(0,autoAdv),autoDis:Math.max(0,autoDis),rawAutoAdv:autoAdv,rawAutoDis:autoDis,src,autoCrit,critSrc,autoRollMod,rollModSrc,sitOptions};
     }
     const fmtAdvSrcLines=src=>(src||[]).map(s=>`• ${s.srcName} (${s.srcKind}): ${fmtSign(s.val)} ${s.kind==='dis'?'Nachteil(e)':'Vorteil(e)'} [${s.label}]`).join('\n');
     function buildAttrTip(k,M=calcActiveMods()){
@@ -1823,8 +1857,9 @@
       S.subcatList=Array.isArray(raw.subcatList)&&raw.subcatList.length?sortAlpha(raw.subcatList):[...DEF_SUBS];
       S.useResList=Array.isArray(raw.useResList)&&raw.useResList.length?[...new Set(raw.useResList.map(x=>String(x).trim()).filter(Boolean))]:[...DEF_USERES];
       S.customStats=Array.isArray(raw.customStats)?sortAlpha(raw.customStats):[];
-      S.weaponTagList=Array.isArray(raw.weaponTagList)&&raw.weaponTagList.length?sortTagDefs(raw.weaponTagList):JSON.parse(JSON.stringify(DEF_WEAPON_TAGS));
-      S.armorTagList=Array.isArray(raw.armorTagList)?sortTagDefs(raw.armorTagList):[];
+      const mergeDefTags=(rawArr,defArr)=>{const b=Array.isArray(rawArr)?sortTagDefs(rawArr):[];(defArr||[]).forEach(d=>{if(!b.some(t=>t.name.toLowerCase()===d.name.toLowerCase()))b.push({...d});});return sortTagDefs(b);};
+      S.weaponTagList=mergeDefTags(raw.weaponTagList,DEF_WEAPON_TAGS);
+      S.armorTagList=mergeDefTags(raw.armorTagList,DEF_ARMOR_TAGS);
       S.ammoTagList=Array.isArray(raw.ammoTagList)?sortTagDefs(raw.ammoTagList):[];
       let storedCustomPals=[];
       try{const sp=localStorage.getItem('scherbensturm_custom_palettes');if(sp)storedCustomPals=JSON.parse(sp)||[];}catch(e){}
@@ -1944,6 +1979,8 @@
       if(typedPin&&CLOUD.registry.adminHash&&simpleHash(typedPin)===CLOUD.registry.adminHash){CLOUD.isAdmin=true;try{localStorage.setItem('scherbensturm_cloud_admin','1');}catch(e){}return true;}
       const own=getCharOwner(id);
       if(own&&CLOUD.currentUser&&own.toLowerCase()===CLOUD.currentUser.toLowerCase()) return true;
+      const charCampId=getCharCampaignId(id);
+      if(charCampId&&charCampId!=='default'&&canManageCampaign(charCampId,CLOUD.currentUser)) return true;
       return false;
     };
     const resolveEffectivePin=(id,typedPin='')=>{
@@ -1965,6 +2002,8 @@
         pins:CLOUD.registry.pins||{},
         charCampaigns:CLOUD.registry.charCampaigns||{},
         campaigns:normalizeCampaigns(CLOUD.registry.campaigns),
+        gmUsers:Array.isArray(CLOUD.registry.gmUsers)?[...new Set(CLOUD.registry.gmUsers.map(u=>String(u||'').trim()).filter(Boolean))]:[],
+        lobbyLogo:String(CLOUD.registry.lobbyLogo??''),
         adminHash:CLOUD.registry.adminHash??'',
         diceClearedAt:toInt(CLOUD.registry.diceClearedAt,0)
       })):null;
@@ -2003,6 +2042,8 @@
               pins:push?{...(rem.registry.pins||{}),...srcPins}:{...srcPins,...(rem.registry.pins||{})},
               charCampaigns:mergedCharCampaigns,
               campaigns:mergedCampaigns,
+              gmUsers: push ? (localSnap.gmUsers||[]) : (Array.isArray(rem.registry.gmUsers)?rem.registry.gmUsers:(CLOUD.registry.gmUsers||[])),
+              lobbyLogo: push ? (localSnap.lobbyLogo??'') : (rem.registry.lobbyLogo!==undefined?String(rem.registry.lobbyLogo):(CLOUD.registry.lobbyLogo||'')),
               adminHash:push?(localSnap.adminHash!==''?localSnap.adminHash:(rem.registry.adminHash||'')):(rem.registry.adminHash||CLOUD.registry.adminHash||''),
               diceClearedAt:clrAt,
               diceFeed:CLOUD.diceFeed||[]
@@ -2036,7 +2077,7 @@
       }
     }
     function addCampaignAllowedUser(rawName){
-      if(!CLOUD.isAdmin) return;
+      if(!canManageCampaign(CLOUD.activeCampaignId)) return;
       const clean=String(rawName||'').trim();
       if(!clean){toast('⚠️ Bitte einen Spielernamen eingeben oder auswählen.');return;}
       const camps=getCampaigns();
@@ -2062,7 +2103,7 @@
       toast(`👤 „${canonical}“ zu „${camp.name}“ zugeordnet!`);
     }
     function removeCampaignAllowedUser(rawName){
-      if(!CLOUD.isAdmin) return;
+      if(!canManageCampaign(CLOUD.activeCampaignId)) return;
       const clean=String(rawName||'').trim();
       if(!clean) return;
       const camps=getCampaigns();
@@ -2075,9 +2116,106 @@
       syncCloudRegistry(true);
       toast(`👤 „${clean}“ aus „${camp.name}“ entfernt.`);
     }
+    function toggleGlobalGMTag(rawName){
+      if(!CLOUD.isAdmin) return;
+      const clean=String(rawName||'').trim(); if(!clean) return;
+      if(!Array.isArray(CLOUD.registry.gmUsers)) CLOUD.registry.gmUsers=[];
+      const idx=CLOUD.registry.gmUsers.findIndex(u=>u.toLowerCase()===clean.toLowerCase());
+      if(idx>=0){
+        CLOUD.registry.gmUsers.splice(idx,1);
+        getCampaigns().forEach(c=>{
+          c.gmUsers=(c.gmUsers||[]).filter(u=>u.toLowerCase()!==clean.toLowerCase());
+          c.coGmUsers=(c.coGmUsers||[]).filter(u=>u.toLowerCase()!==clean.toLowerCase());
+        });
+        toast(`🎲 Spielleiter-Tag von „${clean}“ entfernt.`);
+      }else{
+        CLOUD.registry.gmUsers.push(clean);
+        toast(`🎲 „${clean}“ zum Spielleiter ernannt!`);
+      }
+      saveRegistryLocal(); renderModal(); syncCloudRegistry(true);
+    }
+    function addCampaignMainGM(rawName){
+      if(!CLOUD.isAdmin) return;
+      const clean=String(rawName||'').trim(); if(!clean) return;
+      const camp=getCampaigns().find(c=>c.id===CLOUD.activeCampaignId);
+      if(!camp||camp.id==='default') return;
+      if(!Array.isArray(CLOUD.registry.gmUsers)) CLOUD.registry.gmUsers=[];
+      if(!isGlobalGM(clean)) CLOUD.registry.gmUsers.push(clean);
+      if(!Array.isArray(camp.gmUsers)) camp.gmUsers=[];
+      if(!camp.gmUsers.some(u=>u.toLowerCase()===clean.toLowerCase())) camp.gmUsers.push(clean);
+      camp.coGmUsers=(camp.coGmUsers||[]).filter(u=>u.toLowerCase()!==clean.toLowerCase());
+      if(!camp.allowedUsers.some(u=>u.toLowerCase()===clean.toLowerCase())) camp.allowedUsers.push(clean);
+      saveRegistryLocal(); renderModal(); syncCloudRegistry(true);
+      toast(`🎲 „${clean}“ als Spielleiter für „${camp.name}“ eingesetzt!`);
+    }
+    function removeCampaignMainGM(rawName){
+      if(!CLOUD.isAdmin) return;
+      const clean=String(rawName||'').trim(); if(!clean) return;
+      const camp=getCampaigns().find(c=>c.id===CLOUD.activeCampaignId);
+      if(!camp) return;
+      camp.gmUsers=(camp.gmUsers||[]).filter(u=>u.toLowerCase()!==clean.toLowerCase());
+      saveRegistryLocal(); renderModal(); syncCloudRegistry(true);
+      toast(`🎲 „${clean}“ als Haupt-Spielleiter von „${camp.name}“ entfernt.`);
+    }
+    function addCampaignCoGM(rawName){
+      const camp=getCampaigns().find(c=>c.id===CLOUD.activeCampaignId);
+      if(!camp||camp.id==='default'||!canManageCampaignCoGMs(camp)) return;
+      const clean=String(rawName||'').trim(); if(!clean) return;
+      if(!isGlobalGM(clean)){toast('⚠️ Nur vom Admin ernannte Spielleiter können als Co-Spielleiter hinzugefügt werden.');return;}
+      if(isCampaignMainGM(camp,clean)){toast('ℹ️ Dieser Nutzer ist bereits Haupt-Spielleiter dieser Kampagne.');return;}
+      if(!Array.isArray(camp.coGmUsers)) camp.coGmUsers=[];
+      if(!camp.coGmUsers.some(u=>u.toLowerCase()===clean.toLowerCase())) camp.coGmUsers.push(clean);
+      if(!camp.allowedUsers.some(u=>u.toLowerCase()===clean.toLowerCase())) camp.allowedUsers.push(clean);
+      saveRegistryLocal(); renderModal(); syncCloudRegistry(true);
+      toast(`🤝 „${clean}“ als Co-Spielleiter zu „${camp.name}“ hinzugefügt!`);
+    }
+    function removeCampaignCoGM(rawName){
+      const camp=getCampaigns().find(c=>c.id===CLOUD.activeCampaignId);
+      if(!camp||!canManageCampaignCoGMs(camp)) return;
+      const clean=String(rawName||'').trim(); if(!clean) return;
+      if(isCampaignMainGM(camp,clean)&&!CLOUD.isAdmin){toast('🔒 Der Original-Spielleiter der Kampagne kann nicht entfernt werden.');return;}
+      camp.coGmUsers=(camp.coGmUsers||[]).filter(u=>u.toLowerCase()!==clean.toLowerCase());
+      saveRegistryLocal(); renderModal(); syncCloudRegistry(true);
+      toast(`🤝 Co-Spielleiter „${clean}“ aus „${camp.name}“ entfernt.`);
+    }
+    async function kickCharFromCampaign(charId){
+      const curCampId=getCharCampaignId(charId);
+      if(!curCampId||curCampId==='default') return;
+      if(!CLOUD.isAdmin&&!canManageCampaign(curCampId)){toast('🔒 Nur Spielleiter, Co-Spielleiter oder der Admin dürfen Charaktere aus der Kampagne werfen.');return;}
+      CLOUD.registry.charCampaigns[charId]='default';
+      const ch=CLOUD.list.find(x=>x.id===charId); if(ch) ch.campaignId='default';
+      if(S.charId===charId) S.campaignId='default';
+      await updateCloudCharacterMeta(charId,data=>{data.campaignId='default';if(data._summary)data._summary.campaignId='default';},'🚪 Charakter aus der Kampagne geworfen (nun unter „Ohne Kampagne / Allgemein“).');
+    }
+    async function duplicateCharacterSheet(charId){
+      if(!CLOUD.currentUser&&!CLOUD.isAdmin){toast('🔒 Bitte zuerst anmelden.');return;}
+      try{
+        let srcData=null;
+        if(UI.sheetLoaded&&S.charId===charId&&!CLOUD.viewingRemote){srcData=JSON.parse(JSON.stringify(S));}
+        else{
+          const effPin=resolveEffectivePin(charId,'');
+          const res=await fetch(`${getCloudEndpoint()}?id=${encodeURIComponent(charId)}${effPin?`&pin=${encodeURIComponent(effPin)}`:''}`,{headers:{'Accept':'application/json'}});
+          if(res.ok) srcData=await res.json();
+        }
+        if(!srcData||srcData.error){toast('⚠️ Charakterdaten für Kopie konnten nicht geladen werden.');return;}
+        const newId=uid(), newOwner=CLOUD.currentUser||srcData.owner||'';
+        srcData.charId=newId;
+        srcData.owner=newOwner;
+        srcData.campaignId='default';
+        if(!srcData.profile) srcData.profile={};
+        srcData.profile.name=`${String(srcData.profile.name||'Charakter').trim()} (Kopie)`;
+        if(srcData._summary){srcData._summary.owner=newOwner;srcData._summary.campaignId='default';srcData._summary.updatedAt=stamp();}
+        if(newOwner) CLOUD.registry.claims[newId]=newOwner;
+        CLOUD.registry.charCampaigns[newId]='default';
+        await syncCloudRegistry(true);
+        await fetch(getCloudEndpoint(),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(srcData)});
+        await fetchLobbyList(true);
+        toast(`📋 Kopie „${srcData.profile.name}“ unter „Ohne Kampagne / Allgemein“ angelegt!`);
+      }catch(e){toast('⚠️ Kopieren fehlgeschlagen.');}
+    }
     async function fetchLobbyList(silent=false){
       const showLoader=!silent||!CLOUD.list.length;
-      if(showLoader){CLOUD.loading=true; CLOUD.error=''; if(UI.modal==='lobby') renderModal();}
+      if(showLoader){CLOUD.loading=true; CLOUD.error=''; if((UI.modal==='lobby'||UI.inLobby)) renderModal();}
       else CLOUD.error='';
       try{
         await syncCloudRegistry(false);
@@ -2103,7 +2241,7 @@
         if(!silent) toast('Cloud-Lobby lokal nicht erreichbar (erst auf Netlify aktiv).');
       }finally{
         CLOUD.loading=false;
-        if(UI.modal==='lobby') renderModal();
+        if((UI.modal==='lobby'||UI.inLobby)) renderModal();
       }
     }
     async function pushToCloud(silent=false){
@@ -2121,7 +2259,7 @@
       const existingCamp=CLOUD.registry.charCampaigns[S.charId]||S.campaignId||'default';
       S.campaignId=validCampIds.has(existingCamp)?existingCamp:'default';
       CLOUD.registry.charCampaigns[S.charId]=S.campaignId;
-      CLOUD.syncing=true; if(UI.modal==='lobby') renderModal();
+      CLOUD.syncing=true; if((UI.modal==='lobby'||UI.inLobby)) renderModal();
       try{
         if(S.owner) CLOUD.registry.claims[S.charId]=S.owner;
         if(S.cloudPin) CLOUD.registry.pins[S.charId]=S.cloudPin;
@@ -2141,27 +2279,30 @@
       }finally{
         CLOUD.syncing=false;
         renderHeader();
-        if(UI.modal==='lobby') renderModal();
+        if((UI.modal==='lobby'||UI.inLobby)) renderModal();
       }
     }
-    async function loadCloudCharacter(id,asViewOnly=true){
+    async function loadCloudCharacter(id,asViewOnly=true,autoFallbackView=false){
       try{
         const pinInp=$(`pinInp_${id}`), rawPin=pinInp?pinInp.value.trim():'';
         const effPin=resolveEffectivePin(id,rawPin);
         const url=`${getCloudEndpoint()}?id=${encodeURIComponent(id)}${effPin?`&pin=${encodeURIComponent(effPin)}`:''}`;
         const res=await fetch(url,{headers:{'Accept':'application/json'}});
         const data=await res.json();
-        if(!res.ok||data.error){toast(`⚠️ ${data.error||'Charakter konnte nicht geladen werden.'}`);return;}
+        if(!res.ok||data.error){if(!autoFallbackView)toast(`⚠️ ${data.error||'Charakter konnte nicht geladen werden.'}`);return;}
         if(data.cloudPin&&!CLOUD.registry.pins[id]){CLOUD.registry.pins[id]=data.cloudPin;saveRegistryLocal();}
+        const owner=getCharOwner(id)||String(data.owner||data._summary?.owner||'').trim();
+        const allowedByClaimOrAdmin=canManageChar(id,rawPin)||(!owner&&(!data._pinProtected||data._pinVerified));
+        if(!asViewOnly&&autoFallbackView&&!allowedByClaimOrAdmin){
+          asViewOnly=true;
+        }
         if(asViewOnly){
           if(!CLOUD.viewingRemote) CLOUD.ownBackupJson=JSON.stringify(S);
           CLOUD.viewingRemote=true; CLOUD.remoteCharId=id;
           mergeLoaded(data);
-          UI.modal=null; renderAll(false);
+          UI.inLobby=false; UI.sheetLoaded=true; UI.modal=null; renderAll(false);
           toast(`👁️ 👄 👁️ Ansichtsmodus: „${S.profile.name||'Charakter'}“ geladen`);
         }else{
-          const owner=getCharOwner(id);
-          const allowedByClaimOrAdmin=canManageChar(id,rawPin);
           if(owner&&!allowedByClaimOrAdmin&&!(data._pinProtected&&data._pinVerified)&&!(rawPin&&data.cloudPin&&rawPin===data.cloudPin)){
             toast(`🔒 Dieser Charakter gehört „${owner}“. Bitte als „${owner}“ anmelden, Schutz-PIN oder Admin-Master-PIN eingeben.`);
             return;
@@ -2175,16 +2316,42 @@
           S.activeTab=getSavedTabForChar(S.charId,data.activeTab);
           saveLastActiveTab(S.charId,S.activeTab);
           if(owner&&!S.owner) S.owner=owner;
-          UI.modal=null; renderAll(true);
+          UI.inLobby=false; UI.sheetLoaded=true; UI.modal=null; renderAll(true);
           toast(`✏️ „${S.profile.name||'Charakter'}“ zum Bearbeiten geladen!`);
         }
       }catch(err){
         toast('⚠️ Verbindung zur Cloud-Lobby fehlgeschlagen.');
       }
     }
+    async function createNewUserCharacter(opts={}){
+      if(!CLOUD.currentUser){
+        toast('🔒 Charaktererstellung ist nur für angemeldete Spieler-Accounts möglich. Bitte melde dich zuerst an!');
+        return;
+      }
+      const allowedCamps=getCreatableCampaigns(CLOUD.currentUser);
+      const reqCamp=String(opts.campaignId??CLOUD.newCharCampId??CLOUD.activeCampaignId??'default').trim()||'default';
+      const targetCampId=allowedCamps.some(c=>c.id===reqCamp)?reqCamp:'default';
+      CLOUD.viewingRemote=false; CLOUD.remoteCharId=''; CLOUD.ownBackupJson=null;
+      S=defaultState();
+      S.profile.name=String(opts.name??CLOUD.newCharName??'').trim();
+      S.profile.ancestry=String(opts.ancestry??CLOUD.newCharAncestry??'').trim();
+      S.profile.concept=String(opts.concept??CLOUD.newCharConcept??'').trim();
+      S.owner=CLOUD.currentUser;
+      S.campaignId=targetCampId;
+      S.cloudAutoSync=true;
+      CLOUD.registry.claims[S.charId]=CLOUD.currentUser;
+      if(!CLOUD.registry.charCampaigns||typeof CLOUD.registry.charCampaigns!=='object') CLOUD.registry.charCampaigns={};
+      CLOUD.registry.charCampaigns[S.charId]=targetCampId;
+      CLOUD.newCharOpen=false; CLOUD.newCharName=''; CLOUD.newCharAncestry=''; CLOUD.newCharConcept='';
+      setActiveCampaign(targetCampId);
+      UI.inLobby=false; UI.sheetLoaded=true; UI.modal=null;
+      save(false);
+      renderAll(true);
+      await pushToCloud(false);
+    }
     async function updateCloudCharacterMeta(id,mutatorFn,successMsg){
       saveRegistryLocal();
-      if(UI.modal==='lobby') renderModal();
+      if((UI.modal==='lobby'||UI.inLobby)) renderModal();
       try{
         const effPin=resolveEffectivePin(id,'');
         const url=`${getCloudEndpoint()}?id=${encodeURIComponent(id)}${effPin?`&pin=${encodeURIComponent(effPin)}`:''}`;
@@ -2200,11 +2367,11 @@
         }
         await syncCloudRegistry(true);
         await fetchLobbyList(true);
-        if(UI.modal==='lobby') renderModal();
+        if((UI.modal==='lobby'||UI.inLobby)) renderModal();
         if(successMsg) toast(successMsg);
       }catch(err){
         await syncCloudRegistry(true);
-        if(UI.modal==='lobby') renderModal();
+        if((UI.modal==='lobby'||UI.inLobby)) renderModal();
         if(successMsg) toast(successMsg);
       }
     }
@@ -2415,7 +2582,7 @@
       const bonus=(net===0?0:Math.sign(net)*(10+(Math.abs(net)-1)*5))+M.testTh, th=cv+50-dv+bonus;
       const effCritIdx=Math.max(0,Math.min(CRIT_SEQ.length-1,(ad.autoCrit||0)+toInt(D.critOff,0))), effCrit=CRIT_SEQ[effCritIdx];
       D.crit=effCrit;
-      return {cv,dv,effAdv:D.adv,effDis:D.dis,autoAdv:ad.autoAdv,autoDis:ad.autoDis,advAdj:toInt(D.advAdj,0),disAdj:toInt(D.disAdj,0),advSrc:ad.src,sitOptions:ad.sitOptions||[],autoCrit:ad.autoCrit||0,critSrc:ad.critSrc||[],effCrit,effCritIdx,rawNet,net,bonus,th,effTh:M.testTh,chance:Math.max(1,Math.min(99,th))};
+      return {cv,dv,effAdv:D.adv,effDis:D.dis,autoAdv:ad.autoAdv,autoDis:ad.autoDis,advAdj:toInt(D.advAdj,0),disAdj:toInt(D.disAdj,0),advSrc:ad.src,sitOptions:ad.sitOptions||[],autoCrit:ad.autoCrit||0,critSrc:ad.critSrc||[],rollMod:ad.autoRollMod||0,rollModSrc:ad.rollModSrc||[],effCrit,effCritIdx,rawNet,net,bonus,th,effTh:M.testTh,chance:Math.max(1,Math.min(99,th))};
     }
     function getWeaponRollMeta(w,M=calcActiveMods()){
       const hasMassiv=isWeaponMassiv(w);
@@ -2557,6 +2724,26 @@
     }
 
     function renderHeader(){
+      if(UI.inLobby){
+        $('hdrMount').innerHTML=`<div class="h-1.5 w-full accent-bar"></div><header class="hdr-glass"><div class="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-4 flex flex-wrap items-center justify-between gap-4">
+          <div class="flex items-center gap-3.5 min-w-0">
+            ${(()=>{const lg=CLOUD.registry?.lobbyLogo||'';const inner=lg?`<img src="${lg}" class="w-full h-full object-cover"/>`:'🏰';return CLOUD.isAdmin?`<div class="relative shrink-0 flex items-center gap-1"><button type="button" data-action="pick-lobby-logo" data-tip="👑 Admin: Eigenes Lobby-Bild importieren/ändern (für alle sichtbar)" class="w-12 h-12 rounded-2xl overflow-hidden border-2 bdr-acc bg-acc-soft flex items-center justify-center text-2xl shadow-lg cursor-pointer hover:opacity-90 transition-opacity">${inner}</button>${lg?`<button type="button" data-action="rm-lobby-logo" data-tip="👑 Admin: Lobby-Bild entfernen" class="w-5 h-5 rounded-full bg-rose-600 text-white text-[10px] font-black flex items-center justify-center shadow">✕</button>`:''}</div>`:`<div class="w-12 h-12 rounded-2xl overflow-hidden border-2 bdr-acc bg-acc-soft flex items-center justify-center text-2xl shadow-lg shrink-0">${inner}</div>`;})()}
+            <div class="min-w-0">
+              <h1 class="text-lg sm:text-xl font-black tracking-tight truncate">Scherbensturm – Gruppen-Lobby</h1>
+              <p class="text-xs t-mut font-semibold truncate">Kampagnenzentrale, Charakterauswahl &amp; Live-Würfelkanal</p>
+            </div>
+          </div>
+          <div class="flex flex-wrap items-center gap-2">
+            ${CLOUD.currentUser?`<span class="pill cursor-default border-emerald-500/50 bg-emerald-500/15 text-emerald-300">👤 ${esc(CLOUD.currentUser)}</span>`:`<span class="pill cursor-default opacity-75">🔒 Gast (Nicht angemeldet)</span>`}
+            ${CLOUD.isAdmin?`<span class="pill cursor-default border-amber-400/60 bg-amber-500/20 text-amber-300">👑 Admin aktiv</span>`:''}
+            ${UI.sheetLoaded?`<button type="button" data-action="return-to-sheet" class="btn btn-ok text-xs font-extrabold px-3.5 py-2">📄 Zurück zu „${esc(S.profile.name||'Charakter')}“</button><button type="button" data-action="close-active-sheet" data-tip="Charakterbogen im Hintergrund vollständig schließen" class="btn btn-err text-xs font-bold px-2.5 py-2">✕ Bogen schließen</button>`:`<button type="button" data-action="open-local-sheet" data-tip="Öffnet den lokal gespeicherten Charakterbogen (oder einen Test-Bogen) direkt ohne Cloud-Zwang – ideal zum lokalen Testen vor dem GitHub-Upload" class="btn btn-ok text-xs font-extrabold px-3.5 py-2">🛠️ Lokalen Bogen öffnen / testen</button>`}
+            <button type="button" data-action="toggle-livedice" class="btn ${LD.open?'btn-pri':'bdr-acc bg-acc-soft'} text-xs font-extrabold px-3.5 py-2">📡 Live-Würfel <span class="px-1.5 rounded-full text-[10px] bg-black/25 tabular">${getCampaignFilteredDiceFeed().length}</span></button>
+            <button type="button" data-action="toggle-dice" class="btn ${D.open?'btn-pri':'bdr-acc bg-acc-soft'} text-xs font-extrabold px-3.5 py-2">🎲 Würfelassistent</button>
+            <button type="button" data-action="open-settings" class="btn py-2 px-3.5 text-xs font-extrabold bdr-acc bg-acc-soft">⚙️ Optionen</button>
+          </div>
+        </div></header>`;
+        return;
+      }
       const P=calcProg(), hasAv=Boolean(S.profile.avatar), pwTot=S.powers.length+S.augments.length;
       const viewBanner=CLOUD.viewingRemote?`<div class="bg-sky-500/20 border-b border-sky-400/50 px-4 py-2 text-xs"><div class="max-w-[1600px] mx-auto flex flex-wrap items-center justify-between gap-2"><div class="font-extrabold text-sky-300 flex items-center gap-2"><span>👁️ 👄 👁️ ANSICHTSMODUS:</span><span>Du betrachtest gerade <strong>„${esc(S.profile.name||'Unbenannt')}“</strong> (Stufe ${P.lvl}) aus der Gruppen-Lobby. Dein eigener Charakter ist im Hintergrund geschützt.</span></div><div class="flex flex-wrap items-center gap-1.5"><button type="button" data-action="cloud-reload-view" class="btn py-1 px-2.5 text-xs border-sky-400/50 text-sky-200">🔄 Aktualisieren</button><button type="button" data-action="cloud-adopt-copy" data-tip="Übernimmt diesen Charakter als neuen eigenen Bogen in deinen lokalen Speicher" class="btn btn-ok py-1 px-2.5 text-xs">📥 Als Kopie übernehmen</button><button type="button" data-action="cloud-exit-view" class="btn btn-pri py-1 px-3 text-xs">🔙 Zurück zu meinem Charakter</button></div></div></div>`:'';
       $('hdrMount').innerHTML=`<div class="h-1.5 w-full accent-bar"></div>${viewBanner}<header class="hdr-glass"><div class="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-3.5 space-y-3">
@@ -2577,7 +2764,8 @@
               <button type="button" data-action="toggle-dice" data-tip="W100-Würfelassistent öffnen/schließen" class="btn ${D.open?'btn-pri':'bdr-acc bg-acc-soft'} text-xs font-extrabold px-3.5 py-2">🎲 Würfelassistent</button>
               <button type="button" data-action="toggle-livedice" data-tip="Eigenständiges Live-Würfel-Fenster öffnen/schließen (kann direkt neben dem normalen Würfelassistenten aufgefaltet werden)" class="btn ${LD.open?'btn-pri':'bdr-acc bg-acc-soft'} text-xs font-extrabold px-3.5 py-2">📡 Live-Würfel <span class="px-1.5 rounded-full text-[10px] bg-black/25 tabular">${getCampaignFilteredDiceFeed().length}</span></button>
               <button type="button" data-action="toggle-cnotes" data-tip="Kampagnennotizen öffnen/schließen (frei andockbar wie der Würfelassistent)" class="btn ${CN.open?'btn-pri':'bdr-acc bg-acc-soft'} text-xs font-extrabold px-3.5 py-2">📝 Kampagnennotizen</button>
-              <button type="button" data-action="open-lobby" data-tip="Gruppen-Lobby: Charakterbögen der Runde live einsehen, teilen &amp; austauschen (Netlify Cloud)" class="btn py-2 px-3.5 text-xs font-extrabold ${CLOUD.viewingRemote?'!border-sky-400 !bg-sky-500/20 text-sky-300':S.cloudAutoSync?'!border-emerald-500/60 !bg-emerald-500/15 text-emerald-300':'bdr-acc bg-acc-soft'}">☁️ Gruppen-Lobby${CLOUD.syncing?' ⏳':S.cloudAutoSync?' ●':''}</button>
+              <button type="button" data-action="open-lobby" data-tip="Gruppen-Lobby: Charakterbögen der Runde live einsehen, teilen &amp; austauschen (Netlify Cloud)" class="btn py-2 px-3.5 text-xs font-extrabold ${CLOUD.viewingRemote?'!border-sky-400 !bg-sky-500/20 text-sky-300':S.cloudAutoSync?'!border-emerald-500/60 !bg-emerald-500/15 text-emerald-300':'bdr-acc bg-acc-soft'}">🏠 Gruppen-Lobby${CLOUD.syncing?' ⏳':S.cloudAutoSync?' ●':''}</button>
+              <button type="button" data-action="close-active-sheet" data-tip="Aktuellen Charakterbogen schließen und zur Lobby zurückkehren" class="btn btn-err py-2 px-2.5 text-xs font-bold">✕ Bogen schließen</button>
               <button type="button" data-action="open-settings" data-tip="Optionen &amp; Design (JSON Export/Import, Themen, Hintergrund)" class="btn py-2 px-3.5 text-xs font-extrabold bdr-acc bg-acc-soft">⚙️ Optionen</button>
               <button type="button" id="saveBadge" data-action="export-json" data-tip="WICHTIGER HINWEIS:\nAktuell nur lokal im Browser zwischengespeichert!\nDu musst den Charakter als .json exportieren (Klick hier oder über ⚙️ Optionen), um ihn dauerhaft gespeichert zu halten, da Browserdaten jederzeit verloren gehen können." class="px-2.5 py-1.5 rounded-lg text-[11px] font-extrabold text-emerald-400 bg-emerald-500/15 border border-emerald-500/30 hover:border-amber-400 transition-colors cursor-pointer text-left leading-tight ${UI.savedOnce?'inline-flex flex-col sm:flex-row sm:items-center gap-1':'opacity-0 pointer-events-none hidden'}"><span>✓ Gespeichert</span><span class="text-[10px] font-semibold text-amber-300/95">• Zum Behalten exportieren (.json), Browserdaten können verloren gehen!</span></button>
             </div>
@@ -3645,7 +3833,423 @@
         else ta.style.height=Math.max(58,ta.scrollHeight)+'px';
       });
     }
+    function tplLobbyScreen(){
+      const P=calcProg(), myId=CLOUD.viewingRemote?(JSON.parse(CLOUD.ownBackupJson||'{}').charId||''):S.charId;
+      const baseOrig=window.location.origin&&window.location.origin!=='null'?`${window.location.origin}${window.location.pathname}`:'';
+      const shareUrl=baseOrig?`${baseOrig}?char=${encodeURIComponent(S.charId||'')}`:'';
+      const lobbyUrl=baseOrig?`${baseOrig}?lobby=1`:'?lobby=1';
+      const regUsers=Object.keys(CLOUD.registry.users||{}).sort((a,b)=>a.localeCompare(b,'de'));
+      const allCampaigns=getCampaigns();
+      const knownUsers=sortAlpha([
+        ...regUsers,
+        ...Object.values(CLOUD.registry.claims||{}),
+        ...allCampaigns.flatMap(c=>c.allowedUsers||[]),
+        ...(CLOUD.currentUser?[CLOUD.currentUser]:[])
+      ]);
+      const visibleCampaigns=getAccessibleCampaigns(CLOUD.currentUser);
+      if(!visibleCampaigns.some(c=>c.id===CLOUD.activeCampaignId)&&visibleCampaigns.length){
+        setActiveCampaign(visibleCampaigns[0].id);
+      }
+      const activeCamp=visibleCampaigns.find(c=>c.id===CLOUD.activeCampaignId)||visibleCampaigns[0]||allCampaigns[0]||{id:'default',name:'Ohne Kampagne / Allgemein',allowedUsers:[]};
+      const activeCampId=activeCamp?activeCamp.id:'default';
+      const campAllowedUsers=Array.isArray(activeCamp?.allowedUsers)?activeCamp.allowedUsers:[];
+      const availCampUsers=knownUsers.filter(u=>!campAllowedUsers.some(au=>au.toLowerCase()===u.toLowerCase()));
+      const campGmUsers=Array.isArray(activeCamp?.gmUsers)?activeCamp.gmUsers:[];
+      const campCoGmUsers=Array.isArray(activeCamp?.coGmUsers)?activeCamp.coGmUsers:[];
+      const availCampGMs=knownUsers.filter(u=>!campGmUsers.some(g=>g.toLowerCase()===u.toLowerCase()));
+      const availCampCoGMs=sortAlpha(CLOUD.registry.gmUsers||[]).filter(u=>!campGmUsers.some(g=>g.toLowerCase()===u.toLowerCase())&&!campCoGmUsers.some(cg=>cg.toLowerCase()===u.toLowerCase()));
+      const campCharList=CLOUD.list.filter(ch=>getCharCampaignId(ch.id)===activeCampId);
+      const myTotalCnt=CLOUD.currentUser?CLOUD.list.filter(ch=>getCharOwner(ch.id).toLowerCase()===CLOUD.currentUser.toLowerCase()).length:0;
+      const myCampCnt=CLOUD.currentUser?campCharList.filter(ch=>getCharOwner(ch.id).toLowerCase()===CLOUD.currentUser.toLowerCase()).length:0;
+      const visibleList=CLOUD.filterMine&&CLOUD.currentUser?campCharList.filter(ch=>getCharOwner(ch.id).toLowerCase()===CLOUD.currentUser.toLowerCase()||(UI.sheetLoaded&&ch.id===myId)):campCharList;
+      const creatableCamps=getCreatableCampaigns(CLOUD.currentUser);
+      const hasSpecificCamp=creatableCamps.some(c=>c.id!=='default');
+      const selNewCampId=creatableCamps.some(c=>c.id===CLOUD.newCharCampId)?CLOUD.newCharCampId:(creatableCamps.some(c=>c.id===activeCampId)?activeCampId:'default');
+      const myCurOwner=getCharOwner(S.charId)||S.owner||'';
+      const myCurCampObj=allCampaigns.find(c=>c.id===getCharCampaignId(S.charId))||allCampaigns[0];
+
+      return `<div class="space-y-6">
+        <!-- Sektion 1: Account- & Willkommens-Zentrale -->
+        <section class="card p-5 sm:p-6 space-y-4">
+          ${!CLOUD.currentUser?`
+          <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
+            <div class="lg:col-span-5 space-y-2.5">
+              <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-acc-soft border bdr-acc text-acc text-xs font-extrabold">
+                <span>🔐</span><span>Spieler-Zugang &amp; Charakter-Claims</span>
+              </div>
+              <h2 class="text-lg sm:text-xl font-black leading-snug">Willkommen in der Scherbensturm-Lobby!</h2>
+              <p class="text-xs sm:text-sm t-mut leading-relaxed">Willkommen in der Scherbensturm-Lobby! Melde dich mit deinem Spieler-Account an oder registriere dich, um eigene Charakterbögen zu erstellen und deine freigeschalteten Kampagnen zu sehen.</p>
+              <div class="flex flex-wrap items-center gap-2 pt-1">
+                <button type="button" data-action="open-local-sheet" data-tip="Öffnet den lokal gespeicherten Charakterbogen (oder einen Test-Bogen) direkt ohne Cloud-Zwang – ideal zum lokalen Testen vor dem GitHub-Upload" class="btn btn-ok py-1.5 px-3 text-xs font-extrabold">🛠️ Lokalen Bogen öffnen / testen</button>
+                <button type="button" data-action="import-json" data-tip="Einen vorhandenen .json-Charakterbogen von deinem Gerät laden und direkt öffnen" class="btn bdr-acc bg-acc-soft text-acc py-1.5 px-3 text-xs font-extrabold">📥 JSON-Bogen laden</button>
+                <button type="button" data-action="copy-share-link" data-url="${esc(lobbyUrl)}" data-tip="Direktlink zur zentralen Gruppen-Lobby kopieren" class="btn bg-acc-soft bdr-acc text-acc py-1.5 px-3 text-xs">🔗 Lobby-Direktlink</button>
+                <button type="button" data-action="toggle-admin-bar" data-tip="Admin-Master-PIN &amp; Benutzerverwaltung öffnen" class="btn py-1.5 px-3 text-xs ${CLOUD.isAdmin?'!border-amber-400 !bg-amber-500/20 text-amber-300':'opacity-85'}">👑 ${CLOUD.isAdmin?'Admin aktiv':'Spielleiter / Admin'}</button>
+              </div>
+            </div>
+            <div class="lg:col-span-7 subcard p-4 sm:p-5 space-y-3 border-indigo-500/40 bg-indigo-500/10">
+              <div class="text-xs font-extrabold text-indigo-300 uppercase tracking-wider">🔑 Spieler-Login &amp; Neuregistrierung</div>
+              <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                <div>
+                  <label class="block text-[10px] font-bold t-mut mb-1">SPIELERNAME (ACCOUNT)</label>
+                  <input id="inpLobbyUser" type="text" placeholder="Dein Spielername..." class="inp w-full py-2 px-3 text-xs sm:text-sm font-bold"/>
+                </div>
+                <div>
+                  <label class="block text-[10px] font-bold t-mut mb-1">PASSWORT</label>
+                  <input id="inpLobbyPass" type="password" placeholder="Passwort..." class="inp w-full py-2 px-3 text-xs sm:text-sm font-bold"/>
+                </div>
+                <div>
+                  <label class="block text-[10px] font-bold t-mut mb-1">PASSWORT WIEDERHOLEN</label>
+                  <input id="inpLobbyPass2" type="password" placeholder="Nur bei Registrierung..." class="inp w-full py-2 px-3 text-xs sm:text-sm font-bold"/>
+                </div>
+              </div>
+              <div class="flex flex-wrap items-center justify-end gap-2 pt-1">
+                <button type="button" data-action="user-login" class="btn btn-pri py-2 px-4 text-xs sm:text-sm font-black">🔑 Anmelden</button>
+                <button type="button" data-action="user-register" data-tip="Neuen Spieler-Account (Name + Passwort) im Backend registrieren" class="btn btn-ok py-2 px-4 text-xs sm:text-sm font-black">✨ Neuen Account registrieren</button>
+              </div>
+            </div>
+          </div>
+          `:`
+          <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+            <div class="flex flex-wrap items-center gap-3">
+              <div class="w-12 h-12 rounded-2xl border-2 border-emerald-500/60 bg-emerald-500/15 text-emerald-300 flex items-center justify-center text-xl font-black shadow-md shrink-0">👤</div>
+              <div>
+                <div class="flex flex-wrap items-center gap-2">
+                  <span class="px-2.5 py-0.5 rounded-lg text-xs sm:text-sm font-black bg-emerald-500/20 text-emerald-300 border border-emerald-400/50">👤 ${esc(CLOUD.currentUser)}</span>
+                  ${isGlobalGM(CLOUD.currentUser)?`<span class="px-2 py-0.5 rounded text-[10px] font-black bg-purple-500/25 text-purple-300 border border-purple-400/50">🎲 SPIELLEITER</span>`:''}
+                  <span class="pill cursor-default text-xs py-0.5 px-2.5 tabular">${myTotalCnt} eigene ${myTotalCnt===1?'Charakter':'Charaktere'} gesamt</span>
+                  ${CLOUD.isAdmin?`<span class="px-2 py-0.5 rounded text-[10px] font-black bg-amber-500/25 text-amber-300 border border-amber-400/50">👑 ADMIN AKTIV</span>`:''}
+                </div>
+                <div class="flex flex-wrap items-center gap-1.5 mt-2">
+                  <button type="button" data-action="toggle-lobby-filter" class="btn py-1 px-2.5 text-xs ${CLOUD.filterMine?'btn-pri':''}">${CLOUD.filterMine?`Nur meine Charaktere (${myCampCnt})`:`Alle Charaktere (${campCharList.length})`}</button>
+                  <button type="button" data-action="toggle-user-pw-change" class="btn py-1 px-2.5 text-xs ${CLOUD.showPwChange?'btn-pri':''}">🔑 Passwort ändern</button>
+                  <button type="button" data-action="toggle-admin-bar" class="btn py-1 px-2.5 text-xs ${CLOUD.isAdmin?'!border-amber-400 !bg-amber-500/20 text-amber-300':'opacity-85'}">👑 Admin</button>
+                  <button type="button" data-action="copy-share-link" data-url="${esc(lobbyUrl)}" class="btn py-1 px-2.5 text-xs">🔗 Lobby-Link</button>
+                  <button type="button" data-action="user-logout" class="btn btn-err py-1 px-2.5 text-xs">Abmelden</button>
+                </div>
+              </div>
+            </div>
+            <div class="flex flex-wrap items-center gap-2.5 shrink-0">
+              <button type="button" data-action="lobby-new-sheet" class="btn btn-ok py-2.5 px-5 text-sm font-black shadow-lg">✨ + Neuen Charakterbogen erstellen</button>
+              <button type="button" data-action="open-local-sheet" data-tip="Öffnet den lokal gespeicherten Charakterbogen (oder einen Test-Bogen) direkt ohne Cloud-Zwang – ideal zum lokalen Testen vor dem GitHub-Upload" class="btn py-2.5 px-4 text-xs sm:text-sm font-extrabold border-emerald-500/60 bg-emerald-500/15 text-emerald-300">🛠️ Lokalen Bogen öffnen / testen</button>
+              <button type="button" data-action="import-json" data-tip="Einen vorhandenen .json-Charakterbogen von deinem Gerät laden" class="btn py-2.5 px-4 text-xs sm:text-sm font-extrabold bdr-acc bg-acc-soft text-acc">📥 JSON-Bogen laden</button>
+            </div>
+          </div>
+          ${CLOUD.showPwChange?`<div class="grid grid-cols-1 sm:grid-cols-12 gap-2 pt-3 border-t bdr-line items-center">
+            <div class="sm:col-span-5"><input id="inpUserNewPass" type="password" placeholder="Neues Passwort..." class="inp w-full text-xs font-bold"/></div>
+            <div class="sm:col-span-5"><input id="inpUserNewPass2" type="password" placeholder="Neues Passwort wiederholen..." class="inp w-full text-xs font-bold"/></div>
+            <div class="sm:col-span-2 flex gap-1.5"><button type="button" data-action="user-save-new-pw" class="btn btn-ok py-1.5 px-3 text-xs w-full">💾 Speichern</button></div>
+          </div>`:''}
+          `}
+
+          ${CLOUD.showAdminBar||CLOUD.isAdmin?`<div class="p-3.5 rounded-xl border border-amber-400/50 bg-amber-500/10 space-y-2.5 text-xs">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <div class="font-extrabold text-amber-300 flex items-center gap-1.5">
+                <span>👑 Admin-Master-Steuerung</span>
+                <span class="text-[11px] font-normal t-mut">${CLOUD.registry.adminHash?'(Master-PIN im Backend hinterlegt)':'(Noch keine Master-PIN gesetzt – jetzt festlegen)'}</span>
+              </div>
+              ${CLOUD.isAdmin?`<div class="flex flex-wrap items-center gap-1.5">
+                <button type="button" data-action="toggle-user-mgmt" class="btn py-0.5 px-2.5 text-[11px] border-amber-400/50 text-amber-200">👥 Accounts verwalten (${regUsers.length})</button>
+                <button type="button" data-action="admin-logout" class="btn btn-err py-0.5 px-2.5 text-[11px]">🔒 Admin sperren</button>
+              </div>`:''}
+            </div>
+            ${!CLOUD.isAdmin?`<div class="flex flex-wrap items-center gap-2">
+              <input id="inpAdminMasterPin" type="password" placeholder="${CLOUD.registry.adminHash?'Admin-Master-PIN eingeben...':'Neue Admin-Master-PIN festlegen...'}" class="inp flex-1 min-w-[180px] text-xs font-bold border-amber-400/50"/>
+              <button type="button" data-action="admin-unlock" class="btn bg-amber-500 text-slate-950 border-amber-400 font-black py-1.5 px-3.5 text-xs">${CLOUD.registry.adminHash?'🔓 Admin freischalten':'👑 Master-PIN speichern &amp; aktivieren'}</button>
+            </div>`:`<div class="flex flex-wrap items-center justify-between gap-2 pt-1.5 border-t border-amber-500/25">
+              <span class="text-[11px] text-amber-200">Du kannst alle Kampagnen verwalten, Spieler zuordnen sowie Charakter-Besitzer und Kampagnen-Zugehörigkeiten jederzeit ändern.</span>
+              <div class="flex items-center gap-1.5">
+                <input id="inpNewAdminPin" type="password" placeholder="Neue Master-PIN..." class="inp w-36 py-0.5 px-2 text-xs"/>
+                <button type="button" data-action="admin-change-pin" class="btn py-0.5 px-2.5 text-[11px] border-amber-400/50 text-amber-300">Master-PIN ändern</button>
+              </div>
+            </div>`}
+            ${CLOUD.isAdmin&&CLOUD.userMgmtOpen?`<div class="pt-2 border-t border-amber-500/25 space-y-1.5">
+              <div class="text-[11px] font-bold text-amber-300">Registrierte Spieler-Accounts (${regUsers.length}):</div>
+              ${regUsers.length?`<div class="flex flex-wrap gap-1.5">${regUsers.map(u=>`<span class="subcard py-1 px-2.5 inline-flex items-center gap-2 text-xs"><strong>👤 ${esc(u)}</strong><button type="button" data-action="admin-toggle-gm" data-user="${esc(u)}" data-tip="Spielleiter-Status für „${esc(u)}“ umschalten (nur durch Admin)" class="px-1.5 py-0.5 rounded text-[10px] font-black ${isGlobalGM(u)?'bg-purple-500/30 text-purple-200 border border-purple-400/60':'bg-black/30 t-mut hover:text-purple-300'}">${isGlobalGM(u)?'🎲 Spielleiter ✓':'+ Spielleiter'}</button><button type="button" data-action="admin-reset-user-pw" data-user="${esc(u)}" data-tip="Passwort für „${esc(u)}“ auf 1234 zurücksetzen" class="text-[10px] text-amber-300 hover:underline">PW→1234</button><button type="button" data-action="admin-del-user" data-user="${esc(u)}" data-tip="Account löschen" class="text-rose-400 font-black">✕</button></span>`).join('')}</div>`:`<div class="text-[11px] t-mut">Noch keine Spieler-Accounts registriert.</div>`}
+            </div>`:''}
+          </div>`:''}
+
+          ${UI.sheetLoaded?`<div class="subcard p-3.5 flex flex-wrap items-center justify-between gap-3 border bdr-acc bg-acc-soft/20">
+            <div class="flex flex-wrap items-center gap-2 text-xs">
+              <span class="px-2 py-0.5 rounded font-black ${CLOUD.viewingRemote?'bg-sky-500/20 text-sky-300 border border-sky-400/40':'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'}">${CLOUD.viewingRemote?'👁️ Ansichtsmodus aktiv':'🟢 Aktuell im Hintergrund geöffnet'}</span>
+              <strong class="text-sm font-black">${esc(S.profile.name||'Unbenannter Charakter')}</strong>
+              <span class="t-mut">(${esc(S.profile.ancestry||'Volk')} • ${esc(S.profile.concept||'Konzept')} • Stufe ${P.lvl})</span>
+              ${myCurOwner?`<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-400/40">👤 ${esc(myCurOwner)}</span>`:''}
+              ${myCurCampObj?`<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-acc-soft text-acc border bdr-acc">${myCurCampObj.id==='default'?'🌐':'📁'} ${esc(myCurCampObj.name||'Ohne Kampagne / Allgemein')}</span>`:''}
+            </div>
+            <div class="flex flex-wrap items-center gap-1.5">
+              ${!CLOUD.viewingRemote?`<button type="button" data-action="cloud-push-now" ${CLOUD.syncing?'disabled':''} class="btn btn-ok py-1 px-2.5 text-xs">${CLOUD.syncing?'⏳ Sync...':'☁️ Jetzt synchronisieren'}</button>
+              <button type="button" data-action="toggle-cloud-autosync" class="btn py-1 px-2.5 text-xs ${S.cloudAutoSync?'btn-ok':'opacity-80'}">${S.cloudAutoSync?'✓ Auto-Sync An':'○ Auto-Sync'}</button>`:''}
+              ${shareUrl?`<button type="button" data-action="copy-share-link" data-url="${esc(shareUrl)}" class="btn py-1 px-2.5 text-xs">🔗 Charakter-Link</button>`:''}
+              <button type="button" data-action="return-to-sheet" class="btn btn-pri py-1 px-3 text-xs font-black">📄 Zum Bogen wechseln</button>
+            </div>
+          </div>`:''}
+        </section>
+
+        <!-- Aufklappbarer Charakter-Erstellungs-Assistent -->
+        ${CLOUD.currentUser&&CLOUD.newCharOpen?`
+        <section class="card border-2 border-emerald-500/60 bg-emerald-500/10 p-5 sm:p-6 space-y-4">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <h3 class="text-base sm:text-lg font-black text-emerald-300">✨ Neuen Charakterbogen für „${esc(CLOUD.currentUser)}“ anlegen</h3>
+            <button type="button" data-action="create-user-char-cancel" class="btn py-1 px-2.5 text-xs">✕</button>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
+            <div class="md:col-span-4">
+              <label class="block text-xs font-extrabold text-emerald-300 mb-1">Charakter-Name</label>
+              <input id="inpNewCharName" type="text" value="${esc(CLOUD.newCharName||'')}" placeholder="z.B. Kaelen Sturmwind" class="inp w-full py-2 px-3 text-sm font-bold"/>
+            </div>
+            <div class="md:col-span-2">
+              <label class="block text-xs font-bold t-mut mb-1">Volk / Abstammung <span class="opacity-65">(opt.)</span></label>
+              <input id="inpNewCharAncestry" type="text" value="${esc(CLOUD.newCharAncestry||'')}" placeholder="z.B. Mensch" class="inp w-full py-2 px-3 text-sm font-semibold"/>
+            </div>
+            <div class="md:col-span-2">
+              <label class="block text-xs font-bold t-mut mb-1">Konzept / Rolle <span class="opacity-65">(opt.)</span></label>
+              <input id="inpNewCharConcept" type="text" value="${esc(CLOUD.newCharConcept||'')}" placeholder="z.B. Schwertmagier" class="inp w-full py-2 px-3 text-sm font-semibold"/>
+            </div>
+            <div class="md:col-span-4">
+              <label class="block text-xs font-extrabold text-emerald-300 mb-1">Kampagnen-Zuordnung</label>
+              <select id="selNewCharCamp" class="inp w-full py-2 px-3 text-sm font-bold">
+                ${creatableCamps.map(c=>`<option value="${esc(c.id)}" ${selNewCampId===c.id?'selected':''}>${c.id==='default'?'🌐 Ohne Kampagne / Allgemein (Für alle einsehbar)':`📁 Kampagne: ${esc(c.name)}`}</option>`).join('')}
+              </select>
+            </div>
+          </div>
+          <div class="p-3 rounded-xl bg-black/25 border border-emerald-500/30 text-xs text-emerald-200/95">
+            ${hasSpecificCamp
+              ?`💡 Du kannst frei wählen, ob dein Charakter direkt in einer deiner Kampagnen oder im allgemeinen Bereich (ohne Kampagne, für alle einsehbar) landet.`
+              :`ℹ️ Du bist aktuell noch keiner spezifischen Kampagne zugeordnet – dein Charakter wird im allgemeinen Bereich („Ohne Kampagne“, für alle einsehbar) erstellt und fest deinem Account „${esc(CLOUD.currentUser)}“ zugeordnet.`}
+          </div>
+          <div class="flex flex-wrap items-center justify-end gap-2.5 pt-1">
+            <button type="button" data-action="create-user-char-cancel" class="btn py-2 px-4 text-xs">Abbrechen</button>
+            <button type="button" data-action="create-user-char-confirm" class="btn btn-ok py-2 px-5 text-sm font-black">🚀 Charakter erstellen &amp; Bogen öffnen</button>
+          </div>
+        </section>
+        `:''}
+
+        <!-- Sektion 2: Großzügige Kampagnen-Reiter & Charakter-Galerie -->
+        <section class="card p-5 sm:p-6 space-y-5">
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <div class="flex items-center gap-3 min-w-0">
+              ${activeCamp?.img?`<div class="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl overflow-hidden border-2 bdr-acc shadow-lg shrink-0"><img src="${activeCamp.img}" class="w-full h-full object-cover"/></div>`:''}
+              <div>
+                <h2 class="text-base sm:text-lg font-black">🗺️ Kampagnen &amp; Charakter-Galerie</h2>
+                <p class="text-xs t-mut">Wähle oben eine Kampagne oder den öffentlichen Bereich („Ohne Kampagne / Allgemein“), um die zugehörigen Helden zu sehen.</p>
+              </div>
+            </div>
+            <div class="flex flex-wrap items-center gap-2">
+              ${CLOUD.isAdmin?`
+                <button type="button" data-action="camp-new-open" class="btn btn-ok py-1.5 px-3 text-xs font-extrabold">+ Neue Kampagne</button>
+                ${activeCamp?`<button type="button" data-action="camp-rename-open" class="btn py-1.5 px-3 text-xs border-amber-400/50 text-amber-300">✏️ Umbenennen</button><button type="button" data-action="pick-camp-img" class="btn py-1.5 px-3 text-xs bdr-acc bg-acc-soft text-acc">🖼️ Kampagnenbild</button>${activeCamp?.img?`<button type="button" data-action="rm-camp-img" class="btn btn-err py-1.5 px-2.5 text-xs">🗑️ Bild✕</button>`:''}`:''}
+                ${activeCamp&&activeCamp.id!=='default'?(CLOUD.campAction==='delete'?`<span class="inline-flex items-center gap-1"><button type="button" data-action="camp-delete-confirm" class="btn bg-rose-600 text-white border-rose-600 py-1 px-2.5 text-[11px] font-black">Wirklich löschen? (Verschiebt ${campCharList.length} in Allgemein)</button><button type="button" data-action="camp-action-cancel" class="btn py-1 px-2 text-[11px]">✕</button></span>`:`<button type="button" data-action="camp-delete-ask" data-tip="Kampagne löschen (enthaltene Charaktere werden automatisch in den allgemeinen Bereich verschoben)" class="btn btn-err py-1.5 px-3 text-xs">🗑️ Kampagne löschen</button>`):''}
+              `:''}
+              <button type="button" data-action="cloud-refresh-list" ${CLOUD.loading?'disabled':''} class="btn py-1.5 px-3 text-xs">${CLOUD.loading?'⏳ Lade...':'🔄 Aktualisieren'}</button>
+            </div>
+          </div>
+
+          ${CLOUD.isAdmin&&(CLOUD.campAction==='new'||CLOUD.campAction==='rename')?`<div class="subcard p-3.5 flex flex-wrap items-center gap-2 border-amber-400/50 bg-amber-500/10">
+            <span class="text-xs font-extrabold text-amber-300">${CLOUD.campAction==='new'?'➕ Neue Kampagne erstellen:':`✏️ „${esc(activeCamp?.name||'')}“ umbenennen:`}</span>
+            <input id="inpCampaignName" type="text" value="${CLOUD.campAction==='rename'?esc(activeCamp?.name||''):''}" placeholder="Kampagnenname eingeben..." class="inp flex-1 min-w-[200px] text-xs sm:text-sm font-bold"/>
+            <button type="button" data-action="${CLOUD.campAction==='new'?'camp-new-save':'camp-rename-save'}" class="btn btn-ok py-1.5 px-3.5 text-xs font-black">💾 Speichern</button>
+            <button type="button" data-action="camp-action-cancel" class="btn py-1.5 px-3 text-xs">Abbrechen</button>
+          </div>`:''}
+
+          <!-- Große Kampagnen-Tabs -->
+          <div data-lobby-camp-tabs="1" class="flex items-center gap-2.5 overflow-x-auto pb-1">
+            ${visibleCampaigns.map(c=>{
+              const isAct=c.id===activeCampId;
+              const cCnt=CLOUD.list.filter(ch=>getCharCampaignId(ch.id)===c.id).length;
+              const icon=c.id==='default'?'🌐':'📁';
+              const label=c.id==='default'?esc(c.name||'Ohne Kampagne / Allgemein'):esc(c.name||'Kampagne');
+              return `<button type="button" data-action="select-campaign-tab" data-id="${esc(c.id)}" class="btn shrink-0 py-2.5 px-4 text-xs sm:text-sm font-black rounded-xl transition-all ${isAct?'btn-pri shadow-lg scale-[1.01]':'opacity-85 hover:opacity-100'}">
+                ${c.img?`<img src="${c.img}" class="w-6 h-6 rounded-md object-cover border bdr-acc shrink-0"/>`:''}
+                <span>${icon} ${label}</span>
+                <span class="px-2 py-0.5 rounded-full text-[11px] bg-black/30 tabular font-extrabold">${cCnt}</span>
+              </button>`;
+            }).join('')}
+          </div>
+
+          <!-- Admin-Hinweis bzw. Spieler-Freischaltung der aktiven Kampagne -->
+          ${(CLOUD.isAdmin||canManageCampaign(activeCamp)||activeCamp.id!=='default')&&activeCamp?(activeCamp.id==='default'?`
+            <div class="subcard py-2.5 px-3.5 text-xs text-sky-200 border-sky-400/40 bg-sky-500/10 flex items-center justify-between gap-2">
+              <span>🌐 Öffentlicher Standardbereich: Für alle Spieler einsehbar.</span>
+              <span class="text-[11px] t-mut tabular">${campCharList.length} ${campCharList.length===1?'Charakter':'Charaktere'}</span>
+            </div>
+          `:`
+            <div class="subcard p-3.5 space-y-3 text-xs border-amber-400/40 bg-amber-500/10">
+              <div class="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-white/10">
+                <div class="flex flex-wrap items-center gap-2">
+                  <span class="font-extrabold text-purple-300">🎲 Spielleitung:</span>
+                  ${campGmUsers.length?campGmUsers.map(u=>`<span class="px-2 py-0.5 rounded-lg inline-flex items-center gap-1 text-xs font-bold bg-purple-500/25 text-purple-200 border border-purple-400/50">🎲 ${esc(u)}${CLOUD.isAdmin?`<button type="button" data-action="camp-rm-gm" data-user="${esc(u)}" class="text-rose-400 font-black ml-1">✕</button>`:''}</span>`).join(''):`<span class="text-[11px] t-mut italic">Kein Haupt-Spielleiter</span>`}
+                  ${CLOUD.isAdmin?`<div class="inline-flex items-center gap-1">
+                    <select id="selCampAddGM" class="inp !py-1 !px-2 text-xs font-bold">
+                      <option value="">+ Spielleiter wählen...</option>
+                      ${availCampGMs.map(u=>`<option value="${esc(u)}">🎲 ${esc(u)}</option>`).join('')}
+                    </select>
+                    <button type="button" data-action="camp-add-gm-btn" class="btn py-1 px-2.5 text-xs border-purple-400/50 text-purple-300">+ Spielleiter zuweisen</button>
+                  </div>`:''}
+                </div>
+                <div class="flex flex-wrap items-center gap-2">
+                  <span class="font-extrabold text-cyan-300">🤝 Co-Spielleiter:</span>
+                  ${campCoGmUsers.length?campCoGmUsers.map(u=>`<span class="px-2 py-0.5 rounded-lg inline-flex items-center gap-1 text-xs font-bold bg-cyan-500/20 text-cyan-200 border border-cyan-400/50">🤝 ${esc(u)}${canManageCampaignCoGMs(activeCamp)?`<button type="button" data-action="camp-rm-cogm" data-user="${esc(u)}" class="text-rose-400 font-black ml-1">✕</button>`:''}</span>`).join(''):`<span class="text-[11px] t-mut italic">Keine</span>`}
+                  ${canManageCampaignCoGMs(activeCamp)?`<div class="inline-flex items-center gap-1">
+                    <select id="selCampAddCoGM" class="inp !py-1 !px-2 text-xs font-bold">
+                      <option value="">+ Ernannter SL...</option>
+                      ${availCampCoGMs.map(u=>`<option value="${esc(u)}">🤝 ${esc(u)}</option>`).join('')}
+                    </select>
+                    <button type="button" data-action="camp-add-cogm-btn" class="btn py-1 px-2.5 text-xs border-cyan-400/50 text-cyan-300">+ Co-Spielleiter</button>
+                  </div>`:''}
+                </div>
+              </div>
+              ${canManageCampaign(activeCamp)?`
+              <div class="flex flex-wrap items-center justify-between gap-2">
+                <div class="flex flex-wrap items-center gap-1.5">
+                  <span class="font-extrabold text-amber-300">👑 Freigeschaltete Spieler für „${esc(activeCamp.name)}“:</span>
+                  <span class="pill cursor-default text-[10px] py-0.5 px-2 tabular">${campAllowedUsers.length} Spieler</span>
+                </div>
+                <div class="flex flex-wrap items-center gap-1.5">
+                  ${availCampUsers.length?`<select data-camp-add-user-sel="${esc(activeCamp.id)}" class="inp !py-1 !px-2 text-xs font-bold">
+                    <option value="">+ Bekannten Spieler wählen...</option>
+                    ${availCampUsers.map(u=>`<option value="${esc(u)}">👤 ${esc(u)}</option>`).join('')}
+                  </select>`:''}
+                  <div class="inline-flex items-center gap-1">
+                    <input id="inpCampAddUser" type="text" placeholder="Spielername..." class="inp !py-1 !px-2 text-xs font-bold w-36 sm:w-44"/>
+                    <button type="button" data-action="camp-add-user-btn" class="btn btn-ok py-1 px-2.5 text-xs shrink-0">+ Zuordnen</button>
+                  </div>
+                </div>
+              </div>
+              <div class="flex flex-wrap items-center gap-1.5">
+                ${campAllowedUsers.length?campAllowedUsers.map(u=>`<span class="subcard py-0.5 px-2.5 inline-flex items-center gap-1.5 text-xs border-amber-400/40 bg-black/25"><span class="font-bold text-amber-200">👤 ${esc(u)}</span><button type="button" data-action="camp-rm-user" data-user="${esc(u)}" data-tip="Spieler „${esc(u)}“ aus „${esc(activeCamp.name)}“ entfernen" class="text-rose-400 hover:text-rose-300 font-black ml-0.5">✕</button></span>`).join(''):`<span class="text-[11px] t-mut italic">Noch keine Spieler zugeordnet – aktuell nur für Spielleitung &amp; Admin sichtbar.</span>`}
+              </div>
+              `:''}
+            </div>
+          `):''}
+
+          ${CLOUD.error?`<div class="subcard border-amber-500/45 bg-amber-500/10 space-y-2 text-xs">
+            <div class="font-extrabold text-amber-400">ℹ️ Hinweis zur Server-Verbindung</div>
+            <p class="t-mut">${esc(CLOUD.error)}</p>
+            <div class="pt-1 flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+              <span class="text-[11px] font-bold t-mut shrink-0">Netlify-URL (falls lokal geöffnet):</span>
+              <input id="inpCloudServerUrl" type="text" value="${esc(CLOUD.serverUrl)}" placeholder="https://dein-projektname.netlify.app (leer lassen, wenn direkt auf Netlify geöffnet)" class="inp flex-1 text-xs"/>
+              <button type="button" data-action="save-cloud-url" class="btn btn-pri py-1 px-3 text-xs shrink-0">Verbinden</button>
+            </div>
+          </div>`:''}
+
+          <!-- 3-Spalten-Charakter-Galerie ohne Höhenbegrenzung -->
+          ${CLOUD.loading?`<div class="subcard py-12 text-center text-sm t-mut">⏳ Lade Charakterbögen aus der Gruppen-Lobby...</div>`
+          :visibleList.length?`<div data-lobby-char-grid="1" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+            ${visibleList.map(ch=>{
+              const isOpenSheet=Boolean(UI.sheetLoaded&&ch.id===myId);
+              const isViewing=Boolean(CLOUD.viewingRemote&&CLOUD.remoteCharId===ch.id);
+              const isDelAsk=CLOUD.confirmDelCloudId===ch.id;
+              const owner=getCharOwner(ch.id);
+              const isMyClaim=Boolean(owner&&CLOUD.currentUser&&owner.toLowerCase()===CLOUD.currentUser.toLowerCase());
+              const charCampId=getCharCampaignId(ch.id);
+              const isCampGM = charCampId !== 'default' && canManageCampaign(charCampId);
+              const canManageThisChar = canManageThisChar || isCampGM;
+              const hasPin=Boolean(ch.hasPin||CLOUD.registry.pins?.[ch.id]);
+              const campOptsList=CLOUD.isAdmin?allCampaigns:creatableCamps;
+              return `<div class="card p-4 sm:p-5 flex flex-col justify-between gap-4 hover:border-sky-400/60 transition-all ${isViewing?'border-sky-400 bg-sky-500/10':isMyClaim||isOpenSheet?'bdr-acc bg-acc-soft/30':''}">
+                <!-- Oben: Portrait, Name, Volk & Konzept, Badges -->
+                <div class="flex items-start gap-3.5">
+                  <div class="w-16 h-16 rounded-2xl overflow-hidden border-2 bdr-acc bg-black/30 shrink-0 flex items-center justify-center shadow-md">
+                    ${ch.avatar?`<img src="${ch.avatar}" class="w-full h-full object-cover"/>`:`<span class="text-xs font-black text-acc text-center leading-tight">HELD</span>`}
+                  </div>
+                  <div class="min-w-0 flex-1 space-y-1">
+                    <div class="flex flex-wrap items-center gap-1.5">
+                      <span class="text-base sm:text-lg font-black truncate">${esc(ch.name||'Unbenannt')}</span>
+                      ${hasPin?`<span data-tip="${CLOUD.isAdmin&&CLOUD.registry.pins?.[ch.id]?`Schutz-PIN: ${CLOUD.registry.pins[ch.id]} (Als Admin sichtbar)`:'Mit Schutz-PIN gesichert'}" class="text-amber-400 text-xs">🔒</span>`:''}
+                    </div>
+                    <div class="text-xs t-mut truncate">${esc(ch.ancestry||'Volk')} • ${esc(ch.concept||'Konzept')}</div>
+                    <div class="flex flex-wrap items-center gap-1.5 pt-0.5">
+                      <span class="px-2 py-0.5 rounded-md text-[11px] font-black bg-acc-soft text-acc border bdr-acc tabular">Stufe ${ch.level||1}</span>
+                      ${owner?`<span class="px-2 py-0.5 rounded-md text-[11px] font-black ${isMyClaim?'bg-emerald-500/25 text-emerald-300 border border-emerald-400/50':'bg-indigo-500/20 text-indigo-300 border border-indigo-400/40'}">👤 ${esc(owner)}</span>`:`<span class="px-2 py-0.5 rounded-md text-[11px] font-semibold bg-black/25 t-mut">⚪ Frei</span>`}
+                      ${isOpenSheet?`<span class="px-2 py-0.5 rounded-md text-[11px] font-black bg-emerald-500/25 text-emerald-300 border border-emerald-400/60">Geöffnet</span>`:''}
+                      ${isViewing&&!isOpenSheet?`<span class="px-2 py-0.5 rounded-md text-[11px] font-black bg-sky-500/25 text-sky-300 border border-sky-400/60">👁️ Offen</span>`:''}
+                    </div>
+                    ${ch.updatedAt?`<div class="text-[10px] t-mut opacity-75 tabular">Stand: ${esc(ch.updatedAt)}</div>`:''}
+                  </div>
+                </div>
+
+                <!-- Mitte: 5 übersichtliche Stat-Boxen -->
+                <div class="grid grid-cols-5 gap-2 text-center text-xs tabular">
+                  <div class="subcard p-2 border bdr-line bg-black/25">
+                    <span class="block text-[10px] font-extrabold text-rose-400">LP</span>
+                    <strong class="text-xs sm:text-sm font-black">${ch.lpCurrent??8}/${ch.lpMax??8}</strong>
+                  </div>
+                  <div class="subcard p-2 border bdr-line bg-black/25">
+                    <span class="block text-[10px] font-extrabold text-indigo-400">mLP</span>
+                    <strong class="text-xs sm:text-sm font-black">${ch.mlpCurrent??8}/${ch.mlpMax??8}</strong>
+                  </div>
+                  <div class="subcard p-2 border bdr-line bg-black/25">
+                    <span class="block text-[10px] font-extrabold text-yellow-300">AP</span>
+                    <strong class="text-xs sm:text-sm font-black">${ch.apCurrent??3}/${ch.apMax??3}</strong>
+                  </div>
+                  <div class="subcard p-2 border bdr-line bg-black/25">
+                    <span class="block text-[10px] font-extrabold text-sky-400">mAP</span>
+                    <strong class="text-xs sm:text-sm font-black">${ch.mapCurrent??3}/${ch.mapMax??3}</strong>
+                  </div>
+                  <div class="subcard p-2 border bdr-line bg-black/25">
+                    <span class="block text-[10px] font-extrabold text-amber-400">Ini</span>
+                    <strong class="text-xs sm:text-sm font-black">${(ch.ini??0)>=0?'+'+(ch.ini??0):(ch.ini??0)}</strong>
+                  </div>
+                </div>
+
+                <!-- Kampagnen-Zuordnungs-Zeile (für Admin oder Besitzer isMyClaim) -->
+                ${(canManageThisChar)?`<div class="space-y-1.5 p-2.5 rounded-xl bg-black/25 border bdr-line text-xs">
+                  <div class="flex items-center justify-between gap-2">
+                    <span class="font-extrabold t-mut shrink-0">🗺️ Kampagne:</span>
+                    <select data-admin-camp-char="${esc(ch.id)}" class="inp !py-1 !px-2 text-xs font-bold flex-1 min-w-0">
+                      ${campOptsList.map(c=>`<option value="${esc(c.id)}" ${charCampId===c.id?'selected':''}>${c.id==='default'?'🌐 Ohne Kampagne / Allgemein':`📁 ${esc(c.name||'Kampagne')}`}</option>`).join('')}
+                    </select>
+                  </div>
+                  ${CLOUD.isAdmin?`<div class="flex items-center justify-between gap-2 pt-1.5 border-t border-white/10">
+                    <span class="font-extrabold text-amber-300 shrink-0">👑 Besitzer:</span>
+                    <select data-admin-assign="${esc(ch.id)}" class="inp !py-1 !px-2 text-xs font-bold flex-1 min-w-0">
+                      <option value="" ${!owner?'selected':''}>— Frei (Unbeansprucht) —</option>
+                      ${[...new Set([...knownUsers,...(owner?[owner]:[])])].map(u=>`<option value="${esc(u)}" ${owner===u?'selected':''}>👤 ${esc(u)}</option>`).join('')}
+                    </select>
+                  </div>`:''}
+                </div>`:''}
+
+                <!-- Unten: Große, klar getrennte Aktionsbuttons -->
+                <div class="space-y-2 pt-1 border-t bdr-line">
+                  <div class="flex items-center gap-2">
+                    <button type="button" data-action="cloud-view-char" data-id="${esc(ch.id)}" class="btn py-2 px-3 text-xs font-extrabold flex-1">👁️ Ansehen</button>
+                    <button type="button" data-action="cloud-edit-char" data-id="${esc(ch.id)}" class="btn btn-pri py-2 px-3 text-xs font-black flex-1">✏️ Bogen öffnen</button>
+                    <button type="button" data-action="copy-char-link" data-id="${esc(ch.id)}" data-tip="Direktlink zu diesem Charakterbogen kopieren (?char=${esc(ch.id)})" class="btn py-2 px-2.5 text-xs">🔗</button>
+                  </div>
+                  <div class="flex flex-wrap items-center justify-between gap-1.5">
+                    <div class="flex flex-wrap items-center gap-1.5">
+                      ${CLOUD.currentUser&&!owner?`<button type="button" data-action="claim-char" data-id="${esc(ch.id)}" data-tip="Diesen Charakter deinem Account (${esc(CLOUD.currentUser)}) zuordnen" class="btn py-1 px-2.5 text-[11px] border-indigo-400/50 text-indigo-300">🙋‍♂️ Beanspruchen</button>`:''}
+                      ${isMyClaim&&!CLOUD.isAdmin?`<button type="button" data-action="unclaim-char" data-id="${esc(ch.id)}" data-tip="Zuordnung zu deinem Account aufheben" class="btn py-1 px-2.5 text-[11px] opacity-80">🔓 Freigeben</button>`:''}
+                    </div>
+                    ${isCampGM || (CLOUD.isAdmin && charCampId !== 'default') ? `<button type="button" data-action="kick-char-camp" data-id="${esc(ch.id)}" data-tip="Wirft diesen Charakter aus der Kampagne zurück in „Ohne Kampagne / Allgemein“" class="btn btn-err py-1 px-2 text-[11px] font-bold">🚪 Aus Kampagne werfen</button>` : ''}${canManageThisChar ? `<button type="button" data-action="dup-char-sheet" data-id="${esc(ch.id)}" data-tip="Erstellt eine eigenständige Kopie dieses Charakterbogens (ein Bogen kann immer nur in einer Kampagne gleichzeitig sein)" class="btn py-1 px-2 text-[11px]">📋 Kopie</button>` : ''}${(canManageThisChar)?(isDelAsk?`<div class="inline-flex items-center gap-1"><button type="button" data-action="cloud-del-yes" data-id="${esc(ch.id)}" class="btn bg-rose-600 text-white border-rose-600 py-1 px-2.5 text-[11px] font-black">Löschen? (2/2)</button><button type="button" data-action="cloud-del-no" class="btn py-1 px-2 text-[11px]">✕</button></div>`:`<button type="button" data-action="cloud-del-ask" data-id="${esc(ch.id)}" data-tip="Charakter aus der Gruppen-Lobby löschen" class="btn btn-err py-1 px-2.5 text-xs">🗑️</button>`):''}
+                  </div>
+                </div>
+              </div>`;
+            }).join('')}
+          </div>`
+          :`<div class="subcard border-dashed py-12 px-4 text-center space-y-3">
+            <div class="text-sm sm:text-base font-extrabold t-mut">${CLOUD.filterMine?'Du hast in dieser Kampagne noch keinen eigenen Charakterbogen.':'In dieser Kampagne liegen aktuell noch keine Charakterbögen.'}</div>
+            ${CLOUD.currentUser
+              ?`<div><button type="button" data-action="lobby-new-sheet" class="btn btn-ok py-2.5 px-5 text-xs sm:text-sm font-black shadow-lg">✨ + Charakter in dieser Kampagne erstellen</button></div>`
+              :`<div class="text-xs t-mut">Melde dich oben in der Willkommens-Zentrale an, um einen neuen Charakterbogen zu erstellen.</div>`}
+          </div>`}
+        </section>
+
+        <!-- Sektion 3: Live-Würfel-Bereich am Ende der Lobby -->
+        <div id="lobbyLiveDiceMount">${renderLobbyLiveDiceHtml()}</div>
+      </div>`;
+    }
     function renderMain(){
+      if(UI.inLobby){
+        const prevCampTabsEl=$('mainMount')?.querySelector('[data-lobby-camp-tabs]');
+        const prevCampLeft=prevCampTabsEl?prevCampTabsEl.scrollLeft:null;
+        $('mainMount').innerHTML=tplLobbyScreen();
+        if(prevCampLeft!==null){
+          const newCampTabsEl=$('mainMount')?.querySelector('[data-lobby-camp-tabs]');
+          if(newCampTabsEl) newCampTabsEl.scrollLeft=prevCampLeft;
+        }
+        return;
+      }
       $('mainMount').innerHTML=S.activeTab==='attributes'?tplAttributes():S.activeTab==='skills'?tplSkills():S.activeTab==='powers'?tplPowers():S.activeTab==='chronicle'?tplChronicle():tplEquipment();
       if(S.activeTab==='powers'||S.activeTab==='equipment') autoSizeAllTextareas();
     }
@@ -3667,11 +4271,11 @@
         <div class="col-span-1 flex justify-center"><button type="button" data-action="adv-reset" data-tip="Auf automatisch berechnete Vor-/Nachteile zurücksetzen" class="btn px-1.5 py-2 text-xs font-black text-amber-500">↺</button></div>
         <div ${dTip} class="col-span-5 flex items-center justify-between p-2 rounded-lg bg-rose-500/10 border border-rose-500/25 ${dTip?'cursor-help':''}"><div><div class="text-[10px] font-bold text-rose-500">NACHTEILE</div><div class="font-black text-sm tabular flex items-baseline gap-1"><span>${D.dis}</span>${(T.autoDis||T.disAdj)?`<span class="text-[10px] font-bold text-rose-400">(${T.autoDis} Auto${T.disAdj?fmtSign(T.disAdj):''})</span>`:''}</div></div><div class="flex gap-1"><button type="button" data-action="dis-step" data-d="-1" ${D.dis<=0?'disabled':''} class="btn w-7 h-7 p-0">−</button><button type="button" data-action="dis-step" data-d="1" class="btn bg-rose-600 text-white border-rose-600 w-7 h-7 p-0">+</button></div></div>
       </div>
-      ${((T.advSrc&&T.advSrc.length)||(T.critSrc&&T.critSrc.length))?`<div class="p-2 rounded-lg bg-black/25 border bdr-line space-y-1"><div class="text-[10px] font-extrabold text-acc leading-tight">Automatisch aktiv (${esc(D.wRollCat||'Normaler Test')}):</div><div class="flex flex-wrap items-center gap-1">${(T.advSrc||[]).map(fmtSrcChip).join('')}${(T.critSrc||[]).map(c=>`<span data-tip="${esc(`${c.srcName} (${c.srcKind}): Kritische Ziffer ${fmtSign(c.val)}`)}" class="px-1.5 py-0.5 rounded border text-[10px] font-bold tabular cursor-help bg-amber-500/15 text-amber-300 border-amber-400/45">${fmtSign(c.val)} Krit. Ziffer (${esc(c.tagLbl||c.srcName)})</span>`).join('')}</div></div>`:''}
+      ${((T.advSrc&&T.advSrc.length)||(T.critSrc&&T.critSrc.length)||(T.rollModSrc&&T.rollModSrc.length))?`<div class="p-2 rounded-lg bg-black/25 border bdr-line space-y-1"><div class="text-[10px] font-extrabold text-acc leading-tight">Automatisch aktiv (${esc(D.wRollCat||'Normaler Test')}):</div><div class="flex flex-wrap items-center gap-1">${(T.advSrc||[]).map(fmtSrcChip).join('')}${(T.critSrc||[]).map(c=>`<span data-tip="${esc(`${c.srcName} (${c.srcKind}): Kritische Ziffer ${fmtSign(c.val)}`)}" class="px-1.5 py-0.5 rounded border text-[10px] font-bold tabular cursor-help bg-amber-500/15 text-amber-300 border-amber-400/45">${fmtSign(c.val)} Krit. Ziffer (${esc(c.tagLbl||c.srcName)})</span>`).join('')}${(T.rollModSrc||[]).map(rm=>`<span data-tip="${esc(`${rm.srcName} (${rm.srcKind}): ${fmtSign(rm.val)} auf das geworfene W100-Ergebnis`)}" class="px-1.5 py-0.5 rounded border text-[10px] font-bold tabular cursor-help bg-cyan-500/15 text-cyan-300 border-cyan-400/45">🎲 ${fmtSign(rm.val)} Würfelergebnis (${esc(rm.tagLbl||rm.srcName)})</span>`).join('')}</div></div>`:''}
       ${(T.sitOptions&&T.sitOptions.length)?`<div class="pt-1 border-t bdr-line space-y-1"><div class="text-[10px] font-extrabold t-mut uppercase tracking-wider">Situative Schalter (bei Bedarf anklicken)</div><div class="flex flex-wrap items-center gap-1.5">${T.sitOptions.map(so=>{const badge=so.reduceDis?`−${so.reduceDis} Nacht.`:so.adv?`+${so.adv} Vort.`:so.dis?`+${so.dis} Nacht.`:'±0';const tipTxt=so.items.map(i=>`${i.srcName}: ${i.label}`).join('\n')+(so.counterNote?`\nVerrechnung: ${so.counterNote}`:'');return `<button type="button" data-action="toggle-dice-sit" data-sit="${esc(so.sitKey)}" data-tip="${esc(tipTxt)}" class="btn py-1 px-2.5 text-[11px] font-bold tabular ${so.active?(so.dis>0&&!so.adv?'bg-rose-600 text-white border-rose-500':'btn-ok'):'opacity-85 hover:opacity-100'}"><span>${so.active?'☑':'☐'}</span><span>${esc(so.sitLabel)} (${badge})</span>${so.counterNote?`<span class="text-[10px] opacity-85">[${esc(so.counterNote)}]</span>`:''}</button>`;}).join('')}</div></div>`:''}
       <div class="text-center text-xs font-bold py-1 rounded-lg ${T.net>0?'bg-emerald-500/15 text-emerald-500':T.net<0?'bg-rose-500/15 text-rose-500':'bg-black/15 t-mut'}">${T.net>0?`${Math.abs(T.rawNet)} Netto-Vorteil (${fmtSign(netBonus)})`:T.net<0?`${Math.abs(T.rawNet)} Netto-Nachteil (${netBonus})`:'Ausgeglichen (±0)'}</div>`;
     }
-    const buildThresholdInnerHtml=T=>`<div class="text-[11px] font-semibold t-mut">Testschwelle (W100 ≤ Schwelle) • <span class="text-acc font-bold tabular">Chance: ${T.chance}%</span></div><div class="text-4xl font-black tabular my-0.5">${T.th}</div><div class="text-[11px] t-mut tabular">${T.cv} (Wert) + 50 − ${T.dv} (Schw.) ${T.bonus>=0?'+ '+T.bonus:'− '+Math.abs(T.bonus)}${T.effTh?` (inkl. ${fmtSign(T.effTh)} Effekt)`:''} = <strong>${T.th}</strong></div>`;
+    const buildThresholdInnerHtml=T=>`<div class="text-[11px] font-semibold t-mut">Testschwelle (W100 ≤ Schwelle) • <span class="text-acc font-bold tabular">Chance: ${T.chance}%</span></div><div class="text-4xl font-black tabular my-0.5">${T.th}</div><div class="text-[11px] t-mut tabular">${T.cv} (Wert) + 50 − ${T.dv} (Schw.) ${T.bonus>=0?'+ '+T.bonus:'− '+Math.abs(T.bonus)}${T.effTh?` (inkl. ${fmtSign(T.effTh)} Effekt)`:''} = <strong>${T.th}</strong></div>${T.rollMod?`<div class="text-[11px] font-extrabold text-cyan-300 mt-1">⚡ Würfelergebnis-Modifikator: Geworfene Zahl ${fmtSign(T.rollMod)} (${esc((T.rollModSrc||[]).map(x=>x.tagLbl||x.srcName).join(', '))})</div>`:''}`;
 
     function renderDice(){
       const p=$('diceMount'), bd=$('diceBackdrop'), xl=window.innerWidth>=1280;
@@ -3778,8 +4382,14 @@
 
     const modalShell=(title,sub,body,foot,maxW='max-w-2xl',extra='')=>`<div data-action="close-modal-bg" class="fixed inset-0 z-[70] flex items-center justify-center p-3 sm:p-5 bg-black/75 backdrop-blur-sm"><div class="card ${maxW} w-full max-h-[90vh] flex flex-col p-0 overflow-hidden shadow-2xl"><div class="flex flex-wrap items-center justify-between gap-2 px-5 py-3.5 border-b bdr-line" style="background:var(--surf2)"><div><h2 class="text-base sm:text-lg font-extrabold">${title}</h2>${sub?`<p class="text-xs t-mut">${sub}</p>`:''}</div><div class="flex items-center gap-1.5">${extra}<button type="button" data-action="close-modal" class="btn py-1 px-2.5">✕</button></div></div><div class="p-5 overflow-y-auto space-y-4 text-xs sm:text-sm">${body}</div><div class="px-5 py-3 border-t bdr-line flex items-center justify-end gap-2" style="background:var(--surf2)">${foot}</div></div></div>`;
 
-    function renderModal(){
-      const m=$('modalMount'); if(!UI.modal){m.innerHTML='';return;}
+    function renderModal(fromRenderAll=false){
+      const m=$('modalMount');
+      if(UI.modal==='lobby'){UI.inLobby=true;UI.modal=null;}
+      if(!UI.modal){
+        m.innerHTML='';
+        if(UI.inLobby&&!fromRenderAll){renderHeader();renderMain();}
+        return;
+      }
       if(UI.modal==='avatar'){
         const hasAv=Boolean(S.profile.avatar);
         m.innerHTML=modalShell('🖼️ Charakterbild ändern','Lade ein neues Profilbild per Dateiauswahl hoch oder ziehe eine Bilddatei direkt per Drag &amp; Drop in das Fenster.',
@@ -3794,274 +4404,6 @@
             <button type="button" data-action="trigger-avatar-file" class="btn btn-pri py-1.5 px-4 text-xs mt-1">📁 Datei auswählen</button>
           </div>`,
           `${hasAv?`<button type="button" data-action="rm-avatar" class="btn btn-err mr-auto">🗑️ Bild entfernen</button>`:''}<button type="button" data-action="close-modal" class="btn btn-pri px-6">Fertig</button>`,'max-w-md');
-        return;
-      }
-      if(UI.modal==='lobby'){
-        const prevModalScrollEl=m.querySelector('.p-5.overflow-y-auto');
-        const prevModalScrollTop=prevModalScrollEl?prevModalScrollEl.scrollTop:null;
-        const prevCharGridEl=m.querySelector('[data-lobby-char-grid]');
-        const prevCharGridScrollTop=prevCharGridEl?prevCharGridEl.scrollTop:null;
-        const prevCampTabsEl=m.querySelector('[data-lobby-camp-tabs]');
-        const prevCampTabsScrollLeft=prevCampTabsEl?prevCampTabsEl.scrollLeft:null;
-        const P=calcProg(), myId=CLOUD.viewingRemote?( JSON.parse(CLOUD.ownBackupJson||'{}').charId||'' ):S.charId;
-        const baseOrig=window.location.origin&&window.location.origin!=='null'?`${window.location.origin}${window.location.pathname}`:'';
-        const shareUrl=baseOrig?`${baseOrig}?char=${encodeURIComponent(S.charId||'')}`:'';
-        const lobbyUrl=baseOrig?`${baseOrig}?lobby=1`:'?lobby=1';
-        const regUsers=Object.keys(CLOUD.registry.users||{}).sort((a,b)=>a.localeCompare(b,'de'));
-        const allCampaigns=getCampaigns();
-        const knownUsers=sortAlpha([
-          ...regUsers,
-          ...Object.values(CLOUD.registry.claims||{}),
-          ...allCampaigns.flatMap(c=>c.allowedUsers||[]),
-          ...(CLOUD.currentUser?[CLOUD.currentUser]:[])
-        ]);
-        const visibleCampaigns=CLOUD.isAdmin?allCampaigns:(CLOUD.currentUser?allCampaigns.filter(c=>isUserInCampaign(c,CLOUD.currentUser)):[]);
-        if(visibleCampaigns.length&&!visibleCampaigns.some(c=>c.id===CLOUD.activeCampaignId)){
-          setActiveCampaign(visibleCampaigns[0].id);
-        }
-        const activeCamp=visibleCampaigns.find(c=>c.id===CLOUD.activeCampaignId)||null;
-        const activeCampId=activeCamp?activeCamp.id:'';
-        const campAllowedUsers=Array.isArray(activeCamp?.allowedUsers)?activeCamp.allowedUsers:[];
-        const availCampUsers=knownUsers.filter(u=>!campAllowedUsers.some(au=>au.toLowerCase()===u.toLowerCase()));
-        const campCharList=activeCamp?CLOUD.list.filter(ch=>getCharCampaignId(ch.id)===activeCampId):[];
-        const myClaimedCnt=CLOUD.currentUser?campCharList.filter(ch=>getCharOwner(ch.id).toLowerCase()===CLOUD.currentUser.toLowerCase()).length:0;
-        const visibleList=CLOUD.filterMine&&CLOUD.currentUser?campCharList.filter(ch=>getCharOwner(ch.id).toLowerCase()===CLOUD.currentUser.toLowerCase()||ch.id===myId):campCharList;
-        const myCurOwner=getCharOwner(S.charId)||S.owner||'';
-        const myCurCampObj=allCampaigns.find(c=>c.id===getCharCampaignId(S.charId))||allCampaigns[0];
-        const lobbyExtraHdr=`<button type="button" data-action="copy-share-link" data-url="${esc(lobbyUrl)}" data-tip="Direktlink zur zentralen Gruppen-Lobby kopieren (öffnet sofort diese Lobby ohne Umweg über einen Charakter)" class="btn bg-acc-soft bdr-acc text-acc py-1 px-2.5 text-xs">🔗 Lobby-Direktlink</button><button type="button" data-action="toggle-admin-bar" data-tip="Admin-Master-PIN &amp; Benutzerverwaltung öffnen" class="btn py-1 px-2.5 text-xs ${CLOUD.isAdmin?'!border-amber-400 !bg-amber-500/20 text-amber-300':'opacity-85'}">👑 ${CLOUD.isAdmin?'Admin aktiv':'Admin'}</button>`;
-        m.innerHTML=modalShell('☁️ Zentrale Gruppen-Lobby – Bögen, Spieler-Accounts &amp; Claims','Direkter Zugriff auf alle Charakterbögen der Runde, Spieler-Claims (Name + Passwort) und Admin-Verwaltung.',
-          `<div class="subcard space-y-2.5 border-indigo-500/40 bg-indigo-500/10">
-            <div class="flex flex-wrap items-center justify-between gap-2">
-              <div class="flex items-center gap-2">
-                <span class="text-xs font-extrabold text-indigo-300 uppercase tracking-wider">👤 Spieler-Account &amp; Charakter-Claims</span>
-                ${CLOUD.isAdmin?`<span class="px-2 py-0.5 rounded text-[10px] font-black bg-amber-500/25 text-amber-300 border border-amber-400/50">👑 ADMIN-MASTER AKTIV (Alle Sperren &amp; PINs umgangen)</span>`:''}
-              </div>
-              <div class="flex flex-wrap items-center gap-1.5">
-                <button type="button" data-action="copy-share-link" data-url="${esc(lobbyUrl)}" class="btn py-1 px-2.5 text-[11px] border-indigo-400/50 text-indigo-200">🌐 Direktlink zur Lobby kopieren (?lobby=1)</button>
-                <button type="button" data-action="lobby-new-sheet" data-tip="Startet einen frischen, leeren Charakterbogen" class="btn py-1 px-2.5 text-[11px] btn-ok">+ Neuer leerer Bogen</button>
-              </div>
-            </div>
-            ${CLOUD.currentUser?`<div class="flex flex-wrap items-center justify-between gap-2 pt-1.5 border-t border-indigo-500/25">
-              <div class="flex flex-wrap items-center gap-2 text-xs">
-                <span>Angemeldet als: <strong class="text-emerald-300 font-black">👤 ${esc(CLOUD.currentUser)}</strong></span>
-                <span class="pill cursor-default text-[10px] py-0.5 px-2">${myClaimedCnt} beanspruchte ${myClaimedCnt===1?'Bogen':'Bögen'}</span>
-              </div>
-              <div class="flex flex-wrap items-center gap-1.5">
-                <button type="button" data-action="toggle-lobby-filter" class="btn py-1 px-2.5 text-xs ${CLOUD.filterMine?'btn-pri':''}">${CLOUD.filterMine?`✓ Zeige: Meine Bögen (${myClaimedCnt})`:`Alle Bögen anzeigen (${campCharList.length})`}</button>
-                <button type="button" data-action="toggle-user-pw-change" class="btn py-1 px-2.5 text-xs ${CLOUD.showPwChange?'btn-pri':''}">🔑 Passwort ändern</button>
-                <button type="button" data-action="user-logout" class="btn btn-err py-1 px-2.5 text-xs">Abmelden</button>
-              </div>
-            </div>
-            ${CLOUD.showPwChange?`<div class="grid grid-cols-1 sm:grid-cols-12 gap-2 pt-2 border-t border-indigo-500/25 items-center">
-              <div class="sm:col-span-5"><input id="inpUserNewPass" type="password" placeholder="Neues Passwort..." class="inp w-full text-xs font-bold"/></div>
-              <div class="sm:col-span-5"><input id="inpUserNewPass2" type="password" placeholder="Neues Passwort wiederholen..." class="inp w-full text-xs font-bold"/></div>
-              <div class="sm:col-span-2 flex gap-1.5"><button type="button" data-action="user-save-new-pw" class="btn btn-ok py-1.5 px-3 text-xs w-full">💾 Speichern</button></div>
-            </div>`:''}`:`<div class="grid grid-cols-1 sm:grid-cols-12 gap-2 pt-1.5 border-t border-indigo-500/25 items-center">
-              <div class="sm:col-span-3"><input id="inpLobbyUser" type="text" placeholder="Spielername (Account)..." class="inp w-full text-xs font-bold"/></div>
-              <div class="sm:col-span-3"><input id="inpLobbyPass" type="password" placeholder="Passwort..." class="inp w-full text-xs font-bold"/></div>
-              <div class="sm:col-span-3"><input id="inpLobbyPass2" type="password" placeholder="Passwort wiederholen (bei Registrierung)..." class="inp w-full text-xs font-bold"/></div>
-              <div class="sm:col-span-3 flex gap-1.5">
-                <button type="button" data-action="user-login" class="btn btn-pri py-1.5 px-3 text-xs flex-1">🔑 Anmelden</button>
-                <button type="button" data-action="user-register" data-tip="Neuen Spieler-Account (Name + Passwort) im Backend registrieren" class="btn btn-ok py-1.5 px-3 text-xs flex-1">✨ Registrieren</button>
-              </div>
-            </div>`}
-            ${CLOUD.showAdminBar||CLOUD.isAdmin?`<div class="p-2.5 rounded-xl border border-amber-400/50 bg-amber-500/10 space-y-2 text-xs mt-1">
-              <div class="flex flex-wrap items-center justify-between gap-2">
-                <div class="font-extrabold text-amber-300 flex items-center gap-1.5">
-                  <span>👑 Admin-Master-Steuerung</span>
-                  <span class="text-[11px] font-normal t-mut">${CLOUD.registry.adminHash?'(Master-PIN im Backend hinterlegt)':'(Noch keine Master-PIN gesetzt – jetzt festlegen)'}</span>
-                </div>
-                ${CLOUD.isAdmin?`<div class="flex flex-wrap items-center gap-1.5">
-                  <button type="button" data-action="toggle-user-mgmt" class="btn py-0.5 px-2 text-[11px] border-amber-400/50 text-amber-200">👥 Accounts verwalten (${regUsers.length})</button>
-                  <button type="button" data-action="admin-logout" class="btn btn-err py-0.5 px-2 text-[11px]">🔒 Admin sperren</button>
-                </div>`:''}
-              </div>
-              ${!CLOUD.isAdmin?`<div class="flex flex-wrap items-center gap-2">
-                <input id="inpAdminMasterPin" type="password" placeholder="${CLOUD.registry.adminHash?'Admin-Master-PIN eingeben...':'Neue Admin-Master-PIN festlegen...'}" class="inp flex-1 min-w-[180px] text-xs font-bold border-amber-400/50"/>
-                <button type="button" data-action="admin-unlock" class="btn bg-amber-500 text-slate-950 border-amber-400 font-black py-1 px-3 text-xs">${CLOUD.registry.adminHash?'🔓 Admin freischalten':'👑 Master-PIN speichern &amp; aktivieren'}</button>
-              </div>`:`<div class="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-amber-500/25">
-                <span class="text-[11px] text-amber-200">Du kannst Schutz-PINs jederzeit umgehen, Charakter-Besitzer &amp; Kampagnen unten per Dropdown ändern sowie fremde Bögen bearbeiten/löschen.</span>
-                <div class="flex items-center gap-1.5">
-                  <input id="inpNewAdminPin" type="password" placeholder="Neue Master-PIN..." class="inp w-36 py-0.5 px-2 text-xs"/>
-                  <button type="button" data-action="admin-change-pin" class="btn py-0.5 px-2.5 text-[11px] border-amber-400/50 text-amber-300">Master-PIN ändern</button>
-                </div>
-              </div>`}
-              ${CLOUD.isAdmin&&CLOUD.userMgmtOpen?`<div class="pt-2 border-t border-amber-500/25 space-y-1.5">
-                <div class="text-[11px] font-bold text-amber-300">Registrierte Spieler-Accounts (${regUsers.length}):</div>
-                ${regUsers.length?`<div class="flex flex-wrap gap-1.5">${regUsers.map(u=>`<span class="subcard py-1 px-2.5 inline-flex items-center gap-2 text-xs"><strong>👤 ${esc(u)}</strong><button type="button" data-action="admin-reset-user-pw" data-user="${esc(u)}" data-tip="Passwort für „${esc(u)}“ auf 1234 zurücksetzen" class="text-[10px] text-amber-300 hover:underline">PW→1234</button><button type="button" data-action="admin-del-user" data-user="${esc(u)}" data-tip="Account löschen" class="text-rose-400 font-black">✕</button></span>`).join('')}</div>`:`<div class="text-[11px] t-mut">Noch keine Spieler-Accounts registriert.</div>`}
-              </div>`:''}
-            </div>`:''}
-          </div>
-
-          ${CLOUD.viewingRemote?`<div class="subcard border-sky-400/60 bg-sky-500/15 flex flex-wrap items-center justify-between gap-2"><div><div class="font-extrabold text-sky-300">👁️ 👄 👁️ Du betrachtest gerade „${esc(S.profile.name||'Unbenannt')}“ im Ansichtsmodus</div><div class="text-[11px] t-mut">Dein eigener Charakterbogen ist sicher im Hintergrund zwischengespeichert.</div></div><button type="button" data-action="cloud-exit-view" class="btn btn-pri py-1.5 px-3 text-xs">🔙 Zurück zu meinem Charakter</button></div>`
-          :`<div class="subcard space-y-3 bdr-acc">
-            <div class="flex flex-wrap items-center justify-between gap-2">
-              <div>
-                <div class="text-xs font-extrabold text-acc uppercase tracking-wider">1. Aktuell geöffneter Charakterbogen</div>
-                <div class="text-sm font-black mt-0.5 flex flex-wrap items-center gap-1.5">
-                  <span>${esc(S.profile.name||'Unbenannter Charakter')}</span>
-                  <span class="text-xs font-semibold t-mut">(${esc(S.profile.ancestry||'Volk')} • ${esc(S.profile.concept||'Konzept')} • Stufe ${P.lvl})</span>
-                  ${myCurOwner?`<span class="px-2 py-0.5 rounded text-[10px] font-black bg-indigo-500/20 text-indigo-300 border border-indigo-400/40">👤 Claim: ${esc(myCurOwner)}</span>`:`<span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-black/25 t-mut">⚪ Noch unbeansprucht</span>`}
-                  ${myCurCampObj?`<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-acc-soft text-acc border bdr-acc">📁 ${esc(myCurCampObj.name||'Hauptkampagne')}</span>`:''}
-                </div>
-              </div>
-              <div class="flex flex-wrap items-center gap-2">
-                ${CLOUD.lastSyncTs?`<span class="text-[11px] text-emerald-400 font-bold tabular">✓ Sync: ${esc(CLOUD.lastSyncTs)}</span>`:''}
-                <button type="button" data-action="cloud-push-now" ${CLOUD.syncing?'disabled':''} class="btn btn-ok py-1.5 px-3.5 text-xs">${CLOUD.syncing?'⏳ Synchronisiere...':'☁️ Jetzt in Lobby hochladen / aktualisieren'}</button>
-              </div>
-            </div>
-            <div class="grid grid-cols-1 sm:grid-cols-12 gap-2.5 pt-2 border-t bdr-line items-center">
-              <div class="sm:col-span-6 flex items-center gap-2">
-                <button type="button" data-action="toggle-cloud-autosync" class="btn py-1.5 px-3 text-xs w-full justify-start ${S.cloudAutoSync?'btn-ok':'opacity-80'}">${S.cloudAutoSync?'✓ Auto-Sync aktiv (speichert Änderungen automatisch in der Lobby)':'○ Auto-Sync aktivieren (automatisch in Lobby aktualisieren)'}</button>
-              </div>
-
-              <div class="sm:col-span-3 flex gap-1.5">
-                ${shareUrl?`<button type="button" data-action="copy-share-link" data-url="${esc(shareUrl)}" data-tip="Direktlink zu genau diesem Charakter in die Zwischenablage kopieren" class="btn py-1.5 px-2.5 text-xs w-full">🔗 Charakter-Link</button>`:''}
-              </div>
-            </div>
-          </div>`}
-
-          <div id="lobbyLiveDiceMount">${renderLobbyLiveDiceHtml()}</div>
-
-          <div class="space-y-2.5">
-            <div class="subcard p-2.5 space-y-2 border bdr-acc bg-acc-soft/20">
-              <div class="flex flex-wrap items-center justify-between gap-2">
-                <div class="flex items-center gap-2">
-                  <span class="text-xs font-extrabold text-acc uppercase tracking-wider">🗺️ Kampagnen</span>
-                  ${activeCamp?`<span class="pill cursor-default text-[10px] py-0.5 px-2 tabular">${campCharList.length} ${campCharList.length===1?'Charakter':'Charaktere'}</span>`:''}
-                </div>
-                ${CLOUD.isAdmin?`<div class="flex flex-wrap items-center gap-1.5">
-                  <button type="button" data-action="camp-new-open" class="btn btn-ok py-1 px-2.5 text-xs">+ Neue Kampagne</button>
-                  ${activeCamp?`<button type="button" data-action="camp-rename-open" class="btn py-1 px-2.5 text-xs border-amber-400/50 text-amber-300">✏️ Umbenennen</button>`:''}
-                  ${activeCamp&&activeCamp.id!=='default'?(CLOUD.campAction==='delete'?`<span class="inline-flex items-center gap-1"><button type="button" data-action="camp-delete-confirm" class="btn bg-rose-600 text-white border-rose-600 py-1 px-2.5 text-[11px] font-black">Wirklich löschen? (Verschiebt ${campCharList.length} in Hauptkampagne)</button><button type="button" data-action="camp-action-cancel" class="btn py-1 px-2 text-[11px]">✕</button></span>`:`<button type="button" data-action="camp-delete-ask" data-tip="Kampagne löschen (enthaltene Charaktere werden automatisch in die Hauptkampagne verschoben)" class="btn btn-err py-1 px-2.5 text-xs">🗑️ Kampagne löschen</button>`):''}
-                </div>`:''}
-              </div>
-              ${CLOUD.isAdmin&&(CLOUD.campAction==='new'||CLOUD.campAction==='rename')?`<div class="flex flex-wrap items-center gap-2 pt-2 border-t bdr-line">
-                <span class="text-xs font-extrabold text-amber-300">${CLOUD.campAction==='new'?'➕ Neue Kampagne erstellen:':`✏️ „${esc(activeCamp?.name||'')}“ umbenennen:`}</span>
-                <input id="inpCampaignName" type="text" value="${CLOUD.campAction==='rename'?esc(activeCamp?.name||''):''}" placeholder="Kampagnenname eingeben..." class="inp flex-1 min-w-[180px] text-xs font-bold"/>
-                <button type="button" data-action="${CLOUD.campAction==='new'?'camp-new-save':'camp-rename-save'}" class="btn btn-ok py-1 px-3 text-xs">💾 Speichern</button>
-                <button type="button" data-action="camp-action-cancel" class="btn py-1 px-2.5 text-xs">Abbrechen</button>
-              </div>`:''}
-              ${visibleCampaigns.length?`<div data-lobby-camp-tabs="1" class="flex items-center gap-1.5 overflow-x-auto pt-1 pb-0.5">
-                ${visibleCampaigns.map(c=>{
-                  const isAct=c.id===activeCampId;
-                  const cCnt=CLOUD.list.filter(ch=>getCharCampaignId(ch.id)===c.id).length;
-                  return `<button type="button" data-action="select-campaign-tab" data-id="${esc(c.id)}" class="btn shrink-0 py-1.5 px-3 text-xs font-extrabold ${isAct?'btn-pri':'opacity-85 hover:opacity-100'}"><span>📁 ${esc(c.name||'Kampagne')}</span><span class="px-1.5 py-0.2 rounded-full text-[10px] bg-black/25 tabular">${cCnt}</span></button>`;
-                }).join('')}
-              </div>`:''}
-              ${CLOUD.isAdmin&&activeCamp?`<div class="pt-2 border-t bdr-line space-y-2 text-xs">
-                <div class="flex flex-wrap items-center justify-between gap-2">
-                  <div class="flex flex-wrap items-center gap-1.5">
-                    <span class="font-extrabold text-amber-300">👑 Zugeordnete Spieler (Zugriff auf diese Kampagne):</span>
-                    <span class="pill cursor-default text-[10px] py-0.2 px-2 tabular">${campAllowedUsers.length} ${campAllowedUsers.length===1?'Spieler':'Spieler'}</span>
-                  </div>
-                  <div class="flex flex-wrap items-center gap-1.5">
-                    ${availCampUsers.length?`<select data-camp-add-user-sel="${esc(activeCamp.id)}" class="inp !py-1 !px-2 text-xs font-bold">
-                      <option value="">+ Bekannten Spieler wählen...</option>
-                      ${availCampUsers.map(u=>`<option value="${esc(u)}">👤 ${esc(u)}</option>`).join('')}
-                    </select>`:''}
-                    <div class="inline-flex items-center gap-1">
-                      <input id="inpCampAddUser" type="text" placeholder="Spielername..." class="inp !py-1 !px-2 text-xs font-bold w-36 sm:w-44"/>
-                      <button type="button" data-action="camp-add-user-btn" class="btn btn-ok py-1 px-2.5 text-xs shrink-0">+ Zuordnen</button>
-                    </div>
-                  </div>
-                </div>
-                <div class="flex flex-wrap items-center gap-1.5">
-                  ${campAllowedUsers.length?campAllowedUsers.map(u=>`<span class="subcard py-0.5 px-2.5 inline-flex items-center gap-1.5 text-xs border-amber-400/40 bg-amber-500/10"><span class="font-bold text-amber-200">👤 ${esc(u)}</span><button type="button" data-action="camp-rm-user" data-user="${esc(u)}" data-tip="Spieler „${esc(u)}“ aus „${esc(activeCamp.name)}“ entfernen" class="text-rose-400 hover:text-rose-300 font-black ml-0.5">✕</button></span>`).join(''):`<span class="text-[11px] t-mut italic">Noch keine Spieler zugeordnet – aktuell nur für den Admin sichtbar.</span>`}
-                </div>
-              </div>`:''}
-            </div>
-
-            ${!CLOUD.isAdmin&&!visibleCampaigns.length?`<div class="subcard border-dashed border-amber-400/50 bg-amber-500/10 py-8 px-4 text-center space-y-1.5">
-              <div class="text-sm font-extrabold text-amber-300">Du wurdest vom Spielleiter noch keiner Kampagne zugeordnet</div>
-              <div class="text-xs t-mut">${CLOUD.currentUser?`Dein Account „${esc(CLOUD.currentUser)}“ ist aktuell noch keiner Kampagne zugewiesen. Bitte wende dich an deinen Spielleiter (Admin).`:'Bitte melde dich oben mit deinem Spielernamen an oder wende dich an deinen Spielleiter (Admin), um einer Kampagne zugeordnet zu werden.'}</div>
-            </div>`:`
-            <div class="flex flex-wrap items-center justify-between gap-2">
-              <h3 class="text-xs font-extrabold text-acc uppercase tracking-wider">2. Charakterbögen in „${esc(activeCamp?.name||'Hauptkampagne')}“ (${visibleList.length}${CLOUD.filterMine?` von ${campCharList.length}`:''})</h3>
-              <div class="flex items-center gap-1.5">
-                ${CLOUD.currentUser?`<button type="button" data-action="toggle-lobby-filter" class="btn py-1 px-2.5 text-xs ${CLOUD.filterMine?'btn-pri':''}">${CLOUD.filterMine?'📂 Alle zeigen':'👤 Nur meine zeigen'}</button>`:''}
-                <button type="button" data-action="cloud-refresh-list" ${CLOUD.loading?'disabled':''} class="btn py-1 px-2.5 text-xs">${CLOUD.loading?'⏳ Lade...':'🔄 Aktualisieren'}</button>
-              </div>
-            </div>
-            ${CLOUD.error?`<div class="subcard border-amber-500/45 bg-amber-500/10 space-y-2 text-xs">
-              <div class="font-extrabold text-amber-400">ℹ️ Hinweis zur Server-Verbindung</div>
-              <p class="t-mut">${esc(CLOUD.error)}</p>
-              <div class="pt-1 flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-                <span class="text-[11px] font-bold t-mut shrink-0">Netlify-URL (falls lokal geöffnet):</span>
-                <input id="inpCloudServerUrl" type="text" value="${esc(CLOUD.serverUrl)}" placeholder="https://dein-projektname.netlify.app (leer lassen, wenn direkt auf Netlify geöffnet)" class="inp flex-1 text-xs"/>
-                <button type="button" data-action="save-cloud-url" class="btn btn-pri py-1 px-3 text-xs shrink-0">Verbinden</button>
-              </div>
-            </div>`:''}
-
-            ${CLOUD.loading?`<div class="subcard py-8 text-center text-xs t-mut">⏳ Lade Charakterbögen aus der Gruppen-Lobby...</div>`
-            :visibleList.length?`<div data-lobby-char-grid="1" class="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[430px] overflow-y-auto pr-1">${visibleList.map(ch=>{
-              const isMine=ch.id===myId, isViewing=CLOUD.viewingRemote&&CLOUD.remoteCharId===ch.id, isDelAsk=CLOUD.confirmDelCloudId===ch.id;
-              const owner=getCharOwner(ch.id), isMyClaim=Boolean(owner&&CLOUD.currentUser&&owner.toLowerCase()===CLOUD.currentUser.toLowerCase());
-              const charCampId=getCharCampaignId(ch.id);
-              const hasPin=Boolean(ch.hasPin||CLOUD.registry.pins?.[ch.id]);
-              return `<div class="subcard flex flex-col justify-between gap-2.5 ${isViewing?'border-sky-400 bg-sky-500/10':isMyClaim||isMine?'bdr-acc bg-acc-soft':''}">
-                <div class="flex items-center gap-3">
-                  <div class="w-12 h-12 rounded-xl overflow-hidden border bdr-acc bg-black/25 shrink-0 flex items-center justify-center">${ch.avatar?`<img src="${ch.avatar}" class="w-full h-full object-cover"/>`:`<span class="text-[10px] font-black text-acc">HELD</span>`}</div>
-                  <div class="min-w-0 flex-1">
-                    <div class="flex flex-wrap items-center gap-1.5">
-                      <span class="font-black text-sm truncate">${esc(ch.name||'Unbenannt')}</span>
-                      ${isMine?`<span class="px-1.5 py-0.2 rounded text-[10px] font-black bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">Aktiv</span>`:''}
-                      ${isViewing?`<span class="px-1.5 py-0.2 rounded text-[10px] font-black bg-sky-500/20 text-sky-300 border border-sky-400/40">👁️ Offen</span>`:''}
-                      ${owner?`<span class="px-1.5 py-0.2 rounded text-[10px] font-black ${isMyClaim?'bg-emerald-500/25 text-emerald-300 border border-emerald-400/50':'bg-indigo-500/20 text-indigo-300 border border-indigo-400/40'}">👤 ${esc(owner)}</span>`:`<span class="px-1.5 py-0.2 rounded text-[10px] font-semibold bg-black/25 t-mut">⚪ Frei</span>`}
-                      ${hasPin?`<span data-tip="${CLOUD.isAdmin&&CLOUD.registry.pins?.[ch.id]?`Schutz-PIN: ${CLOUD.registry.pins[ch.id]} (Als Admin sichtbar)`:'Mit Schutz-PIN gesichert'}" class="text-amber-400 text-xs">🔒</span>`:''}
-                    </div>
-                    <div class="text-[11px] t-mut truncate">${esc(ch.ancestry||'Volk')} • ${esc(ch.concept||'Konzept')} • <strong class="text-acc">Stufe ${ch.level||1}</strong></div>
-                    ${ch.updatedAt?`<div class="text-[10px] t-mut opacity-75 tabular">Stand: ${esc(ch.updatedAt)}</div>`:''}
-                  </div>
-                </div>
-                <div class="grid grid-cols-5 gap-1 text-center text-[11px] tabular bg-black/20 rounded-lg p-1.5 border bdr-line">
-                  <div><span class="block text-[9px] font-bold text-rose-400">LP</span><strong>${ch.lpCurrent??8}/${ch.lpMax??8}</strong></div>
-                  <div><span class="block text-[9px] font-bold text-indigo-400">mLP</span><strong>${ch.mlpCurrent??8}/${ch.mlpMax??8}</strong></div>
-                  <div><span class="block text-[9px] font-bold text-yellow-300">AP</span><strong>${ch.apCurrent??3}/${ch.apMax??3}</strong></div>
-                  <div><span class="block text-[9px] font-bold text-sky-400">mAP</span><strong>${ch.mapCurrent??3}/${ch.mapMax??3}</strong></div>
-                  <div><span class="block text-[9px] font-bold text-amber-400">Ini</span><strong>${(ch.ini??0)>=0?'+'+(ch.ini??0):(ch.ini??0)}</strong></div>
-                </div>
-                ${CLOUD.isAdmin?`<div class="flex flex-wrap items-center justify-between gap-1.5 p-1.5 rounded-lg bg-amber-500/10 border border-amber-400/40 text-[11px]">
-                  <div class="flex items-center gap-1 flex-1 min-w-[155px]">
-                    <span class="font-extrabold text-amber-300 shrink-0">👑 Claim:</span>
-                    <select data-admin-assign="${esc(ch.id)}" class="inp !py-0.5 !px-1.5 text-[11px] font-bold flex-1 min-w-0">
-                      <option value="" ${!owner?'selected':''}>— Frei (Unbeansprucht) —</option>
-                      ${[...new Set([...knownUsers,...(owner?[owner]:[])])].map(u=>`<option value="${esc(u)}" ${owner===u?'selected':''}>👤 ${esc(u)}</option>`).join('')}
-                    </select>
-                  </div>
-                  <div class="flex items-center gap-1 flex-1 min-w-[155px]">
-                    <span class="font-extrabold text-amber-300 shrink-0">🗺️ Kampagne:</span>
-                    <select data-admin-char-camp="${esc(ch.id)}" data-tip="Charakter in eine andere Kampagne verschieben (Claim-Status bleibt erhalten)" class="inp !py-0.5 !px-1.5 text-[11px] font-bold flex-1 min-w-0">
-                      ${allCampaigns.map(c=>`<option value="${esc(c.id)}" ${charCampId===c.id?'selected':''}>📁 ${esc(c.name||'Kampagne')}</option>`).join('')}
-                    </select>
-                  </div>
-                </div>`:''}
-                <div class="flex flex-wrap items-center justify-between gap-1.5 pt-1 border-t bdr-line">
-                  <div class="flex flex-wrap items-center gap-1.5">
-                    <button type="button" data-action="cloud-view-char" data-id="${esc(ch.id)}" data-tip="Öffnet diesen Bogen im geschützten Ansichtsmodus" class="btn btn-pri py-1 px-2.5 text-xs">👁️ Einsehen</button>
-                    ${(CLOUD.isAdmin||isMyClaim)?`<button type="button" data-action="cloud-edit-char" data-id="${esc(ch.id)}" data-tip="${CLOUD.isAdmin?'Als Admin sofort bearbeiten':'Deinen beanspruchten Bogen direkt bearbeiten'}" class="btn btn-ok py-1 px-2.5 text-xs">✏️ Bearbeiten</button>`:''}
-                    ${CLOUD.currentUser&&!owner?`<button type="button" data-action="claim-char" data-id="${esc(ch.id)}" data-tip="Diesen Charakter deinem Account (${esc(CLOUD.currentUser)}) zuordnen" class="btn py-1 px-2 text-[11px] border-indigo-400/50 text-indigo-300">🙋‍♂️ Claimen</button>`:''}
-                    ${isMyClaim&&!CLOUD.isAdmin?`<button type="button" data-action="unclaim-char" data-id="${esc(ch.id)}" data-tip="Zuordnung zu deinem Account aufheben" class="btn py-1 px-2 text-[11px] opacity-80">🔓 Freigeben</button>`:''}
-                  </div>
-                  ${(CLOUD.isAdmin||isMyClaim)?(isDelAsk?`<div class="inline-flex items-center gap-1"><button type="button" data-action="cloud-del-yes" data-id="${esc(ch.id)}" class="btn bg-rose-600 text-white border-rose-600 py-0.5 px-2 text-[11px] font-black">Löschen? (2/2)</button><button type="button" data-action="cloud-del-no" class="btn py-0.5 px-1.5 text-[11px]">✕</button></div>`:`<button type="button" data-action="cloud-del-ask" data-id="${esc(ch.id)}" data-tip="Aus der Gruppen-Lobby entfernen" class="btn btn-err py-1 px-2 text-xs">🗑️</button>`):''}
-                </div>
-              </div>`;
-            }).join('')}</div>`
-            :`<div class="subcard border-dashed py-8 text-center text-xs t-mut">${CLOUD.filterMine?'Du hast in dieser Kampagne aktuell noch keinen Bogen beansprucht.':'Noch keine Charakterbögen in dieser Kampagne.'}</div>`}`}
-          </div>`,
-          `<button type="button" data-action="close-modal" class="btn btn-pri px-6">Schließen</button>`,'max-w-4xl',lobbyExtraHdr);
-        if(prevModalScrollTop!==null){
-          const nextModalScrollEl=m.querySelector('.p-5.overflow-y-auto');
-          if(nextModalScrollEl) nextModalScrollEl.scrollTop=prevModalScrollTop;
-        }
-        if(prevCharGridScrollTop!==null){
-          const nextCharGridEl=m.querySelector('[data-lobby-char-grid]');
-          if(nextCharGridEl) nextCharGridEl.scrollTop=prevCharGridScrollTop;
-        }
-        if(prevCampTabsScrollLeft!==null){
-          const nextCampTabsEl=m.querySelector('[data-lobby-camp-tabs]');
-          if(nextCampTabsEl) nextCampTabsEl.scrollLeft=prevCampTabsScrollLeft;
-        }
         return;
       }
       if(UI.modal==='resetHz'){
@@ -4229,7 +4571,7 @@
       }
     }
 
-    function renderAll(userSave=true){applyTheme();renderHeader();renderMain();renderDice();renderLiveDice();renderCampNotes();renderModal();save(userSave);}
+    function renderAll(userSave=true){applyTheme();renderHeader();renderMain();renderDice();renderLiveDice();renderCampNotes();renderModal(true);save(userSave);}
 
     function syncLiveCalculations(){
       const P=calcProg(), M=calcActiveMods();
@@ -4528,21 +4870,22 @@
     }
     function executeDiceRoll(opts={}){
       const isAtkBlk20=Boolean(opts&&opts.isAttackerBlockFollowUp);
-      const {th}=calcThreshold(), res=[];
+      const T=calcThreshold(), {th}=T, res=[];
       for(let i=0;i<D.cnt;i++){
-        const r=rollW100(), ok=r===1?true:r===100?false:r<=th;
+        const rawR=rollW100(), rollMod=toInt(T.rollMod,0), r=rollMod?Math.max(1,Math.min(100,rawR+rollMod)):rawR, ok=r===1?true:r===100?false:r<=T.th;
         let crit=false; if(ok){const ed=r%10,td=parseInt(D.crit,10),rk=x=>x===0?10:x;crit=(D.crit==='1'||D.critMode==='range')?rk(ed)<=rk(td):ed===td;}
-        res.push({r,ok,crit,eg:ok?Math.ceil(r/10):0,meg:!ok?Math.ceil((101-r)/10):0});
+        const eg=ok?Math.ceil(r/10):0, meg=!ok?Math.ceil((101-r)/10):0;
+        res.push({r,rawR,rollMod,ok,crit,eg,meg});
       }
       const rollTitle=isAtkBlk20?`${D.label} • 🛡️ Geblockt (Folgewurf vs. Schw. 20)`:D.label;
       let baseHtml='';
       if(res.length===1){
         const x=res[0], cls=x.crit?'crit-glow border-amber-400 bg-amber-500/15':x.ok?'border-emerald-500/60 bg-emerald-500/10':'border-rose-500/60 bg-rose-500/10';
         const blkBanner=isAtkBlk20?`<div class="mt-2.5 pt-2 border-t border-white/10 text-xs font-extrabold ${x.ok?'text-amber-300':'text-rose-400'}">${x.ok?`🛡️ Geblockter Treffer → Erzielte EG für Grundschaden gegen Rüstung: <span class="px-2 py-0.5 rounded bg-amber-500 text-slate-950 font-black">${x.eg} EG</span>`:`🛡️ Am Block gescheitert → 0 EG Grundschaden (MEG: ${x.meg})`}</div>`:'';
-        baseHtml=`<div class="subcard text-center p-4 border-2 ${cls}"><div class="text-[11px] font-bold t-mut">${esc(rollTitle)} • Schwelle ${th}</div><div class="text-5xl font-black tabular my-1">${x.r}</div><div class="text-xs font-black uppercase ${x.crit?'text-amber-500':x.ok?'text-emerald-500':'text-rose-500'}">${x.crit?'★ Kritischer Erfolg! ★':x.ok?'Erfolg':'Misserfolg'}</div><div class="mt-2"><span class="px-3.5 py-1 rounded-lg text-white font-extrabold text-sm tabular ${x.ok?'bg-emerald-600':'bg-rose-600'}">${x.ok?'EG: '+x.eg+(isAtkBlk20?' (Grundschaden)':''):'MEG: '+x.meg}</span></div>${blkBanner}</div>`;
+        baseHtml=`<div class="subcard text-center p-4 border-2 ${cls}"><div class="text-[11px] font-bold t-mut">${esc(rollTitle)} • Schwelle ${th}</div><div class="text-5xl font-black tabular my-1">🎲 ${x.r}${x.rollMod&&x.rawR!==undefined?`<span class="text-xs font-bold text-cyan-300 ml-1">(Wurf ${x.rawR}${fmtSign(x.rollMod)})</span>`:''}</div><div class="text-xs font-black uppercase ${x.crit?'text-amber-500':x.ok?'text-emerald-500':'text-rose-500'}">${x.crit?'★ Kritischer Erfolg! ★':x.ok?'Erfolg':'Misserfolg'}</div><div class="mt-2"><span class="px-3.5 py-1 rounded-lg text-white font-extrabold text-sm tabular ${x.ok?'bg-emerald-600':'bg-rose-600'}">${x.ok?'EG: '+x.eg+(isAtkBlk20?' (Grundschaden)':''):'MEG: '+x.meg}</span></div>${blkBanner}</div>`;
       }else{
         const w=res.filter(x=>x.ok).length, c=res.filter(x=>x.crit).length;
-        baseHtml=`<div class="space-y-1.5"><div class="subcard py-1.5 px-3 flex justify-between text-xs font-extrabold"><span>${D.cnt}× W100 (≤${th})${isAtkBlk20?' • 🛡️ Folgewurf vs. Schw. 20 (Grundschaden)':''}</span><span>${w}/${D.cnt} Erfolge${c?` • ★ ${c}`:''}</span></div><div class="grid grid-cols-2 gap-1.5">${res.map((x,i)=>`<div class="subcard p-2 flex justify-between items-center ${x.crit?'border-amber-400 bg-amber-500/15':x.ok?'border-emerald-500/50 bg-emerald-500/10':'border-rose-500/50 bg-rose-500/10'}"><span class="font-black tabular">#${i+1}: ${x.r}</span><span class="text-xs font-extrabold">${x.crit?'★ ':''}${x.ok?'EG '+x.eg+(isAtkBlk20?' (GS)':''):'MEG '+x.meg}</span></div>`).join('')}</div></div>`;
+        baseHtml=`<div class="space-y-1.5"><div class="subcard py-1.5 px-3 flex justify-between text-xs font-extrabold"><span>${D.cnt}× W100 (≤${th})${isAtkBlk20?' • 🛡️ Folgewurf vs. Schw. 20 (Grundschaden)':''}</span><span>${w}/${D.cnt} Erfolge${c?` • ★ ${c}`:''}</span></div><div class="grid grid-cols-2 gap-1.5">${res.map((x,i)=>`<div class="subcard p-2 flex justify-between items-center ${x.crit?'border-amber-400 bg-amber-500/15':x.ok?'border-emerald-500/50 bg-emerald-500/10':'border-rose-500/50 bg-rose-500/10'}"><span class="font-black tabular">#${i+1}: ${x.r}${x.rollMod&&x.rawR!==undefined?` (${x.rawR}${fmtSign(x.rollMod)})`:""}</span><span class="text-xs font-extrabold">${x.crit?'★ ':''}${x.ok?'EG '+x.eg+(isAtkBlk20?' (GS)':''):'MEG '+x.meg}</span></div>`).join('')}</div></div>`;
       }
       if(D.wRollCat==='Blocken'&&res.some(x=>x.ok)){
         D.blockFollowAtk=getEffD();
@@ -4554,7 +4897,7 @@
         UI.lastBlockFollowRes=null;
         UI.lastRollHtml=baseHtml;
       }
-      const T=calcThreshold(), cs=getCSkVal(), ds=getDSkVal();
+      const cs=getCSkVal(), ds=getDSkVal();
       const cBreak=D.cMode==='breakdown'?`${D.attrKey||'Attr.'} ${D.cAttr} ${fmtSign(cs)} Fert. = ${T.cv}`:`Direkt ${T.cv}`;
       const dBreak=D.dMode==='breakdown'?`${D.dAttr} ${fmtSign(ds)} = ${T.dv}`:`${T.dv}`;
       const advBreak=(T.effAdv||T.effDis)?`${T.effAdv}V/${T.effDis}N${T.autoAdv||T.autoDis?' [inkl. Effekt]':''} (Netto ${fmtSign(T.rawNet)} → ${fmtSign(T.bonus-T.effTh)})`:'±0';
@@ -5280,13 +5623,40 @@
         case 'clear-dice-log': diceLogs=[]; renderDice(); break;
         case 'pick-avatar': UI.modal='avatar'; renderModal(); break;
         case 'trigger-avatar-file': $('fileAvatar').click(); break;
+        case 'pick-lobby-logo': if(CLOUD.isAdmin) $('fileLobbyLogo')?.click(); break;
+        case 'rm-lobby-logo': if(CLOUD.isAdmin){CLOUD.registry.lobbyLogo='';saveRegistryLocal();renderHeader();renderMain();if(UI.modal==='lobby')renderModal();syncCloudRegistry(true);toast('🗑️ Lobby-Bild entfernt.');} break;
+        case 'pick-camp-img': if(CLOUD.isAdmin) $('fileCampImg')?.click(); break;
+        case 'rm-camp-img': if(CLOUD.isAdmin){const c=getCampaigns().find(x=>x.id===CLOUD.activeCampaignId);if(c){c.img='';saveRegistryLocal();renderMain();if(UI.modal==='lobby')renderModal();syncCloudRegistry(true);toast('🗑️ Kampagnenbild entfernt.');}} break;
         case 'rm-avatar': S.profile.avatar=''; renderHeader(); renderModal(); save(); toast('Profilbild entfernt'); break;
-        case 'open-lobby': UI.modal='lobby'; CLOUD.confirmDelCloudId=null; CLOUD.confirmClearDice=false; CLOUD.campAction=''; initLiveDiceChannel(); renderDice(); renderModal(); fetchLobbyList(true); break;
+        case 'open-lobby': UI.inLobby=true; UI.modal=null; CLOUD.confirmDelCloudId=null; CLOUD.confirmClearDice=false; CLOUD.campAction=''; initLiveDiceChannel(); renderAll(false); fetchLobbyList(true); break;
+        case 'return-to-sheet': if(UI.sheetLoaded){ UI.inLobby=false; UI.modal=null; renderAll(false); } break;
+        case 'open-local-sheet':
+          CLOUD.viewingRemote=false; CLOUD.remoteCharId=''; CLOUD.ownBackupJson=null;
+          load();
+          UI.inLobby=false; UI.sheetLoaded=true; UI.modal=null;
+          renderAll(false);
+          toast(`🛠️ Lokaler Charakterbogen „${S.profile.name||'Charakter'}“ geöffnet!`);
+          break;
+        case 'copy-char-link': {
+          const id=el.dataset.id||'';
+          const url=`${window.location.origin&&window.location.origin!=='null'?window.location.origin+window.location.pathname:''}?char=${encodeURIComponent(id)}`;
+          if(navigator.clipboard) navigator.clipboard.writeText(url);
+          toast('🔗 Direktlink zum Charakterbogen kopiert!');
+          break;
+        }
+        case 'close-active-sheet':
+          if(!CLOUD.viewingRemote&&UI.sheetLoaded&&S.cloudAutoSync&&CLOUD.currentUser) pushToCloud(true);
+          CLOUD.viewingRemote=false; CLOUD.remoteCharId=''; CLOUD.ownBackupJson=null;
+          UI.sheetLoaded=false; UI.inLobby=true; UI.modal=null;
+          D.open=false; CN.open=false;
+          renderAll(false); fetchLobbyList(true);
+          toast('🏠 Charakterbogen geschlossen – du bist in der Lobby.');
+          break;
         case 'select-campaign-tab': {
           const cid=el.dataset.id||'default';
           setActiveCampaign(cid);
           CLOUD.campAction='';
-          if(UI.modal==='lobby') renderModal();
+          if((UI.modal==='lobby'||UI.inLobby)) renderModal();
           if(LD.open) renderLiveDice();
           renderHeader();
           break;
@@ -5391,6 +5761,13 @@
           removeCampaignAllowedUser(el.dataset.user||'');
           break;
         }
+        case 'admin-toggle-gm': toggleGlobalGMTag(el.dataset.user); break;
+        case 'camp-add-gm-btn': {const s=$('selCampAddGM'); if(s&&s.value) addCampaignMainGM(s.value);} break;
+        case 'camp-rm-gm': removeCampaignMainGM(el.dataset.user); break;
+        case 'camp-add-cogm-btn': {const s=$('selCampAddCoGM'); if(s&&s.value) addCampaignCoGM(s.value);} break;
+        case 'camp-rm-cogm': removeCampaignCoGM(el.dataset.user); break;
+        case 'kick-char-camp': kickCharFromCampaign(el.dataset.id); break;
+        case 'dup-char-sheet': duplicateCharacterSheet(el.dataset.id); break;
         case 'toggle-lobby-dice-collapse': CLOUD.diceCollapsed=!CLOUD.diceCollapsed; updateLobbyLiveDiceDOM(); break;
         case 'lobby-open-dice': D.open=true; renderHeader(); renderDice(); break;
         case 'lobby-quick-roll': syncDiceFromSheet(); executeDiceRoll(); break;
@@ -5400,7 +5777,28 @@
         case 'cancel-clear-lobby-dice': CLOUD.confirmClearDice=false; updateLobbyLiveDiceDOM(); break;
         case 'confirm-clear-lobby-dice': clearLiveDiceFeed(); break;
         case 'toggle-lobby-filter': CLOUD.filterMine=!CLOUD.filterMine; renderModal(); break;
-        case 'lobby-new-sheet': {CLOUD.viewingRemote=false; CLOUD.remoteCharId=''; CLOUD.ownBackupJson=null; S=defaultState(); if(CLOUD.currentUser) S.owner=CLOUD.currentUser; const validCamps=new Set(getCampaigns().map(c=>c.id)); if(CLOUD.activeCampaignId&&validCamps.has(CLOUD.activeCampaignId)) S.campaignId=CLOUD.activeCampaignId; UI.modal=null; renderAll(true); toast('✨ Neuer leerer Charakterbogen bereit!'); break;}
+        case 'lobby-new-sheet': {
+          if(!CLOUD.currentUser){toast('🔒 Charaktererstellung ist nur für angemeldete Spieler-Accounts möglich. Bitte melde dich zuerst an!');break;}
+          CLOUD.newCharOpen=!CLOUD.newCharOpen;
+          const allowed=getCreatableCampaigns(CLOUD.currentUser);
+          CLOUD.newCharCampId=allowed.some(x=>x.id===CLOUD.activeCampaignId)?CLOUD.activeCampaignId:'default';
+          renderMain(); renderModal();
+          if(CLOUD.newCharOpen) setTimeout(()=>$('inpNewCharName')?.focus(),40);
+          break;
+        }
+        case 'create-user-char-cancel': {
+          CLOUD.newCharOpen=false;
+          renderMain(); renderModal();
+          break;
+        }
+        case 'create-user-char-confirm': {
+          const nm=($('inpNewCharName')?.value??CLOUD.newCharName??'').trim();
+          const anc=($('inpNewCharAncestry')?.value??CLOUD.newCharAncestry??'').trim();
+          const con=($('inpNewCharConcept')?.value??CLOUD.newCharConcept??'').trim();
+          const cmp=$('selNewCharCamp')?.value||CLOUD.newCharCampId||CLOUD.activeCampaignId||'default';
+          createNewUserCharacter({name:nm,ancestry:anc,concept:con,campaignId:cmp});
+          break;
+        }
         case 'user-register': {
           const u=($('inpLobbyUser')?.value||'').trim(), p=($('inpLobbyPass')?.value||'').trim(), p2=($('inpLobbyPass2')?.value||'').trim();
           if(!u||!p){toast('⚠️ Bitte Spielername und Passwort eingeben.');break;}
@@ -5527,15 +5925,18 @@
         case 'cloud-del-yes': deleteCloudCharacter(el.dataset.id); break;
         case 'cloud-reload-view': if(CLOUD.remoteCharId) loadCloudCharacter(CLOUD.remoteCharId,true); break;
         case 'cloud-adopt-copy': {
-          CLOUD.viewingRemote=false; CLOUD.remoteCharId=''; CLOUD.ownBackupJson=null;
+          CLOUD.viewingRemote=false; CLOUD.remoteCharId=''; CLOUD.ownBackupJson=null; UI.inLobby=false; UI.sheetLoaded=true; UI.modal=null;
           S.charId=uid(); S.cloudAutoSync=false; S.cloudPin='';
           renderAll(true); toast('📥 Charakter als eigene lokale Kopie übernommen!');
           break;
         }
         case 'cloud-exit-view': {
-          if(CLOUD.ownBackupJson){try{const ownData=JSON.parse(CLOUD.ownBackupJson);mergeLoaded(ownData);S.activeTab=getSavedTabForChar(S.charId,ownData.activeTab);}catch(e){}}
-          CLOUD.viewingRemote=false; CLOUD.remoteCharId=''; CLOUD.ownBackupJson=null;
-          UI.modal=null; renderAll(false); toast('🔙 Zurück bei deinem eigenen Charakterbogen');
+          if(!CLOUD.ownBackupJson){
+            CLOUD.viewingRemote=false; CLOUD.remoteCharId=''; UI.sheetLoaded=false; UI.inLobby=true; renderAll(false);
+            toast('🔙 Ansichtsmodus beendet – du bist in der Lobby.');
+            break;
+          }
+          if(CLOUD.viewingRemote&&CLOUD.ownBackupJson){try{mergeLoaded(JSON.parse(CLOUD.ownBackupJson));}catch(e){}CLOUD.viewingRemote=false;CLOUD.remoteCharId='';CLOUD.ownBackupJson=null;UI.inLobby=false;UI.sheetLoaded=true;renderAll(false);toast('🔙 Zurück bei deinem eigenen Charakterbogen.');}
           break;
         }
         case 'open-settings': S.appearance.editScope=S.activeTab; UI.modal='settings'; UI.confirmNew=false; syncPalDraftFromSlot(); applyTheme(); renderModal(); break;
@@ -5592,6 +5993,9 @@
     document.addEventListener('focusin',e=>{if(e.target.dataset?.cres==='name') e.target.dataset.prevCres=cresName();if(e.target.dataset?.exsec?.endsWith(':name')){const id=e.target.dataset.exsec.split(':')[0],ex=(S.extraSecList||[]).find(x=>x.id===id);if(ex)e.target.dataset.prevExName=getExtraSecName(ex);}});
 
     document.addEventListener('input',e=>{
+      if(e.target?.id==='inpNewCharName'){CLOUD.newCharName=e.target.value;return;}
+      if(e.target?.id==='inpNewCharAncestry'){CLOUD.newCharAncestry=e.target.value;return;}
+      if(e.target?.id==='inpNewCharConcept'){CLOUD.newCharConcept=e.target.value;return;}
       if(e.target&&e.target.dataset?.regenOvr){
         const el=e.target, k=el.dataset.regenOvr, raw=el.value.trim();
         const M=calcActiveMods(), auto=k==='lp'?getLpRegenAuto(M):getMlpRegenAuto(M);
@@ -5892,6 +6296,53 @@
       }
     });
 
+        function compressImgFile(file,maxSide,cb){
+      if(!file) return;
+      const r=new FileReader();
+      r.onload=ev=>{
+        const img=new Image();
+        img.onload=()=>{
+          const scale=Math.min(1,maxSide/Math.max(img.width||1,img.height||1));
+          const w=Math.max(1,Math.round((img.width||1)*scale)), h=Math.max(1,Math.round((img.height||1)*scale));
+          const cv=document.createElement('canvas'); cv.width=w; cv.height=h;
+          const ctx=cv.getContext('2d'); ctx.drawImage(img,0,0,w,h);
+          let dataUrl=cv.toDataURL('image/webp',0.82);
+          if(!dataUrl||dataUrl.indexOf('data:image/webp')!==0) dataUrl=cv.toDataURL('image/jpeg',0.82);
+          cb(dataUrl);
+        };
+        img.onerror=()=>cb(String(ev.target.result||''));
+        img.src=String(ev.target.result||'');
+      };
+      r.readAsDataURL(file);
+    }
+    $('fileLobbyLogo')?.addEventListener('change',e=>{
+      const f=e.target.files?.[0]; e.target.value='';
+      if(!f||!CLOUD.isAdmin) return;
+      compressImgFile(f,256,dataUrl=>{
+        CLOUD.registry.lobbyLogo=dataUrl;
+        saveRegistryLocal();
+        renderHeader();
+        renderMain();
+        if(UI.modal==='lobby') renderModal();
+        syncCloudRegistry(true);
+        toast('🖼️ Lobby-Bild für alle aktualisiert!');
+      });
+    });
+    $('fileCampImg')?.addEventListener('change',e=>{
+      const f=e.target.files?.[0]; e.target.value='';
+      if(!f||!CLOUD.isAdmin) return;
+      compressImgFile(f,480,dataUrl=>{
+        const camp=getCampaigns().find(c=>c.id===CLOUD.activeCampaignId);
+        if(camp){
+          camp.img=dataUrl;
+          saveRegistryLocal();
+          renderMain();
+          if(UI.modal==='lobby') renderModal();
+          syncCloudRegistry(true);
+          toast('🖼️ Kampagnenbild gespeichert!');
+        }
+      });
+    });
     document.addEventListener('change',e=>{
       if(e.target&&e.target.dataset?.pwFilterChk){
         const raw=String(e.target.dataset.pwFilterChk||''), sep=raw.indexOf(':');
@@ -5988,11 +6439,13 @@
         updateCloudCharacterMeta(cid,d=>{d.owner=newOwn;if(d._summary)d._summary.owner=newOwn;},newOwn?`👑 Besitzer auf „${newOwn}“ geändert`:'👑 Charakter auf „Frei“ gesetzt');
         return;
       }
-      if(el.dataset.adminCharCamp){
-        if(!CLOUD.isAdmin) return;
-        const cid=el.dataset.adminCharCamp, newCampId=String(el.value||'default').trim()||'default';
-        const camps=getCampaigns();
-        const targetCamp=camps.find(c=>c.id===newCampId)||camps[0];
+      if(el.id==='selNewCharCamp'){CLOUD.newCharCampId=el.value;return;}
+      if(el.dataset.adminCampChar||el.dataset.adminCharCamp){
+        const cid=el.dataset.adminCampChar||el.dataset.adminCharCamp, newCampId=String(el.value||'default').trim()||'default';
+        const owner=getCharOwner(cid), isMyChar=Boolean(owner&&CLOUD.currentUser&&owner.toLowerCase()===CLOUD.currentUser.toLowerCase()), isMyClaim=isMyChar;
+        if(!CLOUD.isAdmin&&!isMyChar&&!canManageCampaign(getCharCampaignId(cid))) return;
+        const camps=CLOUD.isAdmin?getCampaigns():getCreatableCampaigns(CLOUD.currentUser);
+        const targetCamp=camps.find(c=>c.id===newCampId)||camps[0]||{id:'default',name:'Ohne Kampagne / Allgemein'};
         const effCampId=targetCamp.id;
         if(!CLOUD.registry.charCampaigns||typeof CLOUD.registry.charCampaigns!=='object') CLOUD.registry.charCampaigns={};
         CLOUD.registry.charCampaigns[cid]=effCampId;
@@ -6060,7 +6513,7 @@
         });
         el.value='';return;
       }
-      if(el.id==='fileImport'&&el.files[0]){const r=new FileReader();r.onload=ev=>{try{mergeLoaded(JSON.parse(ev.target.result));UI.modal=null;renderAll();toast('Charakterbogen importiert!');}catch(err){toast('Ungültige JSON-Datei.');}};r.readAsText(el.files[0]);el.value='';}
+      if(el.id==='fileImport'&&el.files[0]){const r=new FileReader();r.onload=ev=>{try{mergeLoaded(JSON.parse(ev.target.result)); UI.inLobby=false; UI.sheetLoaded=true; UI.modal=null;UI.modal=null;renderAll();toast('Charakterbogen importiert!');}catch(err){toast('Ungültige JSON-Datei.');}};r.readAsText(el.files[0]);el.value='';}
     });
 
     document.addEventListener('submit',e=>{
@@ -6649,21 +7102,26 @@
     });
     window.addEventListener('resize',()=>{if(D.open)renderDice();if(CN.open)renderCampNotes();if(LD.open)renderLiveDice();});
 
-    load(); initLiveDiceChannel(); renderAll(false);
-    window.addEventListener('storage',ev=>{
-      if(ev.key==='scherbensturm_live_dice_feed'&&ev.newValue){
-        try{mergeDiceFeeds(JSON.parse(ev.newValue)||[]);updateLobbyLiveDiceDOM();}catch(e){}
-      }
-    });
-    try{
-      const params=new URLSearchParams(window.location.search);
-      const urlChar=params.get('char'), urlLobby=params.get('lobby')||params.get('view')==='lobby'||window.location.hash==='#lobby';
-      if(urlLobby){
-        UI.modal='lobby'; renderModal(); setTimeout(()=>fetchLobbyList(true),80);
-      }else if(urlChar&&urlChar!==S.charId){
-        setTimeout(()=>loadCloudCharacter(urlChar,true),150);
-      }
-    }catch(e){}
+    load();
+    initLiveDiceChannel();
+    const params=new URLSearchParams(window.location.search);
+    const reqCharId=(params.get('char')||'').trim();
+    const forceSheet=params.get('sheet')==='1';
+    const forceLobby=params.get('lobby')==='1';
+    if(reqCharId){
+      UI.inLobby=false; UI.sheetLoaded=true; UI.modal=null;
+      renderAll(false);
+      loadCloudCharacter(reqCharId,false,true);
+      fetchLobbyList(true);
+    }else if(forceSheet&&!forceLobby){
+      UI.inLobby=false; UI.sheetLoaded=true; UI.modal=null;
+      renderAll(false);
+      fetchLobbyList(true);
+    }else{
+      UI.inLobby=true; UI.sheetLoaded=false; UI.modal=null;
+      renderAll(false);
+      fetchLobbyList(true);
+    }
   })();
   </script>
 </body>
