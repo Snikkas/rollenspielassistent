@@ -126,7 +126,7 @@
     ];
     const DEF_SEC_COLS={lp:'#f43f5e',ini:'#f59e0b',mlp:'#818cf8',ap:'#fde047',map:'#38bdf8'};
     const SEC_META={lp:'LP • Lebenspunkte',ini:'Ini • Initiative',mlp:'mLP • Mentale LP',ap:'AP • Ausdauerpunkte',map:'mAP • Mentale Ausdauerpunkte',cres:'Benutzerdefinierte Ressource'};
-    const DEF_ARTS=['Eigenschaft','Einsatz','Freiaktion','Grundaktion','Kraftaktion','Ritual','Schnellaktion','Sofortaktion'];
+    const DEF_ARTS=['Eigenschaft','Einsatz','Freiaktion','Grundaktion','Kraftaktion','Ritual','Schnellaktion'];
     const DEF_SUBS=['Abwehr','Angriff','Berührungsangriff','Bewegung','Reaktion','Unterstützung','Wurfmanipulation','Zauber'];
     const DEF_USERES=['ap','map'];
     const TR_DEFS=[{i:0,b:5,sp:2,msp:0},{i:1,b:5,sp:2,msp:0},{i:2,b:5,sp:3,msp:0},{i:3,b:5,sp:3,msp:0},{i:4,b:10,sp:5,msp:1}];
@@ -223,8 +223,16 @@
         if(s.parentSectionId&&!canSetSecParent(secList,s.id,s.parentSectionId)) s.parentSectionId='';
       });
     };
-    const makePower=(secId='')=>({id:uid(),name:'',color:'',bgColor:'',sectionId:secId,collapsed:false,req:'',tier:'marginal',manualCost:false,sp:1,msp:0,showManual:false,art:'Grundaktion',artManual:false,subcats:[],useAmt:1,useRes:'ap',desc:'',effects:'',rules:'',applyMods:true,bldAmt:'+1',bldStat:'LP-Max',boxH:{desc:0,effects:0,rules:0}});
-    const makeAugment=(pid='')=>({...makePower(''),id:uid(),parentPowerId:pid,art:'Eigenschaft',useAmt:0,useRes:''});
+    const makePower=(secId='')=>({id:uid(),name:'',color:'',bgColor:'',sectionId:secId,collapsed:false,req:'',tier:'marginal',manualCost:false,sp:1,msp:0,showManual:false,art:'Grundaktion',artManual:false,subcats:[],useCosts:[{res:'ap',amt:1}],useAmt:1,useRes:'ap',desc:'',effects:'',rules:'',applyMods:true,bldAmt:'+1',bldStat:'LP-Max',boxH:{desc:0,effects:0,rules:0}});
+    const makeAugment=(pid='')=>({...makePower(''),id:uid(),parentPowerId:pid,art:'Eigenschaft',useCosts:[],useAmt:0,useRes:''});
+    function syncPwUseCostsLegacy(it){
+      if(!it) return;
+      if(!Array.isArray(it.useCosts)) it.useCosts=[];
+      it.useCosts=it.useCosts.filter(c=>c&&String(c.res||'').trim()).map(c=>({res:String(c.res).trim(),amt:Math.max(0,toInt(c.amt,0))}));
+      const first=it.useCosts[0];
+      it.useRes=first?first.res:'';
+      it.useAmt=first?first.amt:0;
+    }
 
     function makeDefaultStatusEffects(){
       const out={};
@@ -278,7 +286,7 @@
         customRes:{name:'Benutzerdefiniert',current:3,max:3,color:'#c084fc'},extraSecList:[],
         statusCollapsed:false,statusEffects:makeDefaultStatusEffects(),inspiration:0,inspirationActive:false,
         thresholds:{woundLight:3,woundMedium:6,woundHeavy:9,traumaLight:3,traumaMedium:6,traumaHeavy:9},
-        bst:0,movements:[{id:'mv1',type:'Laufen',base:5,ovr:''}],hitZones:JSON.parse(JSON.stringify(DEF_HZ)),lastHzRoll:null,
+        bst:1,bstOvr:'',movements:[{id:'mv1',type:'Laufen',base:5,ovr:''}],hitZones:JSON.parse(JSON.stringify(DEF_HZ)),lastHzRoll:null,
         combatNotes:{bestehen:'',schaden:'',ruestung:''},skillSections:[],skills:[],powerSections:[
     {
       "id": "umwf0mc44chn1",
@@ -303,9 +311,10 @@
       "sp": 0,
       "msp": 0,
       "showManual": false,
-      "art": "Sofortaktion",
+      "art": "Freiaktion",
       "artManual": false,
       "subcats": [],
+      "useCosts": [{"res": "ap", "amt": 1}],
       "useAmt": 1,
       "useRes": "ap",
       "desc": "<i>Du bringst zusätzliche Anstrengung auf, um kurzzeitig einen Aspekt von dir zu verstärken.</i>\n\n",
@@ -339,6 +348,7 @@
         "Reaktion",
         "Wurfmanipulation"
       ],
+      "useCosts": [],
       "useAmt": 0,
       "useRes": "",
       "desc": "<i>Du verlässt dich auf dein Glück, um das Ergebnis eines Tests noch einmal zu ändern.</i>\n\n",
@@ -372,6 +382,7 @@
         "Reaktion",
         "Abwehr"
       ],
+      "useCosts": [],
       "useAmt": 0,
       "useRes": "",
       "desc": "<i>Eine vielfältige Aktion, die eingesetzt wird, um Trefferversuchen gegen dich auszuweichen.</i>\n\n",
@@ -405,6 +416,7 @@
         "Reaktion",
         "Abwehr"
       ],
+      "useCosts": [],
       "useAmt": 0,
       "useRes": "",
       "desc": "<i>Diese Aktion wird primär verwendet, um Angriffe abzufangen und auf dich umzuleiten.</i>\n\n",
@@ -438,6 +450,7 @@
         "Reaktion",
         "Abwehr"
       ],
+      "useCosts": [],
       "useAmt": 0,
       "useRes": "",
       "desc": "<i>Du verwendest eine Waffe, um den Angriff eines Gegners abzuleiten und unschädlich zu machen.</i>\n\n",
@@ -470,6 +483,7 @@
       "subcats": [
         "Bewegung"
       ],
+      "useCosts": [],
       "useAmt": 0,
       "useRes": "",
       "desc": "<i>Du führst eine kurze, schnelle Bewegung aus, um dich neu zu positionieren.</i>\n\n",
@@ -500,6 +514,7 @@
       "art": "Schnellaktion",
       "artManual": false,
       "subcats": [],
+      "useCosts": [],
       "useAmt": 0,
       "useRes": "",
       "desc": "<i>Du schmiedest einen Plan für die nahe Zukunft, um den Zeitpunkt einer Aktion genau festzulegen.</i>\n\n",
@@ -530,6 +545,7 @@
       "art": "Schnellaktion",
       "artManual": false,
       "subcats": [],
+      "useCosts": [],
       "useAmt": 0,
       "useRes": "",
       "desc": "<i>Du nimmst dir einen Moment zum Zielen und stellst so sicher, dass deine Angriffe eine bestimmte Körperzone treffen.</i>\n\n",
@@ -560,6 +576,7 @@
       "art": "Schnellaktion",
       "artManual": false,
       "subcats": [],
+      "useCosts": [],
       "useAmt": 0,
       "useRes": "",
       "desc": "<i>Diese Aktion wird verwendet, um handliche Gegenstände wie zum Beispiel Waffen, Tränke oder Granaten aus deinem Inventar in die Hand zu nehmen, um sie später benutzen zu können. Gleichermaßen kann sie benutzt werden, um gezogene Gegenstände wieder zurück ins Inventar zu stecken.</i>\n\n",
@@ -592,6 +609,7 @@
       "subcats": [
         "Bewegung"
       ],
+      "useCosts": [],
       "useAmt": 0,
       "useRes": "",
       "desc": "<i>Du führst eine gemäßigte Bewegung aus, die eine gute Strecke zurücklegt, ohne dich zu erschöpfen.</i>\n\n",
@@ -622,6 +640,7 @@
       "art": "Grundaktion",
       "artManual": false,
       "subcats": [],
+      "useCosts": [],
       "useAmt": 0,
       "useRes": "",
       "desc": "<i>Du bereitest deine nächsten Handlungen vor.</i>\n\n",
@@ -654,6 +673,7 @@
       "subcats": [
         "Unterstützung"
       ],
+      "useCosts": [],
       "useAmt": 0,
       "useRes": "",
       "desc": "<i>Du unterstützt jemanden durch Ratschläge oder guten Zuspruch.</i>\n\n",
@@ -684,6 +704,7 @@
       "art": "Grundaktion",
       "artManual": false,
       "subcats": [],
+      "useCosts": [],
       "useAmt": 0,
       "useRes": "",
       "desc": "<br>",
@@ -714,6 +735,7 @@
       "art": "Kraftaktion",
       "artManual": false,
       "subcats": [],
+      "useCosts": [],
       "useAmt": 0,
       "useRes": "",
       "desc": "<i>Du greifst waffenlos oder mit einer gezogenen Waffe an.</i>\n\n",
@@ -746,6 +768,7 @@
       "subcats": [
         "Bewegung"
       ],
+      "useCosts": [],
       "useAmt": 0,
       "useRes": "",
       "desc": "<i>Du führst eine weitreichende aber kräftezehrende Bewegung aus.</i>\n\n",
@@ -780,7 +803,7 @@
     let S=defaultState(), D={...DICE_DEF}, CN={...CNOTES_DEF}, LD={...LIVEDICE_DEF}, diceLogs=[], toastTimer=null, dragPwId=null, dragAugId=null, dragSecId=null, dragSkSecId=null, dragSkId=null, dragChrPw=null, dragChrSec=null, dragEqSec=null, dragEqItem=null, dragCampId=null, dragToken='';
     let dragMouseY=null, dragScrollRaf=null;
     const savedEffRanges={};
-    let UI={inLobby:true,sheetLoaded:false,modal:null,infoTab:'dice',listType:'art',ammoModalWeaponId:'',skSort:{col:'',asc:true},imgTargetKind:'',imgTargetId:'',confirmNew:false,confirmLog:false,confirmDelId:null,confirmDelSecId:null,confirmSecPullId:null,confirmDelSkSecId:null,confirmSkSecPullId:null,confirmDelExSecId:null,confirmHzStep:1,pwFilterOpen:false,pwFilterMode:'or',pwFilterArts:[],pwFilterTiers:[],pwFilterSubs:[],statusIniPromptKey:'',lastRollHtml:'',lastBlockBaseHtml:'',lastBlockFollowRes:null,colTarget:'cres',colMode:'text',colPwKind:'power',colPwId:'',colDraft:'#c084fc',attrGroupSel:'ST_KO',savedOnce:true,palBuilderOpen:false,palDraft:{name:'',isLt:false,bg:'#020617',acc:'#0ea5e9',acc2:'#6366f1',txt:'#f1f5f9',mut:'#94a3b8',btnTxt:'#ffffff'}};
+    let UI={inLobby:true,sheetLoaded:false,modal:null,infoTab:'dice',listType:'art',ammoModalWeaponId:'',skSort:{col:'',asc:true},editSkNameId:null,imgTargetKind:'',imgTargetId:'',confirmNew:false,confirmLog:false,confirmDelId:null,confirmDelSecId:null,confirmSecPullId:null,confirmDelSkSecId:null,confirmSkSecPullId:null,confirmDelExSecId:null,confirmHzStep:1,pwFilterOpen:false,pwFilterMode:'or',pwFilterArts:[],pwFilterTiers:[],pwFilterSubs:[],statusIniPromptKey:'',lastRollHtml:'',lastBlockBaseHtml:'',lastBlockFollowRes:null,colTarget:'cres',colMode:'text',colPwKind:'power',colPwId:'',colDraft:'#c084fc',attrGroupSel:'ST_KO',savedOnce:true,palBuilderOpen:false,palDraft:{name:'',isLt:false,bg:'#020617',acc:'#0ea5e9',acc2:'#6366f1',txt:'#f1f5f9',mut:'#94a3b8',btnTxt:'#ffffff'}};
     const REGISTRY_ID='_lobby_meta_registry_', LIVE_TAB_ID=uid();
     function normalizeCampaigns(rawCamps){
       const list=Array.isArray(rawCamps)?rawCamps.filter(c=>c&&typeof c==='object'&&String(c.id||'').trim()).map(c=>{
@@ -792,20 +815,19 @@
           name:hasName?rawName:(id==='default'?'Ohne Kampagne / Allgemein':'Kampagne'),
           allowedUsers:Array.isArray(c.allowedUsers)?[...new Set(c.allowedUsers.map(u=>String(u||'').trim()).filter(Boolean))]:[],
           gmUsers: id==='default'?[]:(Array.isArray(c.gmUsers)?[...new Set(c.gmUsers.map(u=>String(u||'').trim()).filter(Boolean))]:[]),
-          coGmUsers: id==='default'?[]:(Array.isArray(c.coGmUsers)?[...new Set(c.coGmUsers.map(u=>String(u||'').trim()).filter(Boolean))]:[]),
           img: String(c.img||''),
           color: isHex(c.color)?c.color:'',
           bgColor: isHex(c.bgColor)?c.bgColor:''
         };
       }):[];
       if(!list.length){
-        list.push({id:'default',name:'Ohne Kampagne / Allgemein',allowedUsers:[],gmUsers:[],coGmUsers:[],img:''});
+        list.push({id:'default',name:'Ohne Kampagne / Allgemein',allowedUsers:[],gmUsers:[],img:''});
       }else if(!list.some(c=>c.id==='default')){
-        list.unshift({id:'default',name:'Ohne Kampagne / Allgemein',allowedUsers:[],gmUsers:[],coGmUsers:[],img:''});
+        list.unshift({id:'default',name:'Ohne Kampagne / Allgemein',allowedUsers:[],gmUsers:[],img:''});
       }
       return list;
     }
-    let CLOUD={serverUrl:'',list:[],loading:false,syncing:false,error:'',lastSyncTs:'',viewingRemote:false,remoteCharId:'',ownBackupJson:null,confirmDelCloudId:null,filterMine:false,currentUser:'',isAdmin:false,showAdminBar:false,userMgmtOpen:false,showPwChange:false,activeCampaignId:'default',campAction:'',newCharOpen:false,newCharName:'',newCharAncestry:'',newCharConcept:'',newCharCampId:'default',registryLoaded:false,diceFeed:[],diceConnected:false,diceToast:true,diceCollapsed:false,confirmClearDice:false,registry:{users:{},claims:{},pins:{},charCampaigns:{},campaigns:[{id:'default',name:'Ohne Kampagne / Allgemein',allowedUsers:[],gmUsers:[],coGmUsers:[],img:''}],gmUsers:[],lobbyLogo:'',adminHash:'',diceFeed:[],diceClearedAt:0}}, cloudSyncTimer=null, liveDiceES=null, liveDiceBC=null, liveDiceTopicCur='', liveDicePollTimer=null, registryPushInFlight=0, lastRegistryPushMs=0;
+    let CLOUD={serverUrl:'',list:[],loading:false,syncing:false,error:'',lastSyncTs:'',viewingRemote:false,remoteCharId:'',ownBackupJson:null,confirmDelCloudId:null,filterMine:false,currentUser:'',isAdmin:false,showAdminBar:false,userMgmtOpen:false,showPwChange:false,activeCampaignId:'default',campAction:'',newCharOpen:false,newCharName:'',newCharAncestry:'',newCharConcept:'',newCharCampId:'default',registryLoaded:false,diceFeed:[],diceConnected:false,diceToast:true,diceCollapsed:false,confirmClearDice:false,registry:{users:{},claims:{},pins:{},charCampaigns:{},deletedCharIds:[],campaigns:[{id:'default',name:'Ohne Kampagne / Allgemein',allowedUsers:[],gmUsers:[],img:''}],gmUsers:[],lobbyLogo:'',adminHash:'',diceFeed:[],diceClearedAt:0}}, cloudSyncTimer=null, liveDiceES=null, liveDiceBC=null, liveDiceTopicCur='', liveDicePollTimer=null, registryPushInFlight=0, lastRegistryPushMs=0;
     try{
       CLOUD.serverUrl=localStorage.getItem('scherbensturm_cloud_url')||'';
       CLOUD.currentUser=localStorage.getItem('scherbensturm_cloud_user')||'';
@@ -820,6 +842,7 @@
           ...CLOUD.registry,
           ...parsedReg,
           charCampaigns:(parsedReg.charCampaigns&&typeof parsedReg.charCampaigns==='object')?parsedReg.charCampaigns:{},
+          deletedCharIds:Array.isArray(parsedReg.deletedCharIds)?[...new Set(parsedReg.deletedCharIds.map(x=>String(x||'').trim()).filter(Boolean))]:[],
           campaigns:normalizeCampaigns(parsedReg.campaigns),
           gmUsers:Array.isArray(parsedReg.gmUsers)?parsedReg.gmUsers:[],
           lobbyLogo:String(parsedReg.lobbyLogo||'')
@@ -847,19 +870,17 @@
     }
     function isGlobalGM(username=CLOUD.currentUser){const u=String(username||'').trim().toLowerCase();return Boolean(u&&Array.isArray(CLOUD.registry?.gmUsers)&&CLOUD.registry.gmUsers.some(x=>String(x||'').trim().toLowerCase()===u));}
     function isCampaignMainGM(campOrId,username=CLOUD.currentUser){const u=String(username||'').trim().toLowerCase();if(!u||!isGlobalGM(u))return false;const c=typeof campOrId==='string'?getCampaigns().find(x=>x.id===campOrId):campOrId;if(!c||c.id==='default')return false;return Array.isArray(c.gmUsers)&&c.gmUsers.some(x=>String(x||'').trim().toLowerCase()===u);}
-    function isCampaignCoGM(campOrId,username=CLOUD.currentUser){const u=String(username||'').trim().toLowerCase();if(!u||!isGlobalGM(u))return false;const c=typeof campOrId==='string'?getCampaigns().find(x=>x.id===campOrId):campOrId;if(!c||c.id==='default')return false;return Array.isArray(c.coGmUsers)&&c.coGmUsers.some(x=>String(x||'').trim().toLowerCase()===u);}
-    function canManageCampaign(campOrId,username=CLOUD.currentUser){if(CLOUD.isAdmin)return true;return isCampaignMainGM(campOrId,username)||isCampaignCoGM(campOrId,username);}
-    function canManageCampaignCoGMs(campOrId,username=CLOUD.currentUser){if(CLOUD.isAdmin)return true;return isCampaignMainGM(campOrId,username);}
+    function canManageCampaign(campOrId,username=CLOUD.currentUser){if(CLOUD.isAdmin) return true; return isCampaignMainGM(campOrId, username);}
     function getAccessibleCampaigns(username=CLOUD.currentUser){
       const all=getCampaigns(); if(CLOUD.isAdmin) return all;
-      return all.filter(c=>c.id==='default'||(username&&(isUserInCampaign(c,username)||isCampaignMainGM(c,username)||isCampaignCoGM(c,username))));
+      return all.filter(c=>c.id==='default'||(username&&(isUserInCampaign(c,username)||isCampaignMainGM(c,username))));
     }
     function getCreatableCampaigns(username=CLOUD.currentUser){
       if(!username&&!CLOUD.isAdmin) return [];
       return getAccessibleCampaigns(username);
     }
     const simpleHash=str=>{let h=2166136261;const s=String(str||'');for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619);}return (h>>>0).toString(36);};
-    function saveRegistryLocal(){try{localStorage.setItem('scherbensturm_lobby_registry',JSON.stringify(CLOUD.registry));}catch(e){}}
+    function saveRegistryLocal(){try{if(!Array.isArray(CLOUD.registry.deletedCharIds))CLOUD.registry.deletedCharIds=[];localStorage.setItem('scherbensturm_lobby_registry',JSON.stringify(CLOUD.registry));}catch(e){}}
     function saveDiceFeedLocal(){try{localStorage.setItem('scherbensturm_live_dice_feed',JSON.stringify((CLOUD.diceFeed||[]).slice(0,40)));}catch(e){}}
     const getLiveDiceTopic=()=>{
       const base=String(CLOUD.serverUrl||window.location.origin||'scherbensturm_global').trim().replace(/\/+$/,'').toLowerCase();
@@ -1064,7 +1085,7 @@
       }catch(e){}
       if(!liveDicePollTimer){
         liveDicePollTimer=setInterval(()=>{
-          if((UI.modal==='lobby'||UI.inLobby) || LD.open) syncCloudRegistry(false);
+          if(UI.inLobby || LD.open) syncCloudRegistry(false);
         },4000);
       }
     }
@@ -1103,6 +1124,20 @@
     const makeExtraSec=(idx=1)=>({id:uid(),name:`Ressource ${idx}`,current:3,max:3,color:COL_PRESETS[(idx+5)%COL_PRESETS.length]||'#34d399'});
     const getExtraSecName=ex=>String(ex?.name||'').trim()||'Ressource';
     const getResLabel=k=>{if(String(k||'').startsWith('ex_')){const ex=(S.extraSecList||[]).find(x=>'ex_'+x.id===k);return ex?getExtraSecName(ex):k;}return ({ap:'AP',map:'mAP',lp:'LP',mlp:'mLP',cres:cresName(),bst:'BSt'})[k]||k;};
+    function getAvailableUseResources(){
+      const base=['ap','map','lp','mlp','cres',...(S.extraSecList||[]).map(ex=>'ex_'+ex.id),'bst'];
+      const extra=(S.useResList||[]).map(r=>String(r||'').trim()).filter(Boolean);
+      const keys=[...new Set([...base,...extra])];
+      return keys.map(k=>({res:k,label:getResLabel(k),color:getSecCol(k)||'var(--acc)'}));
+    }
+    function getActivePwUseCosts(it){
+      const raw=Array.isArray(it?.useCosts)?it.useCosts:(it?.useRes&&toInt(it?.useAmt,0)>0?[{res:it.useRes,amt:toInt(it.useAmt,0)}]:[]);
+      return raw.filter(c=>c&&String(c.res||'').trim()&&toInt(c.amt,0)>0).map(c=>({res:String(c.res).trim(),amt:Math.max(0,toInt(c.amt,0))}));
+    }
+    function formatPwUseCosts(it){
+      const act=getActivePwUseCosts(it);
+      return act.map(c=>`${c.amt} ${getResLabel(c.res)}`).join(' + ');
+    }
 
     function getStatGroups(){
       const cn=cresName(), exMax=(S.extraSecList||[]).map(x=>`${getExtraSecName(x)}-Max`), g=[
@@ -1789,8 +1824,8 @@
         if(ex){const nm=getExtraSecName(ex),base=getExtraSecBase(ex),tot=getExtraSecMax(ex,M),sl=fmtSrcLines(M,key);return `${nm}-Max Gesamt: ${tot}\n• Basis-Maximum: ${base}${sl?`\n${sl}`:''}`;}
       }
       if(key==='bst'){
-        const base=toInt(S.bst,0),tot=getEffBst(M),sl=fmtSrcLines(M,'bst');
-        return `Bewegungsstufe (BSt) Gesamt: ${fmtSign(tot)}\n• Basis-BSt: ${fmtSign(base)}${sl?`\n${sl}`:''}`;
+        const auto=getBstAuto(),base=getBstBase(),tot=getEffBst(M),ovr=hasBstOvr(),sl=fmtSrcLines(M,'bst');
+        return `Bewegungsstufe (BSt) Gesamt: ${tot}\n• Basis-BSt: ${base} (Automatik ⌊Bew/5⌋: ${auto})${ovr?`\n• Manueller Overwrite aktiv (Automatisch: ${auto})`:''}${sl?`\n${sl}`:''}`;
       }
       const thNames={woundLight:'Verwundung (leicht)',woundMedium:'Verwundung (mittel)',woundHeavy:'Verwundung (schwer)',traumaLight:'Trauma (leicht)',traumaMedium:'Trauma (mittel)',traumaHeavy:'Trauma (schwer)'};
       if(thNames[key]){
@@ -1815,17 +1850,21 @@
     }
     function purgeExtraSecFromPowers(secName,exId){
       const o=String(secName||'').trim();
-      if(o){
-        const e=o.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
-        const r=new RegExp(`\\[([+-]?\\d+)\\s+${e}(?:-Max)?\\]`,'gi');
-        const oLow=o.toLowerCase();
-        [...S.powers,...S.augments].forEach(it=>{
-          if(it.effects) it.effects=it.effects.replace(r,'').replace(/[ \t\u00a0]{2,}/g,' ').trim();
+      const e=o?o.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'):'';
+      const r=o?new RegExp(`\\[([+-]?\\d+)\\s+${e}(?:-Max)?\\]`,'gi'):null;
+      const oLow=o.toLowerCase();
+      [...S.powers,...S.augments].forEach(it=>{
+        if(r&&it.effects) it.effects=it.effects.replace(r,'').replace(/[ \t\u00a0]{2,}/g,' ').trim();
+        if(o){
           const bs=String(it.bldStat||'').trim().toLowerCase();
           if(bs===`${oLow}-max`||bs===oLow) it.bldStat='LP-Max';
-          if(exId&&it.useRes==='ex_'+exId){it.useRes='';it.useAmt=0;}
-        });
-      }
+        }
+        if(exId){
+          if(Array.isArray(it.useCosts)) it.useCosts=it.useCosts.filter(c=>c&&c.res!=='ex_'+exId);
+          if(it.useRes==='ex_'+exId){it.useRes='';it.useAmt=0;}
+          syncPwUseCostsLegacy(it);
+        }
+      });
     }
 
     function calcAutoSkCost(catKey,rank){
@@ -1836,26 +1875,34 @@
 
     function normPwEntry(raw,isAug){
       const isLegacyBasis=!isAug&&raw?.sectionId==='umwf0mc44chn1'&&raw?.tier==='marginal'&&raw?.manualCost&&toInt(raw?.sp,0)===0&&toInt(raw?.msp,0)===0; const base=isAug?makeAugment():makePower(), tier=isLegacyBasis?'basisaktion':(PW_TIERS[raw?.tier]?raw.tier:'marginal'), def=PW_TIERS[tier], manual=isLegacyBasis?false:Boolean(raw?.manualCost);
-      let useAmt=raw?.useAmt!==undefined?toInt(raw.useAmt,isAug?0:1):(isAug?0:1), useRes=raw?.useRes!==undefined?String(raw.useRes):(isAug?'':'ap');
+      let useAmt=raw?.useAmt!==undefined?toInt(raw.useAmt,isAug?0:1):(isAug?0:(tier==='basisaktion'?0:1)), useRes=raw?.useRes!==undefined?String(raw.useRes):(isAug?'':(tier==='basisaktion'?'':'ap'));
       if(raw?.useAmt===undefined&&typeof raw?.useCost==='string'&&raw.useCost.trim()){const m=raw.useCost.match(/(\d+)\s*(mAP|AP|mLP|LP|BSt)/i);if(m){useAmt=+m[1];useRes=m[2].toLowerCase();}}
       if(!useRes) useAmt=0;
+      let useCosts=[];
+      if(Array.isArray(raw?.useCosts)){
+        useCosts=raw.useCosts.filter(c=>c&&String(c.res||'').trim()).map(c=>({res:String(c.res).trim(),amt:Math.max(0,toInt(c.amt,0))}));
+      }else if(useRes&&toInt(useAmt,0)>0){
+        useCosts=[{res:String(useRes).trim(),amt:Math.max(0,toInt(useAmt,1))}];
+      }
+      useRes=useCosts[0]?useCosts[0].res:'';
+      useAmt=useCosts[0]?useCosts[0].amt:0;
       const bh=raw?.boxH&&typeof raw.boxH==='object'?{desc:toInt(raw.boxH.desc,0),effects:toInt(raw.boxH.effects,0),rules:toInt(raw.boxH.rules,0)}:{desc:0,effects:0,rules:0};
       const col=isHex(raw?.color)?raw.color:'', bgCol=isHex(raw?.bgColor)?raw.bgColor:'';
       const applyMods=raw?.applyMods!==undefined?Boolean(raw.applyMods):true;
-      return {...base,...(raw||{}),id:raw?.id||uid(),color:col,bgColor:bgCol,sectionId:String(raw?.sectionId||''),collapsed:Boolean(raw?.collapsed),tier,manualCost:manual,sp:manual?toInt(raw.sp,def.sp):def.sp,msp:manual?toInt(raw.msp,def.msp):def.msp,showManual:Boolean(raw?.showManual),art:String(raw?.art??raw?.kind??base.art).trim(),artManual:Boolean(raw?.artManual),subcats:Array.isArray(raw?.subcats)?raw.subcats.map(x=>String(x).trim()).filter(Boolean):[],useAmt,useRes,desc:String(raw?.desc||''),effects:String(raw?.effects??raw?.extraEffects??''),rules:String(raw?.rules||''),applyMods,bldAmt:String(raw?.bldAmt||'+1'),bldStat:String(raw?.bldStat||'LP-Max'),boxH:bh};
+      return {...base,...(raw||{}),id:raw?.id||uid(),color:col,bgColor:bgCol,sectionId:String(raw?.sectionId||''),collapsed:Boolean(raw?.collapsed),tier,manualCost:manual,sp:manual?toInt(raw.sp,def.sp):def.sp,msp:manual?toInt(raw.msp,def.msp):def.msp,showManual:Boolean(raw?.showManual),art:(()=>{const a=String(raw?.art??raw?.kind??base.art).trim();return a.toLowerCase()==='sofortaktion'?'Freiaktion':a;})(),artManual:Boolean(raw?.artManual),subcats:Array.isArray(raw?.subcats)?raw.subcats.map(x=>String(x).trim()).filter(Boolean):[],useCosts,useAmt,useRes,desc:String(raw?.desc||''),effects:String(raw?.effects??raw?.extraEffects??''),rules:String(raw?.rules||''),applyMods,bldAmt:String(raw?.bldAmt||'+1'),bldStat:String(raw?.bldStat||'LP-Max'),boxH:bh};
     }
 
     function mergeLoaded(raw){
       if(!raw||typeof raw!=='object') return;
       const def=defaultState(), cid=String(raw.charId||def.charId), restoredTab=getSavedTabForChar(cid,raw.activeTab);
-      const rawCampId=String(raw.campaignId||raw._summary?.campaignId||CLOUD.registry?.charCampaigns?.[cid]||'default').trim()||'default'; S={...def,...raw,version:11,charId:cid,activeTab:restoredTab,owner:String(raw.owner||''),campaignId:rawCampId,cloudPin:String(raw.cloudPin||''),cloudAutoSync:Boolean(raw.cloudAutoSync),profile:{...def.profile,...(raw.profile||{})},secondary:{...def.secondary,...(raw.secondary||{})},customRes:{...def.customRes,...(raw.customRes||{})},statusCollapsed:Boolean(raw.statusCollapsed),statusEffects:normStatusEffects(raw.statusEffects),inspiration:Math.max(0,toInt(raw.inspiration,0)),inspirationActive:Boolean(raw.inspirationActive),thresholds:{...def.thresholds,...(raw.thresholds||{})},combatNotes:{...def.combatNotes,...(raw.combatNotes||{})},progression:{...def.progression,...(raw.progression||{})},bio:{...def.bio,...(raw.bio||{})},equipNotes:raw.equipNotes??raw.equipFreeNotes??''};
+      const rawCampId=String(raw.campaignId||raw._summary?.campaignId||CLOUD.registry?.charCampaigns?.[cid]||'default').trim()||'default'; S={...def,...raw,version:11,charId:cid,activeTab:restoredTab,owner:String(raw.owner||''),campaignId:rawCampId,cloudPin:'',cloudAutoSync:Boolean(raw.cloudAutoSync),profile:{...def.profile,...(raw.profile||{})},secondary:{...def.secondary,...(raw.secondary||{})},customRes:{...def.customRes,...(raw.customRes||{})},statusCollapsed:Boolean(raw.statusCollapsed),statusEffects:normStatusEffects(raw.statusEffects),inspiration:Math.max(0,toInt(raw.inspiration,0)),inspirationActive:Boolean(raw.inspirationActive),thresholds:{...def.thresholds,...(raw.thresholds||{})},combatNotes:{...def.combatNotes,...(raw.combatNotes||{})},progression:{...def.progression,...(raw.progression||{})},bio:{...def.bio,...(raw.bio||{})},equipNotes:raw.equipNotes??raw.equipFreeNotes??''};
       if(!isHex(S.customRes.color)) S.customRes.color='#c084fc';
       S.secondary.lpRegenOvr=S.secondary.lpRegenOvr!==undefined&&S.secondary.lpRegenOvr!==null&&String(S.secondary.lpRegenOvr).trim()!==''?String(Math.max(0,toInt(S.secondary.lpRegenOvr,5))):'';
       S.secondary.mlpRegenOvr=S.secondary.mlpRegenOvr!==undefined&&S.secondary.mlpRegenOvr!==null&&String(S.secondary.mlpRegenOvr).trim()!==''?String(Math.max(0,toInt(S.secondary.mlpRegenOvr,5))):'';
       S.extraSecList=Array.isArray(raw.extraSecList)?raw.extraSecList.filter(x=>x&&typeof x==='object').map((x,i)=>({id:x.id||uid(),name:String(x.name||`Ressource ${i+1}`),current:toInt(x.current,3),max:toInt(x.max,3),color:isHex(x.color)?x.color:(COL_PRESETS[(i+6)%COL_PRESETS.length]||'#34d399')})):[];
       S.attrColors={...DEF_ATTR_COLS}; if(raw.attrColors) Object.keys(DEF_ATTR_COLS).forEach(k=>{if(isHex(raw.attrColors[k]))S.attrColors[k]=raw.attrColors[k];});
       S.secColors={...DEF_SEC_COLS}; if(raw.secColors) Object.keys(DEF_SEC_COLS).forEach(k=>{if(isHex(raw.secColors[k]))S.secColors[k]=raw.secColors[k];});
-      S.artList=Array.isArray(raw.artList)&&raw.artList.length?sortAlpha(raw.artList):[...DEF_ARTS];
+      S.artList=Array.isArray(raw.artList)&&raw.artList.length?sortAlpha(raw.artList.filter(a=>String(a||'').trim().toLowerCase()!=='sofortaktion')):[...DEF_ARTS];if(!S.artList.length)S.artList=[...DEF_ARTS];
       S.subcatList=Array.isArray(raw.subcatList)&&raw.subcatList.length?sortAlpha(raw.subcatList):[...DEF_SUBS];
       S.useResList=Array.isArray(raw.useResList)&&raw.useResList.length?[...new Set(raw.useResList.map(x=>String(x).trim()).filter(Boolean))]:[...DEF_USERES];
       S.customStats=Array.isArray(raw.customStats)?sortAlpha(raw.customStats):[];
@@ -1902,12 +1949,13 @@
         const sectionId=sk.sectionId&&S.skillSections.some(s=>s.id===sk.sectionId)?String(sk.sectionId):'';
         return {id:sk.id||uid(),name:String(sk.name||'Fertigkeit'),color:isHex(sk.color)?sk.color:'',bgColor:isHex(sk.bgColor)?sk.bgColor:'',linkedAttr:ATTRS.some(a=>a.k===sk.linkedAttr)?sk.linkedAttr:'PR',category,rank,bonusOvr,sectionId,manualCost,customSp,customMsp,notes:String(sk.notes||'')};
       }):[];
-      S.powerSections=Array.isArray(raw.powerSections)?raw.powerSections.map(sec=>({id:sec?.id||uid(),name:String(sec?.name||'Sektion'),color:isHex(sec?.color)?sec.color:'',bgColor:isHex(sec?.bgColor)?sec.bgColor:'',collapsed:Boolean(sec?.collapsed),filterArt:String(sec?.filterArt||''),parentSectionId:String(sec?.parentSectionId||'')})):[];
+      S.powerSections=Array.isArray(raw.powerSections)?raw.powerSections.map(sec=>{const fa=String(sec?.filterArt||'').trim();return {id:sec?.id||uid(),name:String(sec?.name||'Sektion'),color:isHex(sec?.color)?sec.color:'',bgColor:isHex(sec?.bgColor)?sec.bgColor:'',collapsed:Boolean(sec?.collapsed),filterArt:fa.toLowerCase()==='sofortaktion'?'':fa,parentSectionId:String(sec?.parentSectionId||'')};}):[];
       sanitizeSecHierarchy(S.powerSections);
       S.powers=Array.isArray(raw.powers)?raw.powers.map(p=>normPwEntry(p,false)):[];
-      S.powers.forEach(p=>{if(p.sectionId&&!S.powerSections.some(s=>s.id===p.sectionId))p.sectionId='';if(getAllParsedEffectChips(p.effects).length&&raw.version<11)p.applyMods=true;});
+      S.powers.forEach(p=>{if(String(p.art||'').trim().toLowerCase()==='sofortaktion')p.art='Freiaktion';if(p.sectionId&&!S.powerSections.some(s=>s.id===p.sectionId))p.sectionId='';if(getAllParsedEffectChips(p.effects).length&&raw.version<11)p.applyMods=true;});
       S.augments=Array.isArray(raw.augments)?raw.augments.map(a=>normPwEntry(a,true)):[];
-      S.augments.forEach(a=>{if(getAllParsedEffectChips(a.effects).length&&raw.version<11)a.applyMods=true;});
+      S.augments.forEach(a=>{if(String(a.art||'').trim().toLowerCase()==='sofortaktion')a.art='Freiaktion';if(getAllParsedEffectChips(a.effects).length&&raw.version<11)a.applyMods=true;});
+      if(Array.isArray(UI.pwFilterArts))UI.pwFilterArts=UI.pwFilterArts.filter(a=>String(a||'').trim().toLowerCase()!=='sofortaktion');
       const slotCnt={};
       S.augments.forEach(ag=>{
         if(!ag.parentPowerId&&ag.parentPower){const m=S.powers.find(p=>p.name&&p.name.toLowerCase()===String(ag.parentPower).toLowerCase());if(m)ag.parentPowerId=m.id;}
@@ -1916,6 +1964,13 @@
       });
       if(!Array.isArray(S.movements)||!S.movements.length) S.movements=def.movements;
       S.movements=S.movements.map(mv=>({id:mv?.id||uid(),type:String(mv?.type||'Bewegung'),base:mv?.base??5,ovr:mv?.ovr!==undefined&&mv?.ovr!==null?String(mv.ovr):''}));
+      S.bst=raw.bst!==undefined?toInt(raw.bst,1):1;
+      if(raw.bstOvr===undefined){
+        const oldBst=toInt(raw.bst,0);
+        S.bstOvr=(oldBst!==0&&oldBst!==1)?String(toInt(raw.bst,1)):'';
+      }else{
+        S.bstOvr=raw.bstOvr!==null&&String(raw.bstOvr).trim()!==''?String(toInt(raw.bstOvr,getBstAuto())):'';
+      }
       if(!Array.isArray(S.hitZones)||!S.hitZones.length) S.hitZones=def.hitZones;
       if(!Array.isArray(S.chronicleLog)) S.chronicleLog=def.chronicleLog;
       const rawChrOrd=Array.isArray(raw.chrSecOrder)?raw.chrSecOrder.filter(k=>DEF_CHR_SEC_ORDER.includes(k)):[];
@@ -2003,6 +2058,7 @@
         claims:CLOUD.registry.claims||{},
         pins:CLOUD.registry.pins||{},
         charCampaigns:CLOUD.registry.charCampaigns||{},
+        deletedCharIds:Array.isArray(CLOUD.registry.deletedCharIds)?[...new Set(CLOUD.registry.deletedCharIds.map(x=>String(x||'').trim()).filter(Boolean))]:[],
         campaigns:normalizeCampaigns(CLOUD.registry.campaigns),
         gmUsers:Array.isArray(CLOUD.registry.gmUsers)?[...new Set(CLOUD.registry.gmUsers.map(u=>String(u||'').trim()).filter(Boolean))]:[],
         lobbyLogo:String(CLOUD.registry.lobbyLogo??''),
@@ -2038,6 +2094,10 @@
             });
             const srcUsers=localSnap?localSnap.users:(CLOUD.registry.users||{});
             const srcPins=localSnap?localSnap.pins:(CLOUD.registry.pins||{});
+            const srcDelIds=localSnap?(localSnap.deletedCharIds||[]):(Array.isArray(CLOUD.registry.deletedCharIds)?CLOUD.registry.deletedCharIds:[]);
+            const remDelIds=Array.isArray(rem.registry.deletedCharIds)?rem.registry.deletedCharIds:[];
+            const mergedDeletedCharIds=[...new Set([...remDelIds,...srcDelIds].map(x=>String(x||'').trim()).filter(Boolean))];
+            const delSet=new Set(mergedDeletedCharIds);
             const rawUsers=push?{...(rem.registry.users||{}),...srcUsers}:(rem.registry.users&&typeof rem.registry.users==='object'?rem.registry.users:srcUsers);
             const mergedUsers={};
             Object.entries(rawUsers||{}).forEach(([uk,uv])=>{if(uv&&typeof uv==='object'&&!uv._deleted)mergedUsers[uk]=uv;});
@@ -2046,6 +2106,7 @@
               claims:mergedClaims,
               pins:push?{...(rem.registry.pins||{}),...srcPins}:{...srcPins,...(rem.registry.pins||{})},
               charCampaigns:mergedCharCampaigns,
+              deletedCharIds:mergedDeletedCharIds,
               campaigns:mergedCampaigns,
               gmUsers: push ? (localSnap.gmUsers||[]) : (Array.isArray(rem.registry.gmUsers)?rem.registry.gmUsers:(CLOUD.registry.gmUsers||[])),
               lobbyLogo: push ? (localSnap.lobbyLogo??'') : (rem.registry.lobbyLogo!==undefined?String(rem.registry.lobbyLogo):(CLOUD.registry.lobbyLogo||'')),
@@ -2053,6 +2114,7 @@
               diceClearedAt:clrAt,
               diceFeed:CLOUD.diceFeed||[]
             };
+            CLOUD.list=(CLOUD.list||[]).filter(ch=>ch&&!delSet.has(ch.id));
             CLOUD.list.forEach(ch=>{
               if(ch&&ch.id){
                 const cid=mergedCharCampaigns[ch.id]||ch.campaignId||'default';
@@ -2130,7 +2192,6 @@
         CLOUD.registry.gmUsers.splice(idx,1);
         getCampaigns().forEach(c=>{
           c.gmUsers=(c.gmUsers||[]).filter(u=>u.toLowerCase()!==clean.toLowerCase());
-          c.coGmUsers=(c.coGmUsers||[]).filter(u=>u.toLowerCase()!==clean.toLowerCase());
         });
         toast(`🎲 Spielleiter-Tag von „${clean}“ entfernt.`);
       }else{
@@ -2148,7 +2209,6 @@
       if(!isGlobalGM(clean)) CLOUD.registry.gmUsers.push(clean);
       if(!Array.isArray(camp.gmUsers)) camp.gmUsers=[];
       if(!camp.gmUsers.some(u=>u.toLowerCase()===clean.toLowerCase())) camp.gmUsers.push(clean);
-      camp.coGmUsers=(camp.coGmUsers||[]).filter(u=>u.toLowerCase()!==clean.toLowerCase());
       if(!camp.allowedUsers.some(u=>u.toLowerCase()===clean.toLowerCase())) camp.allowedUsers.push(clean);
       saveRegistryLocal(); renderModal(); syncCloudRegistry(true);
       toast(`🎲 „${clean}“ als Spielleiter für „${camp.name}“ eingesetzt!`);
@@ -2162,31 +2222,10 @@
       saveRegistryLocal(); renderModal(); syncCloudRegistry(true);
       toast(`🎲 „${clean}“ als Haupt-Spielleiter von „${camp.name}“ entfernt.`);
     }
-    function addCampaignCoGM(rawName){
-      const camp=getCampaigns().find(c=>c.id===CLOUD.activeCampaignId);
-      if(!camp||camp.id==='default'||!canManageCampaignCoGMs(camp)) return;
-      const clean=String(rawName||'').trim(); if(!clean) return;
-      if(!isGlobalGM(clean)){toast('⚠️ Nur vom Admin ernannte Spielleiter können als Co-Spielleiter hinzugefügt werden.');return;}
-      if(isCampaignMainGM(camp,clean)){toast('ℹ️ Dieser Nutzer ist bereits Haupt-Spielleiter dieser Kampagne.');return;}
-      if(!Array.isArray(camp.coGmUsers)) camp.coGmUsers=[];
-      if(!camp.coGmUsers.some(u=>u.toLowerCase()===clean.toLowerCase())) camp.coGmUsers.push(clean);
-      if(!camp.allowedUsers.some(u=>u.toLowerCase()===clean.toLowerCase())) camp.allowedUsers.push(clean);
-      saveRegistryLocal(); renderModal(); syncCloudRegistry(true);
-      toast(`🤝 „${clean}“ als Co-Spielleiter zu „${camp.name}“ hinzugefügt!`);
-    }
-    function removeCampaignCoGM(rawName){
-      const camp=getCampaigns().find(c=>c.id===CLOUD.activeCampaignId);
-      if(!camp||!canManageCampaignCoGMs(camp)) return;
-      const clean=String(rawName||'').trim(); if(!clean) return;
-      if(isCampaignMainGM(camp,clean)&&!CLOUD.isAdmin){toast('🔒 Der Original-Spielleiter der Kampagne kann nicht entfernt werden.');return;}
-      camp.coGmUsers=(camp.coGmUsers||[]).filter(u=>u.toLowerCase()!==clean.toLowerCase());
-      saveRegistryLocal(); renderModal(); syncCloudRegistry(true);
-      toast(`🤝 Co-Spielleiter „${clean}“ aus „${camp.name}“ entfernt.`);
-    }
     async function kickCharFromCampaign(charId){
       const curCampId=getCharCampaignId(charId);
       if(!curCampId||curCampId==='default') return;
-      if(!CLOUD.isAdmin&&!canManageCampaign(curCampId)){toast('🔒 Nur Spielleiter, Co-Spielleiter oder der Admin dürfen Charaktere aus der Kampagne werfen.');return;}
+      if(!CLOUD.isAdmin&&!canManageCampaign(curCampId)){toast('🔒 Nur Spielleiter oder der Admin dürfen Charaktere aus der Kampagne werfen.');return;}
       CLOUD.registry.charCampaigns[charId]='default';
       const ch=CLOUD.list.find(x=>x.id===charId); if(ch) ch.campaignId='default';
       if(S.charId===charId) S.campaignId='default';
@@ -2198,7 +2237,7 @@
         let srcData=null;
         if(UI.sheetLoaded&&S.charId===charId&&!CLOUD.viewingRemote){srcData=JSON.parse(JSON.stringify(S));}
         else{
-          const effPin=resolveEffectivePin(charId,'');
+          const effPin=String(CLOUD.registry.pins?.[charId]||'').trim();
           const res=await fetch(`${getCloudEndpoint()}?id=${encodeURIComponent(charId)}${effPin?`&pin=${encodeURIComponent(effPin)}`:''}`,{headers:{'Accept':'application/json'}});
           if(res.ok) srcData=await res.json();
         }
@@ -2207,6 +2246,7 @@
         srcData.charId=newId;
         srcData.owner=newOwner;
         srcData.campaignId='default';
+        srcData.cloudPin='';
         if(!srcData.profile) srcData.profile={};
         srcData.profile.name=`${String(srcData.profile.name||'Charakter').trim()} (Kopie)`;
         if(srcData._summary){srcData._summary.owner=newOwner;srcData._summary.campaignId='default';srcData._summary.updatedAt=stamp();}
@@ -2220,7 +2260,7 @@
     }
     async function fetchLobbyList(silent=false){
       const showLoader=!silent||!CLOUD.list.length;
-      if(showLoader){CLOUD.loading=true; CLOUD.error=''; if((UI.modal==='lobby'||UI.inLobby)) renderModal();}
+      if(showLoader){CLOUD.loading=true; CLOUD.error=''; if(UI.inLobby){renderHeader();renderMain();}}
       else CLOUD.error='';
       try{
         await syncCloudRegistry(false);
@@ -2229,7 +2269,9 @@
         const data=await res.json();
         const validCampIds=new Set(getCampaigns().map(c=>c.id));
         if(!CLOUD.registry.charCampaigns||typeof CLOUD.registry.charCampaigns!=='object') CLOUD.registry.charCampaigns={};
-        CLOUD.list=(Array.isArray(data)?data:[]).filter(ch=>ch&&ch.id!==REGISTRY_ID&&ch.name!=='__REGISTRY__');
+        if(!Array.isArray(CLOUD.registry.deletedCharIds)) CLOUD.registry.deletedCharIds=[];
+        const delSet=new Set(CLOUD.registry.deletedCharIds);
+        CLOUD.list=(Array.isArray(data)?data:[]).filter(ch=>ch&&ch.id!==REGISTRY_ID&&ch.name!=='__REGISTRY__'&&!delSet.has(ch.id));
         CLOUD.list.forEach(ch=>{
           if(ch.owner&&CLOUD.registry.claims[ch.id]===undefined) CLOUD.registry.claims[ch.id]=ch.owner;
           if(CLOUD.registry.charCampaigns[ch.id]===undefined){
@@ -2246,15 +2288,22 @@
         if(!silent) toast('Cloud-Lobby lokal nicht erreichbar (erst auf Netlify aktiv).');
       }finally{
         CLOUD.loading=false;
-        if((UI.modal==='lobby'||UI.inLobby)) renderModal();
+        if(UI.inLobby){renderHeader();renderMain();}
       }
     }
+    const isPinRejectError=(res,data)=>{
+      if(res&&(res.status===401||res.status===403)) return true;
+      const errTxt=String(data?.error||'');
+      return /schutz-pin|pin/i.test(errTxt);
+    };
     async function pushToCloud(silent=false){
       if(CLOUD.viewingRemote){if(!silent)toast('Im Ansichtsmodus gesperrt – übernimm den Bogen zuerst oder kehre zu deinem Charakter zurück.');return;}
       if(!S.charId) S.charId=uid();
       const existingOwner=getCharOwner(S.charId);
-      if(existingOwner&&!CLOUD.isAdmin&&(!CLOUD.currentUser||existingOwner.toLowerCase()!==CLOUD.currentUser.toLowerCase())){
-        if(!silent) toast(`🔒 Dieser Bogen ist von „${existingOwner}“ beansprucht. Bitte als „${existingOwner}“ anmelden oder Admin-PIN nutzen.`);
+      const curCampForAuth=getCharCampaignId(S.charId);
+      const isCampGMAuth=curCampForAuth&&curCampForAuth!=='default'&&canManageCampaign(curCampForAuth,CLOUD.currentUser);
+      if(existingOwner&&!CLOUD.isAdmin&&!isCampGMAuth&&(!CLOUD.currentUser||existingOwner.toLowerCase()!==CLOUD.currentUser.toLowerCase())){
+        if(!silent) toast(`🔒 Dieser Bogen gehört „${existingOwner}“. Bitte als „${existingOwner}“ anmelden.`);
         return;
       }
       if(CLOUD.currentUser&&!existingOwner) S.owner=CLOUD.currentUser;
@@ -2264,60 +2313,81 @@
       const existingCamp=CLOUD.registry.charCampaigns[S.charId]||S.campaignId||'default';
       S.campaignId=validCampIds.has(existingCamp)?existingCamp:'default';
       CLOUD.registry.charCampaigns[S.charId]=S.campaignId;
-      CLOUD.syncing=true; if((UI.modal==='lobby'||UI.inLobby)) renderModal();
+      S.cloudPin='';
+      CLOUD.syncing=true; if(UI.inLobby){renderHeader();renderMain();}
       try{
+        const oldPin=String(CLOUD.registry.pins?.[S.charId]||'').trim();
         if(S.owner) CLOUD.registry.claims[S.charId]=S.owner;
-        if(S.cloudPin) CLOUD.registry.pins[S.charId]=S.cloudPin;
-        else delete CLOUD.registry.pins[S.charId];
         await syncCloudRegistry(true);
-        const effPin=resolveEffectivePin(S.charId,S.cloudPin||'');
         const M=calcActiveMods();
-        const payload={...S,campaignId:S.campaignId,cloudPin:S.cloudPin||effPin,_AdminOverride:CLOUD.isAdmin,_summary:{owner:S.owner||'',campaignId:S.campaignId,lpMax:getLpMax(M),mlpMax:getMlpMax(M),apMax:getApMax(M),mapMax:getMapMax(M),ini:getIniTot(M),updatedAt:stamp()}};
-        const res=await fetch(getCloudEndpoint(),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
-        const data=await res.json().catch(()=>({}));
+        const postUrl=`${getCloudEndpoint()}${oldPin?`?pin=${encodeURIComponent(oldPin)}`:''}`;
+        const payload={...S,campaignId:S.campaignId,cloudPin:'',_AdminOverride:CLOUD.isAdmin,_summary:{owner:S.owner||'',campaignId:S.campaignId,lpMax:getLpMax(M),mlpMax:getMlpMax(M),apMax:getApMax(M),mapMax:getMapMax(M),ini:getIniTot(M),updatedAt:stamp()}};
+        let res=await fetch(postUrl,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+        let data=await res.json().catch(()=>({}));
+        if((!res.ok||data.error)&&isPinRejectError(res,data)){
+          const oldId=S.charId;
+          if(!Array.isArray(CLOUD.registry.deletedCharIds)) CLOUD.registry.deletedCharIds=[];
+          if(oldId&&!CLOUD.registry.deletedCharIds.includes(oldId)) CLOUD.registry.deletedCharIds.push(oldId);
+          fetch(`${getCloudEndpoint()}?id=${encodeURIComponent(oldId)}${oldPin?`&pin=${encodeURIComponent(oldPin)}`:''}`,{method:'DELETE'}).catch(()=>{});
+          const newId=uid();
+          S.charId=newId;
+          S.cloudPin='';
+          if(S.owner) CLOUD.registry.claims[newId]=S.owner;
+          CLOUD.registry.charCampaigns[newId]=S.campaignId||'default';
+          delete CLOUD.registry.claims[oldId];
+          delete CLOUD.registry.pins[oldId];
+          delete CLOUD.registry.charCampaigns[oldId];
+          CLOUD.list=(CLOUD.list||[]).filter(c=>c&&c.id!==oldId);
+          saveLastActiveTab(newId,S.activeTab);
+          try{localStorage.setItem(STORE_KEY,JSON.stringify(S));}catch(e){}
+          await syncCloudRegistry(true);
+          const migratedPayload={...payload,charId:newId,cloudPin:''};
+          res=await fetch(getCloudEndpoint(),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(migratedPayload)});
+          data=await res.json().catch(()=>({}));
+        }
         if(!res.ok||data.error) throw new Error(data.error||`HTTP ${res.status}`);
+        if(CLOUD.registry.pins?.[S.charId]){delete CLOUD.registry.pins[S.charId];saveRegistryLocal();syncCloudRegistry(true);}
         CLOUD.lastSyncTs=stamp(); CLOUD.error='';
         if(!silent){toast(`☁️ „${S.profile.name||'Charakter'}“ in der Gruppen-Lobby gespeichert!`);await fetchLobbyList(true);}
       }catch(err){
         CLOUD.error=String(err.message||'Synchronisation fehlgeschlagen.');
-        if(!silent) toast(`⚠️ Cloud-Fehler: ${CLOUD.error}`);
+        if(!silent&&!/schutz-pin/i.test(CLOUD.error)) toast(`⚠️ Cloud-Fehler: ${CLOUD.error}`);
       }finally{
         CLOUD.syncing=false;
         renderHeader();
-        if((UI.modal==='lobby'||UI.inLobby)) renderModal();
+        if(UI.inLobby){renderHeader();renderMain();}
       }
     }
     async function loadCloudCharacter(id,asViewOnly=true,autoFallbackView=false){
       try{
-        const pinInp=$(`pinInp_${id}`), rawPin=pinInp?pinInp.value.trim():'';
-        const effPin=resolveEffectivePin(id,rawPin);
+        const effPin=String(CLOUD.registry.pins?.[id]||'').trim();
         const url=`${getCloudEndpoint()}?id=${encodeURIComponent(id)}${effPin?`&pin=${encodeURIComponent(effPin)}`:''}`;
         const res=await fetch(url,{headers:{'Accept':'application/json'}});
         const data=await res.json();
         if(!res.ok||data.error){if(!autoFallbackView)toast(`⚠️ ${data.error||'Charakter konnte nicht geladen werden.'}`);return;}
         if(data.cloudPin&&!CLOUD.registry.pins[id]){CLOUD.registry.pins[id]=data.cloudPin;saveRegistryLocal();}
         const owner=getCharOwner(id)||String(data.owner||data._summary?.owner||'').trim();
-        const allowedByClaimOrAdmin=canManageChar(id,rawPin)||(!owner&&(!data._pinProtected||data._pinVerified));
-        if(!asViewOnly&&autoFallbackView&&!allowedByClaimOrAdmin){
+        const charCampId=getCharCampaignId(id);
+        const isCampGM=charCampId&&charCampId!=='default'&&canManageCampaign(charCampId,CLOUD.currentUser);
+        const isOwner=Boolean(owner&&CLOUD.currentUser&&owner.toLowerCase()===CLOUD.currentUser.toLowerCase());
+        const allowedToEdit=Boolean(CLOUD.isAdmin||isOwner||isCampGM||!owner);
+        if(!asViewOnly&&autoFallbackView&&!allowedToEdit){
           asViewOnly=true;
         }
         if(asViewOnly){
-          if(!CLOUD.viewingRemote) CLOUD.ownBackupJson=JSON.stringify(S);
+          CLOUD.ownBackupJson=null;
           CLOUD.viewingRemote=true; CLOUD.remoteCharId=id;
           mergeLoaded(data);
           UI.inLobby=false; UI.sheetLoaded=true; UI.modal=null; renderAll(false);
           toast(`👁️ 👄 👁️ Ansichtsmodus: „${S.profile.name||'Charakter'}“ geladen`);
         }else{
-          if(owner&&!allowedByClaimOrAdmin&&!(data._pinProtected&&data._pinVerified)&&!(rawPin&&data.cloudPin&&rawPin===data.cloudPin)){
-            toast(`🔒 Dieser Charakter gehört „${owner}“. Bitte als „${owner}“ anmelden, Schutz-PIN oder Admin-Master-PIN eingeben.`);
-            return;
-          }
-          if(data._pinProtected&&!data._pinVerified&&!allowedByClaimOrAdmin&&!(rawPin&&data.cloudPin&&rawPin===data.cloudPin)){
-            toast('🔒 Bitte gib zuerst die Schutz-PIN (oder Admin-Master-PIN) für diesen Charakter ein.');
+          if(owner&&!allowedToEdit){
+            toast(`🔒 Dieser Charakter gehört „${owner}“. Bitte als „${owner}“ anmelden.`);
             return;
           }
           CLOUD.viewingRemote=false; CLOUD.remoteCharId=''; CLOUD.ownBackupJson=null;
           mergeLoaded(data);
+          S.cloudPin='';
           S.activeTab=getSavedTabForChar(S.charId,data.activeTab);
           saveLastActiveTab(S.charId,S.activeTab);
           if(owner&&!S.owner) S.owner=owner;
@@ -2356,51 +2426,86 @@
     }
     async function updateCloudCharacterMeta(id,mutatorFn,successMsg){
       saveRegistryLocal();
-      if((UI.modal==='lobby'||UI.inLobby)) renderModal();
+      if(UI.inLobby){renderHeader();renderMain();}
       try{
-        const effPin=resolveEffectivePin(id,'');
-        const url=`${getCloudEndpoint()}?id=${encodeURIComponent(id)}${effPin?`&pin=${encodeURIComponent(effPin)}`:''}`;
+        const oldPin=String(CLOUD.registry.pins?.[id]||'').trim();
+        const url=`${getCloudEndpoint()}?id=${encodeURIComponent(id)}${oldPin?`&pin=${encodeURIComponent(oldPin)}`:''}`;
         const res=await fetch(url,{headers:{'Accept':'application/json'}});
         if(res.ok){
           const data=await res.json();
           if(data&&!data.error){
             mutatorFn(data);
             if(CLOUD.isAdmin) data._AdminOverride=true;
-            if(effPin&&!data.cloudPin) data.cloudPin=effPin;
-            await fetch(getCloudEndpoint(),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});
+            data.cloudPin='';
+            const postUrl=`${getCloudEndpoint()}${oldPin?`?pin=${encodeURIComponent(oldPin)}`:''}`;
+            let pRes=await fetch(postUrl,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});
+            let pData=await pRes.json().catch(()=>({}));
+            if((!pRes.ok||pData.error)&&isPinRejectError(pRes,pData)){
+              const oldId=id;
+              if(!Array.isArray(CLOUD.registry.deletedCharIds)) CLOUD.registry.deletedCharIds=[];
+              if(oldId&&!CLOUD.registry.deletedCharIds.includes(oldId)) CLOUD.registry.deletedCharIds.push(oldId);
+              fetch(`${getCloudEndpoint()}?id=${encodeURIComponent(oldId)}${oldPin?`&pin=${encodeURIComponent(oldPin)}`:''}`,{method:'DELETE'}).catch(()=>{});
+              const newId=uid();
+              const effOwner=String(CLOUD.registry.claims?.[oldId]??data.owner??data._summary?.owner??'').trim();
+              const effCamp=String(CLOUD.registry.charCampaigns?.[oldId]??data.campaignId??data._summary?.campaignId??'default').trim()||'default';
+              data.charId=newId;
+              data.cloudPin='';
+              data.owner=effOwner;
+              data.campaignId=effCamp;
+              if(data._summary){data._summary.owner=effOwner;data._summary.campaignId=effCamp;data._summary.updatedAt=stamp();}
+              if(S.charId===oldId){
+                S.charId=newId;
+                S.cloudPin='';
+                S.owner=effOwner;
+                S.campaignId=effCamp;
+                saveLastActiveTab(newId,S.activeTab);
+                try{localStorage.setItem(STORE_KEY,JSON.stringify(S));}catch(e){}
+              }
+              if(effOwner) CLOUD.registry.claims[newId]=effOwner;
+              CLOUD.registry.charCampaigns[newId]=effCamp;
+              delete CLOUD.registry.claims[oldId];
+              delete CLOUD.registry.pins[oldId];
+              delete CLOUD.registry.charCampaigns[oldId];
+              CLOUD.list=(CLOUD.list||[]).filter(c=>c&&c.id!==oldId);
+              await syncCloudRegistry(true);
+              await fetch(getCloudEndpoint(),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});
+            }else if(pRes.ok&&!pData.error&&CLOUD.registry.pins?.[id]){
+              delete CLOUD.registry.pins[id];
+            }
           }
         }
         await syncCloudRegistry(true);
         await fetchLobbyList(true);
-        if((UI.modal==='lobby'||UI.inLobby)) renderModal();
+        if(UI.inLobby){renderHeader();renderMain();}
         if(successMsg) toast(successMsg);
       }catch(err){
         await syncCloudRegistry(true);
-        if((UI.modal==='lobby'||UI.inLobby)) renderModal();
+        if(UI.inLobby){renderHeader();renderMain();}
         if(successMsg) toast(successMsg);
       }
     }
     async function deleteCloudCharacter(id){
       try{
-        const pinInp=$(`pinInp_${id}`), rawPin=pinInp?pinInp.value.trim():'';
         const owner=getCharOwner(id);
-        const allowed=canManageChar(id,rawPin);
-        if(owner&&!allowed&&!rawPin){
-          toast(`🔒 Nur „${owner}“ oder der Admin (Master-PIN) kann diesen Charakter löschen.`);
+        const allowed=canManageChar(id,'');
+        if(owner&&!allowed){
+          toast(`🔒 Nur „${owner}“, der Kampagnen-Spielleiter oder der Admin kann diesen Charakter löschen.`);
           return;
         }
-        let effPin=resolveEffectivePin(id,rawPin);
-        if(allowed&&!effPin){
+        let oldPin=String(CLOUD.registry.pins?.[id]||'').trim();
+        if(!oldPin){
           const gRes=await fetch(`${getCloudEndpoint()}?id=${encodeURIComponent(id)}`,{headers:{'Accept':'application/json'}}).catch(()=>null);
-          if(gRes&&gRes.ok){const gd=await gRes.json().catch(()=>({}));if(gd?.cloudPin)effPin=gd.cloudPin;}
+          if(gRes&&gRes.ok){const gd=await gRes.json().catch(()=>({}));if(gd?.cloudPin)oldPin=String(gd.cloudPin).trim();}
         }
-        const url=`${getCloudEndpoint()}?id=${encodeURIComponent(id)}${effPin?`&pin=${encodeURIComponent(effPin)}`:''}`;
+        const url=`${getCloudEndpoint()}?id=${encodeURIComponent(id)}${oldPin?`&pin=${encodeURIComponent(oldPin)}`:''}`;
         const res=await fetch(url,{method:'DELETE'});
-        const data=await res.json().catch(()=>({}));
-        if(!res.ok||data.error){toast(`⚠️ ${data.error||'Löschen fehlgeschlagen (ggf. PIN falsch).'}`);return;}
+        await res.json().catch(()=>({}));
+        if(!Array.isArray(CLOUD.registry.deletedCharIds)) CLOUD.registry.deletedCharIds=[];
+        if(id&&!CLOUD.registry.deletedCharIds.includes(id)) CLOUD.registry.deletedCharIds.push(id);
         delete CLOUD.registry.claims[id];
         delete CLOUD.registry.pins[id];
         if(CLOUD.registry.charCampaigns) delete CLOUD.registry.charCampaigns[id];
+        CLOUD.list=(CLOUD.list||[]).filter(c=>c&&c.id!==id);
         await syncCloudRegistry(true);
         CLOUD.confirmDelCloudId=null;
         toast('🗑️ Charakter aus der Gruppen-Lobby entfernt.');
@@ -2502,7 +2607,10 @@
     const getCresMax=(M=calcActiveMods())=>getCresBase()+M.cresMax;
     const getExtraSecBase=ex=>toInt(ex?.max,3);
     const getExtraSecMax=(ex,M=calcActiveMods())=>getExtraSecBase(ex)+(M.extraSec?.[ex?.id]||0);
-    const getEffBst=(M=calcActiveMods())=>toInt(S.bst,0)+M.bst;
+    const getBstAuto=()=>Math.max(0,Math.floor(toFlt(S.movements?.[0]?.base,5)/5));
+    const hasBstOvr=()=>S.bstOvr!==undefined&&S.bstOvr!==null&&String(S.bstOvr).trim()!=='';
+    const getBstBase=()=>hasBstOvr()?toInt(S.bstOvr,getBstAuto()):getBstAuto();
+    const getEffBst=(M=calcActiveMods())=>getBstBase()+(M.bst||0);
     function withPoolSync(fn){
       const M1=calcActiveMods(),oL=getLpMax(M1),oM=getMlpMax(M1),oA=getApMax(M1),oMA=getMapMax(M1),oC=getCresMax(M1);
       const oStLp=M1.statusLp||0,oStMlp=M1.statusMlp||0;
@@ -2741,7 +2849,7 @@
           <div class="flex flex-wrap items-center gap-2">
             ${CLOUD.currentUser?`<span class="pill cursor-default border-emerald-500/50 bg-emerald-500/15 text-emerald-300">👤 ${esc(CLOUD.currentUser)}</span>`:`<span class="pill cursor-default opacity-75">🔒 Gast (Nicht angemeldet)</span>`}
             <button type="button" data-action="toggle-admin-bar" data-tip="Admin-Master-PIN &amp; Verwaltung ein-/ausblenden" class="btn py-2 px-3 text-xs font-extrabold ${CLOUD.isAdmin?'!border-amber-400 !bg-amber-500/20 text-amber-300':'bdr-acc bg-acc-soft'}">👑 ${CLOUD.isAdmin?'Admin aktiv':'Admin-Login'}</button>
-            ${UI.sheetLoaded?`<button type="button" data-action="return-to-sheet" class="btn btn-ok text-xs font-extrabold px-3.5 py-2">📄 Zurück zu „${esc(S.profile.name||'Charakter')}“</button><button type="button" data-action="close-active-sheet" data-tip="Charakterbogen im Hintergrund vollständig schließen" class="btn btn-err text-xs font-bold px-2.5 py-2">✕ Bogen schließen</button>`:`<button type="button" data-action="open-local-sheet" data-tip="Öffnet den lokal gespeicherten Charakterbogen (oder einen Test-Bogen) direkt ohne Cloud-Zwang – ideal zum lokalen Testen vor dem GitHub-Upload" class="btn btn-ok text-xs font-extrabold px-3.5 py-2">🛠️ Lokalen Bogen öffnen / testen</button>`}
+            <button type="button" data-action="open-local-sheet" data-tip="Öffnet den lokal gespeicherten Charakterbogen (oder einen Test-Bogen) direkt ohne Cloud-Zwang – ideal zum lokalen Testen vor dem GitHub-Upload" class="btn btn-ok text-xs font-extrabold px-3.5 py-2">🛠️ Lokalen Bogen öffnen / testen</button>
             <button type="button" data-action="toggle-livedice" class="btn ${LD.open?'btn-pri':'bdr-acc bg-acc-soft'} text-xs font-extrabold px-3.5 py-2">📡 Live-Würfel <span class="px-1.5 rounded-full text-[10px] bg-black/25 tabular">${getCampaignFilteredDiceFeed().length}</span></button>
             <button type="button" data-action="toggle-dice" class="btn ${D.open?'btn-pri':'bdr-acc bg-acc-soft'} text-xs font-extrabold px-3.5 py-2">🎲 Würfelassistent</button>
             <button type="button" data-action="open-settings" class="btn py-2 px-3.5 text-xs font-extrabold bdr-acc bg-acc-soft">⚙️ Optionen</button>
@@ -2750,7 +2858,7 @@
         return;
       }
       const P=calcProg(), hasAv=Boolean(S.profile.avatar), pwTot=S.powers.length+S.augments.length;
-      const viewBanner=CLOUD.viewingRemote?`<div class="bg-sky-500/20 border-b border-sky-400/50 px-4 py-2 text-xs"><div class="max-w-[1600px] mx-auto flex flex-wrap items-center justify-between gap-2"><div class="font-extrabold text-sky-300 flex items-center gap-2"><span>👁️ 👄 👁️ ANSICHTSMODUS:</span><span>Du betrachtest gerade <strong>„${esc(S.profile.name||'Unbenannt')}“</strong> (Stufe ${P.lvl}) aus der Gruppen-Lobby. Dein eigener Charakter ist im Hintergrund geschützt.</span></div><div class="flex flex-wrap items-center gap-1.5"><button type="button" data-action="cloud-reload-view" class="btn py-1 px-2.5 text-xs border-sky-400/50 text-sky-200">🔄 Aktualisieren</button><button type="button" data-action="cloud-adopt-copy" data-tip="Übernimmt diesen Charakter als neuen eigenen Bogen in deinen lokalen Speicher" class="btn btn-ok py-1 px-2.5 text-xs">📥 Als Kopie übernehmen</button><button type="button" data-action="cloud-exit-view" class="btn btn-pri py-1 px-3 text-xs">🔙 Zurück zu meinem Charakter</button></div></div></div>`:'';
+      const viewBanner=CLOUD.viewingRemote?`<div class="bg-sky-500/20 border-b border-sky-400/50 px-4 py-2 text-xs"><div class="max-w-[1600px] mx-auto flex flex-wrap items-center justify-between gap-2"><div class="font-extrabold text-sky-300 flex items-center gap-2"><span>👁️ 👄 👁️ ANSICHTSMODUS:</span><span>Du betrachtest gerade <strong>„${esc(S.profile.name||'Unbenannt')}“</strong> (Stufe ${P.lvl}) aus der Gruppen-Lobby.</span></div><div class="flex flex-wrap items-center gap-1.5"><button type="button" data-action="cloud-reload-view" class="btn py-1 px-2.5 text-xs border-sky-400/50 text-sky-200">🔄 Aktualisieren</button><button type="button" data-action="cloud-adopt-copy" data-tip="Übernimmt diesen Charakter als neuen eigenen Bogen in deinen lokalen Speicher" class="btn btn-ok py-1 px-2.5 text-xs">📥 Als Kopie übernehmen</button><button type="button" data-action="cloud-exit-view" class="btn btn-pri py-1 px-3 text-xs">🔙 Zurück zur Lobby</button></div></div></div>`:'';
       $('hdrMount').innerHTML=`<div class="h-1.5 w-full accent-bar"></div>${viewBanner}<header class="hdr-glass"><div class="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-3.5 space-y-3">
         <div class="flex flex-col md:flex-row items-stretch md:items-center gap-4">
           <div class="relative shrink-0 self-center md:self-auto">
@@ -2770,7 +2878,6 @@
               <button type="button" data-action="toggle-livedice" data-tip="Eigenständiges Live-Würfel-Fenster öffnen/schließen (kann direkt neben dem normalen Würfelassistenten aufgefaltet werden)" class="btn ${LD.open?'btn-pri':'bdr-acc bg-acc-soft'} text-xs font-extrabold px-3.5 py-2">📡 Live-Würfel <span class="px-1.5 rounded-full text-[10px] bg-black/25 tabular">${getCampaignFilteredDiceFeed().length}</span></button>
               <button type="button" data-action="toggle-cnotes" data-tip="Kampagnennotizen öffnen/schließen (frei andockbar wie der Würfelassistent)" class="btn ${CN.open?'btn-pri':'bdr-acc bg-acc-soft'} text-xs font-extrabold px-3.5 py-2">📝 Kampagnennotizen</button>
               <button type="button" data-action="open-lobby" data-tip="Zurück zur zentralen Gruppen-Lobby (?lobby=1)" class="btn py-2 px-3.5 text-xs font-extrabold ${CLOUD.viewingRemote?'!border-sky-400 !bg-sky-500/20 text-sky-300':S.cloudAutoSync?'!border-emerald-500/60 !bg-emerald-500/15 text-emerald-300':'bdr-acc bg-acc-soft'}">🏠 Gruppen-Lobby${CLOUD.syncing?' ⏳':S.cloudAutoSync?' ●':''}</button>${!CLOUD.viewingRemote?`<button type="button" data-action="cloud-push-now" data-tip="Diesen Charakterbogen jetzt in die Gruppen-Lobby hochladen/synchronisieren, damit er dort als Karte verlinkt ist" class="btn btn-ok py-2 px-3 text-xs font-extrabold">${CLOUD.syncing?'⏳ Sync...':'☁️ In Lobby speichern'}</button>`:''}
-              <button type="button" data-action="close-active-sheet" data-tip="Aktuellen Charakterbogen schließen und zur Lobby zurückkehren" class="btn btn-err py-2 px-2.5 text-xs font-bold">✕ Bogen schließen</button>
               <button type="button" data-action="open-settings" data-tip="Optionen &amp; Design (JSON Export/Import, Themen, Hintergrund)" class="btn py-2 px-3.5 text-xs font-extrabold bdr-acc bg-acc-soft">⚙️ Optionen</button>
               <button type="button" id="saveBadge" data-action="export-json" data-tip="WICHTIGER HINWEIS:\nAktuell nur lokal im Browser zwischengespeichert!\nDu musst den Charakter als .json exportieren (Klick hier oder über ⚙️ Optionen), um ihn dauerhaft gespeichert zu halten, da Browserdaten jederzeit verloren gehen können." class="px-2.5 py-1.5 rounded-lg text-[11px] font-extrabold text-emerald-400 bg-emerald-500/15 border border-emerald-500/30 hover:border-amber-400 transition-colors cursor-pointer text-left leading-tight ${UI.savedOnce?'inline-flex flex-col sm:flex-row sm:items-center gap-1':'opacity-0 pointer-events-none hidden'}"><span>✓ Gespeichert</span><span class="text-[10px] font-semibold text-amber-300/95">• Zum Behalten exportieren (.json), Browserdaten können verloren gehen!</span></button>
             </div>
@@ -2957,8 +3064,8 @@
       </section>
       <div class="grid grid-cols-1 xl:grid-cols-12 gap-4 items-start"><div class="xl:col-span-8 2xl:col-span-9">${renderStatusEffectsSection()}</div><div class="xl:col-span-4 2xl:col-span-3">${renderInspirationSection()}</div></div>
       <section class="grid grid-cols-1 md:grid-cols-2 gap-4 tabular">${[['VERWUNDUNGSSCHWELLEN',getSecCol('lp'),[['woundLight','leicht','t-mut'],['woundMedium','mittel','text-amber-500'],['woundHeavy','schwer','text-rose-500']]],['TRAUMASCHWELLEN',getSecCol('mlp'),[['traumaLight','leicht','t-mut'],['traumaMedium','mittel','text-amber-500'],['traumaHeavy','schwer','text-indigo-400']]]].map(([h,hc,arr])=>`<div class="card"><h3 class="text-xs font-extrabold tracking-wider mb-2.5" style="color:${esc(hc)}">${h}</h3><div class="grid grid-cols-3 gap-2.5 text-center">${arr.map(([k,l,c])=>{const b=toInt(S.thresholds[k],0),em=M[k]||0,eff=b+em,thTip=esc(buildSecTip(k,M));return `<div id="thBox_${k}" data-tip="${thTip}" class="subcard p-2 cursor-help"><label class="block text-[11px] font-bold ${c} mb-1">${l} <span id="thEff_${k}" class="text-[10px] text-emerald-400 ${em?'':'hidden'}">(${b})</span></label><input id="thInp_${k}" data-th="${k}" type="text" inputmode="numeric" value="${eff}" class="inp w-full text-center text-lg font-black py-0.5 ${em?'!border-emerald-500/60 text-emerald-300':''}"/></div>`;}).join('')}</div></div>`).join('')}</section>
-      <section class="card"><div class="flex flex-wrap items-center justify-between gap-2 mb-3"><h3 class="text-sm sm:text-base font-extrabold" data-tip="Meter pro Bewegen-Aktion (Basis + aktive BSt). Bew (BSt) kann pro Zeile auch manuell überschrieben werden.">Bewegungen (Bew &amp; BSt)</h3><div class="flex items-center gap-2"><div id="bstBox" data-tip="${bstTip}" class="subcard py-1 px-2.5 flex items-center gap-2 cursor-help"><span class="text-xs font-extrabold text-acc">BSt:</span><button type="button" data-action="bst-step" data-delta="-1" class="btn w-7 h-7 p-0">−</button><input id="val_bstEff" data-bst-inp="1" type="text" inputmode="numeric" value="${bst>0?'+'+bst:bst}" class="inp w-12 text-center font-black text-sm tabular py-0.5 px-1"/><span id="val_bstOrig" class="text-xs font-black text-acc ${M.bst?'':'hidden'}">(${fmtSign(toInt(S.bst,0))})</span><span id="chip_bstMod">${modChip(M.bst)}</span><button type="button" data-action="bst-step" data-delta="1" class="btn w-7 h-7 p-0">+</button></div><button type="button" data-action="add-move" class="btn">+ Bewegungsart</button></div></div>
-      <div class="overflow-x-auto"><table class="tbl min-w-[540px] text-sm tabular"><thead><tr><th class="text-left">Art</th><th class="text-center">Basis (m)</th><th class="text-center">Bew (BSt)</th><th class="text-center">Bew/2</th><th class="text-center">Bew*2</th><th></th></tr></thead><tbody>${S.movements.map((mv,idx)=>{const autoBew=Math.max(0,toFlt(mv.base,5)+M.moveBase+bst),hasOvr=mv.ovr!==undefined&&mv.ovr!==null&&String(mv.ovr).trim()!=='',bew=hasOvr?Math.max(0,toFlt(mv.ovr,autoBew)):autoBew;return `<tr><td><input data-mv="${mv.id}:type" type="text" value="${esc(mv.type)}" class="inp-line w-full font-bold"/></td><td class="text-center"><input data-mv="${mv.id}:base" type="text" inputmode="decimal" value="${esc(mv.base)}" class="inp w-16 text-center font-bold py-1"/></td><td class="text-center"><div class="inline-flex items-center justify-center gap-1"><input id="mv1_${mv.id}" data-mv="${mv.id}:ovr" type="text" inputmode="decimal" value="${fmtN(bew)}" data-tip="${hasOvr?`Manueller Overwrite aktiv (Automatisch: ${fmtN(autoBew)} m)\nFeld leeren oder auf (${fmtN(autoBew)}) klicken für Automatik`:`Automatisch berechnet: ${fmtN(autoBew)} m (Basis + BSt)\nDirekt eintippen für manuellen Overwrite`}" class="inp w-16 text-center font-extrabold py-1 text-acc ${hasOvr?'!border-amber-400 text-amber-300':''}"/><span class="text-xs font-bold t-mut">m</span><button type="button" id="mvOvrReset_${mv.id}" data-action="reset-mv-ovr" data-id="${mv.id}" data-tip="Manueller Overwrite aktiv – Klicken für Standardberechnung (${fmtN(autoBew)} m)" class="text-xs font-black text-amber-400 hover:underline ${hasOvr?'':'hidden'}">(${fmtN(autoBew)})</button></div></td><td id="mv2_${mv.id}" class="text-center font-bold">${fmtN(bew/2)} m</td><td id="mv3_${mv.id}" class="text-center font-bold">${fmtN(bew*2)} m</td><td class="text-right">${idx>0?`<button type="button" data-action="del-move" data-id="${mv.id}" class="t-mut hover:text-rose-500 font-bold px-1">✕</button>`:''}</td></tr>`;}).join('')}</tbody></table></div></section>
+      <section class="card"><div class="flex flex-wrap items-center justify-between gap-2 mb-3"><h3 class="text-sm sm:text-base font-extrabold" data-tip="Meter pro Bewegen-Aktion (Standard-BSt = 1/5 der Basis-Bewegung; Änderungen der BSt durch Overwrite oder Statuseffekte wirken auf Bew (BSt)). Bew (BSt) kann pro Zeile auch manuell überschrieben werden.">Bewegungen (Bew &amp; BSt)</h3><div class="flex items-center gap-2"><div id="bstBox" data-tip="${bstTip}" class="subcard py-1 px-2.5 flex items-center gap-2 cursor-help"><span class="text-xs font-extrabold text-acc">BSt:</span><button type="button" data-action="bst-step" data-delta="-1" class="btn w-7 h-7 p-0">−</button><input id="val_bstEff" data-bst-inp="1" type="text" inputmode="numeric" value="${bst}" class="inp w-12 text-center font-black text-sm tabular py-0.5 px-1 ${hasBstOvr()?'!border-amber-400 text-amber-300':'text-acc'}"/><button type="button" id="rst_bstOvr" data-action="reset-bst-ovr" data-tip="Manueller Overwrite aktiv – Klicken für Standardberechnung (${getBstAuto()})" class="text-[10px] font-black text-amber-400 hover:underline ${hasBstOvr()?'':'hidden'}">(${getBstAuto()})</button><span id="val_bstOrig" class="text-xs font-black text-acc ${M.bst?'':'hidden'}">(${getBstBase()})</span><span id="chip_bstMod">${modChip(M.bst)}</span><button type="button" data-action="bst-step" data-delta="1" class="btn w-7 h-7 p-0">+</button></div><button type="button" data-action="add-move" class="btn">+ Bewegungsart</button></div></div>
+      <div class="overflow-x-auto"><table class="tbl min-w-[540px] text-sm tabular"><thead><tr><th class="text-left">Art</th><th class="text-center">Basis (m)</th><th class="text-center">Bew (BSt)</th><th class="text-center">Bew/2</th><th class="text-center">Bew*2</th><th></th></tr></thead><tbody>${S.movements.map((mv,idx)=>{const bstDelta=getEffBst(M)-getBstAuto(),autoBew=Math.max(0,toFlt(mv.base,5)+M.moveBase+bstDelta),hasOvr=mv.ovr!==undefined&&mv.ovr!==null&&String(mv.ovr).trim()!=='',bew=hasOvr?Math.max(0,toFlt(mv.ovr,autoBew)):autoBew;return `<tr><td><input data-mv="${mv.id}:type" type="text" value="${esc(mv.type)}" class="inp-line w-full font-bold"/></td><td class="text-center"><input data-mv="${mv.id}:base" type="text" inputmode="decimal" value="${esc(mv.base)}" class="inp w-16 text-center font-bold py-1"/></td><td class="text-center"><div class="inline-flex items-center justify-center gap-1"><input id="mv1_${mv.id}" data-mv="${mv.id}:ovr" type="text" inputmode="decimal" value="${fmtN(bew)}" data-tip="${hasOvr?`Manueller Overwrite aktiv (Automatisch: ${fmtN(autoBew)} m)\nFeld leeren oder auf (${fmtN(autoBew)}) klicken für Automatik`:`Automatisch berechnet: ${fmtN(autoBew)} m (Basis + BSt)\nDirekt eintippen für manuellen Overwrite`}" class="inp w-16 text-center font-extrabold py-1 text-acc ${hasOvr?'!border-amber-400 text-amber-300':''}"/><span class="text-xs font-bold t-mut">m</span><button type="button" id="mvOvrReset_${mv.id}" data-action="reset-mv-ovr" data-id="${mv.id}" data-tip="Manueller Overwrite aktiv – Klicken für Standardberechnung (${fmtN(autoBew)} m)" class="text-xs font-black text-amber-400 hover:underline ${hasOvr?'':'hidden'}">(${fmtN(autoBew)})</button></div></td><td id="mv2_${mv.id}" class="text-center font-bold">${fmtN(bew/2)} m</td><td id="mv3_${mv.id}" class="text-center font-bold">${fmtN(bew*2)} m</td><td class="text-right">${idx>0?`<button type="button" data-action="del-move" data-id="${mv.id}" class="t-mut hover:text-rose-500 font-bold px-1">✕</button>`:''}</td></tr>`;}).join('')}</tbody></table></div></section>
       <section class="grid grid-cols-1 lg:grid-cols-12 gap-4"><div class="lg:col-span-7 card"><div class="flex flex-wrap items-center justify-between gap-2 mb-2.5"><div class="flex items-center gap-2"><h3 class="text-sm sm:text-base font-extrabold">Trefferzonen</h3>${M.armor?`<span class="tag">${fmtSign(M.armor)} RS aktiv</span>`:''}${S.lastHzRoll?`<span class="pill cursor-default text-amber-400 text-xs">W100 = ${S.lastHzRoll}</span>`:''}</div><div class="flex gap-1.5"><button type="button" data-action="add-hz" class="btn py-1 px-2.5 text-xs">+ Zone</button><button type="button" data-action="reset-hz" data-tip="Standard-Trefferzonen wiederherstellen (mit doppelter Sicherheitsabfrage)" class="btn py-1 px-2.5 text-xs">Standard</button><button type="button" data-action="roll-hz" class="btn border-amber-400/60 text-amber-500">🎯 Würfeln</button></div></div>
       <div class="overflow-x-auto"><table class="tbl min-w-[480px] text-sm tabular"><thead><tr><th class="text-left w-24">Wurf</th><th class="text-left">Zone</th><th class="text-left w-24">Größe</th><th class="text-right w-44">Rüstung / Notiz</th><th class="w-6"></th></tr></thead><tbody>${S.hitZones.map(z=>{const m=String(z.range||'').match(/\d+/g),hit=S.lastHzRoll!==null&&m&&S.lastHzRoll>=Math.min(+m[0],+(m[1]??m[0]))&&S.lastHzRoll<=Math.max(+m[0],+(m[1]??m[0]));return `<tr class="${hit?'bg-amber-500/20 font-bold':''}"><td><input data-hz="${z.id}:range" type="text" value="${esc(z.range)}" class="inp-line w-20 font-bold text-xs"/></td><td><div class="flex items-center gap-1">${hit?'<span>🎯</span>':''}<input data-hz="${z.id}:zone" type="text" value="${esc(z.zone)}" class="inp-line w-full font-bold"/></div></td><td><input data-hz="${z.id}:size" type="text" value="${esc(z.size)}" class="inp-line w-20 text-xs t-mut"/></td><td class="text-right"><input data-hz="${z.id}:armor" type="text" value="${esc(z.armor)}" placeholder="Notiz" class="inp w-full text-right text-xs py-1"/></td><td class="text-right">${S.hitZones.length>1?`<button type="button" data-action="del-hz" data-id="${z.id}" class="t-mut hover:text-rose-500 text-xs font-bold">✕</button>`:''}</td></tr>`;}).join('')}</tbody></table></div></div>
       <div class="lg:col-span-5 card flex flex-col"><div class="flex items-center justify-between mb-2.5"><h3 class="text-sm sm:text-base font-extrabold">Schnellzugriff</h3><span class="text-[10px] t-mut" data-tip="Markierten Text formatieren:\nStrg+B = Fett\nStrg+I = Kursiv\nStrg+U = Unterstrichen">Shortcuts: <b>B</b> / <i>I</i> / <u>U</u></span></div><div class="flex flex-wrap gap-1.5 mb-3">${QTABS.map(q=>`<button type="button" data-action="switch-qtab" data-qtab="${q.k}" class="btn text-xs py-1 px-2.5 ${S.quickTab===q.k?'btn-pri':''}">${q.l}</button>`).join('')}</div>${QTABS.filter(q=>q.k===S.quickTab).map(q=>`<div contenteditable="true" data-qnote="${q.k}" data-ph="${esc(q.ph)}" class="inp w-full flex-1 resize-y text-xs sm:text-sm rtf-box min-h-[140px]">${toRtfHtml(S.combatNotes[q.k])}</div>`).join('')}</div></section>`;
@@ -2967,11 +3074,23 @@
     const skAttrOpts=sel=>ATTRS.map(a=>`<option value="${a.k}" ${a.k===sel?'selected':''}>${a.k} (${getAttrTot(a.k)})</option>`).join('');
     const skCatOpts=sel=>Object.entries(SK_CATS).map(([k,v])=>`<option value="${k}" ${k===sel?'selected':''}>${v.l}</option>`).join('');
 
+    function buildSkRollBtnMeta(sk,M=calcActiveMods()){
+      const autoB=getSkAutoBonus(sk.rank), hasOvr=hasSkBonusOvr(sk), effB=getSkBonus(sk), av=getAttrTot(sk.linkedAttr,M), pool=av+effB;
+      const skAd=getAdvDisForContext({skillId:sk.id,attrKey:sk.linkedAttr},M), adTip=fmtAdvSrcLines(skAd.src);
+      const skBadge=(skAd.autoAdv||skAd.autoDis)?`<span class="text-[10px] font-black shrink-0 ${skAd.autoAdv>=skAd.autoDis?'text-emerald-400':'text-rose-400'}">${skAd.autoAdv?`+${skAd.autoAdv}V`:''}${skAd.autoDis?`${skAd.autoAdv?'/':''}+${skAd.autoDis}N`:''}</span>`:'';
+      const skColStyle=sk.color?`style="color:${esc(sk.color)}"`:`style="color:var(--txt)"`;
+      const dispName=String(sk.name||'').trim()||'Unbenannte Fertigkeit';
+      const tip=`Probe auf ${dispName} (${pool} = ${sk.linkedAttr} ${av} ${fmtSign(effB)}${hasOvr?` • Manuell, Grad: +${autoB}`:''})${adTip?'\n'+adTip:''}`;
+      const innerHtml=`<span class="px-2 py-0.5 rounded-md bg-acc-soft border bdr-acc text-acc font-black shrink-0 tabular inline-flex items-center gap-1"><span>🎲 ${pool}</span>${skBadge}</span><span class="font-extrabold truncate text-left flex-1 min-w-0" ${skColStyle}>${esc(dispName)}</span>`;
+      return {pool,av,effB,autoB,hasOvr,skBadge,tip,innerHtml};
+    }
+
     function renderSkillRows(isChron, listOverride=null){
       const arr=listOverride||S.skills;
       if(!arr.length) return isChron?`<tr><td colspan="9" class="text-center text-xs t-mut py-3">Noch keine Fertigkeiten erworben.</td></tr>`:'';
+      const M=calcActiveMods();
       return arr.map((sk,idx)=>{
-        const c=calcSkCost(sk), autoB=getSkAutoBonus(sk.rank), hasOvr=hasSkBonusOvr(sk), effB=getSkBonus(sk), av=getAttrTot(sk.linkedAttr), pool=av+effB;
+        const c=calcSkCost(sk), autoB=getSkAutoBonus(sk.rank), hasOvr=hasSkBonusOvr(sk), effB=getSkBonus(sk), av=getAttrTot(sk.linkedAttr,M), pool=av+effB;
         const dragBtn=`<span draggable="true" data-drag-sk="${sk.id}" data-tip="Ziehen zum Sortieren oder Verschieben in eine Sektion" class="px-1.5 py-0.5 rounded bg-black/20 border bdr-line t-mut text-xs font-black cursor-grab select-none shrink-0">⠿</span>`;
         const moveBtns=arr.length>1?`<span class="inline-flex flex-col leading-none shrink-0"><button type="button" data-action="move-sk" data-id="${sk.id}" data-dir="-1" data-chron="${isChron?'1':'0'}" ${idx===0?'disabled':''} class="text-[9px] t-mut hover:text-acc disabled:opacity-25">▲</button><button type="button" data-action="move-sk" data-id="${sk.id}" data-dir="1" data-chron="${isChron?'1':'0'}" ${idx===arr.length-1?'disabled':''} class="text-[9px] t-mut hover:text-acc disabled:opacity-25">▼</button></span>`:'';
         const secSel=!isChron&&S.skillSections.length?`<select data-sk-sec-sel="${sk.id}" data-tip="Sektion / Ordner zuordnen" class="inp py-0.5 px-1.5 text-[11px] font-semibold max-w-[130px] shrink-0"><option value="" ${!sk.sectionId?'selected':''}>📁 Ohne</option>${S.skillSections.map(s=>`<option value="${s.id}" ${sk.sectionId===s.id?'selected':''}>📁 ${esc(s.name||'Sektion')}</option>`).join('')}</select>`:'';
@@ -2981,7 +3100,9 @@
           :`<button type="button" data-action="open-sk-color" data-id="${sk.id}" data-cmode="text" data-tip="Textfarbe der Fertigkeit anpassen" class="btn w-7 h-7 p-0 text-xs shrink-0" ${sk.color?`style="border-color:${esc(sk.color)}"`:''}>🎨</button><button type="button" data-action="open-sk-color" data-id="${sk.id}" data-cmode="bg" data-tip="Fensterfarbe der Fertigkeit anpassen" class="btn w-7 h-7 p-0 text-xs shrink-0" ${sk.bgColor?`style="border-color:${esc(sk.bgColor)};background:color-mix(in srgb,${esc(sk.bgColor)} 35%,var(--surf2))"`:''}>🪟</button>`;
         const nm=isChron
           ?`<td><div class="flex items-center gap-1.5">${dragBtn}${moveBtns}<input data-sk="${sk.id}:name" type="text" value="${esc(sk.name)}" ${skColStyle} class="inp-line w-full font-bold"/>${skColBtns}</div></td>`
-          :`<td><div class="flex items-center gap-1.5">${dragBtn}${moveBtns}${(()=>{const skAd=getAdvDisForContext({skillId:sk.id,attrKey:sk.linkedAttr}),adTip=fmtAdvSrcLines(skAd.src),skBadge=(skAd.autoAdv||skAd.autoDis)?`<span class="text-[10px] font-black ${skAd.autoAdv>=skAd.autoDis?'text-emerald-400':'text-rose-400'}">${skAd.autoAdv?`+${skAd.autoAdv}V`:''}${skAd.autoDis?`${skAd.autoAdv?'/':''}+${skAd.autoDis}N`:''}</span>`:'';return `<button type="button" id="skRollBtn_${sk.id}" data-action="roll-skill" data-id="${sk.id}" data-tip="${esc(`Probe auf ${sk.name} (${pool} = ${sk.linkedAttr} ${av} ${fmtSign(effB)}${hasOvr?` • Manuell, Grad: +${autoB}`:''})${adTip?'\n'+adTip:''}`)}" class="btn bg-acc-soft bdr-acc text-acc font-black py-1 px-2.5 shrink-0 tabular"><span>🎲 ${pool}</span>${skBadge}</button>`;})()}<input data-sk="${sk.id}:name" type="text" value="${esc(sk.name)}" ${skColStyle} class="inp-line w-full font-extrabold"/>${skColBtns}${secSel}</div></td>`;
+          :`<td><div class="flex items-center gap-1.5">${dragBtn}${moveBtns}${UI.editSkNameId===sk.id
+            ?`<input id="skNameInp_${sk.id}" data-sk="${sk.id}:name" type="text" value="${esc(sk.name)}" ${skColStyle} placeholder="Fertigkeitsname..." class="inp flex-1 min-w-[140px] w-full font-extrabold py-1 px-2"/><button type="button" data-action="toggle-sk-edit" data-id="${sk.id}" data-tip="Umbenennen bestätigen" class="btn btn-ok w-7 h-7 p-0 text-xs font-black shrink-0">✓</button>`
+            :(()=>{const bm=buildSkRollBtnMeta(sk,M);return `<button type="button" id="skRollBtn_${sk.id}" data-action="roll-skill" data-id="${sk.id}" data-tip="${esc(bm.tip)}" class="btn bg-acc-soft/40 hover:bg-acc-soft bdr-acc flex-1 min-w-[160px] w-full justify-start gap-2 py-1 px-2 text-left tabular">${bm.innerHtml}</button><button type="button" data-action="toggle-sk-edit" data-id="${sk.id}" data-tip="Fertigkeitsnamen bearbeiten" class="btn w-7 h-7 p-0 text-xs shrink-0">✎</button>`;})()}${skColBtns}${secSel}</div></td>`;
         const bonCtrl=`<div class="inline-flex items-center justify-center gap-1 tabular">
           <input id="skBon_${isChron?'chr_':''}${sk.id}" data-sk-bon="${sk.id}" type="text" inputmode="numeric" value="${fmtSign(effB)}" data-tip="${hasOvr?`Manueller Bonus-Overwrite aktiv (Grad-Standard: +${autoB})\nFeld leeren oder auf (+${autoB}) klicken für Standard`:`Fertigkeitsbonus (${SK_RANKS[sk.rank]?.n||'Ungelernt'}: +${autoB})\nDirekt eintippen für eigenen Bonus außerhalb von +10/+15/+20/+30`}" class="inp w-14 text-center py-0.5 px-1 text-xs font-extrabold ${hasOvr?'!border-amber-400 text-amber-300':'text-acc'}"/>
           <button type="button" id="skBonReset_${isChron?'chr_':''}${sk.id}" data-action="reset-sk-bon" data-id="${sk.id}" data-tip="Manueller Bonus aktiv – Klicken für Grad-Standard (+${autoB})" class="text-[11px] font-black text-amber-400 hover:underline ${hasOvr?'':'hidden'}">(+${autoB})</button>
@@ -3116,9 +3237,9 @@
         <input data-pwf="${kind}:${it.id}:name" type="text" value="${esc(it.name)}" ${colStyle} placeholder="Name ${isAug?'des Augments':'der Kraft'}..." class="inp-line flex-1 min-w-[140px] ${it.collapsed?'text-sm':'text-base'} font-extrabold"/>
         <button type="button" data-action="open-pw-color" data-kind="${kind}" data-id="${it.id}" data-cmode="text" data-tip="Textfarbe (Name) anpassen" class="btn w-7 h-7 p-0 text-xs shrink-0" ${it.color?`style="border-color:${esc(it.color)}"`:''}>🎨</button>
         <button type="button" data-action="open-pw-color" data-kind="${kind}" data-id="${it.id}" data-cmode="bg" data-tip="Fensterfarbe (Hintergrund) anpassen" class="btn w-7 h-7 p-0 text-xs shrink-0" ${it.bgColor?`style="border-color:${esc(it.bgColor)};background:color-mix(in srgb,${esc(it.bgColor)} 35%,var(--surf2))"`:''}>🪟</button>`;
-      const stToksInCard=parseStatusTokens(it.effects), hasUseCost=Boolean(it.useRes&&toInt(it.useAmt,0)>0), canSpendPw=hasUseCost||stToksInCard.length>0;
+      const stToksInCard=parseStatusTokens(it.effects), uCosts=Array.isArray(it.useCosts)?it.useCosts:(it.useRes&&toInt(it.useAmt,0)>0?[{res:it.useRes,amt:toInt(it.useAmt,0)}]:[]), costSummary=formatPwUseCosts(it), hasUseCost=Boolean(costSummary), canSpendPw=hasUseCost||stToksInCard.length>0;
       const hdrRight=`<div class="flex flex-wrap items-center gap-1.5">
-        ${it.collapsed?`<span class="pill cursor-default text-[11px] py-0.5 px-2 tabular">${c.sp} SP${c.msp?` + ${c.msp} MsP`:''}</span>${canSpendPw?`<button type="button" data-action="spend-pw" data-kind="${kind}" data-id="${it.id}" class="btn btn-pri py-0.5 px-2 text-[11px]">⚡ ${hasUseCost?`${it.useAmt} ${esc(getResLabel(it.useRes))}`:'Einsetzen'}</button>`:''}`:''}
+        ${it.collapsed?`<span class="pill cursor-default text-[11px] py-0.5 px-2 tabular">${c.sp} SP${c.msp?` + ${c.msp} MsP`:''}</span>${canSpendPw?`<button type="button" data-action="spend-pw" data-kind="${kind}" data-id="${it.id}" class="btn btn-pri py-0.5 px-2 text-[11px]">⚡ ${hasUseCost?esc(costSummary):'Einsetzen'}</button>`:''}`:''}
         ${!isAug&&!it.collapsed?secOpts:''}
         ${isAug&&!it.collapsed?`<select data-ag-link="${it.id}" data-tip="Einer Kraft zuordnen (max. 3 Slots)" class="inp py-1 px-2 text-xs font-bold max-w-[200px]">${pOpts}</select>`:''}
         ${listLen>1?`<button type="button" data-action="${isAug?'move-aug':'move-pw'}" data-id="${it.id}" data-dir="-1" ${idx===0?'disabled':''} class="btn py-1 px-2 text-xs">▲${!isAug&&!it.collapsed?' Nach oben':''}</button><button type="button" data-action="${isAug?'move-aug':'move-pw'}" data-id="${it.id}" data-dir="1" ${idx===listLen-1?'disabled':''} class="btn py-1 px-2 text-xs">▼${!isAug&&!it.collapsed?' Nach unten':''}</button>`:''}
@@ -3144,8 +3265,22 @@
             ${it.showManual||it.manualCost?`<div class="mt-1.5 p-2 rounded-lg border bdr-line flex items-center gap-2 tabular" style="background:var(--surf)"><label class="flex items-center gap-1 text-[11px] font-bold flex-1">SP <input data-pwcost="${kind}:${it.id}:sp" type="text" inputmode="numeric" value="${c.sp}" class="inp w-full text-center font-black py-0.5 px-1"/></label><label class="flex items-center gap-1 text-[11px] font-bold text-amber-500 flex-1">MsP <input data-pwcost="${kind}:${it.id}:msp" type="text" inputmode="numeric" value="${c.msp}" class="inp w-full text-center font-black py-0.5 px-1"/></label></div>`:''}
           </div>
           <div class="md:col-span-4">
-            <div class="flex items-center justify-between mb-1"><label class="font-bold t-mut" data-tip="Zieht den Betrag per Klick auf „Einsetzen“ direkt oben vom Bogen ab.">Einsatzkosten</label><button type="button" data-action="open-list" data-ltype="useRes" data-tip="Einsatzkosten-Ressourcen anpassen" class="text-[11px] text-acc">⚙️</button></div>
-            <div class="flex items-center gap-1.5"><input data-pwf="${kind}:${it.id}:useAmt" type="text" inputmode="numeric" value="${esc(it.useAmt)}" class="inp w-14 text-center font-black tabular"/><select data-pw-sel="${kind}:${it.id}:useRes" class="inp flex-1 min-w-0 font-bold"><option value="" ${!it.useRes?'selected':''}>— Keine —</option>${S.useResList.map(r=>`<option value="${esc(r)}" ${it.useRes===r?'selected':''}>${esc(getResLabel(r))}</option>`).join('')}</select><button type="button" data-action="spend-pw" data-kind="${kind}" data-id="${it.id}" ${!canSpendPw?'disabled':''} class="btn btn-pri py-1.5 px-2.5 text-xs shrink-0">⚡ Einsetzen</button></div>
+            <div class="flex items-center justify-between mb-1"><label class="font-bold t-mut" data-tip="Zieht alle hinterlegten Ressourcenkosten per Klick auf „⚡ Einsetzen“ gleichzeitig oben vom Bogen ab.">Einsatzkosten</label><button type="button" data-action="open-list" data-ltype="useRes" data-tip="Einsatzkosten-Ressourcen anpassen" class="text-[11px] text-acc">⚙️</button></div>
+            <div class="flex flex-wrap items-center gap-1.5">
+              ${uCosts.map((uc,cIdx)=>{
+                const rCol=getSecCol(uc.res)||'var(--acc)';
+                return `<span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-lg border bg-black/25 tabular" style="border-color:color-mix(in srgb,${esc(rCol)} 55%,var(--bdr))">
+                  <input data-pw-ucost-amt="${kind}:${it.id}:${cIdx}" type="text" inputmode="numeric" value="${esc(uc.amt)}" class="inp !py-0 !px-1 w-10 h-6 text-center font-black text-xs tabular"/>
+                  <span class="text-xs font-extrabold px-0.5" style="color:${esc(rCol)}">${esc(getResLabel(uc.res))}</span>
+                  <button type="button" data-action="rm-pw-ucost" data-kind="${kind}" data-id="${it.id}" data-cidx="${cIdx}" data-tip="Kosten-Ressource entfernen" class="t-mut hover:text-rose-400 font-black text-xs px-0.5">✕</button>
+                </span>`;
+              }).join('')}
+              <select data-add-pw-ucost="${kind}:${it.id}" class="inp py-1 px-2 text-xs font-bold ${uCosts.length?'w-auto':'flex-1 min-w-[130px]'}">
+                <option value="">+ Kosten-Ressource...</option>
+                ${getAvailableUseResources().map(r=>`<option value="${esc(r.res)}">${esc(r.label)}</option>`).join('')}
+              </select>
+              <button type="button" data-action="spend-pw" data-kind="${kind}" data-id="${it.id}" ${!canSpendPw?'disabled':''} class="btn btn-pri py-1.5 px-2.5 text-xs shrink-0">⚡ ${hasUseCost?esc(costSummary):'Einsetzen'}</button>
+            </div>
           </div>
         </div>
         <div class="grid grid-cols-1 md:grid-cols-12 gap-2.5 text-xs subcard p-2.5">
@@ -3860,9 +3995,7 @@
       const campAllowedUsers=Array.isArray(activeCamp?.allowedUsers)?activeCamp.allowedUsers:[];
       const availCampUsers=knownUsers.filter(u=>!campAllowedUsers.some(au=>au.toLowerCase()===u.toLowerCase()));
       const campGmUsers=Array.isArray(activeCamp?.gmUsers)?activeCamp.gmUsers:[];
-      const campCoGmUsers=Array.isArray(activeCamp?.coGmUsers)?activeCamp.coGmUsers:[];
       const availCampGMs=knownUsers.filter(u=>!campGmUsers.some(g=>g.toLowerCase()===u.toLowerCase()));
-      const availCampCoGMs=sortAlpha(CLOUD.registry.gmUsers||[]).filter(u=>!campGmUsers.some(g=>g.toLowerCase()===u.toLowerCase())&&!campCoGmUsers.some(cg=>cg.toLowerCase()===u.toLowerCase()));
       const campCharList=CLOUD.list.filter(ch=>getCharCampaignId(ch.id)===activeCampId);
       const myTotalCnt=CLOUD.currentUser?CLOUD.list.filter(ch=>getCharOwner(ch.id).toLowerCase()===CLOUD.currentUser.toLowerCase()).length:0;
       const myCampCnt=CLOUD.currentUser?campCharList.filter(ch=>getCharOwner(ch.id).toLowerCase()===CLOUD.currentUser.toLowerCase()).length:0;
@@ -3971,21 +4104,6 @@
             </div>`:''}
           </div>`:''}
 
-          ${UI.sheetLoaded?`<div class="subcard p-3.5 flex flex-wrap items-center justify-between gap-3 border bdr-acc bg-acc-soft/20">
-            <div class="flex flex-wrap items-center gap-2 text-xs">
-              <span class="px-2 py-0.5 rounded font-black ${CLOUD.viewingRemote?'bg-sky-500/20 text-sky-300 border border-sky-400/40':'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'}">${CLOUD.viewingRemote?'👁️ Ansichtsmodus aktiv':'🟢 Aktuell im Hintergrund geöffnet'}</span>
-              <strong class="text-sm font-black">${esc(S.profile.name||'Unbenannter Charakter')}</strong>
-              <span class="t-mut">(${esc(S.profile.ancestry||'Volk')} • ${esc(S.profile.concept||'Konzept')} • Stufe ${P.lvl})</span>
-              ${myCurOwner?`<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-400/40">👤 ${esc(myCurOwner)}</span>`:''}
-              ${myCurCampObj?`<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-acc-soft text-acc border bdr-acc">${myCurCampObj.id==='default'?'🌐':'📁'} ${esc(myCurCampObj.name||'Ohne Kampagne / Allgemein')}</span>`:''}
-            </div>
-            <div class="flex flex-wrap items-center gap-1.5">
-              ${!CLOUD.viewingRemote?`<button type="button" data-action="cloud-push-now" ${CLOUD.syncing?'disabled':''} class="btn btn-ok py-1 px-2.5 text-xs">${CLOUD.syncing?'⏳ Sync...':'☁️ Jetzt synchronisieren'}</button>
-              <button type="button" data-action="toggle-cloud-autosync" class="btn py-1 px-2.5 text-xs ${S.cloudAutoSync?'btn-ok':'opacity-80'}">${S.cloudAutoSync?'✓ Auto-Sync An':'○ Auto-Sync'}</button>`:''}
-              ${shareUrl?`<button type="button" data-action="copy-share-link" data-url="${esc(shareUrl)}" class="btn py-1 px-2.5 text-xs">🔗 Charakter-Link</button>`:''}
-              <button type="button" data-action="return-to-sheet" class="btn btn-pri py-1 px-3 text-xs font-black">📄 Zum Bogen wechseln</button>
-            </div>
-          </div>`:''}
         </section>
 
         <!-- Aufklappbarer Charakter-Erstellungs-Assistent -->
@@ -4092,17 +4210,6 @@
                     <button type="button" data-action="camp-add-gm-btn" class="btn py-1 px-2.5 text-xs border-purple-400/50 text-purple-300">+ Spielleiter zuweisen</button>
                   </div>`:''}
                 </div>
-                <div class="flex flex-wrap items-center gap-2">
-                  <span class="font-extrabold text-cyan-300">🤝 Co-Spielleiter:</span>
-                  ${campCoGmUsers.length?campCoGmUsers.map(u=>`<span class="px-2 py-0.5 rounded-lg inline-flex items-center gap-1 text-xs font-bold bg-cyan-500/20 text-cyan-200 border border-cyan-400/50">🤝 ${esc(u)}${canManageCampaignCoGMs(activeCamp)?`<button type="button" data-action="camp-rm-cogm" data-user="${esc(u)}" class="text-rose-400 font-black ml-1">✕</button>`:''}</span>`).join(''):`<span class="text-[11px] t-mut italic">Keine</span>`}
-                  ${canManageCampaignCoGMs(activeCamp)?`<div class="inline-flex items-center gap-1">
-                    <select id="selCampAddCoGM" class="inp !py-1 !px-2 text-xs font-bold">
-                      <option value="">+ Ernannter SL...</option>
-                      ${availCampCoGMs.map(u=>`<option value="${esc(u)}">🤝 ${esc(u)}</option>`).join('')}
-                    </select>
-                    <button type="button" data-action="camp-add-cogm-btn" class="btn py-1 px-2.5 text-xs border-cyan-400/50 text-cyan-300">+ Co-Spielleiter</button>
-                  </div>`:''}
-                </div>
               </div>
               ${canManageCampaign(activeCamp)?`
               <div class="flex flex-wrap items-center justify-between gap-2">
@@ -4150,7 +4257,6 @@
               const charCampId=getCharCampaignId(ch.id);
               const isCampGM = charCampId !== 'default' && canManageCampaign(charCampId);
               const canManageThisChar = CLOUD.isAdmin || isMyClaim || isCampGM;
-              const hasPin=Boolean(ch.hasPin||CLOUD.registry.pins?.[ch.id]);
               const campOptsList=CLOUD.isAdmin?allCampaigns:creatableCamps;
               return `<div class="card p-4 sm:p-5 flex flex-col justify-between gap-4 hover:border-sky-400/60 transition-all ${isViewing?'border-sky-400 bg-sky-500/10':isMyClaim||isOpenSheet?'bdr-acc bg-acc-soft/30':''}">
                 <!-- Oben: Portrait, Name, Volk & Konzept, Badges -->
@@ -4161,7 +4267,6 @@
                   <div class="min-w-0 flex-1 space-y-1">
                     <div class="flex flex-wrap items-center gap-1.5">
                       <span class="text-base sm:text-lg font-black truncate">${esc(ch.name||'Unbenannt')}</span>
-                      ${hasPin?`<span data-tip="${CLOUD.isAdmin&&CLOUD.registry.pins?.[ch.id]?`Schutz-PIN: ${CLOUD.registry.pins[ch.id]} (Als Admin sichtbar)`:'Mit Schutz-PIN gesichert'}" class="text-amber-400 text-xs">🔒</span>`:''}
                     </div>
                     <div class="text-xs t-mut truncate">${esc(ch.ancestry||'Volk')} • ${esc(ch.concept||'Konzept')}</div>
                     <div class="flex flex-wrap items-center gap-1.5 pt-0.5">
@@ -4272,9 +4377,14 @@
         const tip=esc(`${s.srcName} (${s.srcKind}): ${fmtSign(s.val)} ${unit} [${s.label}]`);
         return `<span data-tip="${tip}" class="px-1.5 py-0.5 rounded border text-[10px] font-bold tabular cursor-help ${cls}">${fmtSign(s.val)} ${unit} (${esc(orig)})</span>`;
       };
-      return `<div class="grid grid-cols-11 gap-1.5 items-center">
+      const hasAdvDisAdj=(D.advAdj!==0||D.disAdj!==0);
+      return `<div class="flex items-center justify-between gap-2 pb-0.5">
+        <span class="text-[10px] font-extrabold t-mut uppercase tracking-wider">VORTEILE &amp; NACHTEILE</span>
+        <button type="button" data-action="reset-dice-advdis" data-tip="Vorteile &amp; Nachteile gemeinsam auf die automatischen Standardwerte des aktuellen Wurfkontexts zurücksetzen" class="btn py-0.5 px-2 text-[10px] font-extrabold tabular transition-all ${hasAdvDisAdj?'!border-amber-400 !bg-amber-500/25 text-amber-300 shadow-sm':'opacity-75 hover:opacity-100'}">↺ Standard</button>
+      </div>
+      <div class="grid grid-cols-11 gap-1.5 items-center">
         <div ${aTip} class="col-span-5 flex items-center justify-between p-2 rounded-lg bg-emerald-500/10 border border-emerald-500/25 ${aTip?'cursor-help':''}"><div><div class="text-[10px] font-bold text-emerald-500">VORTEILE</div><div class="font-black text-sm tabular flex items-baseline gap-1"><span>${D.adv}</span>${(T.autoAdv||T.advAdj)?`<span class="text-[10px] font-bold text-emerald-400">(${T.autoAdv} Auto${T.advAdj?fmtSign(T.advAdj):''})</span>`:''}</div></div><div class="flex gap-1"><button type="button" data-action="adv-step" data-d="-1" ${D.adv<=0?'disabled':''} class="btn w-7 h-7 p-0">−</button><button type="button" data-action="adv-step" data-d="1" class="btn btn-ok w-7 h-7 p-0">+</button></div></div>
-        <div class="col-span-1 flex justify-center"><button type="button" data-action="adv-reset" data-tip="Auf automatisch berechnete Vor-/Nachteile zurücksetzen" class="btn px-1.5 py-2 text-xs font-black text-amber-500">↺</button></div>
+        <div class="col-span-1 flex justify-center"><button type="button" data-action="reset-dice-advdis" data-tip="Auf automatisch berechnete Vor-/Nachteile zurücksetzen" class="btn px-1.5 py-2 text-xs font-black ${hasAdvDisAdj?'!border-amber-400 !bg-amber-500/25 text-amber-300':'text-amber-500 opacity-75'}">↺</button></div>
         <div ${dTip} class="col-span-5 flex items-center justify-between p-2 rounded-lg bg-rose-500/10 border border-rose-500/25 ${dTip?'cursor-help':''}"><div><div class="text-[10px] font-bold text-rose-500">NACHTEILE</div><div class="font-black text-sm tabular flex items-baseline gap-1"><span>${D.dis}</span>${(T.autoDis||T.disAdj)?`<span class="text-[10px] font-bold text-rose-400">(${T.autoDis} Auto${T.disAdj?fmtSign(T.disAdj):''})</span>`:''}</div></div><div class="flex gap-1"><button type="button" data-action="dis-step" data-d="-1" ${D.dis<=0?'disabled':''} class="btn w-7 h-7 p-0">−</button><button type="button" data-action="dis-step" data-d="1" class="btn bg-rose-600 text-white border-rose-600 w-7 h-7 p-0">+</button></div></div>
       </div>
       ${((T.advSrc&&T.advSrc.length)||(T.critSrc&&T.critSrc.length)||(T.rollModSrc&&T.rollModSrc.length))?`<div class="p-2 rounded-lg bg-black/25 border bdr-line space-y-1"><div class="text-[10px] font-extrabold text-acc leading-tight">Automatisch aktiv (${esc(D.wRollCat||'Normaler Test')}):</div><div class="flex flex-wrap items-center gap-1">${(T.advSrc||[]).map(fmtSrcChip).join('')}${(T.critSrc||[]).map(c=>`<span data-tip="${esc(`${c.srcName} (${c.srcKind}): Kritische Ziffer ${fmtSign(c.val)}`)}" class="px-1.5 py-0.5 rounded border text-[10px] font-bold tabular cursor-help bg-amber-500/15 text-amber-300 border-amber-400/45">${fmtSign(c.val)} Krit. Ziffer (${esc(c.tagLbl||c.srcName)})</span>`).join('')}${(T.rollModSrc||[]).map(rm=>`<span data-tip="${esc(`${rm.srcName} (${rm.srcKind}): ${fmtSign(rm.val)} auf das geworfene W100-Ergebnis`)}" class="px-1.5 py-0.5 rounded border text-[10px] font-bold tabular cursor-help bg-cyan-500/15 text-cyan-300 border-cyan-400/45">🎲 ${fmtSign(rm.val)} Würfelergebnis (${esc(rm.tagLbl||rm.srcName)})</span>`).join('')}</div></div>`:''}
@@ -4290,7 +4400,12 @@
       else{bd.classList.toggle('hidden',Boolean(UI.modal));p.className='fixed right-3 sm:right-5 top-3 sm:top-5 z-[80] w-[calc(100vw-1.5rem)] max-w-lg card p-0 overflow-hidden shadow-2xl';}
       const T=calcThreshold(), ci=CRIT_SEQ.indexOf(D.crit), cs=getCSkVal(), ds=getDSkVal();
       const skOpts=cur=>['0','10','15','20','30','custom'].map(v=>`<option value="${v}" ${cur===v?'selected':''}>${v==='custom'?'Eigener...':'+'+v}</option>`).join('');
-      const vbox=(ttl,mAct,mode,dirF,aF,sF,cF,mId,mCol,sVal,aL,sL)=>`<div class="subcard space-y-2"><div class="flex items-center justify-between"><span class="text-xs font-extrabold">${ttl}</span><div class="inline-flex rounded-lg p-0.5 bg-black/20 border bdr-line text-[11px]"><button type="button" data-action="${mAct}" data-mode="direct" class="px-2 py-0.5 rounded font-bold ${mode==='direct'?'bg-acc-soft text-acc':''}">Direkt</button><button type="button" data-action="${mAct}" data-mode="breakdown" class="px-2 py-0.5 rounded font-bold ${mode==='breakdown'?'bg-acc-soft text-acc':''}">Aufgeschl.</button></div></div>${mode==='direct'?`<input data-dice="${dirF}" type="text" inputmode="numeric" value="${D[dirF]}" class="inp w-full text-lg font-black tabular"/>`:`<div class="grid grid-cols-2 gap-1.5"><div><label class="block text-[10px] font-bold t-mut">${aL}</label><input data-dice="${aF}" type="text" inputmode="numeric" value="${D[aF]}" class="inp w-full font-bold tabular"/></div><div><label class="block text-[10px] font-bold t-mut">${sL}</label><select data-dice-sel="${sF}" class="inp w-full font-bold">${skOpts(D[sF])}</select></div></div>${D[sF]==='custom'?`<input data-dice="${cF}" type="text" inputmode="numeric" value="${D[cF]}" class="inp w-full text-xs font-bold"/>`:''}<div id="${mId}" class="text-xs font-extrabold ${mCol} text-right tabular">${D[aF]} + ${sVal} = ${toInt(D[aF])+sVal}</div>`}</div>`;
+      const vbox=(ttl,mAct,mode,dirF,aF,sF,cF,mId,mCol,sVal,aL,sL)=>{
+        const wKey=dirF==='cDirect'?'c':'d';
+        const isDiffChanged=wKey==='d'&&(getEffD()!==40||D.dMode!=='direct');
+        const diffResetBtn=wKey==='d'?`<button type="button" id="btnResetDiceDiff" data-action="reset-dice-diff" data-tip="Nur Schwierigkeit auf Standardwert 40 zurücksetzen (Eigener Wert &amp; Vor-/Nachteile bleiben erhalten)" class="btn py-0.5 px-1.5 text-[10px] font-extrabold tabular transition-all ${isDiffChanged?'!border-amber-400 !bg-amber-500/25 text-amber-300 shadow-sm':'opacity-70 hover:opacity-100'}">↺ 40</button>`:'';
+        return `<div data-wheel-dice="${wKey}" data-tip="Tipp: Mausrad über diesem Bereich oder den Eingabefeldern drehen für ±1 (ohne Klicken)" class="subcard space-y-2"><div class="flex items-center justify-between gap-1"><div class="flex items-center gap-1.5 min-w-0"><span class="text-xs font-extrabold truncate">${ttl}</span>${diffResetBtn}</div><div class="inline-flex rounded-lg p-0.5 bg-black/20 border bdr-line text-[11px] shrink-0"><button type="button" data-action="${mAct}" data-mode="direct" class="px-2 py-0.5 rounded font-bold ${mode==='direct'?'bg-acc-soft text-acc':''}">Direkt</button><button type="button" data-action="${mAct}" data-mode="breakdown" class="px-2 py-0.5 rounded font-bold ${mode==='breakdown'?'bg-acc-soft text-acc':''}">Aufgeschl.</button></div></div>${mode==='direct'?`<input data-dice="${dirF}" type="text" inputmode="numeric" value="${D[dirF]}" class="inp w-full text-lg font-black tabular"/>`:`<div class="grid grid-cols-2 gap-1.5"><div><label class="block text-[10px] font-bold t-mut">${aL}</label><input data-dice="${aF}" type="text" inputmode="numeric" value="${D[aF]}" class="inp w-full font-bold tabular"/></div><div><label class="block text-[10px] font-bold t-mut">${sL}</label><select data-dice-sel="${sF}" class="inp w-full font-bold">${skOpts(D[sF])}</select></div></div>${D[sF]==='custom'?`<input data-dice="${cF}" type="text" inputmode="numeric" value="${D[cF]}" class="inp w-full text-xs font-bold"/>`:''}<div id="${mId}" class="text-xs font-extrabold ${mCol} text-right tabular">${D[aF]} + ${sVal} = ${toInt(D[aF])+sVal}</div>`}</div>`;
+      };
       p.innerHTML=`<div class="flex items-center justify-between gap-2 px-4 py-3 border-b bdr-line" style="background:var(--surf2)"><div class="min-w-0"><h2 class="text-sm font-extrabold">🎲 W100 Würfelassistent</h2><p class="text-[11px] text-acc font-bold truncate">${esc(D.label)}</p></div><div class="flex gap-1.5 shrink-0"><button type="button" data-action="toggle-livedice" data-tip="Live-Würfel-Fenster daneben ein-/ausblenden" class="btn py-1 px-2 text-xs ${LD.open?'btn-pri':''}">📡 Live</button><button type="button" data-action="dock-dice" class="hidden xl:inline-flex btn py-1 px-2 text-xs">${D.docked?'🗗 Overlay':'📌 Andocken'}</button><button type="button" data-action="reset-dice" class="btn btn-err py-1 px-2 text-xs">Reset</button><button type="button" data-action="close-dice" class="btn py-1 px-2">✕</button></div></div>
       <div class="p-4 space-y-3.5 max-h-[calc(100vh-5rem)] xl:max-h-[calc(100vh-9.5rem)] overflow-y-auto">
         ${S.inspirationActive?`<div class="subcard p-2.5 border-2 border-amber-400 bg-amber-500/20 flex items-center justify-between gap-2 shadow-lg"><div class="flex items-center gap-2"><span class="text-base">✨</span><div><div class="text-xs font-black text-amber-300">✨ Inspiration aktiv (+1 Vorteil)</div><div class="text-[10px] text-amber-200/90">Automatisch +1 Vorteil verrechnet • setzt sich nach dem Wurf zurück</div></div></div><button type="button" data-action="cancel-inspiration" data-tip="Inspiration doch nicht für diesen Wurf nutzen (1 Stapel zurücklegen)" class="btn py-0.5 px-2 text-[10px] border-amber-400/60 text-amber-200 shrink-0">↺ Zurücklegen</button></div>`:''}
@@ -4390,7 +4505,6 @@
 
     function renderModal(fromRenderAll=false){
       const m=$('modalMount');
-      if(UI.modal==='lobby'){UI.inLobby=true;UI.modal=null;}
       if(!UI.modal){
         m.innerHTML='';
         if(UI.inLobby&&!fromRenderAll){renderHeader();renderMain();}
@@ -4579,6 +4693,7 @@
 
     function renderAll(userSave=true){applyTheme();renderHeader();renderMain();renderDice();renderLiveDice();renderCampNotes();renderModal(true);save(userSave);}
 
+    const updateCalcDOM=()=>syncLiveCalculations();
     function syncLiveCalculations(){
       const P=calcProg(), M=calcActiveMods();
       const hp=$('hdrPills'); if(hp) hp.innerHTML=buildHdrPillsHtml(P);
@@ -4639,13 +4754,23 @@
           if(ef){ef.textContent=`(${b})`;ef.classList.toggle('hidden',!em);}
           if(inp&&document.activeElement!==inp){inp.value=eff;inp.classList.toggle('!border-emerald-500/60',Boolean(em));inp.classList.toggle('text-emerald-300',Boolean(em));}
         });
-        const bst=getEffBst(M);
+        const bst=getEffBst(M), bstAuto=getBstAuto(), bstBase=getBstBase(), bstOvr=hasBstOvr();
         if($('bstBox'))$('bstBox').dataset.tip=bstTip;
-        if($('val_bstEff')&&document.activeElement!==$('val_bstEff'))$('val_bstEff').value=bst>0?'+'+bst:bst;
-        if($('val_bstOrig')){$('val_bstOrig').textContent=`(${fmtSign(toInt(S.bst,0))})`;$('val_bstOrig').classList.toggle('hidden',!M.bst);}
+        if($('val_bstEff')){
+          if(document.activeElement!==$('val_bstEff'))$('val_bstEff').value=bst;
+          $('val_bstEff').classList.toggle('!border-amber-400',bstOvr);
+          $('val_bstEff').classList.toggle('text-amber-300',bstOvr);
+          $('val_bstEff').classList.toggle('text-acc',!bstOvr);
+        }
+        if($('rst_bstOvr')){
+          $('rst_bstOvr').textContent=`(${bstAuto})`;
+          $('rst_bstOvr').dataset.tip=`Manueller Overwrite aktiv – Klicken für Standardberechnung (${bstAuto})`;
+          $('rst_bstOvr').classList.toggle('hidden',!bstOvr);
+        }
+        if($('val_bstOrig')){$('val_bstOrig').textContent=`(${bstBase})`;$('val_bstOrig').classList.toggle('hidden',!M.bst);}
         if($('chip_bstMod'))$('chip_bstMod').innerHTML=modChip(M.bst);
         S.movements.forEach(mv=>{
-          const autoBew=Math.max(0,toFlt(mv.base,5)+M.moveBase+bst),hasOvr=mv.ovr!==undefined&&mv.ovr!==null&&String(mv.ovr).trim()!=='',bew=hasOvr?Math.max(0,toFlt(mv.ovr,autoBew)):autoBew;
+          const bstDelta=bst-bstAuto,autoBew=Math.max(0,toFlt(mv.base,5)+M.moveBase+bstDelta),hasOvr=mv.ovr!==undefined&&mv.ovr!==null&&String(mv.ovr).trim()!=='',bew=hasOvr?Math.max(0,toFlt(mv.ovr,autoBew)):autoBew;
           const inp1=$(`mv1_${mv.id}`),rst=$(`mvOvrReset_${mv.id}`);
           if(inp1){
             if(document.activeElement!==inp1) inp1.value=fmtN(bew);
@@ -4666,6 +4791,15 @@
           if(ai){if(document.activeElement!==ai)ai.value='+'+v.effAdv;ai.classList.toggle('!border-amber-400',v.hasAdvOvr);ai.classList.toggle('text-amber-300',v.hasAdvOvr);}
           if(sr){sr.textContent=`(${fmtSign(v.autoStat)})`;sr.classList.toggle('hidden',!v.hasStatOvr);}
           if(ar){ar.textContent=`(+${v.autoAdv})`;ar.classList.toggle('hidden',!v.hasAdvOvr);}
+        });
+      }else if(S.activeTab==='skills'){
+        S.skills.forEach(sk=>{
+          const rb=$(`skRollBtn_${sk.id}`);
+          if(rb){
+            const bm=buildSkRollBtnMeta(sk,M);
+            rb.innerHTML=bm.innerHtml;
+            rb.dataset.tip=bm.tip;
+          }
         });
       }else if(S.activeTab==='powers'){
         const ps=$('pwSummaryHdr'); if(ps) ps.textContent=`${P.pwSp} SP${P.pwMsp?` + ${P.pwMsp} MsP`:''}`;
@@ -4779,24 +4913,43 @@
 
     function spendResource(kind,id){
       const it=findPwItem(kind,id); if(!it) return;
-      const amt=toInt(it.useAmt,0), r=it.useRes, hasCost=Boolean(r&&amt>0);
+      const actCosts=getActivePwUseCosts(it);
       const stToks=parseStatusTokens(it.effects);
-      if(!hasCost&&!stToks.length) return;
+      if(!actCosts.length&&!stToks.length) return;
       const nm=it.name||(kind==='augment'?'Augment':'Kraft');
-      let costMsg='', logParts=[];
-      if(hasCost){
-        if(r==='ap') S.secondary.apCurrent=toInt(S.secondary.apCurrent)-amt;
-        else if(r==='map') S.secondary.mapCurrent=toInt(S.secondary.mapCurrent)-amt;
-        else if(r==='lp') S.secondary.lpCurrent=toInt(S.secondary.lpCurrent)-amt;
-        else if(r==='mlp') S.secondary.mlpCurrent=toInt(S.secondary.mlpCurrent)-amt;
-        else if(r==='cres') S.customRes.current=toInt(S.customRes.current)-amt;
-        else if(r==='bst') S.bst=toInt(S.bst)-amt;
-        else if(String(r).startsWith('ex_')){const ex=(S.extraSecList||[]).find(x=>'ex_'+x.id===r);if(ex)ex.current=toInt(ex.current)-amt;}
-        const exMatch=String(r).startsWith('ex_')?(S.extraSecList||[]).find(x=>'ex_'+x.id===r):null;
-        const curVal=exMatch?exMatch.current:{ap:S.secondary.apCurrent,map:S.secondary.mapCurrent,lp:S.secondary.lpCurrent,mlp:S.secondary.mlpCurrent,cres:S.customRes.current,bst:S.bst}[r];
-        costMsg=`−${amt} ${getResLabel(r)}${curVal!==undefined?` (jetzt: ${curVal})`:''}`;
-        logParts.push(`−${amt} ${getResLabel(r)}${curVal!==undefined?` (verbleibend: ${curVal})`:''}`);
+      const grouped=new Map();
+      actCosts.forEach(c=>{grouped.set(c.res,(grouped.get(c.res)||0)+toInt(c.amt,0));});
+      const getCurPool=r=>{
+        if(r==='ap') return toInt(S.secondary.apCurrent,0);
+        if(r==='map') return toInt(S.secondary.mapCurrent,0);
+        if(r==='lp') return toInt(S.secondary.lpCurrent,0);
+        if(r==='mlp') return toInt(S.secondary.mlpCurrent,0);
+        if(r==='cres') return toInt(S.customRes.current,0);
+        if(r==='bst') return getEffBst();
+        if(String(r).startsWith('ex_')){const ex=(S.extraSecList||[]).find(x=>'ex_'+x.id===r);return ex?toInt(ex.current,0):0;}
+        return null;
+      };
+      for(const [r,reqAmt] of grouped.entries()){
+        const curVal=getCurPool(r);
+        if(curVal!==null&&curVal<reqAmt){
+          toast(`⚠️ Nicht genügend ${getResLabel(r)} für „${nm}“ (benötigt: ${reqAmt}, verfügbar: ${curVal})!`);
+          return;
+        }
       }
+      const costMsgs=[], logCostParts=[];
+      for(const [r,reqAmt] of grouped.entries()){
+        if(r==='ap') S.secondary.apCurrent=toInt(S.secondary.apCurrent,0)-reqAmt;
+        else if(r==='map') S.secondary.mapCurrent=toInt(S.secondary.mapCurrent,0)-reqAmt;
+        else if(r==='lp') S.secondary.lpCurrent=toInt(S.secondary.lpCurrent,0)-reqAmt;
+        else if(r==='mlp') S.secondary.mlpCurrent=toInt(S.secondary.mlpCurrent,0)-reqAmt;
+        else if(r==='cres') S.customRes.current=toInt(S.customRes.current,0)-reqAmt;
+        else if(r==='bst'){const nb=getBstBase()-reqAmt;S.bst=nb;S.bstOvr=String(nb);}
+        else if(String(r).startsWith('ex_')){const ex=(S.extraSecList||[]).find(x=>'ex_'+x.id===r);if(ex)ex.current=toInt(ex.current,0)-reqAmt;}
+        const afterVal=getCurPool(r);
+        costMsgs.push(`−${reqAmt} ${getResLabel(r)}`);
+        logCostParts.push(`−${reqAmt} ${getResLabel(r)}${afterVal!==null?` (verbleibend: ${afterVal})`:''}`);
+      }
+      const logParts=[...logCostParts];
       const actNames=[];
       if(stToks.length){
         withPoolSync(()=>{
@@ -4817,7 +4970,9 @@
       }
       logChron(`Einsatz "${nm}": ${logParts.join(' • ')}.`);
       syncDiceFromSheet(); renderHeader(); renderMain(); renderDice(); save();
-      toast(`⚡ ${nm}: ${[costMsg,actNames.length?`Status ${actNames.join(', ')} aktiv!`:''].filter(Boolean).join(' • ')}`);
+      const toastCostPart=costMsgs.length?`(${costMsgs.join(', ')})`:'';
+      const toastStPart=actNames.length?`• Status ${actNames.join(', ')} aktiv!`:'';
+      toast(`⚡ „${nm}“ eingesetzt ${toastCostPart} ${toastStPart}`.replace(/\s+/g,' ').trim());
     }
 
     function rollW100(){
@@ -5207,7 +5362,8 @@
           else if(UI.listType==='armorTags')S.armorTagList=[];
           else if(UI.listType==='ammoTags')S.ammoTagList=[];
           renderMain(); renderModal(); save(); break;
-        case 'bst-step': S.bst=toInt(S.bst)+Number(el.dataset.delta); renderMain(); save(); break;
+        case 'bst-step': {const nb=getBstBase()+Number(el.dataset.delta);S.bst=nb;S.bstOvr=String(nb);renderMain();save();break;}
+        case 'reset-bst-ovr': S.bstOvr=''; S.bst=getBstAuto(); renderMain(); save(); toast('BSt auf Automatik (⌊Bew/5⌋) zurückgesetzt'); break;
         case 'reset-mv-ovr': {const mv=S.movements.find(x=>x.id===el.dataset.id);if(mv){mv.ovr='';renderMain();save();toast('Bew (BSt) auf Automatik zurückgesetzt');}break;}
         case 'add-move': S.movements.push({id:uid(),type:'Bewegung',base:5,ovr:''}); renderMain(); save(); break;
         case 'del-move': S.movements=S.movements.filter(m=>m.id!==el.dataset.id); renderMain(); save(); break;
@@ -5218,6 +5374,24 @@
         case 'confirm-reset-hz-2': S.hitZones=JSON.parse(JSON.stringify(DEF_HZ)); S.lastHzRoll=null; UI.modal=null; renderMain(); renderModal(); save(); toast('Standard-Trefferzonen wiederhergestellt'); break;
         case 'roll-hz': {const r=rollW100();S.lastHzRoll=r;const hzHit=S.hitZones.find(z=>{const m=String(z.range||'').match(/\d+/g);return m&&r>=Math.min(+m[0],+(m[1]??m[0]))&&r<=Math.max(+m[0],+(m[1]??m[0]));});publishLiveRoll({id:uid(),tsMs:Date.now(),ts:new Date().toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit',second:'2-digit'}),senderTabId:LIVE_TAB_ID,charId:S.charId||'',charName:String(S.profile.name||'').trim()||'Unbenannter Held',playerName:String(CLOUD.currentUser||S.owner||'').trim(),label:'🎯 Trefferzonen-Wurf',isHz:true,hzZone:hzHit?`${hzHit.zone} (${hzHit.size||'normal'})`:'Keine Zone',th:100,chance:100,res:[{r,ok:true,crit:false,eg:0,meg:0}]});renderMain();save();toast(`Trefferzone W100 = ${r}${hzHit?` (${hzHit.zone})`:''}`);break;}
         case 'roll-attr': {const k=el.dataset.attr,v=getAttrTot(k);D.weaponId=null;D.wRollCat='Normaler Test';D.skillId=null;D.attrKey=k;D.critOff=0;D.sitActive={};D.cMode='breakdown';D.cAttr=v;D.cSkill='0';D.cDirect=v;D.label=`Normaler Test: ${k} (${v})`;applyDiceAutoAdvDis(true);D.open=true;renderHeader();renderDice();break;}
+        case 'toggle-sk-edit': {
+          const sid=el.dataset.id;
+          if(UI.editSkNameId===sid){
+            UI.editSkNameId=null;
+            renderMain();
+            updateCalcDOM();
+          }else{
+            UI.editSkNameId=sid;
+            renderMain();
+            const inp=$(`skNameInp_${sid}`);
+            if(inp){
+              inp.focus();
+              const len=inp.value.length;
+              try{inp.setSelectionRange(len,len);}catch(err){}
+            }
+          }
+          break;
+        }
         case 'roll-skill': {const sk=S.skills.find(x=>x.id===el.dataset.id);if(!sk)break;const ak=sk.linkedAttr||'PR',av=getAttrTot(ak),b=getSkBonus(sk);D.weaponId=null;D.wRollCat='Normaler Test';D.skillId=sk.id;D.attrKey=ak;D.critOff=0;D.sitActive={};D.cMode='breakdown';D.cAttr=av;if(['0','10','15','20','30'].includes(String(b))){D.cSkill=String(b);}else{D.cSkill='custom';D.cCustom=b;}D.cDirect=av+b;D.label=`Normaler Test: ${sk.name} (${fmtSign(b)}) + ${ak} (${av})`;applyDiceAutoAdvDis(true);D.open=true;renderHeader();renderDice();break;}
         case 'roll-weapon': openWeaponRoll(el.dataset.id,el.dataset.wcat); break;
         case 'set-dice-wcat': {const wc=el.dataset.wcat||'Normaler Test';D.wRollCat=wc;D.sitActive={};applyDiceAutoAdvDis(true);syncDiceFromSheet();renderDice();break;}
@@ -5486,6 +5660,18 @@
         }
         case 'toggle-apply-mods': {const it=findPwItem(el.dataset.kind,el.dataset.id);if(it){withPoolSync(()=>{it.applyMods=!it.applyMods;});renderAll();toast(it.applyMods?'Effekt-Bausteine auf Charakterbogen aktiv!':'Effekt-Bausteine deaktiviert');}break;}
         case 'spend-pw': spendResource(el.dataset.kind,el.dataset.id); break;
+        case 'rm-pw-ucost': {
+          const it=findPwItem(el.dataset.kind,el.dataset.id), idx=toInt(el.dataset.cidx,-1);
+          if(it){
+            if(!Array.isArray(it.useCosts)) syncPwUseCostsLegacy(it);
+            if(idx>=0&&idx<it.useCosts.length){
+              it.useCosts.splice(idx,1);
+              syncPwUseCostsLegacy(it);
+              renderMain(); save();
+            }
+          }
+          break;
+        }
         case 'toggle-eqsec-collapse': {if(!S.equipSecMeta)S.equipSecMeta=makeEqSecMeta();const m=S.equipSecMeta[el.dataset.sec];if(m){m.collapsed=!m.collapsed;renderMain();save(false);}break;}
         case 'move-eqsec': {
           if(!Array.isArray(S.equipSecOrder)||S.equipSecOrder.length!==4) S.equipSecOrder=[...DEF_EQ_SEC_ORDER];
@@ -5628,6 +5814,8 @@
         case 'd-mode': if(el.dataset.mode==='direct')D.dDirect=getEffD();else{D.dAttr=getEffD();D.dSkill='0';} D.dMode=el.dataset.mode; renderDice(); break;
         case 'adv-step': {const r=applyDiceAutoAdvDis(false);D.advAdj=Math.max(-r.autoAdv,toInt(D.advAdj,0)+Number(el.dataset.d));applyDiceAutoAdvDis(false);renderDice();break;}
         case 'dis-step': {const r=applyDiceAutoAdvDis(false);D.disAdj=Math.max(-r.autoDis,toInt(D.disAdj,0)+Number(el.dataset.d));applyDiceAutoAdvDis(false);renderDice();break;}
+        case 'reset-dice-diff': D.dMode='direct'; D.dDirect=40; D.dAttr=30; D.dSkill='10'; D.dCustom=25; renderDice(); break;
+        case 'reset-dice-advdis': D.advAdj=0; D.disAdj=0; applyDiceAutoAdvDis(true); renderDice(); break;
         case 'adv-reset': D.sitActive={}; applyDiceAutoAdvDis(true); renderDice(); break;
         case 'cnt-step': D.cnt=Math.max(1,Math.min(10,D.cnt+Number(el.dataset.d))); renderDice(); break;
         case 'crit-step': {const T=calcThreshold(),i=CRIT_SEQ.indexOf(T.effCrit),ni=Math.max(0,Math.min(CRIT_SEQ.length-1,i+Number(el.dataset.d)));D.critOff=ni-T.autoCrit;D.crit=CRIT_SEQ[ni];renderDice();break;}
@@ -5639,21 +5827,19 @@
         case 'pick-avatar': UI.modal='avatar'; renderModal(); break;
         case 'trigger-avatar-file': $('fileAvatar').click(); break;
         case 'pick-lobby-logo': if(CLOUD.isAdmin) $('fileLobbyLogo')?.click(); break;
-        case 'rm-lobby-logo': if(CLOUD.isAdmin){CLOUD.registry.lobbyLogo='';saveRegistryLocal();renderHeader();renderMain();if(UI.modal==='lobby')renderModal();syncCloudRegistry(true);toast('🗑️ Lobby-Bild entfernt.');} break;
+        case 'rm-lobby-logo': if(CLOUD.isAdmin){CLOUD.registry.lobbyLogo='';saveRegistryLocal();renderHeader();renderMain();syncCloudRegistry(true);toast('🗑️ Lobby-Bild entfernt.');} break;
         case 'pick-camp-img': if(CLOUD.isAdmin) $('fileCampImg')?.click(); break;
-        case 'rm-camp-img': if(CLOUD.isAdmin){const c=getCampaigns().find(x=>x.id===CLOUD.activeCampaignId);if(c){c.img='';saveRegistryLocal();renderMain();if(UI.modal==='lobby')renderModal();syncCloudRegistry(true);toast('🗑️ Kampagnenbild entfernt.');}} break;
+        case 'rm-camp-img': if(CLOUD.isAdmin){const c=getCampaigns().find(x=>x.id===CLOUD.activeCampaignId);if(c){c.img='';saveRegistryLocal();renderMain();syncCloudRegistry(true);toast('🗑️ Kampagnenbild entfernt.');}} break;
         case 'rm-avatar': S.profile.avatar=''; renderHeader(); renderModal(); save(); toast('Profilbild entfernt'); break;
         case 'open-lobby':
+        case 'close-active-sheet':
           if(!CLOUD.viewingRemote&&UI.sheetLoaded&&S.cloudAutoSync&&(CLOUD.currentUser||CLOUD.isAdmin)) pushToCloud(true);
-          UI.inLobby=true; UI.modal=null; CLOUD.confirmDelCloudId=null; CLOUD.confirmClearDice=false; CLOUD.campAction='';
+          UI.inLobby=true; UI.sheetLoaded=false; UI.modal=null; CLOUD.viewingRemote=false; CLOUD.remoteCharId=''; CLOUD.ownBackupJson=null;
+          CLOUD.confirmDelCloudId=null; CLOUD.confirmClearDice=false; CLOUD.campAction='';
+          D.open=false; CN.open=false;
           try{window.history.replaceState({},'',`${window.location.pathname}?lobby=1`);}catch(e){}
-          initLiveDiceChannel(); renderAll(false); fetchLobbyList(true); break;
-        case 'return-to-sheet':
-          if(UI.sheetLoaded){
-            UI.inLobby=false; UI.modal=null;
-            try{window.history.replaceState({},'',S.charId?`${window.location.pathname}?char=${encodeURIComponent(S.charId)}`:window.location.pathname);}catch(e){}
-            renderAll(false);
-          }
+          initLiveDiceChannel(); renderAll(false); fetchLobbyList(true);
+          toast('🏠 Charakterbogen geschlossen – du bist in der Lobby.');
           break;
         case 'open-local-sheet':
           CLOUD.viewingRemote=false; CLOUD.remoteCharId=''; CLOUD.ownBackupJson=null;
@@ -5662,7 +5848,7 @@
           if(!S.campaignId) S.campaignId=CLOUD.activeCampaignId||'default';
           UI.inLobby=false; UI.sheetLoaded=true; UI.modal=null;
           try{window.history.replaceState({},'',S.charId?`${window.location.pathname}?char=${encodeURIComponent(S.charId)}`:window.location.pathname);}catch(e){}
-          renderAll(false);
+          renderAll();
           toast(`🛠️ Lokaler Charakterbogen „${S.profile.name||'Charakter'}“ geöffnet!`);
           break;
         case 'copy-char-link': {
@@ -5672,20 +5858,11 @@
           toast('🔗 Direktlink zum Charakterbogen kopiert!');
           break;
         }
-        case 'close-active-sheet':
-          if(!CLOUD.viewingRemote&&UI.sheetLoaded&&S.cloudAutoSync&&CLOUD.currentUser) pushToCloud(true);
-          CLOUD.viewingRemote=false; CLOUD.remoteCharId=''; CLOUD.ownBackupJson=null;
-          UI.sheetLoaded=false; UI.inLobby=true; UI.modal=null;
-          D.open=false; CN.open=false;
-          try{window.history.replaceState({},'',`${window.location.pathname}?lobby=1`);}catch(e){}
-          renderAll(false); fetchLobbyList(true);
-          toast('🏠 Charakterbogen geschlossen – du bist in der Lobby.');
-          break;
         case 'select-campaign-tab': {
           const cid=el.dataset.id||'default';
           setActiveCampaign(cid);
           CLOUD.campAction='';
-          if((UI.modal==='lobby'||UI.inLobby)) renderModal();
+          if(UI.inLobby){renderHeader();renderMain();}
           if(LD.open) renderLiveDice();
           renderHeader();
           break;
@@ -5793,8 +5970,6 @@
         case 'admin-toggle-gm': toggleGlobalGMTag(el.dataset.user); break;
         case 'camp-add-gm-btn': {const s=$('selCampAddGM'); if(s&&s.value) addCampaignMainGM(s.value);} break;
         case 'camp-rm-gm': removeCampaignMainGM(el.dataset.user); break;
-        case 'camp-add-cogm-btn': {const s=$('selCampAddCoGM'); if(s&&s.value) addCampaignCoGM(s.value);} break;
-        case 'camp-rm-cogm': removeCampaignCoGM(el.dataset.user); break;
         case 'kick-char-camp': kickCharFromCampaign(el.dataset.id); break;
         case 'dup-char-sheet': duplicateCharacterSheet(el.dataset.id); break;
         case 'toggle-lobby-dice-collapse': CLOUD.diceCollapsed=!CLOUD.diceCollapsed; updateLobbyLiveDiceDOM(); break;
@@ -5905,7 +6080,6 @@
             getCampaigns().forEach(c=>{
               c.allowedUsers=(c.allowedUsers||[]).filter(x=>String(x||'').toLowerCase()!==uLow);
               c.gmUsers=(c.gmUsers||[]).filter(x=>String(x||'').toLowerCase()!==uLow);
-              c.coGmUsers=(c.coGmUsers||[]).filter(x=>String(x||'').toLowerCase()!==uLow);
             });
             if(CLOUD.currentUser&&CLOUD.currentUser.toLowerCase()===uLow){
               CLOUD.currentUser='';
@@ -5949,14 +6123,6 @@
           updateCloudCharacterMeta(cid,d=>{d.owner='';if(d._summary)d._summary.owner='';},'🔓 Charakter-Zuordnung freigegeben');
           break;
         }
-        case 'admin-clear-pin': {
-          if(!CLOUD.isAdmin) break;
-          const cid=el.dataset.id;
-          delete CLOUD.registry.pins[cid];
-          if(S.charId===cid) S.cloudPin='';
-          updateCloudCharacterMeta(cid,d=>{d.cloudPin='';},'🔓 Schutz-PIN durch Admin entfernt');
-          break;
-        }
         case 'cloud-push-now': S.cloudAutoSync=true; save(false); pushToCloud(false); break;
         case 'toggle-cloud-autosync': S.cloudAutoSync=!S.cloudAutoSync; save(true); renderHeader(); renderModal(); if(S.cloudAutoSync) pushToCloud(false); else toast('Auto-Sync deaktiviert'); break;
         case 'copy-share-link': {const u=el.dataset.url;if(u&&navigator.clipboard){navigator.clipboard.writeText(u);toast('🔗 Direktlink in die Zwischenablage kopiert!');}break;}
@@ -5975,12 +6141,11 @@
           break;
         }
         case 'cloud-exit-view': {
-          if(!CLOUD.ownBackupJson){
-            CLOUD.viewingRemote=false; CLOUD.remoteCharId=''; UI.sheetLoaded=false; UI.inLobby=true; renderAll(false);
-            toast('🔙 Ansichtsmodus beendet – du bist in der Lobby.');
-            break;
-          }
-          if(CLOUD.viewingRemote&&CLOUD.ownBackupJson){try{mergeLoaded(JSON.parse(CLOUD.ownBackupJson));}catch(e){}CLOUD.viewingRemote=false;CLOUD.remoteCharId='';CLOUD.ownBackupJson=null;UI.inLobby=false;UI.sheetLoaded=true;renderAll(false);toast('🔙 Zurück bei deinem eigenen Charakterbogen.');}
+          UI.inLobby=true; UI.sheetLoaded=false; UI.modal=null; CLOUD.viewingRemote=false; CLOUD.remoteCharId=''; CLOUD.ownBackupJson=null;
+          D.open=false; CN.open=false;
+          try{window.history.replaceState({},'',`${window.location.pathname}?lobby=1`);}catch(e){}
+          renderAll(false); fetchLobbyList(true);
+          toast('🔙 Ansichtsmodus beendet – du bist in der Lobby.');
           break;
         }
         case 'open-settings': S.appearance.editScope=S.activeTab; UI.modal='settings'; UI.confirmNew=false; syncPalDraftFromSlot(); applyTheme(); renderModal(); break;
@@ -6030,7 +6195,7 @@
         case 'import-json': $('fileImport').click(); break;
         case 'new-sheet-ask': UI.confirmNew=true; renderModal(); break;
         case 'new-sheet-no': UI.confirmNew=false; renderModal(); break;
-        case 'new-sheet-yes': CLOUD.viewingRemote=false; CLOUD.remoteCharId=''; CLOUD.ownBackupJson=null; S=defaultState(); UI.modal=null; UI.confirmNew=false; renderAll(); toast('Neuer Charakterbogen geladen'); break;
+        case 'new-sheet-yes': CLOUD.viewingRemote=false; CLOUD.remoteCharId=''; CLOUD.ownBackupJson=null; S=defaultState(); UI.inLobby=false; UI.sheetLoaded=true; UI.modal=null; UI.confirmNew=false; renderAll(); toast('Neuer Charakterbogen geladen'); break;
       }
     });
 
@@ -6117,7 +6282,7 @@
           else{const it=findPwItem(parts[0],parts[1]);if(it)it.boxH[parts[2]]=el.offsetHeight;}
         }
       }
-      if(el.dataset.cloudPin){S.cloudPin=el.value.trim();save(false);return;}
+      if(el.dataset.cloudPin){S.cloudPin='';save(false);return;}
       if(el.dataset.bind){const [a,b]=el.dataset.bind.split('.');if(b)S[a][b]=el.value;else S[a]=el.value;save();return;}
       if(el.dataset.bindRtf){S[el.dataset.bindRtf]=val;save();return;}
       if(el.dataset.cnotetitle){const n=S.campaignNotes.find(x=>x.id===el.dataset.cnotetitle);if(n){n.title=el.value;save();}return;}
@@ -6181,7 +6346,20 @@
         }
         return;
       }
-      if(el.dataset.bstInp){const M=calcActiveMods();S.bst=toInt(el.value,0)-M.bst;syncLiveCalculations();return;}
+      if(el.dataset.bstInp){
+        const raw=String(el.value??'').trim(), M=calcActiveMods();
+        if(raw===''||raw==='-'){
+          S.bstOvr='';
+          S.bst=getBstAuto();
+        }else{
+          const typedVal=toInt(raw,getEffBst(M)), newBase=typedVal-(M.bst||0);
+          S.bstOvr=String(newBase);
+          S.bst=newBase;
+        }
+        syncLiveCalculations();
+        save();
+        return;
+      }
       if(el.id==='colPickerInp'){
         UI.colDraft=el.value;
         if($('colHexInp'))$('colHexInp').value=el.value.toUpperCase();
@@ -6227,7 +6405,7 @@
           }
           const autoB=getSkAutoBonus(sk.rank), hasOvr=hasSkBonusOvr(sk), effB=getSkBonus(sk), av=getAttrTot(sk.linkedAttr), pool=av+effB;
           const rb=$(`skRollBtn_${sk.id}`);
-          if(rb){rb.textContent=`🎲 ${pool}`;rb.dataset.tip=`Probe auf ${sk.name} (${pool} = ${sk.linkedAttr} ${av} ${fmtSign(effB)}${hasOvr?` • Manuell, Grad: +${autoB}`:''})`;}
+          if(rb){const bm=buildSkRollBtnMeta(sk);rb.innerHTML=bm.innerHtml;rb.dataset.tip=bm.tip;}
           ['','chr_'].forEach(p=>{
             const bi=$(`skBon_${p}${sk.id}`), br=$(`skBonReset_${p}${sk.id}`);
             if(bi){bi.classList.toggle('!border-amber-400',hasOvr);bi.classList.toggle('text-amber-300',hasOvr);bi.classList.toggle('text-acc',!hasOvr);}
@@ -6252,6 +6430,27 @@
         if(it){it[f]=toInt(el.value,0);it.manualCost=true;syncLiveCalculations();}
         return;
       }
+      if(el.dataset.pwUcostAmt){
+        const [kind,id,cIdx]=el.dataset.pwUcostAmt.split(':'), it=findPwItem(kind,id), idx=toInt(cIdx,-1);
+        if(it){
+          if(!Array.isArray(it.useCosts)) syncPwUseCostsLegacy(it);
+          if(it.useCosts[idx]){
+            it.useCosts[idx].amt=Math.max(0,toInt(el.value,0));
+            syncPwUseCostsLegacy(it);
+            const card=el.closest('.card');
+            if(card){
+              const btn=card.querySelector('[data-action="spend-pw"]');
+              if(btn){
+                const cs=formatPwUseCosts(it), canSp=Boolean(cs)||parseStatusTokens(it.effects).length>0;
+                btn.disabled=!canSp;
+                btn.textContent=`⚡ ${cs||'Einsetzen'}`;
+              }
+            }
+            save();
+          }
+        }
+        return;
+      }
       if(el.dataset.pwf){
         const [kind,id,f]=el.dataset.pwf.split(':'),it=findPwItem(kind,id);
         if(it){
@@ -6261,6 +6460,7 @@
             syncLiveCalculations();
           }else{
             it[f]=f==='useAmt'?toInt(el.value,0):val;
+            if(f==='useAmt'){if(Array.isArray(it.useCosts)&&it.useCosts[0])it.useCosts[0].amt=Math.max(0,it.useAmt);syncPwUseCostsLegacy(it);}
             if(f==='bldAmt'){const ch=$(`chip_${id}`);if(ch){const tok=formatBldToken(it.bldAmt,it.bldStat);ch.dataset.dragTok=tok;ch.textContent='⠿ '+tok;}}
             if(f==='name') syncLiveCalculations();
             else save();
@@ -6304,6 +6504,17 @@
           return;
         }
         if(el.dataset.dice==='cDirect'){D.skillId=null;D.attrKey=null;D.weaponId=null;D.wRollCat='Normaler Test';}
+        if($('diceCMath')) $('diceCMath').textContent=`${D.cAttr} + ${getCSkVal()} = ${toInt(D.cAttr)+getCSkVal()}`;
+        if($('diceDMath')) $('diceDMath').textContent=`${D.dAttr} + ${getDSkVal()} = ${toInt(D.dAttr)+getDSkVal()}`;
+        const dRstBtn=$('btnResetDiceDiff');
+        if(dRstBtn){
+          const isDiffChg=(getEffD()!==40||D.dMode!=='direct');
+          dRstBtn.classList.toggle('!border-amber-400',isDiffChg);
+          dRstBtn.classList.toggle('!bg-amber-500/25',isDiffChg);
+          dRstBtn.classList.toggle('text-amber-300',isDiffChg);
+          dRstBtn.classList.toggle('shadow-sm',isDiffChg);
+          dRstBtn.classList.toggle('opacity-70',!isDiffChg);
+        }
         syncLiveCalculations();return;
       }
       if(el.id==='rngOverlay'){const t=getEditStyleSlot();t.overlay=toInt(el.value,75);if($('bgOvLbl'))$('bgOvLbl').textContent=t.overlay+'%';applyTheme();save();return;}
@@ -6367,7 +6578,6 @@
         saveRegistryLocal();
         renderHeader();
         renderMain();
-        if(UI.modal==='lobby') renderModal();
         syncCloudRegistry(true);
         toast('🖼️ Lobby-Bild für alle aktualisiert!');
       });
@@ -6381,8 +6591,7 @@
           camp.img=dataUrl;
           saveRegistryLocal();
           renderMain();
-          if(UI.modal==='lobby') renderModal();
-          syncCloudRegistry(true);
+            syncCloudRegistry(true);
           toast('🖼️ Kampagnenbild gespeichert!');
         }
       });
@@ -6410,7 +6619,7 @@
       if(el.dataset.cres==='name'){syncCresRenameInTokens(el.dataset.prevCres||'',cresName());el.dataset.prevCres=cresName();renderHeader();syncLiveCalculations();return;}
       if(el.dataset.exsec?.endsWith(':name')){const id=el.dataset.exsec.split(':')[0],ex=(S.extraSecList||[]).find(x=>x.id===id);if(ex){syncCresRenameInTokens(el.dataset.prevExName||'',getExtraSecName(ex));el.dataset.prevExName=getExtraSecName(ex);renderHeader();syncLiveCalculations();}return;}
       if(el.dataset.mv?.endsWith(':ovr')&&String(el.value).trim()===''){renderMain();save();return;}
-      if(el.dataset.bstInp){renderMain();save();return;}
+      if(el.dataset.bstInp){if(String(el.value??'').trim()===''){S.bstOvr='';S.bst=getBstAuto();}renderMain();save();return;}
       if(el.dataset.cnotetitle){renderCampNotes();save();return;}
       if(el.dataset.secf?.endsWith(':name')||el.dataset.sksecf?.endsWith(':name')){renderMain();save();return;}
       if(el.dataset.skBon){const sk=S.skills.find(x=>x.id===el.dataset.skBon);if(sk){if(String(el.value).trim()==='')sk.bonusOvr='';renderMain();save();}return;}
@@ -6440,7 +6649,17 @@
       if(el.dataset.sksecFilter){const sec=S.skillSections.find(s=>s.id===el.dataset.sksecFilter);if(sec){sec.filterAttr=el.value;UI.confirmSkSecPullId=null;renderMain();save();}return;}
       if(el.dataset.pwSecSel){const p=S.powers.find(x=>x.id===el.dataset.pwSecSel);if(p){p.sectionId=el.value;renderMain();save();}return;}
       if(el.dataset.skSecSel){const sk=S.skills.find(x=>x.id===el.dataset.skSecSel);if(sk){sk.sectionId=el.value;renderMain();save();}return;}
-      if(el.dataset.pwf?.endsWith(':useAmt')||el.dataset.pwf?.endsWith(':name')){renderMain();save();return;}
+      if(el.dataset.pwUcostAmt||el.dataset.pwf?.endsWith(':useAmt')||el.dataset.pwf?.endsWith(':name')){renderMain();save();return;}
+      if(el.dataset.addPwUcost){
+        const [kind,id]=el.dataset.addPwUcost.split(':'), it=findPwItem(kind,id), res=String(el.value||'').trim();
+        if(it&&res){
+          if(!Array.isArray(it.useCosts)) syncPwUseCostsLegacy(it);
+          it.useCosts.push({res,amt:1});
+          syncPwUseCostsLegacy(it);
+          renderMain(); save();
+        }
+        return;
+      }
       if(el.dataset.skcost||el.dataset.trcost||el.dataset.pwcost){renderAll();return;}
       if(el.id==='inpDirectLvl'){S.progression.level=Math.max(1,toInt(el.value,1));logChron(`Stufe auf ${S.progression.level} gesetzt.`);renderAll();return;}
       if(el.id==='inpDirectEp'){applyEp(el.value,'EP geändert');renderAll();return;}
@@ -6636,6 +6855,55 @@
     window.addEventListener('wheel',e=>{
       if(isAnyDragging()) window.scrollBy(0,e.deltaY);
     },{passive:true});
+    document.addEventListener('wheel',ev=>{
+      if(!D.open) return;
+      const diceMount=$('diceMount');
+      if(!diceMount||!diceMount.contains(ev.target)) return;
+      const inpEl=ev.target.closest?.('[data-dice]');
+      const boxEl=ev.target.closest?.('[data-wheel-dice]');
+      if(!inpEl&&!boxEl) return;
+      if(!ev.deltaY) return;
+      const step=ev.deltaY<0?1:-1;
+      let targetField='';
+      if(inpEl){
+        const df=inpEl.dataset.dice;
+        if(df==='cAttr'||df==='dAttr'||df==='cCustom'||df==='dCustom'){
+          targetField=df;
+        }else if(df==='cDirect'){
+          targetField=D.cMode==='direct'?'cDirect':'cAttr';
+        }else if(df==='dDirect'){
+          targetField=D.dMode==='direct'?'dDirect':'dAttr';
+        }
+      }
+      if(!targetField&&boxEl){
+        const wk=boxEl.dataset.wheelDice;
+        if(wk==='c') targetField=D.cMode==='direct'?'cDirect':'cAttr';
+        else if(wk==='d') targetField=D.dMode==='direct'?'dDirect':'dAttr';
+      }
+      if(!targetField) return;
+      ev.preventDefault();
+      D[targetField]=toInt(D[targetField],0)+step;
+      if(targetField==='cDirect'||targetField==='cAttr'||targetField==='cCustom'){
+        if(targetField==='cDirect') D.cAttr=D.cDirect;
+        else D.cDirect=toInt(D.cAttr,0)+getCSkVal();
+      }
+      const domInp=diceMount.querySelector(`input[data-dice="${targetField}"]`);
+      if(domInp) domInp.value=D[targetField];
+      if($('diceCMath')) $('diceCMath').textContent=`${D.cAttr} + ${getCSkVal()} = ${toInt(D.cAttr)+getCSkVal()}`;
+      if($('diceDMath')) $('diceDMath').textContent=`${D.dAttr} + ${getDSkVal()} = ${toInt(D.dAttr)+getDSkVal()}`;
+      const dRstBtn=$('btnResetDiceDiff');
+      if(dRstBtn){
+        const isDiffChg=(getEffD()!==40||D.dMode!=='direct');
+        dRstBtn.classList.toggle('!border-amber-400',isDiffChg);
+        dRstBtn.classList.toggle('!bg-amber-500/25',isDiffChg);
+        dRstBtn.classList.toggle('text-amber-300',isDiffChg);
+        dRstBtn.classList.toggle('shadow-sm',isDiffChg);
+        dRstBtn.classList.toggle('opacity-70',!isDiffChg);
+      }
+      const dT=calcThreshold();
+      if($('diceAdvDisBox')) $('diceAdvDisBox').innerHTML=buildAdvDisInnerHtml(dT);
+      if($('diceThBox')) $('diceThBox').innerHTML=buildThresholdInnerHtml(dT);
+    },{passive:false});
 
     document.addEventListener('dragstart',e=>{
       const pw=e.target.closest('[data-drag-pw]'), ag=e.target.closest('[data-drag-aug]'), sec=e.target.closest('[data-drag-sec]'), sksec=e.target.closest('[data-drag-sksec]'), sk=e.target.closest('[data-drag-sk]'), cpw=e.target.closest('[data-drag-chr-pw]'), chs=e.target.closest('[data-drag-chrsec]'), eqs=e.target.closest('[data-drag-eqsec]'), eqi=e.target.closest('[data-drag-eqitem]'), cmp=CLOUD.isAdmin?e.target.closest('[data-drag-camp]'):null, tk=e.target.closest('[data-drag-tok]');
@@ -6850,8 +7118,7 @@
             CLOUD.registry.campaigns=normalizeCampaigns(camps);
             saveRegistryLocal();
             renderMain();
-            if(UI.modal==='lobby') renderModal();
-            syncCloudRegistry(true);
+                syncCloudRegistry(true);
             toast(`🗺️ Kampagne „${moved.name||'Kampagne'}“ verschoben!`);
           }
         }
@@ -7163,7 +7430,27 @@
         }
         return;
       }
+      if(e.target&&e.target.id&&e.target.id.startsWith('skNameInp_')&&(e.key==='Enter'||e.key==='Escape')){
+        e.preventDefault();
+        UI.editSkNameId=null;
+        renderMain();
+        updateCalcDOM();
+        return;
+      }
       if(e.key==='Escape'){if(UI.modal){UI.modal=null;applyTheme();renderModal();}else if(D.open&&!D.docked){D.open=false;renderHeader();renderDice();}else if(CN.open&&!CN.docked){CN.open=false;renderHeader();renderCampNotes();}}
+    });
+    document.addEventListener('focusout',e=>{
+      const inp=e.target;
+      if(inp&&inp.id&&inp.id.startsWith('skNameInp_')){
+        const sid=inp.id.slice(10);
+        if(UI.editSkNameId===sid){
+          const rel=e.relatedTarget;
+          if(rel&&rel.closest?.(`[data-action="toggle-sk-edit"][data-id="${sid}"]`)) return;
+          UI.editSkNameId=null;
+          renderMain();
+          updateCalcDOM();
+        }
+      }
     });
     window.addEventListener('resize',()=>{if(D.open)renderDice();if(CN.open)renderCampNotes();if(LD.open)renderLiveDice();});
 
