@@ -777,7 +777,7 @@
     const DICE_DEF={open:false,docked:false,label:'Freie Probe',skillId:null,attrKey:null,weaponId:null,wRollCat:'Normaler Test',cMode:'direct',cDirect:0,cAttr:0,cSkill:'0',cCustom:25,dMode:'direct',dDirect:40,dAttr:30,dSkill:'10',dCustom:25,adv:0,dis:0,advAdj:0,disAdj:0,cnt:1,crit:'1',critOff:0,critMode:'range',sitActive:{},blockFollowAtk:40};
     const CNOTES_DEF={open:false,docked:false,confirmDelId:null};
     const LIVEDICE_DEF={open:false,docked:false};
-    let S=defaultState(), D={...DICE_DEF}, CN={...CNOTES_DEF}, LD={...LIVEDICE_DEF}, diceLogs=[], toastTimer=null, dragPwId=null, dragAugId=null, dragSecId=null, dragSkSecId=null, dragSkId=null, dragChrPw=null, dragChrSec=null, dragEqSec=null, dragEqItem=null, dragToken='';
+    let S=defaultState(), D={...DICE_DEF}, CN={...CNOTES_DEF}, LD={...LIVEDICE_DEF}, diceLogs=[], toastTimer=null, dragPwId=null, dragAugId=null, dragSecId=null, dragSkSecId=null, dragSkId=null, dragChrPw=null, dragChrSec=null, dragEqSec=null, dragEqItem=null, dragCampId=null, dragToken='';
     let dragMouseY=null, dragScrollRaf=null;
     const savedEffRanges={};
     let UI={inLobby:true,sheetLoaded:false,modal:null,infoTab:'dice',listType:'art',ammoModalWeaponId:'',skSort:{col:'',asc:true},imgTargetKind:'',imgTargetId:'',confirmNew:false,confirmLog:false,confirmDelId:null,confirmDelSecId:null,confirmSecPullId:null,confirmDelSkSecId:null,confirmSkSecPullId:null,confirmDelExSecId:null,confirmHzStep:1,pwFilterOpen:false,pwFilterMode:'or',pwFilterArts:[],pwFilterTiers:[],pwFilterSubs:[],statusIniPromptKey:'',lastRollHtml:'',lastBlockBaseHtml:'',lastBlockFollowRes:null,colTarget:'cres',colMode:'text',colPwKind:'power',colPwId:'',colDraft:'#c084fc',attrGroupSel:'ST_KO',savedOnce:true,palBuilderOpen:false,palDraft:{name:'',isLt:false,bg:'#020617',acc:'#0ea5e9',acc2:'#6366f1',txt:'#f1f5f9',mut:'#94a3b8',btnTxt:'#ffffff'}};
@@ -793,7 +793,9 @@
           allowedUsers:Array.isArray(c.allowedUsers)?[...new Set(c.allowedUsers.map(u=>String(u||'').trim()).filter(Boolean))]:[],
           gmUsers: id==='default'?[]:(Array.isArray(c.gmUsers)?[...new Set(c.gmUsers.map(u=>String(u||'').trim()).filter(Boolean))]:[]),
           coGmUsers: id==='default'?[]:(Array.isArray(c.coGmUsers)?[...new Set(c.coGmUsers.map(u=>String(u||'').trim()).filter(Boolean))]:[]),
-          img: String(c.img||'')
+          img: String(c.img||''),
+          color: isHex(c.color)?c.color:'',
+          bgColor: isHex(c.bgColor)?c.bgColor:''
         };
       }):[];
       if(!list.length){
@@ -2036,8 +2038,11 @@
             });
             const srcUsers=localSnap?localSnap.users:(CLOUD.registry.users||{});
             const srcPins=localSnap?localSnap.pins:(CLOUD.registry.pins||{});
+            const rawUsers=push?{...(rem.registry.users||{}),...srcUsers}:(rem.registry.users&&typeof rem.registry.users==='object'?rem.registry.users:srcUsers);
+            const mergedUsers={};
+            Object.entries(rawUsers||{}).forEach(([uk,uv])=>{if(uv&&typeof uv==='object'&&!uv._deleted)mergedUsers[uk]=uv;});
             CLOUD.registry={
-              users:push?{...(rem.registry.users||{}),...srcUsers}:{...srcUsers,...(rem.registry.users||{})},
+              users:mergedUsers,
               claims:mergedClaims,
               pins:push?{...(rem.registry.pins||{}),...srcPins}:{...srcPins,...(rem.registry.pins||{})},
               charCampaigns:mergedCharCampaigns,
@@ -4035,7 +4040,7 @@
             <div class="flex flex-wrap items-center gap-2">
               ${CLOUD.isAdmin?`
                 <button type="button" data-action="camp-new-open" class="btn btn-ok py-1.5 px-3 text-xs font-extrabold">+ Neue Kampagne</button>
-                ${activeCamp?`<button type="button" data-action="camp-rename-open" class="btn py-1.5 px-3 text-xs border-amber-400/50 text-amber-300">✏️ Umbenennen</button><button type="button" data-action="pick-camp-img" class="btn py-1.5 px-3 text-xs bdr-acc bg-acc-soft text-acc">🖼️ Kampagnenbild</button>${activeCamp?.img?`<button type="button" data-action="rm-camp-img" class="btn btn-err py-1.5 px-2.5 text-xs">🗑️ Bild✕</button>`:''}`:''}
+                ${activeCamp?`<button type="button" data-action="camp-rename-open" class="btn py-1.5 px-3 text-xs border-amber-400/50 text-amber-300">✏️ Umbenennen</button><button type="button" data-action="open-camp-color" data-id="${esc(activeCamp.id)}" data-cmode="text" data-tip="👑 Admin: Textfarbe des Kampagnen-Titels anpassen" class="btn py-1.5 px-2.5 text-xs" ${activeCamp.color?`style="border-color:${esc(activeCamp.color)};color:${esc(activeCamp.color)}"`:''}>🎨 Titel</button><button type="button" data-action="open-camp-color" data-id="${esc(activeCamp.id)}" data-cmode="bg" data-tip="👑 Admin: Fensterfarbe des Kampagnen-Tabs anpassen" class="btn py-1.5 px-2.5 text-xs" ${activeCamp.bgColor?`style="border-color:${esc(activeCamp.bgColor)};background:color-mix(in srgb,${esc(activeCamp.bgColor)} 38%,var(--surf2))"` :''}>🪟 Tab-Farbe</button><button type="button" data-action="pick-camp-img" class="btn py-1.5 px-3 text-xs bdr-acc bg-acc-soft text-acc">🖼️ Kampagnenbild</button>${activeCamp?.img?`<button type="button" data-action="rm-camp-img" class="btn btn-err py-1.5 px-2.5 text-xs">🗑️ Bild✕</button>`:''}`:''}
                 ${activeCamp&&activeCamp.id!=='default'?(CLOUD.campAction==='delete'?`<span class="inline-flex items-center gap-1"><button type="button" data-action="camp-delete-confirm" class="btn bg-rose-600 text-white border-rose-600 py-1 px-2.5 text-[11px] font-black">Wirklich löschen? (Verschiebt ${campCharList.length} in Allgemein)</button><button type="button" data-action="camp-action-cancel" class="btn py-1 px-2 text-[11px]">✕</button></span>`:`<button type="button" data-action="camp-delete-ask" data-tip="Kampagne löschen (enthaltene Charaktere werden automatisch in den allgemeinen Bereich verschoben)" class="btn btn-err py-1.5 px-3 text-xs">🗑️ Kampagne löschen</button>`):''}
               `:''}
               <button type="button" data-action="cloud-refresh-list" ${CLOUD.loading?'disabled':''} class="btn py-1.5 px-3 text-xs">${CLOUD.loading?'⏳ Lade...':'🔄 Aktualisieren'}</button>
@@ -4056,9 +4061,12 @@
               const cCnt=CLOUD.list.filter(ch=>getCharCampaignId(ch.id)===c.id).length;
               const icon=c.id==='default'?'🌐':'📁';
               const label=c.id==='default'?esc(c.name||'Ohne Kampagne / Allgemein'):esc(c.name||'Kampagne');
-              return `<button type="button" data-action="select-campaign-tab" data-id="${esc(c.id)}" class="btn shrink-0 py-2.5 px-4 text-xs sm:text-sm font-black rounded-xl transition-all ${isAct?'btn-pri shadow-lg scale-[1.01]':'opacity-85 hover:opacity-100'}">
+              const tabBgStyle=isHex(c.bgColor)?`background:${isAct?`linear-gradient(135deg,color-mix(in srgb,${c.bgColor} 78%,var(--surf2)),color-mix(in srgb,${c.bgColor} 58%,var(--surf)))`:`color-mix(in srgb,${c.bgColor} 34%,var(--surf2))`};border-color:color-mix(in srgb,${c.bgColor} ${isAct?'95%':'65%'},var(--bdr));${isAct?`box-shadow:0 0 0 2px color-mix(in srgb,${c.bgColor} 65%,transparent),0 6px 16px rgba(0,0,0,.28);`:''}`:'';
+              const tabTxtStyle=isHex(c.color)?`style="color:${esc(c.color)}"`:'';
+              return `<button type="button" data-action="select-campaign-tab" data-id="${esc(c.id)}" data-camp-tab="${esc(c.id)}" ${CLOUD.isAdmin?`draggable="true" data-drag-camp="${esc(c.id)}"`:''} ${tabBgStyle?`style="${tabBgStyle}"`:''} class="btn shrink-0 py-2.5 px-4 text-xs sm:text-sm font-black rounded-xl transition-all ${isAct?(isHex(c.bgColor)?'shadow-lg scale-[1.01]':'btn-pri shadow-lg scale-[1.01]'):'opacity-85 hover:opacity-100'}">
+                ${CLOUD.isAdmin?`<span data-tip="👑 Admin: Kampagne per Drag &amp; Drop nach links/rechts verschieben" class="px-1 py-0.5 rounded bg-black/25 text-[10px] font-black cursor-grab select-none shrink-0">⠿</span>`:''}
                 ${c.img?`<img src="${c.img}" class="w-6 h-6 rounded-md object-cover border bdr-acc shrink-0"/>`:''}
-                <span>${icon} ${label}</span>
+                <span ${tabTxtStyle}>${icon} ${label}</span>
                 <span class="px-2 py-0.5 rounded-full text-[11px] bg-black/30 tabular font-extrabold">${cCnt}</span>
               </button>`;
             }).join('')}
@@ -4451,12 +4459,12 @@
         return;
       }
       if(UI.modal==='color'){
-        const isAttr=UI.colTarget==='attr', isPw=UI.colTarget==='pw', isSecF=UI.colTarget==='sec-folder', isSkSecF=UI.colTarget==='sksec-folder', isSk=UI.colTarget==='sk-item', isEq=UI.colTarget==='eq', isEqSec=UI.colTarget==='eqsec', isChrSec=UI.colTarget==='chrsec';
-        const hasDual=isPw||isSecF||isSkSecF||isSk||isEq||isEqSec||isChrSec, isBg=hasDual&&UI.colMode==='bg', col=isHex(UI.colDraft)?UI.colDraft:'#38bdf8';
+        const isAttr=UI.colTarget==='attr', isPw=UI.colTarget==='pw', isSecF=UI.colTarget==='sec-folder', isSkSecF=UI.colTarget==='sksec-folder', isSk=UI.colTarget==='sk-item', isEq=UI.colTarget==='eq', isEqSec=UI.colTarget==='eqsec', isChrSec=UI.colTarget==='chrsec', isCamp=UI.colTarget==='camp';
+        const hasDual=isPw||isSecF||isSkSecF||isSk||isEq||isEqSec||isChrSec||isCamp, isBg=hasDual&&UI.colMode==='bg', col=isHex(UI.colDraft)?UI.colDraft:'#38bdf8';
         const eqSecNames={weapons:'Kategorie: Waffen',ammos:'Kategorie: Munition',armors:'Kategorie: Rüstungen',inventory:'Kategorie: Inventar'};
         const chrSecNames={training:'Fenster: Training',skills:'Fenster: Fertigkeiten',powers:'Fenster: Kräfte & Augmente'};
-        const pwIt=isPw?findPwItem(UI.colPwKind,UI.colPwId):isSecF?S.powerSections.find(s=>s.id===UI.colPwId):isSkSecF?S.skillSections.find(s=>s.id===UI.colPwId):isSk?S.skills.find(s=>s.id===UI.colPwId):isEq?findEqItem(UI.colPwKind,UI.colPwId):isEqSec?S.equipSecMeta?.[UI.colPwId]:isChrSec?S.chrSecMeta?.[UI.colPwId]:null;
-        const baseName=isAttr?(ATTR_GROUPS.find(g=>g.k===UI.attrGroupSel)?.l||''):isPw?(pwIt?.name||(UI.colPwKind==='augment'?'Augment':'Kraft')):(isSecF||isSkSecF)?(pwIt?.name||'Sektion'):isSk?(pwIt?.name||'Fertigkeit'):isEq?(pwIt?.name||({weapon:'Waffe',ammo:'Munition',armor:'Rüstung',inv:'Gegenstand'}[UI.colPwKind]||'Eintrag')):isEqSec?(eqSecNames[UI.colPwId]||'Kategorie'):isChrSec?(chrSecNames[UI.colPwId]||'Chronik-Fenster'):(UI.colTarget==='cres'?cresName():String(UI.colTarget||'').startsWith('ex_')?getResLabel(UI.colTarget):SEC_META[UI.colTarget]);
+        const pwIt=isPw?findPwItem(UI.colPwKind,UI.colPwId):isSecF?S.powerSections.find(s=>s.id===UI.colPwId):isSkSecF?S.skillSections.find(s=>s.id===UI.colPwId):isSk?S.skills.find(s=>s.id===UI.colPwId):isEq?findEqItem(UI.colPwKind,UI.colPwId):isEqSec?S.equipSecMeta?.[UI.colPwId]:isChrSec?S.chrSecMeta?.[UI.colPwId]:isCamp?getCampaigns().find(c=>c.id===UI.colPwId):null;
+        const baseName=isAttr?(ATTR_GROUPS.find(g=>g.k===UI.attrGroupSel)?.l||''):isPw?(pwIt?.name||(UI.colPwKind==='augment'?'Augment':'Kraft')):(isSecF||isSkSecF)?(pwIt?.name||'Sektion'):isSk?(pwIt?.name||'Fertigkeit'):isEq?(pwIt?.name||({weapon:'Waffe',ammo:'Munition',armor:'Rüstung',inv:'Gegenstand'}[UI.colPwKind]||'Eintrag')):isEqSec?(eqSecNames[UI.colPwId]||'Kategorie'):isChrSec?(chrSecNames[UI.colPwId]||'Chronik-Fenster'):isCamp?`Kampagne: ${pwIt?.name||'Kampagne'}`:(UI.colTarget==='cres'?cresName():String(UI.colTarget||'').startsWith('ex_')?getResLabel(UI.colTarget):SEC_META[UI.colTarget]);
         const lbl=hasDual?`${baseName} • ${isBg?'Fensterfarbe (Hintergrund)':'Textfarbe (Name)'}`:baseName;
         const prevStyle=isBg?`background:color-mix(in srgb,${esc(col)} 38%,var(--surf));border-color:color-mix(in srgb,${esc(col)} 75%,var(--bdr))`:`border-color:color-mix(in srgb,${esc(col)} 55%,var(--bdr))`;
         const prevTxtStyle=isBg?(pwIt?.color?`color:${esc(pwIt.color)}`:''):`color:${esc(col)}`;
@@ -5134,9 +5142,10 @@
         case 'open-sk-color': {const sk=S.skills.find(s=>s.id===el.dataset.id);if(sk){UI.colTarget='sk-item';UI.colPwId=sk.id;UI.colMode=el.dataset.cmode==='bg'?'bg':'text';const cur=UI.colMode==='bg'?sk.bgColor:sk.color;UI.colDraft=isHex(cur)?cur:(UI.colMode==='bg'?'#1e293b':'#38bdf8');UI.modal='color';renderModal();}break;}
         case 'open-eq-color': {const it=findEqItem(el.dataset.kind,el.dataset.id);if(it){UI.colTarget='eq';UI.colPwKind=el.dataset.kind;UI.colPwId=el.dataset.id;UI.colMode=el.dataset.cmode==='bg'?'bg':'text';const cur=UI.colMode==='bg'?it.bgColor:it.color;UI.colDraft=isHex(cur)?cur:(UI.colMode==='bg'?'#1e293b':'#38bdf8');UI.modal='color';renderModal();}break;}
         case 'open-eqsec-color': {if(!S.equipSecMeta)S.equipSecMeta=makeEqSecMeta();const m=S.equipSecMeta[el.dataset.sec];if(m){UI.colTarget='eqsec';UI.colPwId=el.dataset.sec;UI.colMode=el.dataset.cmode==='bg'?'bg':'text';const cur=UI.colMode==='bg'?m.bgColor:m.color;UI.colDraft=isHex(cur)?cur:(UI.colMode==='bg'?'#1e293b':'#38bdf8');UI.modal='color';renderModal();}break;}
+        case 'open-camp-color': {if(!CLOUD.isAdmin)break;const cp=getCampaigns().find(c=>c.id===el.dataset.id);if(cp){UI.colTarget='camp';UI.colPwId=cp.id;UI.colMode=el.dataset.cmode==='bg'?'bg':'text';const cur=UI.colMode==='bg'?cp.bgColor:cp.color;UI.colDraft=isHex(cur)?cur:(UI.colMode==='bg'?'#1e293b':'#38bdf8');UI.modal='color';renderModal();}break;}
         case 'switch-col-mode': {
           UI.colMode=el.dataset.cmode==='bg'?'bg':'text';
-          const it=UI.colTarget==='pw'?findPwItem(UI.colPwKind,UI.colPwId):UI.colTarget==='sec-folder'?S.powerSections.find(s=>s.id===UI.colPwId):UI.colTarget==='sksec-folder'?S.skillSections.find(s=>s.id===UI.colPwId):UI.colTarget==='sk-item'?S.skills.find(s=>s.id===UI.colPwId):UI.colTarget==='eq'?findEqItem(UI.colPwKind,UI.colPwId):UI.colTarget==='chrsec'?S.chrSecMeta?.[UI.colPwId]:S.equipSecMeta?.[UI.colPwId];
+          const it=UI.colTarget==='pw'?findPwItem(UI.colPwKind,UI.colPwId):UI.colTarget==='sec-folder'?S.powerSections.find(s=>s.id===UI.colPwId):UI.colTarget==='sksec-folder'?S.skillSections.find(s=>s.id===UI.colPwId):UI.colTarget==='sk-item'?S.skills.find(s=>s.id===UI.colPwId):UI.colTarget==='eq'?findEqItem(UI.colPwKind,UI.colPwId):UI.colTarget==='chrsec'?S.chrSecMeta?.[UI.colPwId]:UI.colTarget==='camp'?getCampaigns().find(c=>c.id===UI.colPwId):S.equipSecMeta?.[UI.colPwId];
           const cur=UI.colMode==='bg'?it?.bgColor:it?.color;
           UI.colDraft=isHex(cur)?cur:(UI.colMode==='bg'?'#1e293b':'#38bdf8');
           renderModal(); break;
@@ -5144,10 +5153,14 @@
         case 'col-preset': UI.colDraft=el.dataset.col; renderModal(); break;
         case 'reset-col':
           if(UI.colTarget==='attr') UI.colDraft=DEF_ATTR_COLS[UI.attrGroupSel];
-          else if(UI.colTarget==='pw'||UI.colTarget==='sec-folder'||UI.colTarget==='sksec-folder'||UI.colTarget==='sk-item'||UI.colTarget==='eq'||UI.colTarget==='eqsec'||UI.colTarget==='chrsec'){
-            const it=UI.colTarget==='pw'?findPwItem(UI.colPwKind,UI.colPwId):UI.colTarget==='sec-folder'?S.powerSections.find(s=>s.id===UI.colPwId):UI.colTarget==='sksec-folder'?S.skillSections.find(s=>s.id===UI.colPwId):UI.colTarget==='sk-item'?S.skills.find(s=>s.id===UI.colPwId):UI.colTarget==='eq'?findEqItem(UI.colPwKind,UI.colPwId):UI.colTarget==='chrsec'?S.chrSecMeta?.[UI.colPwId]:S.equipSecMeta?.[UI.colPwId];
+          else if(UI.colTarget==='pw'||UI.colTarget==='sec-folder'||UI.colTarget==='sksec-folder'||UI.colTarget==='sk-item'||UI.colTarget==='eq'||UI.colTarget==='eqsec'||UI.colTarget==='chrsec'||UI.colTarget==='camp'){
+            const it=UI.colTarget==='pw'?findPwItem(UI.colPwKind,UI.colPwId):UI.colTarget==='sec-folder'?S.powerSections.find(s=>s.id===UI.colPwId):UI.colTarget==='sksec-folder'?S.skillSections.find(s=>s.id===UI.colPwId):UI.colTarget==='sk-item'?S.skills.find(s=>s.id===UI.colPwId):UI.colTarget==='eq'?findEqItem(UI.colPwKind,UI.colPwId):UI.colTarget==='chrsec'?S.chrSecMeta?.[UI.colPwId]:UI.colTarget==='camp'?getCampaigns().find(c=>c.id===UI.colPwId):S.equipSecMeta?.[UI.colPwId];
             if(it){if(UI.colMode==='bg')it.bgColor='';else it.color='';}
-            UI.modal=null;renderMain();renderModal();save();toast(UI.colMode==='bg'?'Standard-Fensterfarbe wiederhergestellt':'Standard-Textfarbe wiederhergestellt');break;
+            const wasCamp=UI.colTarget==='camp';
+            UI.modal=null;
+            if(wasCamp){saveRegistryLocal();syncCloudRegistry(true);}else save();
+            renderMain();renderModal();
+            toast(UI.colMode==='bg'?'Standard-Fensterfarbe wiederhergestellt':'Standard-Textfarbe wiederhergestellt');break;
           }
           else if(UI.colTarget==='cres') UI.colDraft='#c084fc';
           else if(String(UI.colTarget||'').startsWith('ex_')) UI.colDraft='#34d399';
@@ -5156,10 +5169,14 @@
         case 'save-col': {
           const raw=$('colHexInp')?$('colHexInp').value.trim():UI.colDraft, hx=raw.startsWith('#')?raw:'#'+raw, fin=isHex(hx)?hx.toLowerCase():UI.colDraft;
           if(UI.colTarget==='attr'){S.attrColors[UI.attrGroupSel]=fin;renderMain();save();renderModal();toast('Paarfarbe gespeichert');}
-          else if(UI.colTarget==='pw'||UI.colTarget==='sec-folder'||UI.colTarget==='sksec-folder'||UI.colTarget==='sk-item'||UI.colTarget==='eq'||UI.colTarget==='eqsec'||UI.colTarget==='chrsec'){
-            const it=UI.colTarget==='pw'?findPwItem(UI.colPwKind,UI.colPwId):UI.colTarget==='sec-folder'?S.powerSections.find(s=>s.id===UI.colPwId):UI.colTarget==='sksec-folder'?S.skillSections.find(s=>s.id===UI.colPwId):UI.colTarget==='sk-item'?S.skills.find(s=>s.id===UI.colPwId):UI.colTarget==='eq'?findEqItem(UI.colPwKind,UI.colPwId):UI.colTarget==='chrsec'?S.chrSecMeta?.[UI.colPwId]:S.equipSecMeta?.[UI.colPwId];
+          else if(UI.colTarget==='pw'||UI.colTarget==='sec-folder'||UI.colTarget==='sksec-folder'||UI.colTarget==='sk-item'||UI.colTarget==='eq'||UI.colTarget==='eqsec'||UI.colTarget==='chrsec'||UI.colTarget==='camp'){
+            const it=UI.colTarget==='pw'?findPwItem(UI.colPwKind,UI.colPwId):UI.colTarget==='sec-folder'?S.powerSections.find(s=>s.id===UI.colPwId):UI.colTarget==='sksec-folder'?S.skillSections.find(s=>s.id===UI.colPwId):UI.colTarget==='sk-item'?S.skills.find(s=>s.id===UI.colPwId):UI.colTarget==='eq'?findEqItem(UI.colPwKind,UI.colPwId):UI.colTarget==='chrsec'?S.chrSecMeta?.[UI.colPwId]:UI.colTarget==='camp'?getCampaigns().find(c=>c.id===UI.colPwId):S.equipSecMeta?.[UI.colPwId];
             if(it){if(UI.colMode==='bg')it.bgColor=fin;else it.color=fin;}
-            UI.modal=null;renderMain();renderModal();save();toast(UI.colMode==='bg'?'Fensterfarbe gespeichert':'Textfarbe gespeichert');
+            const wasCamp=UI.colTarget==='camp';
+            UI.modal=null;
+            if(wasCamp){saveRegistryLocal();syncCloudRegistry(true);}else save();
+            renderMain();renderModal();
+            toast(UI.colMode==='bg'?'Fensterfarbe gespeichert':'Textfarbe gespeichert');
           }
           else{
             if(UI.colTarget==='cres') S.customRes.color=fin;
@@ -5879,11 +5896,26 @@
         case 'admin-del-user': {
           if(!CLOUD.isAdmin) break;
           const u=el.dataset.user;
-          if(u&&CLOUD.registry.users?.[u]){
+          if(u&&CLOUD.registry.users?.[u]!==undefined){
+            const uLow=u.toLowerCase();
+            CLOUD.registry.users[u]=null;
+            if(Array.isArray(CLOUD.registry.gmUsers)) CLOUD.registry.gmUsers=CLOUD.registry.gmUsers.filter(x=>String(x||'').toLowerCase()!==uLow);
+            Object.keys(CLOUD.registry.claims||{}).forEach(cid=>{if(String(CLOUD.registry.claims[cid]||'').toLowerCase()===uLow)CLOUD.registry.claims[cid]="";});
+            (CLOUD.list||[]).forEach(ch=>{if(String(ch.owner||'').toLowerCase()===uLow){ch.owner='';CLOUD.registry.claims[ch.id]="";}});
+            getCampaigns().forEach(c=>{
+              c.allowedUsers=(c.allowedUsers||[]).filter(x=>String(x||'').toLowerCase()!==uLow);
+              c.gmUsers=(c.gmUsers||[]).filter(x=>String(x||'').toLowerCase()!==uLow);
+              c.coGmUsers=(c.coGmUsers||[]).filter(x=>String(x||'').toLowerCase()!==uLow);
+            });
+            if(CLOUD.currentUser&&CLOUD.currentUser.toLowerCase()===uLow){
+              CLOUD.currentUser='';
+              try{localStorage.removeItem('scherbensturm_cloud_user');}catch(e){}
+            }
+            syncCloudRegistry(true);
             delete CLOUD.registry.users[u];
-            Object.keys(CLOUD.registry.claims||{}).forEach(cid=>{if(CLOUD.registry.claims[cid]===u)CLOUD.registry.claims[cid]="";});
-            getCampaigns().forEach(c=>{c.allowedUsers=(c.allowedUsers||[]).filter(x=>x.toLowerCase()!==u.toLowerCase());});
-            syncCloudRegistry(true); renderModal(); toast(`🗑️ Account „${u}“ entfernt`);
+            saveRegistryLocal();
+            renderHeader(); renderMain(); renderModal();
+            toast(`🗑️ Account „${u}“ dauerhaft entfernt`);
           }
           break;
         }
@@ -6567,7 +6599,7 @@
       }
     });
 
-    const isAnyDragging=()=>Boolean(dragPwId||dragAugId||dragSecId||dragSkSecId||dragSkId||dragChrPw||dragChrSec||dragEqSec||dragEqItem||dragToken);
+    const isAnyDragging=()=>Boolean(dragPwId||dragAugId||dragSecId||dragSkSecId||dragSkId||dragChrPw||dragChrSec||dragEqSec||dragEqItem||dragCampId||dragToken);
     function stopDragAutoScroll(){
       dragMouseY=null;
       if(dragScrollRaf){cancelAnimationFrame(dragScrollRaf);dragScrollRaf=null;}
@@ -6606,8 +6638,8 @@
     },{passive:true});
 
     document.addEventListener('dragstart',e=>{
-      const pw=e.target.closest('[data-drag-pw]'), ag=e.target.closest('[data-drag-aug]'), sec=e.target.closest('[data-drag-sec]'), sksec=e.target.closest('[data-drag-sksec]'), sk=e.target.closest('[data-drag-sk]'), cpw=e.target.closest('[data-drag-chr-pw]'), chs=e.target.closest('[data-drag-chrsec]'), eqs=e.target.closest('[data-drag-eqsec]'), eqi=e.target.closest('[data-drag-eqitem]'), tk=e.target.closest('[data-drag-tok]');
-      dragPwId=null; dragAugId=null; dragSecId=null; dragSkSecId=null; dragSkId=null; dragChrPw=null; dragChrSec=null; dragEqSec=null; dragEqItem=null; dragToken='';
+      const pw=e.target.closest('[data-drag-pw]'), ag=e.target.closest('[data-drag-aug]'), sec=e.target.closest('[data-drag-sec]'), sksec=e.target.closest('[data-drag-sksec]'), sk=e.target.closest('[data-drag-sk]'), cpw=e.target.closest('[data-drag-chr-pw]'), chs=e.target.closest('[data-drag-chrsec]'), eqs=e.target.closest('[data-drag-eqsec]'), eqi=e.target.closest('[data-drag-eqitem]'), cmp=CLOUD.isAdmin?e.target.closest('[data-drag-camp]'):null, tk=e.target.closest('[data-drag-tok]');
+      dragPwId=null; dragAugId=null; dragSecId=null; dragSkSecId=null; dragSkId=null; dragChrPw=null; dragChrSec=null; dragEqSec=null; dragEqItem=null; dragCampId=null; dragToken='';
       if(pw){dragPwId=pw.dataset.dragPw;e.dataTransfer.setData('text/plain',dragPwId);}
       else if(ag){dragAugId=ag.dataset.dragAug;e.dataTransfer.setData('text/plain',dragAugId);}
       else if(sec){dragSecId=sec.dataset.dragSec;e.dataTransfer.setData('text/plain',dragSecId);}
@@ -6617,13 +6649,14 @@
       else if(chs){dragChrSec=chs.dataset.dragChrsec;e.dataTransfer.setData('text/plain',dragChrSec);}
       else if(eqs){dragEqSec=eqs.dataset.dragEqsec;e.dataTransfer.setData('text/plain',dragEqSec);}
       else if(eqi){dragEqItem=eqi.dataset.dragEqitem;e.dataTransfer.setData('text/plain',dragEqItem);}
+      else if(cmp&&CLOUD.isAdmin){dragCampId=cmp.dataset.dragCamp;e.dataTransfer.setData('text/plain',dragCampId);}
       else if(tk){dragToken=tk.dataset.dragTok;e.dataTransfer.setData('text/plain',dragToken);}
       if(isAnyDragging()){dragMouseY=e.clientY;startDragAutoScroll();}
     });
     document.addEventListener('dragend',()=>{
       stopDragAutoScroll();
       document.querySelectorAll('.pw-drop-over,.sk-drop-over').forEach(x=>x.classList.remove('pw-drop-over','sk-drop-over'));
-      dragPwId=null; dragAugId=null; dragSecId=null; dragSkSecId=null; dragSkId=null; dragChrPw=null; dragChrSec=null; dragEqSec=null; dragEqItem=null; dragToken='';
+      dragPwId=null; dragAugId=null; dragSecId=null; dragSkSecId=null; dragSkId=null; dragChrPw=null; dragChrSec=null; dragEqSec=null; dragEqItem=null; dragCampId=null; dragToken='';
     });
     document.addEventListener('dragover',e=>{
       if(isAnyDragging()){
@@ -6640,10 +6673,11 @@
       const chrSecBox=dragChrSec?e.target.closest('[data-chrsec]'):null;
       const eqSecBox=dragEqSec?e.target.closest('[data-eqsec]'):null;
       const eqItemBox=dragEqItem?e.target.closest('[data-eqitem]'):null;
+      const campTabBox=(dragCampId&&CLOUD.isAdmin)?e.target.closest('[data-camp-tab]'):null;
       const ta=dragToken?e.target.closest('[id^="eff_"]'):null;
-      if(grp||secBox||skSecBox||agCard||skRow||cpwRow||chrSecBox||eqSecBox||eqItemBox||ta){
+      if(grp||secBox||skSecBox||agCard||skRow||cpwRow||chrSecBox||eqSecBox||eqItemBox||campTabBox||ta){
         e.preventDefault();
-        document.querySelectorAll('[data-pw-sec].pw-drop-over,[data-sk-sec].pw-drop-over').forEach(x=>x.classList.remove('pw-drop-over'));
+        document.querySelectorAll('[data-pw-sec].pw-drop-over,[data-sk-sec].pw-drop-over,[data-camp-tab].pw-drop-over').forEach(x=>x.classList.remove('pw-drop-over'));
         if(grp) grp.classList.add('pw-drop-over');
         else if(secBox) secBox.classList.add('pw-drop-over');
         if(skRow) skRow.classList.add('sk-drop-over');
@@ -6653,6 +6687,7 @@
         if(chrSecBox) chrSecBox.classList.add('pw-drop-over');
         if(eqSecBox) eqSecBox.classList.add('pw-drop-over');
         if(eqItemBox) eqItemBox.classList.add('pw-drop-over');
+        if(campTabBox) campTabBox.classList.add('pw-drop-over');
         if(ta){
           ta.classList.add('pw-drop-over');
           const r=getCaretRangeAtPoint(e.clientX,e.clientY);
@@ -6671,7 +6706,7 @@
       }
     });
     document.addEventListener('dragleave',e=>{
-      ['[data-pw-group]','[data-pw-sec]','[data-sk-sec]','[data-aug-card]','[data-chrsec]','[data-eqsec]','[data-eqitem]','[id^="eff_"]','#avatarDropZone'].forEach(sel=>{const x=e.target.closest?.(sel);if(x)x.classList.remove('pw-drop-over');});
+      ['[data-pw-group]','[data-pw-sec]','[data-sk-sec]','[data-aug-card]','[data-chrsec]','[data-eqsec]','[data-eqitem]','[data-camp-tab]','[id^="eff_"]','#avatarDropZone'].forEach(sel=>{const x=e.target.closest?.(sel);if(x)x.classList.remove('pw-drop-over');});
       ['[data-sk-row]','[data-chr-pw]'].forEach(sel=>{const x=e.target.closest?.(sel);if(x)x.classList.remove('sk-drop-over');});
     });
     document.addEventListener('drop',e=>{
@@ -6803,6 +6838,24 @@
           }
         }
         dragEqItem=null;
+      }else if(dragCampId){
+        const campTabBox=CLOUD.isAdmin?e.target.closest('[data-camp-tab]'):null;
+        if(campTabBox&&campTabBox.dataset.campTab&&campTabBox.dataset.campTab!==dragCampId){
+          e.preventDefault();
+          const camps=getCampaigns();
+          const i1=camps.findIndex(c=>c.id===dragCampId), i2=camps.findIndex(c=>c.id===campTabBox.dataset.campTab);
+          if(i1>-1&&i2>-1){
+            const [moved]=camps.splice(i1,1);
+            camps.splice(i2,0,moved);
+            CLOUD.registry.campaigns=normalizeCampaigns(camps);
+            saveRegistryLocal();
+            renderMain();
+            if(UI.modal==='lobby') renderModal();
+            syncCloudRegistry(true);
+            toast(`🗺️ Kampagne „${moved.name||'Kampagne'}“ verschoben!`);
+          }
+        }
+        dragCampId=null;
       }else if(dragToken){
         const ta=e.target.closest('[id^="eff_"]');
         if(ta){e.preventDefault();const [kind,id]=ta.dataset.pwf.split(':');insertTokenAtCursor(kind,id,dragToken,{x:e.clientX,y:e.clientY});}
