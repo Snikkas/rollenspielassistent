@@ -2735,7 +2735,7 @@
           </div>
           <div class="flex flex-wrap items-center gap-2">
             ${CLOUD.currentUser?`<span class="pill cursor-default border-emerald-500/50 bg-emerald-500/15 text-emerald-300">👤 ${esc(CLOUD.currentUser)}</span>`:`<span class="pill cursor-default opacity-75">🔒 Gast (Nicht angemeldet)</span>`}
-            ${CLOUD.isAdmin?`<span class="pill cursor-default border-amber-400/60 bg-amber-500/20 text-amber-300">👑 Admin aktiv</span>`:''}
+            <button type="button" data-action="toggle-admin-bar" data-tip="Admin-Master-PIN &amp; Verwaltung ein-/ausblenden" class="btn py-2 px-3 text-xs font-extrabold ${CLOUD.isAdmin?'!border-amber-400 !bg-amber-500/20 text-amber-300':'bdr-acc bg-acc-soft'}">👑 ${CLOUD.isAdmin?'Admin aktiv':'Admin-Login'}</button>
             ${UI.sheetLoaded?`<button type="button" data-action="return-to-sheet" class="btn btn-ok text-xs font-extrabold px-3.5 py-2">📄 Zurück zu „${esc(S.profile.name||'Charakter')}“</button><button type="button" data-action="close-active-sheet" data-tip="Charakterbogen im Hintergrund vollständig schließen" class="btn btn-err text-xs font-bold px-2.5 py-2">✕ Bogen schließen</button>`:`<button type="button" data-action="open-local-sheet" data-tip="Öffnet den lokal gespeicherten Charakterbogen (oder einen Test-Bogen) direkt ohne Cloud-Zwang – ideal zum lokalen Testen vor dem GitHub-Upload" class="btn btn-ok text-xs font-extrabold px-3.5 py-2">🛠️ Lokalen Bogen öffnen / testen</button>`}
             <button type="button" data-action="toggle-livedice" class="btn ${LD.open?'btn-pri':'bdr-acc bg-acc-soft'} text-xs font-extrabold px-3.5 py-2">📡 Live-Würfel <span class="px-1.5 rounded-full text-[10px] bg-black/25 tabular">${getCampaignFilteredDiceFeed().length}</span></button>
             <button type="button" data-action="toggle-dice" class="btn ${D.open?'btn-pri':'bdr-acc bg-acc-soft'} text-xs font-extrabold px-3.5 py-2">🎲 Würfelassistent</button>
@@ -2764,7 +2764,7 @@
               <button type="button" data-action="toggle-dice" data-tip="W100-Würfelassistent öffnen/schließen" class="btn ${D.open?'btn-pri':'bdr-acc bg-acc-soft'} text-xs font-extrabold px-3.5 py-2">🎲 Würfelassistent</button>
               <button type="button" data-action="toggle-livedice" data-tip="Eigenständiges Live-Würfel-Fenster öffnen/schließen (kann direkt neben dem normalen Würfelassistenten aufgefaltet werden)" class="btn ${LD.open?'btn-pri':'bdr-acc bg-acc-soft'} text-xs font-extrabold px-3.5 py-2">📡 Live-Würfel <span class="px-1.5 rounded-full text-[10px] bg-black/25 tabular">${getCampaignFilteredDiceFeed().length}</span></button>
               <button type="button" data-action="toggle-cnotes" data-tip="Kampagnennotizen öffnen/schließen (frei andockbar wie der Würfelassistent)" class="btn ${CN.open?'btn-pri':'bdr-acc bg-acc-soft'} text-xs font-extrabold px-3.5 py-2">📝 Kampagnennotizen</button>
-              <button type="button" data-action="open-lobby" data-tip="Gruppen-Lobby: Charakterbögen der Runde live einsehen, teilen &amp; austauschen (Netlify Cloud)" class="btn py-2 px-3.5 text-xs font-extrabold ${CLOUD.viewingRemote?'!border-sky-400 !bg-sky-500/20 text-sky-300':S.cloudAutoSync?'!border-emerald-500/60 !bg-emerald-500/15 text-emerald-300':'bdr-acc bg-acc-soft'}">🏠 Gruppen-Lobby${CLOUD.syncing?' ⏳':S.cloudAutoSync?' ●':''}</button>
+              <button type="button" data-action="open-lobby" data-tip="Zurück zur zentralen Gruppen-Lobby (?lobby=1)" class="btn py-2 px-3.5 text-xs font-extrabold ${CLOUD.viewingRemote?'!border-sky-400 !bg-sky-500/20 text-sky-300':S.cloudAutoSync?'!border-emerald-500/60 !bg-emerald-500/15 text-emerald-300':'bdr-acc bg-acc-soft'}">🏠 Gruppen-Lobby${CLOUD.syncing?' ⏳':S.cloudAutoSync?' ●':''}</button>${!CLOUD.viewingRemote?`<button type="button" data-action="cloud-push-now" data-tip="Diesen Charakterbogen jetzt in die Gruppen-Lobby hochladen/synchronisieren, damit er dort als Karte verlinkt ist" class="btn btn-ok py-2 px-3 text-xs font-extrabold">${CLOUD.syncing?'⏳ Sync...':'☁️ In Lobby speichern'}</button>`:''}
               <button type="button" data-action="close-active-sheet" data-tip="Aktuellen Charakterbogen schließen und zur Lobby zurückkehren" class="btn btn-err py-2 px-2.5 text-xs font-bold">✕ Bogen schließen</button>
               <button type="button" data-action="open-settings" data-tip="Optionen &amp; Design (JSON Export/Import, Themen, Hintergrund)" class="btn py-2 px-3.5 text-xs font-extrabold bdr-acc bg-acc-soft">⚙️ Optionen</button>
               <button type="button" id="saveBadge" data-action="export-json" data-tip="WICHTIGER HINWEIS:\nAktuell nur lokal im Browser zwischengespeichert!\nDu musst den Charakter als .json exportieren (Klick hier oder über ⚙️ Optionen), um ihn dauerhaft gespeichert zu halten, da Browserdaten jederzeit verloren gehen können." class="px-2.5 py-1.5 rounded-lg text-[11px] font-extrabold text-emerald-400 bg-emerald-500/15 border border-emerald-500/30 hover:border-amber-400 transition-colors cursor-pointer text-left leading-tight ${UI.savedOnce?'inline-flex flex-col sm:flex-row sm:items-center gap-1':'opacity-0 pointer-events-none hidden'}"><span>✓ Gespeichert</span><span class="text-[10px] font-semibold text-amber-300/95">• Zum Behalten exportieren (.json), Browserdaten können verloren gehen!</span></button>
@@ -3881,7 +3881,6 @@
               <p class="text-xs sm:text-sm t-mut leading-relaxed">Willkommen in der Scherbensturm-Lobby! Melde dich mit deinem Spieler-Account an oder registriere dich, um eigene Charakterbögen zu erstellen und deine freigeschalteten Kampagnen zu sehen.</p>
               <div class="flex flex-wrap items-center gap-2 pt-1">
                 <button type="button" data-action="open-local-sheet" data-tip="Öffnet den lokal gespeicherten Charakterbogen (oder einen Test-Bogen) direkt ohne Cloud-Zwang – ideal zum lokalen Testen vor dem GitHub-Upload" class="btn btn-ok py-1.5 px-3 text-xs font-extrabold">🛠️ Lokalen Bogen öffnen / testen</button>
-                <button type="button" data-action="import-json" data-tip="Einen vorhandenen .json-Charakterbogen von deinem Gerät laden und direkt öffnen" class="btn bdr-acc bg-acc-soft text-acc py-1.5 px-3 text-xs font-extrabold">📥 JSON-Bogen laden</button>
                 <button type="button" data-action="copy-share-link" data-url="${esc(lobbyUrl)}" data-tip="Direktlink zur zentralen Gruppen-Lobby kopieren" class="btn bg-acc-soft bdr-acc text-acc py-1.5 px-3 text-xs">🔗 Lobby-Direktlink</button>
                 <button type="button" data-action="toggle-admin-bar" data-tip="Admin-Master-PIN &amp; Benutzerverwaltung öffnen" class="btn py-1.5 px-3 text-xs ${CLOUD.isAdmin?'!border-amber-400 !bg-amber-500/20 text-amber-300':'opacity-85'}">👑 ${CLOUD.isAdmin?'Admin aktiv':'Spielleiter / Admin'}</button>
               </div>
@@ -3931,7 +3930,6 @@
             <div class="flex flex-wrap items-center gap-2.5 shrink-0">
               <button type="button" data-action="lobby-new-sheet" class="btn btn-ok py-2.5 px-5 text-sm font-black shadow-lg">✨ + Neuen Charakterbogen erstellen</button>
               <button type="button" data-action="open-local-sheet" data-tip="Öffnet den lokal gespeicherten Charakterbogen (oder einen Test-Bogen) direkt ohne Cloud-Zwang – ideal zum lokalen Testen vor dem GitHub-Upload" class="btn py-2.5 px-4 text-xs sm:text-sm font-extrabold border-emerald-500/60 bg-emerald-500/15 text-emerald-300">🛠️ Lokalen Bogen öffnen / testen</button>
-              <button type="button" data-action="import-json" data-tip="Einen vorhandenen .json-Charakterbogen von deinem Gerät laden" class="btn py-2.5 px-4 text-xs sm:text-sm font-extrabold bdr-acc bg-acc-soft text-acc">📥 JSON-Bogen laden</button>
             </div>
           </div>
           ${CLOUD.showPwChange?`<div class="grid grid-cols-1 sm:grid-cols-12 gap-2 pt-3 border-t bdr-line items-center">
@@ -4143,7 +4141,7 @@
               const isMyClaim=Boolean(owner&&CLOUD.currentUser&&owner.toLowerCase()===CLOUD.currentUser.toLowerCase());
               const charCampId=getCharCampaignId(ch.id);
               const isCampGM = charCampId !== 'default' && canManageCampaign(charCampId);
-              const canManageThisChar = canManageThisChar || isCampGM;
+              const canManageThisChar = CLOUD.isAdmin || isMyClaim || isCampGM;
               const hasPin=Boolean(ch.hasPin||CLOUD.registry.pins?.[ch.id]);
               const campOptsList=CLOUD.isAdmin?allCampaigns:creatableCamps;
               return `<div class="card p-4 sm:p-5 flex flex-col justify-between gap-4 hover:border-sky-400/60 transition-all ${isViewing?'border-sky-400 bg-sky-500/10':isMyClaim||isOpenSheet?'bdr-acc bg-acc-soft/30':''}">
@@ -5628,12 +5626,25 @@
         case 'pick-camp-img': if(CLOUD.isAdmin) $('fileCampImg')?.click(); break;
         case 'rm-camp-img': if(CLOUD.isAdmin){const c=getCampaigns().find(x=>x.id===CLOUD.activeCampaignId);if(c){c.img='';saveRegistryLocal();renderMain();if(UI.modal==='lobby')renderModal();syncCloudRegistry(true);toast('🗑️ Kampagnenbild entfernt.');}} break;
         case 'rm-avatar': S.profile.avatar=''; renderHeader(); renderModal(); save(); toast('Profilbild entfernt'); break;
-        case 'open-lobby': UI.inLobby=true; UI.modal=null; CLOUD.confirmDelCloudId=null; CLOUD.confirmClearDice=false; CLOUD.campAction=''; initLiveDiceChannel(); renderAll(false); fetchLobbyList(true); break;
-        case 'return-to-sheet': if(UI.sheetLoaded){ UI.inLobby=false; UI.modal=null; renderAll(false); } break;
+        case 'open-lobby':
+          if(!CLOUD.viewingRemote&&UI.sheetLoaded&&S.cloudAutoSync&&(CLOUD.currentUser||CLOUD.isAdmin)) pushToCloud(true);
+          UI.inLobby=true; UI.modal=null; CLOUD.confirmDelCloudId=null; CLOUD.confirmClearDice=false; CLOUD.campAction='';
+          try{window.history.replaceState({},'',`${window.location.pathname}?lobby=1`);}catch(e){}
+          initLiveDiceChannel(); renderAll(false); fetchLobbyList(true); break;
+        case 'return-to-sheet':
+          if(UI.sheetLoaded){
+            UI.inLobby=false; UI.modal=null;
+            try{window.history.replaceState({},'',S.charId?`${window.location.pathname}?char=${encodeURIComponent(S.charId)}`:window.location.pathname);}catch(e){}
+            renderAll(false);
+          }
+          break;
         case 'open-local-sheet':
           CLOUD.viewingRemote=false; CLOUD.remoteCharId=''; CLOUD.ownBackupJson=null;
           load();
+          if(CLOUD.currentUser&&!S.owner) S.owner=CLOUD.currentUser;
+          if(!S.campaignId) S.campaignId=CLOUD.activeCampaignId||'default';
           UI.inLobby=false; UI.sheetLoaded=true; UI.modal=null;
+          try{window.history.replaceState({},'',S.charId?`${window.location.pathname}?char=${encodeURIComponent(S.charId)}`:window.location.pathname);}catch(e){}
           renderAll(false);
           toast(`🛠️ Lokaler Charakterbogen „${S.profile.name||'Charakter'}“ geöffnet!`);
           break;
@@ -5649,6 +5660,7 @@
           CLOUD.viewingRemote=false; CLOUD.remoteCharId=''; CLOUD.ownBackupJson=null;
           UI.sheetLoaded=false; UI.inLobby=true; UI.modal=null;
           D.open=false; CN.open=false;
+          try{window.history.replaceState({},'',`${window.location.pathname}?lobby=1`);}catch(e){}
           renderAll(false); fetchLobbyList(true);
           toast('🏠 Charakterbogen geschlossen – du bist in der Lobby.');
           break;
@@ -5751,13 +5763,13 @@
           break;
         }
         case 'camp-add-user-btn': {
-          if(!CLOUD.isAdmin) break;
+          if(!canManageCampaign(CLOUD.activeCampaignId)) break;
           const inp=$('inpCampAddUser');
           addCampaignAllowedUser(inp?inp.value:'');
           break;
         }
         case 'camp-rm-user': {
-          if(!CLOUD.isAdmin) break;
+          if(!canManageCampaign(CLOUD.activeCampaignId)) break;
           removeCampaignAllowedUser(el.dataset.user||'');
           break;
         }
@@ -5835,8 +5847,8 @@
           syncCloudRegistry(true); renderModal(); toast('🔑 Passwort erfolgreich geändert!');
           break;
         }
-        case 'user-logout': CLOUD.currentUser=''; CLOUD.showPwChange=false; CLOUD.filterMine=false; try{localStorage.removeItem('scherbensturm_cloud_user');}catch(e){} renderModal(); toast('Abgemeldet'); break;
-        case 'toggle-admin-bar': CLOUD.showAdminBar=!CLOUD.showAdminBar; renderModal(); break;
+        case 'user-logout': CLOUD.currentUser=''; CLOUD.showPwChange=false; CLOUD.filterMine=false; try{localStorage.removeItem('scherbensturm_cloud_user');}catch(e){} renderHeader(); renderMain(); renderModal(); toast('Abgemeldet'); break;
+        case 'toggle-admin-bar': CLOUD.showAdminBar=!CLOUD.showAdminBar; renderHeader(); renderMain(); renderModal(); if(CLOUD.showAdminBar) setTimeout(()=>{const p=$('inpAdminMasterPin');if(p){p.scrollIntoView({behavior:'smooth',block:'center'});p.focus();}},40); break;
         case 'toggle-user-mgmt': CLOUD.userMgmtOpen=!CLOUD.userMgmtOpen; renderModal(); break;
         case 'admin-unlock': {
           const pin=($('inpAdminMasterPin')?.value||'').trim();
@@ -5863,7 +5875,7 @@
           syncCloudRegistry(true); renderModal(); toast('👑 Neue Admin-Master-PIN im Backend gespeichert!');
           break;
         }
-        case 'admin-logout': CLOUD.isAdmin=false; CLOUD.showAdminBar=false; CLOUD.userMgmtOpen=false; try{localStorage.removeItem('scherbensturm_cloud_admin');}catch(e){} renderModal(); toast('🔒 Admin-Modus gesperrt'); break;
+        case 'admin-logout': CLOUD.isAdmin=false; CLOUD.showAdminBar=false; CLOUD.userMgmtOpen=false; try{localStorage.removeItem('scherbensturm_cloud_admin');}catch(e){} renderHeader(); renderMain(); renderModal(); toast('🔒 Admin-Modus gesperrt'); break;
         case 'admin-del-user': {
           if(!CLOUD.isAdmin) break;
           const u=el.dataset.user;
@@ -6423,7 +6435,7 @@
       if(el.dataset.agLink){const ag=S.augments.find(a=>a.id===el.dataset.agLink);if(ag){if(el.value&&getLinkedAugs(el.value).length>=3){toast('Maximal 3 Augmente pro Kraft!');renderMain();return;}ag.parentPowerId=el.value;renderMain();save();}return;}
       if(el.dataset.linkSlot){const pid=el.dataset.linkSlot,ag=S.augments.find(a=>a.id===el.value);if(ag&&getLinkedAugs(pid).length<3){ag.parentPowerId=pid;renderMain();save();toast('Augment in Slot verknüpft');}return;}
       if(el.dataset.campAddUserSel){
-        if(!CLOUD.isAdmin) return;
+        if(!canManageCampaign(CLOUD.activeCampaignId)) return;
         const val=el.value.trim();
         if(val) addCampaignAllowedUser(val);
         return;
