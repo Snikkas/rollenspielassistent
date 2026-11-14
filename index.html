@@ -62,6 +62,8 @@
     <main id="mainMount" class="w-full flex-1 min-w-0 space-y-5"></main>
     <div id="notesBackdrop" data-action="close-cnotes" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 hidden cursor-pointer"></div>
     <aside id="notesMount" class="hidden"></aside>
+    <div id="liveDiceBackdrop" data-action="close-livedice" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 hidden cursor-pointer"></div>
+    <aside id="liveDiceMount" class="hidden"></aside>
     <div id="diceBackdrop" data-action="close-dice" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 hidden cursor-pointer"></div>
     <aside id="diceMount" class="hidden"></aside>
   </div>
@@ -767,7 +769,8 @@
 
     const DICE_DEF={open:false,docked:false,label:'Freie Probe',skillId:null,attrKey:null,weaponId:null,wRollCat:'Normaler Test',cMode:'direct',cDirect:0,cAttr:0,cSkill:'0',cCustom:25,dMode:'direct',dDirect:40,dAttr:30,dSkill:'10',dCustom:25,adv:0,dis:0,advAdj:0,disAdj:0,cnt:1,crit:'1',critOff:0,critMode:'range',sitActive:{},blockFollowAtk:40};
     const CNOTES_DEF={open:false,docked:false,confirmDelId:null};
-    let S=defaultState(), D={...DICE_DEF}, CN={...CNOTES_DEF}, diceLogs=[], toastTimer=null, dragPwId=null, dragAugId=null, dragSecId=null, dragSkSecId=null, dragSkId=null, dragChrPw=null, dragChrSec=null, dragEqSec=null, dragEqItem=null, dragToken='';
+    const LIVEDICE_DEF={open:false,docked:false};
+    let S=defaultState(), D={...DICE_DEF}, CN={...CNOTES_DEF}, LD={...LIVEDICE_DEF}, diceLogs=[], toastTimer=null, dragPwId=null, dragAugId=null, dragSecId=null, dragSkSecId=null, dragSkId=null, dragChrPw=null, dragChrSec=null, dragEqSec=null, dragEqItem=null, dragToken='';
     let dragMouseY=null, dragScrollRaf=null;
     const savedEffRanges={};
     let UI={modal:null,infoTab:'dice',listType:'art',ammoModalWeaponId:'',skSort:{col:'',asc:true},imgTargetKind:'',imgTargetId:'',confirmNew:false,confirmLog:false,confirmDelId:null,confirmDelSecId:null,confirmSecPullId:null,confirmDelSkSecId:null,confirmSkSecPullId:null,confirmDelExSecId:null,confirmHzStep:1,pwFilterOpen:false,pwFilterMode:'or',pwFilterArts:[],pwFilterTiers:[],pwFilterSubs:[],statusIniPromptKey:'',lastRollHtml:'',lastBlockBaseHtml:'',lastBlockFollowRes:null,colTarget:'cres',colMode:'text',colPwKind:'power',colPwId:'',colDraft:'#c084fc',attrGroupSel:'ST_KO',savedOnce:true,palBuilderOpen:false,palDraft:{name:'',isLt:false,bg:'#020617',acc:'#0ea5e9',acc2:'#6366f1',txt:'#f1f5f9',mut:'#94a3b8',btnTxt:'#ffffff'}};
@@ -820,6 +823,7 @@
       CLOUD.activeCampaignId=id;
       UI.activeCampaignId=id;
       try{localStorage.setItem('scherbensturm_active_campaign',id);}catch(e){}
+      updateLobbyLiveDiceDOM();
     }
     function isUserInCampaign(camp,username){
       const u=String(username||'').trim().toLowerCase();
@@ -849,8 +853,31 @@
       saveDiceFeedLocal();
       return merged;
     }
-    function renderLobbyLiveDiceHtml(){
-      const feed=CLOUD.diceFeed||[];
+    function getActiveLiveCampaignId(){
+      const camps=getCampaigns();
+      const allowed=CLOUD.isAdmin?camps:(CLOUD.currentUser?camps.filter(c=>isUserInCampaign(c,CLOUD.currentUser)):camps);
+      if(allowed.some(c=>c.id===CLOUD.activeCampaignId)) return CLOUD.activeCampaignId;
+      const ownCamp=S.charId?getCharCampaignId(S.charId):'';
+      if(ownCamp&&allowed.some(c=>c.id===ownCamp)) return ownCamp;
+      if(allowed.length) return allowed[0].id;
+      return CLOUD.isAdmin?'default':(CLOUD.activeCampaignId||'default');
+    }
+    function getRollCampaignId(entry){
+      if(!entry) return 'default';
+      if(entry.charId&&(CLOUD.registry?.charCampaigns?.[entry.charId]!==undefined||(CLOUD.list||[]).some(c=>c.id===entry.charId)||entry.charId===S.charId)){
+        return getCharCampaignId(entry.charId);
+      }
+      const validIds=new Set(getCampaigns().map(c=>c.id));
+      const raw=String(entry.campaignId||'default').trim()||'default';
+      return validIds.has(raw)?raw:'default';
+    }
+    function getCampaignFilteredDiceFeed(campId=getActiveLiveCampaignId()){
+      return (CLOUD.diceFeed||[]).filter(entry=>getRollCampaignId(entry)===campId);
+    }
+    function renderLobbyLiveDiceHtml(opts={}){
+      const activeCampId=getActiveLiveCampaignId();
+      const activeCampObj=getCampaigns().find(c=>c.id===activeCampId);
+      const feed=getCampaignFilteredDiceFeed(activeCampId);
       const statusBadge=CLOUD.diceConnected
         ?`<span class="px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-500/20 text-emerald-300 border border-emerald-400/50 inline-flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>Echtzeit-Kanal live</span>`
         :`<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-sky-500/15 text-sky-300 border border-sky-400/40 inline-flex items-center gap-1">☁️ Cloud-Kanal bereit</span>`;
@@ -928,6 +955,7 @@
           <div class="flex flex-wrap items-center gap-2">
             <button type="button" data-action="toggle-lobby-dice-collapse" class="btn w-7 h-7 p-0 text-xs font-black">${CLOUD.diceCollapsed?'▸':'▾'}</button>
             <span class="text-xs sm:text-sm font-black text-acc uppercase tracking-wider">🎲 Live-Würfelfenster der Gruppe</span>
+            <span class="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-acc-soft text-acc border bdr-acc inline-flex items-center gap-1">📁 ${esc(activeCampObj?.name || 'Hauptkampagne')}</span>
             ${statusBadge}
             <span class="pill cursor-default text-[10px] py-0.5 px-2 tabular">${feed.length} ${feed.length===1?'Wurf':'Würfe'}</span>
           </div>
@@ -939,20 +967,27 @@
             ${feed.length?(CLOUD.confirmClearDice?`<span class="inline-flex items-center gap-1"><button type="button" data-action="confirm-clear-lobby-dice" class="btn bg-rose-600 text-white border-rose-600 py-0.5 px-2 text-[10px] font-black">Alle löschen? (2/2)</button><button type="button" data-action="cancel-clear-lobby-dice" class="btn py-0.5 px-1.5 text-[10px]">✕</button></span>`:`<button type="button" data-action="ask-clear-lobby-dice" data-tip="Live-Würfellog für die Lobby leeren" class="btn btn-err py-1 px-2 text-[11px]">🗑️</button>`):''}
           </div>
         </div>
-        ${!CLOUD.diceCollapsed?(feed.length?`<div class="space-y-2.5 max-h-[340px] overflow-y-auto pr-1">${feed.map((e,i)=>renderRollCard(e,i)).join('')}</div>`:`<div class="subcard border-dashed py-6 text-center text-xs t-mut">Noch keine Würfe im Live-Kanal. Klicke oben auf <strong>„⚡ Schnellwurf“</strong> oder öffne den <strong>„🎲 Würfelassistent“</strong> – jeder Wurf erscheint sofort in Echtzeit mit Krits, EG/MEG und kompletter Aufschlüsselung bei allen Spielern in der Lobby!</div>`):''}
+        ${!CLOUD.diceCollapsed?(feed.length?`<div class="space-y-2.5 max-h-[340px] overflow-y-auto pr-1">${feed.map((e,i)=>renderRollCard(e,i)).join('')}</div>`:`<div class="subcard border-dashed py-6 text-center text-xs t-mut">Noch keine Würfe in der Kampagne „${esc(activeCampObj?.name || 'Hauptkampagne')}“ im Live-Kanal. Klicke oben auf <strong>„⚡ Schnellwurf“</strong> oder öffne den <strong>„🎲 Würfelassistent“</strong> – jeder Wurf erscheint sofort in Echtzeit mit Krits, EG/MEG und kompletter Aufschlüsselung bei allen Spielern in der Lobby!</div>`):''}
       </div>`;
     }
     function updateLobbyLiveDiceDOM(){
       const el=$('lobbyLiveDiceMount');
       if(el) el.innerHTML=renderLobbyLiveDiceHtml();
+      if(typeof renderLiveDice==='function' && LD.open) renderLiveDice();
+      if(typeof renderHeader==='function') renderHeader();
     }
     function handleIncomingDicePayload(rawObj,isRealtimePush=false){
       if(!rawObj||typeof rawObj!=='object') return;
       if(rawObj.type==='clear_dice'){
-        const clr=toInt(rawObj.clearedAt,Date.now());
-        CLOUD.registry.diceClearedAt=Math.max(toInt(CLOUD.registry.diceClearedAt,0),clr);
-        CLOUD.diceFeed=[];
-        CLOUD.registry.diceFeed=[];
+        if(rawObj.campaignId){
+          CLOUD.diceFeed=(CLOUD.diceFeed||[]).filter(e=>getRollCampaignId(e)!==rawObj.campaignId);
+          CLOUD.registry.diceFeed=(CLOUD.registry.diceFeed||[]).filter(e=>getRollCampaignId(e)!==rawObj.campaignId);
+        }else{
+          const clr=toInt(rawObj.clearedAt,Date.now());
+          CLOUD.registry.diceClearedAt=Math.max(toInt(CLOUD.registry.diceClearedAt,0),clr);
+          CLOUD.diceFeed=[];
+          CLOUD.registry.diceFeed=[];
+        }
         saveDiceFeedLocal(); saveRegistryLocal();
         updateLobbyLiveDiceDOM();
         return;
@@ -963,7 +998,7 @@
       if(already) return;
       mergeDiceFeeds([rawObj]);
       updateLobbyLiveDiceDOM();
-      if(isRealtimePush&&rawObj.senderTabId!==LIVE_TAB_ID&&CLOUD.diceToast){
+      if(isRealtimePush&&rawObj.senderTabId!==LIVE_TAB_ID&&CLOUD.diceToast&&getRollCampaignId(rawObj)===getActiveLiveCampaignId()){
         const r0=rawObj.res[0];
         const sumTxt=rawObj.isHz?`W100 = ${r0?.r} (${rawObj.hzZone||'Zone'})`:rawObj.res.length===1
           ?`${r0.r} (${r0.crit?'★ KRIT! ':''}${r0.ok?'EG '+r0.eg:'MEG '+r0.meg})`
@@ -1002,11 +1037,12 @@
       }catch(e){}
       if(!liveDicePollTimer){
         liveDicePollTimer=setInterval(()=>{
-          if(UI.modal==='lobby') syncCloudRegistry(false);
+          if(UI.modal==='lobby' || LD.open) syncCloudRegistry(false);
         },4000);
       }
     }
     function publishLiveRoll(entry){
+      if(entry&&!entry.campaignId) entry.campaignId=getCharCampaignId(entry.charId||S.charId);
       mergeDiceFeeds([entry]);
       updateLobbyLiveDiceDOM();
       try{if(liveDiceBC) liveDiceBC.postMessage(entry);}catch(e){}
@@ -1017,14 +1053,14 @@
       syncCloudRegistry(true);
     }
     function clearLiveDiceFeed(){
+      const campId=getActiveLiveCampaignId();
       const clr=Date.now();
-      CLOUD.registry.diceClearedAt=clr;
-      CLOUD.diceFeed=[];
-      CLOUD.registry.diceFeed=[];
+      CLOUD.diceFeed=(CLOUD.diceFeed||[]).filter(e=>getRollCampaignId(e)!==campId);
+      CLOUD.registry.diceFeed=(CLOUD.registry.diceFeed||[]).filter(e=>getRollCampaignId(e)!==campId);
       CLOUD.confirmClearDice=false;
       saveDiceFeedLocal(); saveRegistryLocal();
       updateLobbyLiveDiceDOM();
-      const msg={type:'clear_dice',clearedAt:clr,senderTabId:LIVE_TAB_ID};
+      const msg={type:'clear_dice',campaignId:campId,clearedAt:clr,senderTabId:LIVE_TAB_ID};
       try{if(liveDiceBC) liveDiceBC.postMessage(msg);}catch(e){}
       try{
         const topic=getLiveDiceTopic();
@@ -2539,6 +2575,7 @@
             </div>
             <div class="flex flex-wrap items-center gap-2 pt-0.5">
               <button type="button" data-action="toggle-dice" data-tip="W100-Würfelassistent öffnen/schließen" class="btn ${D.open?'btn-pri':'bdr-acc bg-acc-soft'} text-xs font-extrabold px-3.5 py-2">🎲 Würfelassistent</button>
+              <button type="button" data-action="toggle-livedice" data-tip="Eigenständiges Live-Würfel-Fenster öffnen/schließen (kann direkt neben dem normalen Würfelassistenten aufgefaltet werden)" class="btn ${LD.open?'btn-pri':'bdr-acc bg-acc-soft'} text-xs font-extrabold px-3.5 py-2">📡 Live-Würfel <span class="px-1.5 rounded-full text-[10px] bg-black/25 tabular">${getCampaignFilteredDiceFeed().length}</span></button>
               <button type="button" data-action="toggle-cnotes" data-tip="Kampagnennotizen öffnen/schließen (frei andockbar wie der Würfelassistent)" class="btn ${CN.open?'btn-pri':'bdr-acc bg-acc-soft'} text-xs font-extrabold px-3.5 py-2">📝 Kampagnennotizen</button>
               <button type="button" data-action="open-lobby" data-tip="Gruppen-Lobby: Charakterbögen der Runde live einsehen, teilen &amp; austauschen (Netlify Cloud)" class="btn py-2 px-3.5 text-xs font-extrabold ${CLOUD.viewingRemote?'!border-sky-400 !bg-sky-500/20 text-sky-300':S.cloudAutoSync?'!border-emerald-500/60 !bg-emerald-500/15 text-emerald-300':'bdr-acc bg-acc-soft'}">☁️ Gruppen-Lobby${CLOUD.syncing?' ⏳':S.cloudAutoSync?' ●':''}</button>
               <button type="button" data-action="open-settings" data-tip="Optionen &amp; Design (JSON Export/Import, Themen, Hintergrund)" class="btn py-2 px-3.5 text-xs font-extrabold bdr-acc bg-acc-soft">⚙️ Optionen</button>
@@ -3638,13 +3675,13 @@
 
     function renderDice(){
       const p=$('diceMount'), bd=$('diceBackdrop'), xl=window.innerWidth>=1280;
-      if(!D.open){p.className='hidden';bd.classList.add('hidden');return;}
+      if(!D.open){p.className='hidden';bd.classList.add('hidden');if(typeof renderLiveDice==='function'&&LD.open)renderLiveDice();return;}
       if(D.docked&&xl&&!UI.modal){bd.classList.add('hidden');p.className='z-20 w-full xl:w-[440px] shrink-0 sticky top-36 max-h-[calc(100vh-5rem)] xl:max-h-[calc(100vh-9.5rem)] overflow-y-auto card p-0 shadow-xl';}
       else{bd.classList.toggle('hidden',Boolean(UI.modal));p.className='fixed right-3 sm:right-5 top-3 sm:top-5 z-[80] w-[calc(100vw-1.5rem)] max-w-lg card p-0 overflow-hidden shadow-2xl';}
       const T=calcThreshold(), ci=CRIT_SEQ.indexOf(D.crit), cs=getCSkVal(), ds=getDSkVal();
       const skOpts=cur=>['0','10','15','20','30','custom'].map(v=>`<option value="${v}" ${cur===v?'selected':''}>${v==='custom'?'Eigener...':'+'+v}</option>`).join('');
       const vbox=(ttl,mAct,mode,dirF,aF,sF,cF,mId,mCol,sVal,aL,sL)=>`<div class="subcard space-y-2"><div class="flex items-center justify-between"><span class="text-xs font-extrabold">${ttl}</span><div class="inline-flex rounded-lg p-0.5 bg-black/20 border bdr-line text-[11px]"><button type="button" data-action="${mAct}" data-mode="direct" class="px-2 py-0.5 rounded font-bold ${mode==='direct'?'bg-acc-soft text-acc':''}">Direkt</button><button type="button" data-action="${mAct}" data-mode="breakdown" class="px-2 py-0.5 rounded font-bold ${mode==='breakdown'?'bg-acc-soft text-acc':''}">Aufgeschl.</button></div></div>${mode==='direct'?`<input data-dice="${dirF}" type="text" inputmode="numeric" value="${D[dirF]}" class="inp w-full text-lg font-black tabular"/>`:`<div class="grid grid-cols-2 gap-1.5"><div><label class="block text-[10px] font-bold t-mut">${aL}</label><input data-dice="${aF}" type="text" inputmode="numeric" value="${D[aF]}" class="inp w-full font-bold tabular"/></div><div><label class="block text-[10px] font-bold t-mut">${sL}</label><select data-dice-sel="${sF}" class="inp w-full font-bold">${skOpts(D[sF])}</select></div></div>${D[sF]==='custom'?`<input data-dice="${cF}" type="text" inputmode="numeric" value="${D[cF]}" class="inp w-full text-xs font-bold"/>`:''}<div id="${mId}" class="text-xs font-extrabold ${mCol} text-right tabular">${D[aF]} + ${sVal} = ${toInt(D[aF])+sVal}</div>`}</div>`;
-      p.innerHTML=`<div class="flex items-center justify-between gap-2 px-4 py-3 border-b bdr-line" style="background:var(--surf2)"><div class="min-w-0"><h2 class="text-sm font-extrabold">🎲 W100 Würfelassistent</h2><p class="text-[11px] text-acc font-bold truncate">${esc(D.label)}</p></div><div class="flex gap-1.5 shrink-0"><button type="button" data-action="dock-dice" class="hidden xl:inline-flex btn py-1 px-2 text-xs">${D.docked?'🗗 Overlay':'📌 Andocken'}</button><button type="button" data-action="reset-dice" class="btn btn-err py-1 px-2 text-xs">Reset</button><button type="button" data-action="close-dice" class="btn py-1 px-2">✕</button></div></div>
+      p.innerHTML=`<div class="flex items-center justify-between gap-2 px-4 py-3 border-b bdr-line" style="background:var(--surf2)"><div class="min-w-0"><h2 class="text-sm font-extrabold">🎲 W100 Würfelassistent</h2><p class="text-[11px] text-acc font-bold truncate">${esc(D.label)}</p></div><div class="flex gap-1.5 shrink-0"><button type="button" data-action="toggle-livedice" data-tip="Live-Würfel-Fenster daneben ein-/ausblenden" class="btn py-1 px-2 text-xs ${LD.open?'btn-pri':''}">📡 Live</button><button type="button" data-action="dock-dice" class="hidden xl:inline-flex btn py-1 px-2 text-xs">${D.docked?'🗗 Overlay':'📌 Andocken'}</button><button type="button" data-action="reset-dice" class="btn btn-err py-1 px-2 text-xs">Reset</button><button type="button" data-action="close-dice" class="btn py-1 px-2">✕</button></div></div>
       <div class="p-4 space-y-3.5 max-h-[calc(100vh-5rem)] xl:max-h-[calc(100vh-9.5rem)] overflow-y-auto">
         ${S.inspirationActive?`<div class="subcard p-2.5 border-2 border-amber-400 bg-amber-500/20 flex items-center justify-between gap-2 shadow-lg"><div class="flex items-center gap-2"><span class="text-base">✨</span><div><div class="text-xs font-black text-amber-300">✨ Inspiration aktiv (+1 Vorteil)</div><div class="text-[10px] text-amber-200/90">Automatisch +1 Vorteil verrechnet • setzt sich nach dem Wurf zurück</div></div></div><button type="button" data-action="cancel-inspiration" data-tip="Inspiration doch nicht für diesen Wurf nutzen (1 Stapel zurücklegen)" class="btn py-0.5 px-2 text-[10px] border-amber-400/60 text-amber-200 shrink-0">↺ Zurücklegen</button></div>`:''}
         ${(()=>{const aw=D.weaponId?S.weapons.find(x=>x.id===D.weaponId):null,rawCat=D.wRollCat==='Parade'?'Parieren':D.wRollCat,curCat=['Normaler Test','Trefferwurf','Parieren','Blocken','Ausweichen'].includes(rawCat)?rawCat:(aw?'Trefferwurf':'Normaler Test'),modeIcon=c=>c==='Normaler Test'?'📋 ':c==='Trefferwurf'?'🎲 ':c==='Parieren'?'🛡️ ':c==='Blocken'?'🧱 ':'💨 ';if(aw){const wNm=esc(String(aw.name||'').trim()||(aw.wType==='ranged'?'Fernkampfwaffe':'Nahkampfwaffe'));return `<div class="subcard p-2.5 border bdr-acc bg-acc-soft/40 space-y-2"><div class="flex items-center justify-between gap-2"><div class="min-w-0"><div class="text-[10px] font-extrabold text-acc uppercase tracking-wider">${aw.wType==='ranged'?'🏹':'⚔️'} Aktiver Waffen-Kontext • Modus: ${curCat}</div><div class="text-xs font-black truncate">${wNm}</div></div><button type="button" data-action="clear-dice-weapon" data-tip="Waffen-Kontext lösen & auf Normaler Test wechseln" class="btn btn-err py-0.5 px-2 text-[11px] shrink-0">✕ Lösen</button></div><div class="flex flex-wrap items-center gap-1">${['Normaler Test','Trefferwurf','Parieren','Blocken','Ausweichen'].map(c=>`<button type="button" data-action="set-dice-wcat" data-wcat="${c}" class="btn py-0.5 px-2 text-[11px] font-extrabold ${curCat===c?'btn-pri':''}">${modeIcon(c)}${c}</button>`).join('')}</div></div>`;}return `<div class="subcard p-2.5 space-y-1.5"><div class="flex items-center justify-between gap-2"><div class="text-[10px] font-extrabold t-mut uppercase tracking-wider">🎯 Wurf-Modus (Strikte Isolation)</div>${curCat!=='Normaler Test'?`<button type="button" data-action="clear-dice-weapon" data-tip="Zurück auf Normaler Test" class="btn py-0.5 px-2 text-[10px]">↺ Normaler Test</button>`:''}</div><div class="flex flex-wrap items-center gap-1">${['Normaler Test','Trefferwurf','Parieren','Blocken','Ausweichen'].map(c=>`<button type="button" data-action="set-dice-wcat" data-wcat="${c}" class="btn py-0.5 px-2 text-[11px] font-extrabold ${curCat===c?'btn-pri':''}">${modeIcon(c)}${c}</button>`).join('')}</div></div>`;})()}
@@ -3660,6 +3697,47 @@
         ${(D.wRollCat==='Trefferwurf')?`<div class="flex justify-center"><button type="button" data-action="roll-blocked-hit-20" data-tip="Behält deinen aktuellen Trefferwert bei, setzt die Schwierigkeit auf 20 und würfelt direkt die Erfolgsgrade (EG) für den Grundschaden gegen die Rüstung aus." class="btn w-full py-1.5 px-3 text-xs font-extrabold border-amber-400/60 bg-amber-500/15 text-amber-300 hover:bg-amber-500/25">🛡️ Wurde geblockt (Folgewurf vs. Schw. 20)</button></div>`:''}
         <div>${UI.lastRollHtml||`<div class="subcard border-dashed text-center text-xs t-mut py-3">Bereit zum Würfeln!</div>`}</div>
         <div class="border-t bdr-line pt-2.5"><div class="flex justify-between mb-1.5"><span class="text-xs font-extrabold t-mut">Würfel-Log (${diceLogs.length})</span><button type="button" data-action="clear-dice-log" class="text-[11px] font-bold t-mut hover:text-rose-500">Leeren</button></div><div class="space-y-1 max-h-32 overflow-y-auto text-xs">${diceLogs.map(l=>`<div class="subcard py-1 px-2.5 flex justify-between gap-2"><span class="truncate"><strong>${esc(l.lbl)}</strong> [≤${l.th}]: ${l.sum}</span><span class="text-[10px] t-mut tabular shrink-0">${l.t}</span></div>`).join('')}</div></div>
+      </div>`;
+      if(typeof renderLiveDice==='function' && LD.open) renderLiveDice();
+    }
+
+    function renderLiveDice(){
+      const p=$('liveDiceMount'), bd=$('liveDiceBackdrop'), xl=window.innerWidth>=1280;
+      if(!p||!bd) return;
+      if(!LD.open){p.className='hidden';bd.classList.add('hidden');return;}
+      if(LD.docked && xl && !UI.modal){
+        bd.classList.add('hidden');
+        p.className='z-20 w-full xl:w-[420px] shrink-0 sticky top-36 max-h-[calc(100vh-5rem)] xl:max-h-[calc(100vh-9.5rem)] overflow-y-auto card p-0 shadow-xl';
+      }else{
+        const diceOverlayOpen = D.open && (!D.docked || !xl || Boolean(UI.modal));
+        bd.classList.toggle('hidden', Boolean(UI.modal) || D.open);
+        const rightPos = diceOverlayOpen ? 'right-3 sm:right-5 lg:right-[536px]' : 'right-3 sm:right-5';
+        p.className=`fixed ${rightPos} top-3 sm:top-5 z-[79] w-[calc(100vw-1.5rem)] max-w-md card p-0 overflow-hidden shadow-2xl`;
+      }
+      const allCamps=getCampaigns();
+      const visCamps=CLOUD.isAdmin?allCamps:(CLOUD.currentUser?allCamps.filter(c=>isUserInCampaign(c,CLOUD.currentUser)):allCamps);
+      const activeCampId=getActiveLiveCampaignId();
+      const activeCampObj=allCamps.find(c=>c.id===activeCampId)||allCamps[0];
+      p.innerHTML=`<div class="flex items-center justify-between gap-2 px-4 py-3 border-b bdr-line" style="background:var(--surf2)">
+        <div class="min-w-0">
+          <h2 class="text-sm font-extrabold">📡 Live-Würfel der Gruppe</h2>
+          <p class="text-[11px] text-acc font-bold truncate">📁 ${esc(activeCampObj?.name||'Hauptkampagne')}</p>
+        </div>
+        <div class="flex gap-1.5 shrink-0">
+          <button type="button" data-action="dock-livedice" class="hidden xl:inline-flex btn py-1 px-2 text-xs">${LD.docked?'🗗 Overlay':'📌 Andocken'}</button>
+          <button type="button" data-action="toggle-dice" class="btn py-1 px-2 text-xs">🎲 Assistent ${D.open?'aus':'an'}</button>
+          <button type="button" data-action="close-livedice" class="btn py-1 px-2">✕</button>
+        </div>
+      </div>
+      <div class="p-3.5 space-y-3 max-h-[calc(100vh-5rem)] xl:max-h-[calc(100vh-9.5rem)] overflow-y-auto">
+        <div class="flex items-center gap-1.5 overflow-x-auto pb-1">
+          ${visCamps.map(c=>{
+            const isAct=c.id===activeCampId;
+            const cCnt=getCampaignFilteredDiceFeed(c.id).length;
+            return `<button type="button" data-action="select-campaign-tab" data-id="${esc(c.id)}" class="btn shrink-0 py-1 px-2.5 text-xs font-extrabold ${isAct?'btn-pri':'opacity-80 hover:opacity-100'}"><span>📁 ${esc(c.name||'Kampagne')}</span><span class="px-1.5 py-0.2 rounded-full text-[10px] bg-black/25 tabular">${cCnt}</span></button>`;
+          }).join('')}
+        </div>
+        ${renderLobbyLiveDiceHtml()}
       </div>`;
     }
 
@@ -4151,7 +4229,7 @@
       }
     }
 
-    function renderAll(userSave=true){applyTheme();renderHeader();renderMain();renderDice();renderCampNotes();renderModal();save(userSave);}
+    function renderAll(userSave=true){applyTheme();renderHeader();renderMain();renderDice();renderLiveDice();renderCampNotes();renderModal();save(userSave);}
 
     function syncLiveCalculations(){
       const P=calcProg(), M=calcActiveMods();
@@ -5166,9 +5244,12 @@
         case 'clear-log-ask': UI.confirmLog=true; renderMain(); break;
         case 'clear-log-no': UI.confirmLog=false; renderMain(); break;
         case 'clear-log-yes': S.chronicleLog=[]; UI.confirmLog=false; renderAll(); break;
-        case 'toggle-dice': D.open=!D.open; renderHeader(); renderDice(); break;
-        case 'close-dice': D.open=false; renderHeader(); renderDice(); break;
-        case 'dock-dice': D.docked=!D.docked; renderDice(); break;
+        case 'toggle-dice': D.open=!D.open; renderHeader(); renderDice(); renderLiveDice(); break;
+        case 'close-dice': D.open=false; renderHeader(); renderDice(); renderLiveDice(); break;
+        case 'dock-dice': D.docked=!D.docked; renderDice(); renderLiveDice(); break;
+        case 'toggle-livedice': LD.open=!LD.open; if(LD.open) syncCloudRegistry(false); renderHeader(); renderDice(); renderLiveDice(); break;
+        case 'close-livedice': LD.open=false; renderHeader(); renderDice(); renderLiveDice(); break;
+        case 'dock-livedice': LD.docked=!LD.docked; renderDice(); renderLiveDice(); break;
         case 'reset-dice': D={...DICE_DEF,open:true,docked:D.docked}; UI.lastRollHtml=''; UI.lastBlockBaseHtml=''; UI.lastBlockFollowRes=null; renderDice(); break;
         case 'toggle-cnotes': CN.open=!CN.open; CN.confirmDelId=null; renderHeader(); renderCampNotes(); break;
         case 'close-cnotes': CN.open=false; CN.confirmDelId=null; renderHeader(); renderCampNotes(); break;
@@ -5205,7 +5286,9 @@
           const cid=el.dataset.id||'default';
           setActiveCampaign(cid);
           CLOUD.campAction='';
-          renderModal();
+          if(UI.modal==='lobby') renderModal();
+          if(LD.open) renderLiveDice();
+          renderHeader();
           break;
         }
         case 'camp-new-open': {
@@ -6564,7 +6647,7 @@
       }
       if(e.key==='Escape'){if(UI.modal){UI.modal=null;applyTheme();renderModal();}else if(D.open&&!D.docked){D.open=false;renderHeader();renderDice();}else if(CN.open&&!CN.docked){CN.open=false;renderHeader();renderCampNotes();}}
     });
-    window.addEventListener('resize',()=>{if(D.open)renderDice();if(CN.open)renderCampNotes();});
+    window.addEventListener('resize',()=>{if(D.open)renderDice();if(CN.open)renderCampNotes();if(LD.open)renderLiveDice();});
 
     load(); initLiveDiceChannel(); renderAll(false);
     window.addEventListener('storage',ev=>{
