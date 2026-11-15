@@ -21,20 +21,15 @@ export default async (req) => {
     const store = getStore("scherbensturm-chars");
     const url = new URL(req.url);
     const id = url.searchParams.get("id");
-    const pin = (url.searchParams.get("pin") || "").trim();
 
     // 1. Einzelnen Charakterbogen abrufen
     if (req.method === "GET" && id) {
       const data = await store.get(id, { type: "json" });
       if (!data) return jsonResp({ error: "Charakterbogen nicht gefunden." }, 404);
-      const savedPin = String(data.cloudPin || "").trim();
-      const pinVerified = !savedPin || savedPin === pin;
-      const safeData = {
-        ...data,
-        cloudPin: pinVerified ? savedPin : "",
-        _pinProtected: Boolean(savedPin),
-        _pinVerified: pinVerified
-      };
+      const safeData = { ...data };
+      delete safeData.cloudPin;
+      delete safeData._pinProtected;
+      delete safeData._pinVerified;
       return jsonResp(safeData);
     }
 
@@ -52,6 +47,8 @@ export default async (req) => {
               ancestry: d.profile?.ancestry || "",
               concept: d.profile?.concept || "",
               avatar: d.profile?.avatar || "",
+              owner: d.owner || d._summary?.owner || "",
+              campaignId: d.campaignId || d._summary?.campaignId || "default",
               level: d.progression?.level || 1,
               lpCurrent: d.secondary?.lpCurrent ?? 8,
               lpMax: d._summary?.lpMax ?? 8,
@@ -62,7 +59,7 @@ export default async (req) => {
               mapCurrent: d.secondary?.mapCurrent ?? 3,
               mapMax: d._summary?.mapMax ?? 3,
               ini: d._summary?.ini ?? 0,
-              hasPin: Boolean(String(d.cloudPin || "").trim()),
+              hasPin: false,
               updatedAt: d._summary?.updatedAt || ""
             };
           } catch (e) {
@@ -80,17 +77,9 @@ export default async (req) => {
     if (req.method === "POST") {
       const body = await req.json();
       const charId = String(body.charId || "").trim() || "char_" + Date.now();
-      const existing = await store.get(charId, { type: "json" });
-      if (existing) {
-        const existingPin = String(existing.cloudPin || "").trim();
-        const incomingPin = String(body.cloudPin || "").trim();
-        if (existingPin && existingPin !== incomingPin) {
-          return jsonResp(
-            { error: "Dieser Charakter ist mit einer Schutz-PIN gesichert. Bitte richtige PIN eingeben." },
-            403
-          );
-        }
-      }
+      delete body.cloudPin;
+      delete body._pinProtected;
+      delete body._pinVerified;
       body.charId = charId;
       await store.setJSON(charId, body);
       return jsonResp({ ok: true, id: charId });
@@ -98,16 +87,6 @@ export default async (req) => {
 
     // 4. Charakterbogen aus der Lobby löschen
     if (req.method === "DELETE" && id) {
-      const existing = await store.get(id, { type: "json" });
-      if (existing) {
-        const existingPin = String(existing.cloudPin || "").trim();
-        if (existingPin && existingPin !== pin) {
-          return jsonResp(
-            { error: "Zum Löschen dieses Charakters wird die Schutz-PIN benötigt." },
-            403
-          );
-        }
-      }
       await store.delete(id);
       return jsonResp({ ok: true });
     }
