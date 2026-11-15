@@ -75,7 +75,7 @@
   <script>
   (function(){
     'use strict';
-    const STORE_KEY='scherbensturm_v20', OLD_KEYS=['scherbensturm_v19','scherbensturm_v18','scherbensturm_v17','scherbensturm_v16','scherbensturm_v15','scherbensturm_v14','scherbensturm_v13','scherbensturm_v12','scherbensturm_v11','scherbensturm_v10','scherbensturm_v9','scherbensturm_v8','scherbensturm_v7','scherbensturm_v6','scherbensturm_v5'];
+    const STORE_KEY='scherbensturm_v20', OLD_KEYS=Array.from({length:15},(_,i)=>'scherbensturm_v'+(19-i));
     const DEF_WEAPON_TAGS=[
       {name:'Aerodynamisch',desc:'Beim Werfen dieser Waffe verursachst du nicht abgeschwächten Schaden und hast keinen Nachteil auf Trefferwurf, der durch das Waffenwerfen normalerweise anfällt.'},
       {name:'Ausbalanciert (X)',desc:'Paradeversuche mit der Waffe haben X Vorteile.'},
@@ -115,14 +115,14 @@
     const DEF_ATTR_COLS={ST_KO:'#d97777',PR_GW:'#6eb888',WA_IN:'#6aa3d8',AU_WK:'#a58ad6'};
     const ATTR_GROUPS=[{k:'ST_KO',l:'ST & KO (Körper)'},{k:'PR_GW',l:'PR & GW (Geschick)'},{k:'WA_IN',l:'WA & IN (Verstand)'},{k:'AU_WK',l:'AU & WK (Geist)'}];
     const STATUS_DEFS=[
-      {k:'gestaerkt',name:'Gestärkt',isPos:true,pairKey:'geschwaecht',group:'ST_KO',attrs:['ST','KO'],statKey:'lp',statLbl:'akt. & max. LP',baseStat:2,baseAdv:1,hasIniChoice:false,desc:'Deine aktuellen und maximalen LP sind um 2 pro Stapel erhöht. Du hast +1 Vorteil pro Stapel auf alle ST- und KO-Tests.'},
-      {k:'geschwaecht',name:'Geschwächt',isPos:false,pairKey:'gestaerkt',group:'ST_KO',attrs:['ST','KO'],statKey:'lp',statLbl:'akt. & max. LP',baseStat:-2,baseAdv:1,hasIniChoice:false,desc:'Deine aktuellen und maximalen LP sind um 2 pro Stapel verringert. Du hast +1 Nachteil pro Stapel auf alle ST- und KO-Tests.'},
-      {k:'beweglich',name:'Beweglich',isPos:true,pairKey:'eingeschraenkt',group:'PR_GW',attrs:['PR','GW'],statKey:'bst',statLbl:'BSt',baseStat:1,baseAdv:1,hasIniChoice:false,desc:'Deine Bewegungsstufe (BSt) ist um +1 pro Stapel erhöht. Du hast +1 Vorteil pro Stapel auf alle PR- und GW-Tests.'},
-      {k:'eingeschraenkt',name:'Eingeschränkt',isPos:false,pairKey:'beweglich',group:'PR_GW',attrs:['PR','GW'],statKey:'bst',statLbl:'BSt',baseStat:-1,baseAdv:1,hasIniChoice:false,desc:'Deine Bewegungsstufe (BSt) ist um 1 pro Stapel verringert. Du hast +1 Nachteil pro Stapel auf alle PR- und GW-Tests.'},
-      {k:'konzentriert',name:'Konzentriert',isPos:true,pairKey:'abgelenkt',group:'WA_IN',attrs:['WA','IN'],statKey:'ini',statLbl:'Initiative',baseStat:10,baseAdv:1,hasIniChoice:true,desc:'Du hast +10 oder −10 Initiative nach eigener Wahl beim Aktivieren (pro Stapel). Du hast +1 Vorteil pro Stapel auf alle WA- und IN-Tests.'},
-      {k:'abgelenkt',name:'Abgelenkt',isPos:false,pairKey:'konzentriert',group:'WA_IN',attrs:['WA','IN'],statKey:'ini',statLbl:'Initiative',baseStat:10,baseAdv:1,hasIniChoice:true,desc:'Du hast +10 oder −10 Initiative nach eigener Wahl beim Aktivieren (pro Stapel). Du hast +1 Nachteil pro Stapel auf alle WA- und IN-Tests.'},
-      {k:'entschlossen',name:'Entschlossen',isPos:true,pairKey:'verunsichert',group:'AU_WK',attrs:['AU','WK'],statKey:'mlp',statLbl:'akt. & max. mLP',baseStat:2,baseAdv:1,hasIniChoice:false,desc:'Deine aktuellen und maximalen mLP sind um 2 pro Stapel erhöht. Du hast +1 Vorteil pro Stapel auf alle AU- und WK-Tests.'},
-      {k:'verunsichert',name:'Verunsichert',isPos:false,pairKey:'entschlossen',group:'AU_WK',attrs:['AU','WK'],statKey:'mlp',statLbl:'akt. & max. mLP',baseStat:-2,baseAdv:1,hasIniChoice:false,desc:'Deine aktuellen und maximalen mLP sind um 2 pro Stapel verringert. Du hast +1 Nachteil pro Stapel auf alle AU- und WK-Tests.'}
+      {k:'gestaerkt',name:'Gestärkt',isPos:true,group:'ST_KO',attrs:['ST','KO'],statKey:'lp',statLbl:'akt. & max. LP',baseStat:2,baseAdv:1,hasIniChoice:false,desc:'Deine aktuellen und maximalen LP sind um 2 pro Stapel erhöht. Du hast +1 Vorteil pro Stapel auf alle ST- und KO-Tests.'},
+      {k:'geschwaecht',name:'Geschwächt',isPos:false,group:'ST_KO',attrs:['ST','KO'],statKey:'lp',statLbl:'akt. & max. LP',baseStat:-2,baseAdv:1,hasIniChoice:false,desc:'Deine aktuellen und maximalen LP sind um 2 pro Stapel verringert. Du hast +1 Nachteil pro Stapel auf alle ST- und KO-Tests.'},
+      {k:'beweglich',name:'Beweglich',isPos:true,group:'PR_GW',attrs:['PR','GW'],statKey:'bst',statLbl:'BSt',baseStat:1,baseAdv:1,hasIniChoice:false,desc:'Deine Bewegungsstufe (BSt) ist um +1 pro Stapel erhöht. Du hast +1 Vorteil pro Stapel auf alle PR- und GW-Tests.'},
+      {k:'eingeschraenkt',name:'Eingeschränkt',isPos:false,group:'PR_GW',attrs:['PR','GW'],statKey:'bst',statLbl:'BSt',baseStat:-1,baseAdv:1,hasIniChoice:false,desc:'Deine Bewegungsstufe (BSt) ist um 1 pro Stapel verringert. Du hast +1 Nachteil pro Stapel auf alle PR- und GW-Tests.'},
+      {k:'konzentriert',name:'Konzentriert',isPos:true,group:'WA_IN',attrs:['WA','IN'],statKey:'ini',statLbl:'Initiative',baseStat:10,baseAdv:1,hasIniChoice:true,desc:'Du hast +10 oder −10 Initiative nach eigener Wahl beim Aktivieren (pro Stapel). Du hast +1 Vorteil pro Stapel auf alle WA- und IN-Tests.'},
+      {k:'abgelenkt',name:'Abgelenkt',isPos:false,group:'WA_IN',attrs:['WA','IN'],statKey:'ini',statLbl:'Initiative',baseStat:10,baseAdv:1,hasIniChoice:true,desc:'Du hast +10 oder −10 Initiative nach eigener Wahl beim Aktivieren (pro Stapel). Du hast +1 Nachteil pro Stapel auf alle WA- und IN-Tests.'},
+      {k:'entschlossen',name:'Entschlossen',isPos:true,group:'AU_WK',attrs:['AU','WK'],statKey:'mlp',statLbl:'akt. & max. mLP',baseStat:2,baseAdv:1,hasIniChoice:false,desc:'Deine aktuellen und maximalen mLP sind um 2 pro Stapel erhöht. Du hast +1 Vorteil pro Stapel auf alle AU- und WK-Tests.'},
+      {k:'verunsichert',name:'Verunsichert',isPos:false,group:'AU_WK',attrs:['AU','WK'],statKey:'mlp',statLbl:'akt. & max. mLP',baseStat:-2,baseAdv:1,hasIniChoice:false,desc:'Deine aktuellen und maximalen mLP sind um 2 pro Stapel verringert. Du hast +1 Nachteil pro Stapel auf alle AU- und WK-Tests.'}
     ];
     const DEF_SEC_COLS={lp:'#f43f5e',ini:'#f59e0b',mlp:'#818cf8',ap:'#fde047',map:'#38bdf8'};
     const SEC_META={lp:'LP • Lebenspunkte',ini:'Ini • Initiative',mlp:'mLP • Mentale LP',ap:'AP • Ausdauerpunkte',map:'mAP • Mentale Ausdauerpunkte',cres:'Benutzerdefinierte Ressource'};
@@ -186,9 +186,9 @@
     const hasTagX=name=>/\(\s*X\s*\)/i.test(String(name||''));
     const fmtTagLabel=(name,x)=>hasTagX(name)?String(name).replace(/\(\s*X\s*\)/i,`(${x??1})`):String(name||'');
     const getTagDesc=(list,name,x)=>{
-      const found=typeof findEqTagDef==='function'?findEqTagDef(name,list):(list||[]).find(t=>t.name.toLowerCase()===String(name||'').toLowerCase());
+      const found=findEqTagDef(name,list);
       const raw=found?.desc||'Keine Beschreibung hinterlegt.';
-      const prev=typeof formatTagW3Preview==='function'?formatTagW3Preview(list,name,x):'';
+      const prev=formatTagW3Preview(list,name,x);
       if(hasTagX(name)&&x!==undefined&&x!=='') return `${fmtTagLabel(name,x)}\n${raw.replace(/\bX\b/g,String(x))}${prev}`;
       return `${name}\n${raw}${prev}`;
     };
@@ -276,9 +276,9 @@
       ATTRS.forEach(a=>{attributes[a.k]={vw:20,pot:0,mod:0,tr:[false,false,false,false,false],trNotes:['','','','',''],trSp:[null,null,null,null,null],trMsp:[null,null,null,null,null]};});
       TABS.forEach(t=>{tabStyles[t.id]=makeStyleSlot();});
       return {
-        version:11,charId:uid(),owner:'',campaignId:'default',cloudPin:'',cloudAutoSync:false,activeTab:'attributes',quickTab:'bestehen',
+        version:11,charId:uid(),owner:'',campaignId:'default',cloudAutoSync:false,activeTab:'attributes',quickTab:'bestehen',
         profile:{name:'',ancestry:'',concept:'',avatar:''},
-        appearance:{dark:true,mode:'global',editScope:'attributes',global:makeStyleSlot(),tabs:tabStyles},
+        appearance:{dark:true,mode:'global',editScope:'attributes',global:makeStyleSlot(),lobby:makeStyleSlot(),tabs:tabStyles},
         attrColors:{...DEF_ATTR_COLS},secColors:{...DEF_SEC_COLS},
         artList:[...DEF_ARTS],subcatList:[...DEF_SUBS],useResList:[...DEF_USERES],customStats:[],
         weaponTagList:JSON.parse(JSON.stringify(DEF_WEAPON_TAGS)),armorTagList:JSON.parse(JSON.stringify(DEF_ARMOR_TAGS)),ammoTagList:[],
@@ -827,14 +827,13 @@
       }
       return list;
     }
-    let CLOUD={serverUrl:'',list:[],loading:false,syncing:false,error:'',lastSyncTs:'',viewingRemote:false,remoteCharId:'',ownBackupJson:null,confirmDelCloudId:null,filterMine:false,currentUser:'',isAdmin:false,showAdminBar:false,userMgmtOpen:false,showPwChange:false,activeCampaignId:'default',campAction:'',newCharOpen:false,newCharName:'',newCharAncestry:'',newCharConcept:'',newCharCampId:'default',registryLoaded:false,diceFeed:[],diceConnected:false,diceToast:true,diceCollapsed:false,confirmClearDice:false,registry:{users:{},claims:{},pins:{},charCampaigns:{},deletedCharIds:[],campaigns:[{id:'default',name:'Ohne Kampagne / Allgemein',allowedUsers:[],gmUsers:[],img:''}],gmUsers:[],lobbyLogo:'',adminHash:'',diceFeed:[],diceClearedAt:0}}, cloudSyncTimer=null, liveDiceES=null, liveDiceBC=null, liveDiceTopicCur='', liveDicePollTimer=null, registryPushInFlight=0, lastRegistryPushMs=0;
+    let CLOUD={serverUrl:'',list:[],loading:false,syncing:false,error:'',lastSyncTs:'',viewingRemote:false,remoteCharId:'',confirmDelCloudId:null,filterMine:false,currentUser:'',isAdmin:false,showAdminBar:false,userMgmtOpen:false,showPwChange:false,activeCampaignId:'default',campAction:'',newCharOpen:false,newCharName:'',newCharAncestry:'',newCharConcept:'',newCharCampId:'default',registryLoaded:false,diceFeed:[],diceConnected:false,diceToast:true,diceCollapsed:false,confirmClearDice:false,registry:{users:{},claims:{},charCampaigns:{},deletedCharIds:[],campaigns:[{id:'default',name:'Ohne Kampagne / Allgemein',allowedUsers:[],gmUsers:[],img:''}],gmUsers:[],lobbyLogo:'',adminHash:'',diceFeed:[],diceClearedAt:0}}, cloudSyncTimer=null, liveDiceES=null, liveDiceBC=null, liveDiceTopicCur='', liveDicePollTimer=null, registryPushInFlight=0, lastRegistryPushMs=0;
     try{
       CLOUD.serverUrl=localStorage.getItem('scherbensturm_cloud_url')||'';
       CLOUD.currentUser=localStorage.getItem('scherbensturm_cloud_user')||'';
       CLOUD.isAdmin=localStorage.getItem('scherbensturm_cloud_admin')==='1';
       CLOUD.diceToast=localStorage.getItem('scherbensturm_dice_toast')!=='0';
       CLOUD.activeCampaignId=localStorage.getItem('scherbensturm_active_campaign')||'default';
-      UI.activeCampaignId=CLOUD.activeCampaignId;
       const locReg=localStorage.getItem('scherbensturm_lobby_registry');
       if(locReg){
         const parsedReg=JSON.parse(locReg)||{};
@@ -859,7 +858,6 @@
     function setActiveCampaign(campId){
       const id=String(campId||'default').trim()||'default';
       CLOUD.activeCampaignId=id;
-      UI.activeCampaignId=id;
       try{localStorage.setItem('scherbensturm_active_campaign',id);}catch(e){}
       updateLobbyLiveDiceDOM();
     }
@@ -922,7 +920,7 @@
     function getCampaignFilteredDiceFeed(campId=getActiveLiveCampaignId()){
       return (CLOUD.diceFeed||[]).filter(entry=>getRollCampaignId(entry)===campId);
     }
-    function renderLobbyLiveDiceHtml(opts={}){
+    function renderLobbyLiveDiceHtml(){
       const activeCampId=getActiveLiveCampaignId();
       const activeCampObj=getCampaigns().find(c=>c.id===activeCampId);
       const feed=getCampaignFilteredDiceFeed(activeCampId);
@@ -934,7 +932,7 @@
         const chMatch=(CLOUD.list||[]).find(c=>c.id===entry.charId);
         const av=chMatch?.avatar||(entry.charId===S.charId?S.profile.avatar:'')||'';
         const res=Array.isArray(entry.res)?entry.res:[];
-        const anyCrit=res.some(x=>x.crit), allOk=res.length>0&&res.every(x=>x.ok), anyOk=res.some(x=>x.ok);
+        const anyCrit=res.some(x=>x.crit), anyOk=res.some(x=>x.ok);
         const bdrCls=entry.isHz?'border-amber-400/60 bg-amber-500/10':anyCrit?(isFirst?'crit-glow border-amber-400 bg-amber-500/15':'border-amber-400/70 bg-amber-500/10'):anyOk?'border-emerald-500/50 bg-emerald-500/10':'border-rose-500/50 bg-rose-500/10';
         let resHtml='';
         if(entry.isHz){
@@ -1021,8 +1019,8 @@
     function updateLobbyLiveDiceDOM(){
       const el=$('lobbyLiveDiceMount');
       if(el) el.innerHTML=renderLobbyLiveDiceHtml();
-      if(typeof renderLiveDice==='function' && LD.open) renderLiveDice();
-      if(typeof renderHeader==='function') renderHeader();
+      if(LD.open) renderLiveDice();
+      renderHeader();
     }
     function handleIncomingDicePayload(rawObj,isRealtimePush=false){
       if(!rawObj||typeof rawObj!=='object') return;
@@ -1200,7 +1198,7 @@
         if(used.some(([u1,u2])=>s<u2&&e>u1)) continue;
         const rawScope=String(m[1]||m[2]||'').toLowerCase();
         const isHit=/treffer|angriff|attacke/.test(rawScope);
-        const cv=typeof parseAdvNumVal==='function'?parseAdvNumVal(m[3]||m[4]):parseInt(m[3]||m[4],10);
+        const cv=parseAdvNumVal(m[3]||m[4]);
         if(cv){
           used.push([s,e]);
           out.push({raw:m[0].trim(),val:cv,name:isHit?'Kritische Ziffer (Trefferwürfe)':'Kritische Ziffer (Alle Tests)',idx:s,len:m[0].length});
@@ -1895,7 +1893,7 @@
     function mergeLoaded(raw){
       if(!raw||typeof raw!=='object') return;
       const def=defaultState(), cid=String(raw.charId||def.charId), restoredTab=getSavedTabForChar(cid,raw.activeTab);
-      const rawCampId=String(raw.campaignId||raw._summary?.campaignId||CLOUD.registry?.charCampaigns?.[cid]||'default').trim()||'default'; S={...def,...raw,version:11,charId:cid,activeTab:restoredTab,owner:String(raw.owner||''),campaignId:rawCampId,cloudPin:'',cloudAutoSync:Boolean(raw.cloudAutoSync),profile:{...def.profile,...(raw.profile||{})},secondary:{...def.secondary,...(raw.secondary||{})},customRes:{...def.customRes,...(raw.customRes||{})},statusCollapsed:Boolean(raw.statusCollapsed),statusEffects:normStatusEffects(raw.statusEffects),inspiration:Math.max(0,toInt(raw.inspiration,0)),inspirationActive:Boolean(raw.inspirationActive),thresholds:{...def.thresholds,...(raw.thresholds||{})},combatNotes:{...def.combatNotes,...(raw.combatNotes||{})},progression:{...def.progression,...(raw.progression||{})},bio:{...def.bio,...(raw.bio||{})},equipNotes:raw.equipNotes??raw.equipFreeNotes??''};
+      const rawCampId=String(raw.campaignId||raw._summary?.campaignId||CLOUD.registry?.charCampaigns?.[cid]||'default').trim()||'default'; S={...def,...raw,version:11,charId:cid,activeTab:restoredTab,owner:String(raw.owner||''),campaignId:rawCampId,cloudAutoSync:Boolean(raw.cloudAutoSync),profile:{...def.profile,...(raw.profile||{})},secondary:{...def.secondary,...(raw.secondary||{})},customRes:{...def.customRes,...(raw.customRes||{})},statusCollapsed:Boolean(raw.statusCollapsed),statusEffects:normStatusEffects(raw.statusEffects),inspiration:Math.max(0,toInt(raw.inspiration,0)),inspirationActive:Boolean(raw.inspirationActive),thresholds:{...def.thresholds,...(raw.thresholds||{})},combatNotes:{...def.combatNotes,...(raw.combatNotes||{})},progression:{...def.progression,...(raw.progression||{})},bio:{...def.bio,...(raw.bio||{})},equipNotes:raw.equipNotes??raw.equipFreeNotes??''};
       if(!isHex(S.customRes.color)) S.customRes.color='#c084fc';
       S.secondary.lpRegenOvr=S.secondary.lpRegenOvr!==undefined&&S.secondary.lpRegenOvr!==null&&String(S.secondary.lpRegenOvr).trim()!==''?String(Math.max(0,toInt(S.secondary.lpRegenOvr,5))):'';
       S.secondary.mlpRegenOvr=S.secondary.mlpRegenOvr!==undefined&&S.secondary.mlpRegenOvr!==null&&String(S.secondary.mlpRegenOvr).trim()!==''?String(Math.max(0,toInt(S.secondary.mlpRegenOvr,5))):'';
@@ -1930,7 +1928,8 @@
       S.customPalettes=[...mergedPalsMap.values()];
       const isValidPal=k=>Boolean(PALETTES[k]||S.customPalettes.some(cp=>cp.id===k));
       const ap=raw.appearance||{}, normSlot=s=>({...makeStyleSlot(),...(s||{}),palette:isValidPal(s?.palette)?s.palette:'azur',customColors:s?.customColors&&isHex(s.customColors.bg)?{...s.customColors}:null});
-      S.appearance={dark:ap.dark!==undefined?Boolean(ap.dark):true,mode:ap.mode==='perTab'?'perTab':'global',editScope:TABS.some(t=>t.id===ap.editScope)?ap.editScope:'attributes',global:normSlot(ap.global),tabs:{}};
+      const savedLobbyAp=(()=>{try{const u=String(CLOUD.currentUser||'').trim().toLowerCase();return JSON.parse(localStorage.getItem(u?`scherbensturm_lobby_style_${u}`:'scherbensturm_lobby_style')||localStorage.getItem('scherbensturm_lobby_style')||'null');}catch(e){return null;}})();
+      S.appearance={dark:ap.dark!==undefined?Boolean(ap.dark):true,mode:ap.mode==='perTab'?'perTab':'global',editScope:(ap.editScope==='lobby'||TABS.some(t=>t.id===ap.editScope))?ap.editScope:'attributes',global:normSlot(ap.global),lobby:normSlot(savedLobbyAp||ap.lobby),tabs:{}};
       TABS.forEach(t=>{S.appearance.tabs[t.id]=normSlot(ap.tabs?.[t.id]);});
       ATTRS.forEach(a=>{
         const inc=raw.attributes?.[a.k]||{}, hi=Array.isArray(inc.tr)?inc.tr.lastIndexOf(true):-1;
@@ -1980,7 +1979,7 @@
       S.chrTrExpanded=raw.chrTrExpanded&&typeof raw.chrTrExpanded==='object'?{...raw.chrTrExpanded}:{};
       const rawOrd=Array.isArray(raw.equipSecOrder)?raw.equipSecOrder.filter(k=>DEF_EQ_SEC_ORDER.includes(k)):[];
       S.equipSecOrder=[...new Set([...rawOrd,...DEF_EQ_SEC_ORDER])];
-      const defem=makeEqSecMeta(); S.equipSecMeta={};
+      S.equipSecMeta={};
       DEF_EQ_SEC_ORDER.forEach(k=>{const im=raw.equipSecMeta?.[k]||{};S.equipSecMeta[k]={collapsed:Boolean(im.collapsed),color:isHex(im.color)?im.color:'',bgColor:isHex(im.bgColor)?im.bgColor:''};});
       const normTags=arr=>Array.isArray(arr)?arr.filter(t=>t&&(t.name||typeof t==='string')).map(t=>typeof t==='string'?{name:t,x:'1'}:{name:String(t.name),x:String(t.x??'1')}):[];
       S.weapons=Array.isArray(raw.weapons)?raw.weapons.map(w=>{const wTags=normTags(w?.tags),hasMas=isWeaponMassiv({tags:wTags}),wType=w?.wType==='ranged'?'ranged':'melee',wAttr=hasMas?'ST':(ATTRS.some(a=>a.k===w?.wAttr)?w.wAttr:'PR'),skillId=(w?.skillId&&S.skills.some(s=>s.id===w.skillId))?String(w.skillId):'';return {...makeWeapon(wType),...(w||{}),id:w?.id||uid(),color:isHex(w?.color)?w.color:'',bgColor:isHex(w?.bgColor)?w.bgColor:'',collapsed:Boolean(w?.collapsed),img:String(w?.img||''),wType,wAttr,skillId,grip:w?.grip==='1h'||w?.grip==='2h'?w.grip:'',ammoId:String(w?.ammoId||''),dmgCut:String(w?.dmgCut??'0'),dmgPierce:String(w?.dmgPierce??'0'),dmgImpact:String(w?.dmgImpact??'0'),tags:wTags,notes:String(w?.notes||'')};}):def.weapons;
@@ -2031,21 +2030,12 @@
       const raw=String(regC!==undefined&&regC!==''?regC:(ch?.campaignId||(S.charId===id?S.campaignId:'')||'default')).trim()||'default';
       return validIds.has(raw)?raw:'default';
     };
-    const canManageChar=(id,typedPin='')=>{
+    const canManageChar=id=>{
       if(CLOUD.isAdmin) return true;
-      if(typedPin&&CLOUD.registry.adminHash&&simpleHash(typedPin)===CLOUD.registry.adminHash){CLOUD.isAdmin=true;try{localStorage.setItem('scherbensturm_cloud_admin','1');}catch(e){}return true;}
       const own=getCharOwner(id);
       if(own&&CLOUD.currentUser&&own.toLowerCase()===CLOUD.currentUser.toLowerCase()) return true;
       const charCampId=getCharCampaignId(id);
-      if(charCampId&&charCampId!=='default'&&canManageCampaign(charCampId,CLOUD.currentUser)) return true;
-      return false;
-    };
-    const resolveEffectivePin=(id,typedPin='')=>{
-      if(typedPin&&CLOUD.registry.adminHash&&simpleHash(typedPin)===CLOUD.registry.adminHash){
-        CLOUD.isAdmin=true; try{localStorage.setItem('scherbensturm_cloud_admin','1');}catch(e){}
-      }
-      if(canManageChar(id,typedPin)) return CLOUD.registry.pins?.[id]||typedPin||'';
-      return typedPin;
+      return Boolean(charCampId&&charCampId!=='default'&&canManageCampaign(charCampId,CLOUD.currentUser));
     };
     async function syncCloudRegistry(push=false){
       if(!push&&(registryPushInFlight>0||(Date.now()-lastRegistryPushMs<2500))) return;
@@ -2056,7 +2046,6 @@
       const localSnap=push?JSON.parse(JSON.stringify({
         users:CLOUD.registry.users||{},
         claims:CLOUD.registry.claims||{},
-        pins:CLOUD.registry.pins||{},
         charCampaigns:CLOUD.registry.charCampaigns||{},
         deletedCharIds:Array.isArray(CLOUD.registry.deletedCharIds)?[...new Set(CLOUD.registry.deletedCharIds.map(x=>String(x||'').trim()).filter(Boolean))]:[],
         campaigns:normalizeCampaigns(CLOUD.registry.campaigns),
@@ -2093,7 +2082,6 @@
               if(!validCampIds.has(mergedCharCampaigns[cid])) mergedCharCampaigns[cid]='default';
             });
             const srcUsers=localSnap?localSnap.users:(CLOUD.registry.users||{});
-            const srcPins=localSnap?localSnap.pins:(CLOUD.registry.pins||{});
             const srcDelIds=localSnap?(localSnap.deletedCharIds||[]):(Array.isArray(CLOUD.registry.deletedCharIds)?CLOUD.registry.deletedCharIds:[]);
             const remDelIds=Array.isArray(rem.registry.deletedCharIds)?rem.registry.deletedCharIds:[];
             const mergedDeletedCharIds=[...new Set([...remDelIds,...srcDelIds].map(x=>String(x||'').trim()).filter(Boolean))];
@@ -2104,7 +2092,6 @@
             CLOUD.registry={
               users:mergedUsers,
               claims:mergedClaims,
-              pins:push?{...(rem.registry.pins||{}),...srcPins}:{...srcPins,...(rem.registry.pins||{})},
               charCampaigns:mergedCharCampaigns,
               deletedCharIds:mergedDeletedCharIds,
               campaigns:mergedCampaigns,
@@ -2237,8 +2224,7 @@
         let srcData=null;
         if(UI.sheetLoaded&&S.charId===charId&&!CLOUD.viewingRemote){srcData=JSON.parse(JSON.stringify(S));}
         else{
-          const effPin=String(CLOUD.registry.pins?.[charId]||'').trim();
-          const res=await fetch(`${getCloudEndpoint()}?id=${encodeURIComponent(charId)}${effPin?`&pin=${encodeURIComponent(effPin)}`:''}`,{headers:{'Accept':'application/json'}});
+          const res=await fetch(`${getCloudEndpoint()}?id=${encodeURIComponent(charId)}`,{headers:{'Accept':'application/json'}});
           if(res.ok) srcData=await res.json();
         }
         if(!srcData||srcData.error){toast('⚠️ Charakterdaten für Kopie konnten nicht geladen werden.');return;}
@@ -2246,7 +2232,6 @@
         srcData.charId=newId;
         srcData.owner=newOwner;
         srcData.campaignId='default';
-        srcData.cloudPin='';
         if(!srcData.profile) srcData.profile={};
         srcData.profile.name=`${String(srcData.profile.name||'Charakter').trim()} (Kopie)`;
         if(srcData._summary){srcData._summary.owner=newOwner;srcData._summary.campaignId='default';srcData._summary.updatedAt=stamp();}
@@ -2291,11 +2276,6 @@
         if(UI.inLobby){renderHeader();renderMain();}
       }
     }
-    const isPinRejectError=(res,data)=>{
-      if(res&&(res.status===401||res.status===403)) return true;
-      const errTxt=String(data?.error||'');
-      return /schutz-pin|pin/i.test(errTxt);
-    };
     async function pushToCloud(silent=false){
       if(CLOUD.viewingRemote){if(!silent)toast('Im Ansichtsmodus gesperrt – übernimm den Bogen zuerst oder kehre zu deinem Charakter zurück.');return;}
       if(!S.charId) S.charId=uid();
@@ -2313,45 +2293,20 @@
       const existingCamp=CLOUD.registry.charCampaigns[S.charId]||S.campaignId||'default';
       S.campaignId=validCampIds.has(existingCamp)?existingCamp:'default';
       CLOUD.registry.charCampaigns[S.charId]=S.campaignId;
-      S.cloudPin='';
       CLOUD.syncing=true; if(UI.inLobby){renderHeader();renderMain();}
       try{
-        const oldPin=String(CLOUD.registry.pins?.[S.charId]||'').trim();
         if(S.owner) CLOUD.registry.claims[S.charId]=S.owner;
         await syncCloudRegistry(true);
         const M=calcActiveMods();
-        const postUrl=`${getCloudEndpoint()}${oldPin?`?pin=${encodeURIComponent(oldPin)}`:''}`;
-        const payload={...S,campaignId:S.campaignId,cloudPin:'',_AdminOverride:CLOUD.isAdmin,_summary:{owner:S.owner||'',campaignId:S.campaignId,lpMax:getLpMax(M),mlpMax:getMlpMax(M),apMax:getApMax(M),mapMax:getMapMax(M),ini:getIniTot(M),updatedAt:stamp()}};
-        let res=await fetch(postUrl,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
-        let data=await res.json().catch(()=>({}));
-        if((!res.ok||data.error)&&isPinRejectError(res,data)){
-          const oldId=S.charId;
-          if(!Array.isArray(CLOUD.registry.deletedCharIds)) CLOUD.registry.deletedCharIds=[];
-          if(oldId&&!CLOUD.registry.deletedCharIds.includes(oldId)) CLOUD.registry.deletedCharIds.push(oldId);
-          fetch(`${getCloudEndpoint()}?id=${encodeURIComponent(oldId)}${oldPin?`&pin=${encodeURIComponent(oldPin)}`:''}`,{method:'DELETE'}).catch(()=>{});
-          const newId=uid();
-          S.charId=newId;
-          S.cloudPin='';
-          if(S.owner) CLOUD.registry.claims[newId]=S.owner;
-          CLOUD.registry.charCampaigns[newId]=S.campaignId||'default';
-          delete CLOUD.registry.claims[oldId];
-          delete CLOUD.registry.pins[oldId];
-          delete CLOUD.registry.charCampaigns[oldId];
-          CLOUD.list=(CLOUD.list||[]).filter(c=>c&&c.id!==oldId);
-          saveLastActiveTab(newId,S.activeTab);
-          try{localStorage.setItem(STORE_KEY,JSON.stringify(S));}catch(e){}
-          await syncCloudRegistry(true);
-          const migratedPayload={...payload,charId:newId,cloudPin:''};
-          res=await fetch(getCloudEndpoint(),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(migratedPayload)});
-          data=await res.json().catch(()=>({}));
-        }
+        const payload={...S,campaignId:S.campaignId,_AdminOverride:CLOUD.isAdmin,_summary:{owner:S.owner||'',campaignId:S.campaignId,lpMax:getLpMax(M),mlpMax:getMlpMax(M),apMax:getApMax(M),mapMax:getMapMax(M),ini:getIniTot(M),updatedAt:stamp()}};
+        const res=await fetch(getCloudEndpoint(),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+        const data=await res.json().catch(()=>({}));
         if(!res.ok||data.error) throw new Error(data.error||`HTTP ${res.status}`);
-        if(CLOUD.registry.pins?.[S.charId]){delete CLOUD.registry.pins[S.charId];saveRegistryLocal();syncCloudRegistry(true);}
         CLOUD.lastSyncTs=stamp(); CLOUD.error='';
         if(!silent){toast(`☁️ „${S.profile.name||'Charakter'}“ in der Gruppen-Lobby gespeichert!`);await fetchLobbyList(true);}
       }catch(err){
         CLOUD.error=String(err.message||'Synchronisation fehlgeschlagen.');
-        if(!silent&&!/schutz-pin/i.test(CLOUD.error)) toast(`⚠️ Cloud-Fehler: ${CLOUD.error}`);
+        if(!silent) toast(`⚠️ Cloud-Fehler: ${CLOUD.error}`);
       }finally{
         CLOUD.syncing=false;
         renderHeader();
@@ -2360,12 +2315,10 @@
     }
     async function loadCloudCharacter(id,asViewOnly=true,autoFallbackView=false){
       try{
-        const effPin=String(CLOUD.registry.pins?.[id]||'').trim();
-        const url=`${getCloudEndpoint()}?id=${encodeURIComponent(id)}${effPin?`&pin=${encodeURIComponent(effPin)}`:''}`;
+        const url=`${getCloudEndpoint()}?id=${encodeURIComponent(id)}`;
         const res=await fetch(url,{headers:{'Accept':'application/json'}});
         const data=await res.json();
         if(!res.ok||data.error){if(!autoFallbackView)toast(`⚠️ ${data.error||'Charakter konnte nicht geladen werden.'}`);return;}
-        if(data.cloudPin&&!CLOUD.registry.pins[id]){CLOUD.registry.pins[id]=data.cloudPin;saveRegistryLocal();}
         const owner=getCharOwner(id)||String(data.owner||data._summary?.owner||'').trim();
         const charCampId=getCharCampaignId(id);
         const isCampGM=charCampId&&charCampId!=='default'&&canManageCampaign(charCampId,CLOUD.currentUser);
@@ -2375,7 +2328,6 @@
           asViewOnly=true;
         }
         if(asViewOnly){
-          CLOUD.ownBackupJson=null;
           CLOUD.viewingRemote=true; CLOUD.remoteCharId=id;
           mergeLoaded(data);
           UI.inLobby=false; UI.sheetLoaded=true; UI.modal=null; renderAll(false);
@@ -2385,9 +2337,8 @@
             toast(`🔒 Dieser Charakter gehört „${owner}“. Bitte als „${owner}“ anmelden.`);
             return;
           }
-          CLOUD.viewingRemote=false; CLOUD.remoteCharId=''; CLOUD.ownBackupJson=null;
+          CLOUD.viewingRemote=false; CLOUD.remoteCharId='';
           mergeLoaded(data);
-          S.cloudPin='';
           S.activeTab=getSavedTabForChar(S.charId,data.activeTab);
           saveLastActiveTab(S.charId,S.activeTab);
           if(owner&&!S.owner) S.owner=owner;
@@ -2406,7 +2357,7 @@
       const allowedCamps=getCreatableCampaigns(CLOUD.currentUser);
       const reqCamp=String(opts.campaignId??CLOUD.newCharCampId??CLOUD.activeCampaignId??'default').trim()||'default';
       const targetCampId=allowedCamps.some(c=>c.id===reqCamp)?reqCamp:'default';
-      CLOUD.viewingRemote=false; CLOUD.remoteCharId=''; CLOUD.ownBackupJson=null;
+      CLOUD.viewingRemote=false; CLOUD.remoteCharId='';
       S=defaultState();
       S.profile.name=String(opts.name??CLOUD.newCharName??'').trim();
       S.profile.ancestry=String(opts.ancestry??CLOUD.newCharAncestry??'').trim();
@@ -2428,50 +2379,14 @@
       saveRegistryLocal();
       if(UI.inLobby){renderHeader();renderMain();}
       try{
-        const oldPin=String(CLOUD.registry.pins?.[id]||'').trim();
-        const url=`${getCloudEndpoint()}?id=${encodeURIComponent(id)}${oldPin?`&pin=${encodeURIComponent(oldPin)}`:''}`;
+        const url=`${getCloudEndpoint()}?id=${encodeURIComponent(id)}`;
         const res=await fetch(url,{headers:{'Accept':'application/json'}});
         if(res.ok){
           const data=await res.json();
           if(data&&!data.error){
             mutatorFn(data);
             if(CLOUD.isAdmin) data._AdminOverride=true;
-            data.cloudPin='';
-            const postUrl=`${getCloudEndpoint()}${oldPin?`?pin=${encodeURIComponent(oldPin)}`:''}`;
-            let pRes=await fetch(postUrl,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});
-            let pData=await pRes.json().catch(()=>({}));
-            if((!pRes.ok||pData.error)&&isPinRejectError(pRes,pData)){
-              const oldId=id;
-              if(!Array.isArray(CLOUD.registry.deletedCharIds)) CLOUD.registry.deletedCharIds=[];
-              if(oldId&&!CLOUD.registry.deletedCharIds.includes(oldId)) CLOUD.registry.deletedCharIds.push(oldId);
-              fetch(`${getCloudEndpoint()}?id=${encodeURIComponent(oldId)}${oldPin?`&pin=${encodeURIComponent(oldPin)}`:''}`,{method:'DELETE'}).catch(()=>{});
-              const newId=uid();
-              const effOwner=String(CLOUD.registry.claims?.[oldId]??data.owner??data._summary?.owner??'').trim();
-              const effCamp=String(CLOUD.registry.charCampaigns?.[oldId]??data.campaignId??data._summary?.campaignId??'default').trim()||'default';
-              data.charId=newId;
-              data.cloudPin='';
-              data.owner=effOwner;
-              data.campaignId=effCamp;
-              if(data._summary){data._summary.owner=effOwner;data._summary.campaignId=effCamp;data._summary.updatedAt=stamp();}
-              if(S.charId===oldId){
-                S.charId=newId;
-                S.cloudPin='';
-                S.owner=effOwner;
-                S.campaignId=effCamp;
-                saveLastActiveTab(newId,S.activeTab);
-                try{localStorage.setItem(STORE_KEY,JSON.stringify(S));}catch(e){}
-              }
-              if(effOwner) CLOUD.registry.claims[newId]=effOwner;
-              CLOUD.registry.charCampaigns[newId]=effCamp;
-              delete CLOUD.registry.claims[oldId];
-              delete CLOUD.registry.pins[oldId];
-              delete CLOUD.registry.charCampaigns[oldId];
-              CLOUD.list=(CLOUD.list||[]).filter(c=>c&&c.id!==oldId);
-              await syncCloudRegistry(true);
-              await fetch(getCloudEndpoint(),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});
-            }else if(pRes.ok&&!pData.error&&CLOUD.registry.pins?.[id]){
-              delete CLOUD.registry.pins[id];
-            }
+            await fetch(getCloudEndpoint(),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});
           }
         }
         await syncCloudRegistry(true);
@@ -2487,23 +2402,17 @@
     async function deleteCloudCharacter(id){
       try{
         const owner=getCharOwner(id);
-        const allowed=canManageChar(id,'');
+        const allowed=canManageChar(id);
         if(owner&&!allowed){
           toast(`🔒 Nur „${owner}“, der Kampagnen-Spielleiter oder der Admin kann diesen Charakter löschen.`);
           return;
         }
-        let oldPin=String(CLOUD.registry.pins?.[id]||'').trim();
-        if(!oldPin){
-          const gRes=await fetch(`${getCloudEndpoint()}?id=${encodeURIComponent(id)}`,{headers:{'Accept':'application/json'}}).catch(()=>null);
-          if(gRes&&gRes.ok){const gd=await gRes.json().catch(()=>({}));if(gd?.cloudPin)oldPin=String(gd.cloudPin).trim();}
-        }
-        const url=`${getCloudEndpoint()}?id=${encodeURIComponent(id)}${oldPin?`&pin=${encodeURIComponent(oldPin)}`:''}`;
+        const url=`${getCloudEndpoint()}?id=${encodeURIComponent(id)}`;
         const res=await fetch(url,{method:'DELETE'});
         await res.json().catch(()=>({}));
         if(!Array.isArray(CLOUD.registry.deletedCharIds)) CLOUD.registry.deletedCharIds=[];
         if(id&&!CLOUD.registry.deletedCharIds.includes(id)) CLOUD.registry.deletedCharIds.push(id);
         delete CLOUD.registry.claims[id];
-        delete CLOUD.registry.pins[id];
         if(CLOUD.registry.charCampaigns) delete CLOUD.registry.charCampaigns[id];
         CLOUD.list=(CLOUD.list||[]).filter(c=>c&&c.id!==id);
         await syncCloudRegistry(true);
@@ -2756,8 +2665,13 @@
       applyDiceAutoAdvDis(false);
     }
 
-    const getEditStyleSlot=()=>S.appearance.mode==='perTab'?(S.appearance.tabs[S.appearance.editScope]||(S.appearance.tabs[S.appearance.editScope]=makeStyleSlot())):S.appearance.global;
-    const getDisplayStyleSlot=()=>S.appearance.mode==='perTab'?(S.appearance.tabs[UI.modal==='settings'?S.appearance.editScope:S.activeTab]||S.appearance.global):S.appearance.global;
+    const getLobbyStyleKey=()=>{const u=String(CLOUD.currentUser||'').trim().toLowerCase();return u?`scherbensturm_lobby_style_${u}`:'scherbensturm_lobby_style';};
+    const getLobbyStyleSlot=()=>(S.appearance.lobby||(S.appearance.lobby=makeStyleSlot()));
+    const saveLobbyStyleLocal=()=>{try{const json=JSON.stringify(getLobbyStyleSlot());localStorage.setItem(getLobbyStyleKey(),json);localStorage.setItem('scherbensturm_lobby_style',json);}catch(e){}};
+    const loadLobbyStyleForCurrentUser=()=>{try{const raw=JSON.parse(localStorage.getItem(getLobbyStyleKey())||'null');if(raw&&typeof raw==='object'){const isValidPal=k=>Boolean(PALETTES[k]||(S.customPalettes||[]).some(cp=>cp.id===k));S.appearance.lobby={...makeStyleSlot(),...raw,palette:isValidPal(raw.palette)?raw.palette:'azur',customColors:raw.customColors&&isHex(raw.customColors.bg)?{...raw.customColors}:null};}}catch(e){}};
+    const isEditingLobbyStyle=()=>Boolean(UI.modal==='settings'&&(UI.inLobby||S.appearance.editScope==='lobby'));
+    const getEditStyleSlot=()=>(UI.inLobby||S.appearance.editScope==='lobby')?getLobbyStyleSlot():(S.appearance.mode==='perTab'?(S.appearance.tabs[S.appearance.editScope]||(S.appearance.tabs[S.appearance.editScope]=makeStyleSlot())):S.appearance.global);
+    const getDisplayStyleSlot=()=>{if(isEditingLobbyStyle()||UI.inLobby)return getLobbyStyleSlot();return S.appearance.mode==='perTab'?(S.appearance.tabs[UI.modal==='settings'?S.appearance.editScope:S.activeTab]||S.appearance.global):S.appearance.global;};
 
     function resolvePaletteColors(sc){
       if(sc?.customColors&&isHex(sc.customColors.bg)){
@@ -3228,7 +3142,7 @@
       <button type="button" data-action="toggle-apply-mods" data-kind="${kind}" data-id="${it.id}" data-tip="Verrechnet alle Werte- &amp; Vor-/Nachteils-Effekte dieser Karte live mit Bogen und Würfelassistent" class="btn py-1 px-2.5 text-[11px] ${it.applyMods?'btn-ok':'opacity-80'}">${it.applyMods?'✓ Auf Bogen aktiv':'⚡ Auf Bogen anwenden'}</button>`;
     }
 
-    function renderPwCard(kind,it,badgeLbl,idx,listLen){
+    function renderPwCard(kind,it,idx,listLen){
       const isAug=kind==='augment', c=calcPwCost(it), gi=getGroupMspInfo(kind,it), colStyle=it.color?`style="color:${esc(it.color)}"`:'', winStyle=cardColorStyle(it);
       const pOpts=isAug?`<option value="" ${!it.parentPowerId?'selected':''}>— Freies Augment —</option>`+S.powers.map(p=>{const cnt=getLinkedAugs(p.id).length,full=cnt>=3&&it.parentPowerId!==p.id;return `<option value="${p.id}" ${it.parentPowerId===p.id?'selected':''} ${full?'disabled':''}>${esc(p.name||'Unbenannte Kraft')} (${cnt}/3)</option>`;}).join(''):'';
       const secOpts=!isAug&&S.powerSections.length?`<select data-pw-sec-sel="${it.id}" data-tip="Sektion / Ordner zuordnen" class="inp py-1 px-2 text-xs font-semibold max-w-[160px]"><option value="" ${!it.sectionId?'selected':''}>📁 Ohne Sektion</option>${S.powerSections.map(s=>`<option value="${s.id}" ${it.sectionId===s.id?'selected':''}>📁 ${esc(s.name||'Sektion')}</option>`).join('')}</select>`:'';
@@ -3353,9 +3267,9 @@
         const linked=fAct?allLinked.filter(matchesPwItemFilter):allLinked;
         if(!pMatches&&!linked.length) return '';
         if(!pMatches){
-          return `<div data-pw-group="${p.id}" class="space-y-2.5">${linked.map((ag,ai)=>renderPwCard('augment',ag,'',ai,linked.length)).join('')}</div>`;
+          return `<div data-pw-group="${p.id}" class="space-y-2.5">${linked.map((ag,ai)=>renderPwCard('augment',ag,ai,linked.length)).join('')}</div>`;
         }
-        return `<div data-pw-group="${p.id}" class="space-y-2.5">${renderPwCard('power',p,'',i,pwArr.length)}${linked.length?`<div class="pl-4 sm:pl-7 border-l-2 border-amber-500/45 space-y-2.5">${linked.map((ag,ai)=>renderPwCard('augment',ag,'',ai,linked.length)).join('')}</div>`:''}</div>`;
+        return `<div data-pw-group="${p.id}" class="space-y-2.5">${renderPwCard('power',p,i,pwArr.length)}${linked.length?`<div class="pl-4 sm:pl-7 border-l-2 border-amber-500/45 space-y-2.5">${linked.map((ag,ai)=>renderPwCard('augment',ag,ai,linked.length)).join('')}</div>`:''}</div>`;
       }).filter(Boolean).join('');
     }
 
@@ -3459,7 +3373,7 @@
       ${fAct&&totalMatchedCnt===0?`<div class="card text-center py-8 space-y-2 text-xs t-mut"><div class="font-extrabold text-sm text-acc">Keine Kräfte oder Augmente mit Überschneidung zum gewählten Filter gefunden.</div><div>Passe die Filterauswahl oben an oder setze den Filter zurück.</div><div><button type="button" data-action="reset-pw-filter" class="btn btn-pri py-1 px-3 text-xs mt-1">↺ Filter zurücksetzen</button></div></div>`:''}
       ${rootSecs.length?`<div class="space-y-5">${rootSecs.map((sec,sIdx)=>renderPwSection(sec,sIdx,rootSecs.length,0)).join('')}</div>`:''}
       ${unsecPowers.length?`<div data-pw-sec="" class="space-y-5 ${rootSecs.length?'pt-2':''}">${S.powerSections.length?`<div class="flex items-center justify-between px-1"><h3 class="text-sm font-extrabold t-mut">Kräfte ohne Sektion (${fAct?`${unsecPowers.length}/${allUnsecPowers.length}`:unsecPowers.length})</h3><span class="text-[11px] t-mut">Hierher ziehen zum Herauslösen aus einer Sektion</span></div>`:''}${renderPwGroupList(unsecPowers)}</div>`:(S.powerSections.length&&S.powers.length&&!fAct?`<div data-pw-sec="" class="subcard border-dashed text-center py-3 text-xs t-mut">Hierher ziehen, um eine Kraft aus einer Sektion herauszulösen</div>`:'')}
-      ${unlinked.length?`<section class="space-y-3 pt-2"><h3 class="text-sm font-extrabold text-amber-400 px-1">Ungebundene Augmente (${fAct?`${unlinked.length}/${allUnlinked.length}`:unlinked.length})</h3>${unlinked.map((ag,ai)=>renderPwCard('augment',ag,'',ai,unlinked.length)).join('')}</section>`:''}`;
+      ${unlinked.length?`<section class="space-y-3 pt-2"><h3 class="text-sm font-extrabold text-amber-400 px-1">Ungebundene Augmente (${fAct?`${unlinked.length}/${allUnlinked.length}`:unlinked.length})</h3>${unlinked.map((ag,ai)=>renderPwCard('augment',ag,ai,unlinked.length)).join('')}</section>`:''}`;
     }
 
     function buildPwCatPillsHtml(){
@@ -3629,7 +3543,7 @@
     }
 
     function renderWeaponRollBtns(w,wm,compact=false){
-      const M=calcActiveMods(), wRaw=String(w.name||'').trim()||(w.wType==='ranged'?'Fernkampfwaffe':'Nahkampfwaffe'), wLbl=esc(wRaw);
+      const M=calcActiveMods(), wRaw=String(w.name||'').trim()||(w.wType==='ranged'?'Fernkampfwaffe':'Nahkampfwaffe');
       const poolBreak=`${wm.attrKey} ${wm.attrVal}${wm.sk?` ${fmtSign(wm.skBonus)} (${wm.sk.name})`:' + 0 (ohne Fertigkeit)'} = ${wm.pool}`;
       const wTip=cat=>{const ad=getAdvDisForContext({weaponId:w.id,wRollCat:cat,skillId:wm.sk?.id||null,attrKey:wm.attrKey},M),al=fmtAdvSrcLines(ad.src),cl=(ad.critSrc||[]).map(c=>`• ${c.srcName}: Kritische Ziffer +${c.val}`).join('\n'),sl=(ad.sitOptions||[]).map(s=>`• [Situativ] ${s.sitLabel}: ${s.reduceDis?'-'+s.reduceDis+'N':s.adv?'+'+s.adv+'V':'+'+s.dis+'N'}${s.counterNote?' ('+s.counterNote+')':''}`).join('\n');return esc(`${cat} mit ${wRaw} starten\nPool: ${poolBreak}${cat==='Blocken'&&wm.hasBlock?'\n✓ Tag Blockfähig aktiv':''}${al?'\n'+al:''}${cl?'\n'+cl:''}${sl?'\n'+sl:''}`);};
       return `<div class="inline-flex flex-wrap items-center gap-1.5 tabular shrink-0">
@@ -3974,9 +3888,8 @@
       });
     }
     function tplLobbyScreen(){
-      const P=calcProg(), myId=CLOUD.viewingRemote?(JSON.parse(CLOUD.ownBackupJson||'{}').charId||''):S.charId;
+      const myId=CLOUD.viewingRemote?'':S.charId;
       const baseOrig=window.location.origin&&window.location.origin!=='null'?`${window.location.origin}${window.location.pathname}`:'';
-      const shareUrl=baseOrig?`${baseOrig}?char=${encodeURIComponent(S.charId||'')}`:'';
       const lobbyUrl=baseOrig?`${baseOrig}?lobby=1`:'?lobby=1';
       const regUsers=Object.keys(CLOUD.registry.users||{}).sort((a,b)=>a.localeCompare(b,'de'));
       const allCampaigns=getCampaigns();
@@ -4003,8 +3916,6 @@
       const creatableCamps=getCreatableCampaigns(CLOUD.currentUser);
       const hasSpecificCamp=creatableCamps.some(c=>c.id!=='default');
       const selNewCampId=creatableCamps.some(c=>c.id===CLOUD.newCharCampId)?CLOUD.newCharCampId:(creatableCamps.some(c=>c.id===activeCampId)?activeCampId:'default');
-      const myCurOwner=getCharOwner(S.charId)||S.owner||'';
-      const myCurCampObj=allCampaigns.find(c=>c.id===getCharCampaignId(S.charId))||allCampaigns[0];
 
       return `<div class="space-y-6">
         <!-- Sektion 1: Account- & Willkommens-Zentrale -->
@@ -4395,7 +4306,7 @@
 
     function renderDice(){
       const p=$('diceMount'), bd=$('diceBackdrop'), xl=window.innerWidth>=1280;
-      if(!D.open){p.className='hidden';bd.classList.add('hidden');if(typeof renderLiveDice==='function'&&LD.open)renderLiveDice();return;}
+      if(!D.open){p.className='hidden';bd.classList.add('hidden');if(LD.open)renderLiveDice();return;}
       if(D.docked&&xl&&!UI.modal){bd.classList.add('hidden');p.className='z-20 w-full xl:w-[440px] shrink-0 sticky top-36 max-h-[calc(100vh-5rem)] xl:max-h-[calc(100vh-9.5rem)] overflow-y-auto card p-0 shadow-xl';}
       else{bd.classList.toggle('hidden',Boolean(UI.modal));p.className='fixed right-3 sm:right-5 top-3 sm:top-5 z-[80] w-[calc(100vw-1.5rem)] max-w-lg card p-0 overflow-hidden shadow-2xl';}
       const T=calcThreshold(), ci=CRIT_SEQ.indexOf(D.crit), cs=getCSkVal(), ds=getDSkVal();
@@ -4423,7 +4334,7 @@
         <div>${UI.lastRollHtml||`<div class="subcard border-dashed text-center text-xs t-mut py-3">Bereit zum Würfeln!</div>`}</div>
         <div class="border-t bdr-line pt-2.5"><div class="flex justify-between mb-1.5"><span class="text-xs font-extrabold t-mut">Würfel-Log (${diceLogs.length})</span><button type="button" data-action="clear-dice-log" class="text-[11px] font-bold t-mut hover:text-rose-500">Leeren</button></div><div class="space-y-1 max-h-32 overflow-y-auto text-xs">${diceLogs.map(l=>`<div class="subcard py-1 px-2.5 flex justify-between gap-2"><span class="truncate"><strong>${esc(l.lbl)}</strong> [≤${l.th}]: ${l.sum}</span><span class="text-[10px] t-mut tabular shrink-0">${l.t}</span></div>`).join('')}</div></div>
       </div>`;
-      if(typeof renderLiveDice==='function' && LD.open) renderLiveDice();
+      if(LD.open) renderLiveDice();
     }
 
     function renderLiveDice(){
@@ -4501,6 +4412,9 @@
       </div>`;
     }
 
+    const DUAL_COL_TARGETS=new Set(['pw','sec-folder','sksec-folder','sk-item','eq','eqsec','chrsec','camp']);
+    const getColTargetObj=()=>UI.colTarget==='pw'?findPwItem(UI.colPwKind,UI.colPwId):UI.colTarget==='sec-folder'?S.powerSections.find(s=>s.id===UI.colPwId):UI.colTarget==='sksec-folder'?S.skillSections.find(s=>s.id===UI.colPwId):UI.colTarget==='sk-item'?S.skills.find(s=>s.id===UI.colPwId):UI.colTarget==='eq'?findEqItem(UI.colPwKind,UI.colPwId):UI.colTarget==='chrsec'?S.chrSecMeta?.[UI.colPwId]:UI.colTarget==='camp'?getCampaigns().find(c=>c.id===UI.colPwId):UI.colTarget==='eqsec'?S.equipSecMeta?.[UI.colPwId]:null;
+    const openDualColorModal=(target,id,cmode,kind='')=>{UI.colTarget=target;UI.colPwKind=kind;UI.colPwId=id;UI.colMode=cmode==='bg'?'bg':'text';const it=getColTargetObj();if(!it)return;const cur=UI.colMode==='bg'?it.bgColor:it.color;UI.colDraft=isHex(cur)?cur:(UI.colMode==='bg'?'#1e293b':'#38bdf8');UI.modal='color';renderModal();};
     const modalShell=(title,sub,body,foot,maxW='max-w-2xl',extra='')=>`<div data-action="close-modal-bg" class="fixed inset-0 z-[70] flex items-center justify-center p-3 sm:p-5 bg-black/75 backdrop-blur-sm"><div class="card ${maxW} w-full max-h-[90vh] flex flex-col p-0 overflow-hidden shadow-2xl"><div class="flex flex-wrap items-center justify-between gap-2 px-5 py-3.5 border-b bdr-line" style="background:var(--surf2)"><div><h2 class="text-base sm:text-lg font-extrabold">${title}</h2>${sub?`<p class="text-xs t-mut">${sub}</p>`:''}</div><div class="flex items-center gap-1.5">${extra}<button type="button" data-action="close-modal" class="btn py-1 px-2.5">✕</button></div></div><div class="p-5 overflow-y-auto space-y-4 text-xs sm:text-sm">${body}</div><div class="px-5 py-3 border-t bdr-line flex items-center justify-end gap-2" style="background:var(--surf2)">${foot}</div></div></div>`;
 
     function renderModal(fromRenderAll=false){
@@ -4574,10 +4488,10 @@
       }
       if(UI.modal==='color'){
         const isAttr=UI.colTarget==='attr', isPw=UI.colTarget==='pw', isSecF=UI.colTarget==='sec-folder', isSkSecF=UI.colTarget==='sksec-folder', isSk=UI.colTarget==='sk-item', isEq=UI.colTarget==='eq', isEqSec=UI.colTarget==='eqsec', isChrSec=UI.colTarget==='chrsec', isCamp=UI.colTarget==='camp';
-        const hasDual=isPw||isSecF||isSkSecF||isSk||isEq||isEqSec||isChrSec||isCamp, isBg=hasDual&&UI.colMode==='bg', col=isHex(UI.colDraft)?UI.colDraft:'#38bdf8';
+        const hasDual=DUAL_COL_TARGETS.has(UI.colTarget), isBg=hasDual&&UI.colMode==='bg', col=isHex(UI.colDraft)?UI.colDraft:'#38bdf8';
         const eqSecNames={weapons:'Kategorie: Waffen',ammos:'Kategorie: Munition',armors:'Kategorie: Rüstungen',inventory:'Kategorie: Inventar'};
         const chrSecNames={training:'Fenster: Training',skills:'Fenster: Fertigkeiten',powers:'Fenster: Kräfte & Augmente'};
-        const pwIt=isPw?findPwItem(UI.colPwKind,UI.colPwId):isSecF?S.powerSections.find(s=>s.id===UI.colPwId):isSkSecF?S.skillSections.find(s=>s.id===UI.colPwId):isSk?S.skills.find(s=>s.id===UI.colPwId):isEq?findEqItem(UI.colPwKind,UI.colPwId):isEqSec?S.equipSecMeta?.[UI.colPwId]:isChrSec?S.chrSecMeta?.[UI.colPwId]:isCamp?getCampaigns().find(c=>c.id===UI.colPwId):null;
+        const pwIt=getColTargetObj();
         const baseName=isAttr?(ATTR_GROUPS.find(g=>g.k===UI.attrGroupSel)?.l||''):isPw?(pwIt?.name||(UI.colPwKind==='augment'?'Augment':'Kraft')):(isSecF||isSkSecF)?(pwIt?.name||'Sektion'):isSk?(pwIt?.name||'Fertigkeit'):isEq?(pwIt?.name||({weapon:'Waffe',ammo:'Munition',armor:'Rüstung',inv:'Gegenstand'}[UI.colPwKind]||'Eintrag')):isEqSec?(eqSecNames[UI.colPwId]||'Kategorie'):isChrSec?(chrSecNames[UI.colPwId]||'Chronik-Fenster'):isCamp?`Kampagne: ${pwIt?.name||'Kampagne'}`:(UI.colTarget==='cres'?cresName():String(UI.colTarget||'').startsWith('ex_')?getResLabel(UI.colTarget):SEC_META[UI.colTarget]);
         const lbl=hasDual?`${baseName} • ${isBg?'Fensterfarbe (Hintergrund)':'Textfarbe (Name)'}`:baseName;
         const prevStyle=isBg?`background:color-mix(in srgb,${esc(col)} 38%,var(--surf));border-color:color-mix(in srgb,${esc(col)} 75%,var(--bdr))`:`border-color:color-mix(in srgb,${esc(col)} 55%,var(--bdr))`;
@@ -4620,7 +4534,7 @@
         return;
       }
       if(UI.modal==='settings'){
-        const isPer=S.appearance.mode==='perTab', tgt=getEditStyleSlot(), scopeLbl=isPer?(TABS.find(t=>t.id===S.appearance.editScope)?.l||''):'Global';
+        const isLobbyScope=UI.inLobby||S.appearance.editScope==='lobby', isPer=!isLobbyScope&&S.appearance.mode==='perTab', tgt=getEditStyleSlot(), scopeLbl=isLobbyScope?'🏠 Gruppen-Lobby (Persönlich)':(isPer?(TABS.find(t=>t.id===S.appearance.editScope)?.l||''):'Global');
         const d=UI.palDraft||{}, activeCp=(S.customPalettes||[]).find(p=>p.id===tgt.palette);
         const colFields=[
           ['bg','Hintergrund',d.bg||'#020617'],
@@ -4632,7 +4546,9 @@
         ];
         m.innerHTML=modalShell('⚙️ Optionen, Datei &amp; Design','Kompletter Export &amp; Import inkl. eigenen Farbpaletten, Listen, Box-Größen &amp; Bildern.',
           `<div class="subcard space-y-2.5"><h3 class="text-xs font-extrabold text-acc">1. EXPORT, IMPORT &amp; RESET</h3><div class="flex flex-wrap items-center gap-2"><button type="button" data-action="export-json" class="btn btn-pri">⬇ Charakter exportieren (.json)</button><button type="button" data-action="import-json" class="btn">⬆ Charakter importieren (.json)</button>${UI.confirmNew?`<div class="flex gap-1.5 ml-auto"><button type="button" data-action="new-sheet-yes" class="btn bg-rose-600 text-white">Alles leeren!</button><button type="button" data-action="new-sheet-no" class="btn">Abbrechen</button></div>`:`<button type="button" data-action="new-sheet-ask" class="btn btn-err ml-auto">Neuer Charakterbogen</button>`}</div></div>
-          <div class="subcard space-y-3"><div class="flex flex-wrap items-center justify-between gap-2"><h3 class="text-xs font-extrabold text-acc">2. MODUS &amp; REITER-DESIGN</h3><button type="button" data-action="toggle-dark" class="btn">🌓 ${S.appearance.dark?'Dunkles Design':'Helles Design'}</button></div><div class="flex flex-wrap items-center justify-between gap-2 pt-2 border-t bdr-line"><span class="text-xs font-bold">Design-Modus:</span><div class="inline-flex rounded-xl p-1 bg-black/20 border bdr-line"><button type="button" data-action="app-mode" data-mode="global" class="px-3 py-1 rounded-lg text-xs font-extrabold ${!isPer?'bg-acc-soft text-acc':''}">Global</button><button type="button" data-action="app-mode" data-mode="perTab" class="px-3 py-1 rounded-lg text-xs font-extrabold ${isPer?'bg-acc-soft text-acc':''}">Pro Reiter</button></div></div>${isPer?`<div class="flex flex-wrap gap-1.5">${TABS.map(t=>`<button type="button" data-action="edit-scope" data-scope="${t.id}" class="btn text-xs ${S.appearance.editScope===t.id?'btn-pri':''}">${t.l}</button>`).join('')}</div>`:''}</div>
+          <div class="subcard space-y-3"><div class="flex flex-wrap items-center justify-between gap-2"><h3 class="text-xs font-extrabold text-acc">2. MODUS &amp; REITER-DESIGN</h3><button type="button" data-action="toggle-dark" class="btn">🌓 ${S.appearance.dark?'Dunkles Design':'Helles Design'}</button></div>${isLobbyScope
+          ?`<div class="pt-2 border-t bdr-line flex flex-wrap items-center justify-between gap-2 text-xs"><span class="text-acc font-extrabold">🏠 Eigenes Farbschema für deine Gruppen-Lobby${CLOUD.currentUser?` (${esc(CLOUD.currentUser)})`:''} – unabhängig von deinen Charakter-Reitern.</span>${!UI.inLobby?`<button type="button" data-action="edit-scope" data-scope="${esc(S.activeTab||'attributes')}" class="btn py-1 px-2.5 text-[11px]">← Charakter-Reiter bearbeiten</button>`:''}</div>`
+          :`<div class="flex flex-wrap items-center justify-between gap-2 pt-2 border-t bdr-line"><span class="text-xs font-bold">Design-Modus:</span><div class="inline-flex flex-wrap rounded-xl p-1 bg-black/20 border bdr-line"><button type="button" data-action="app-mode" data-mode="global" class="px-3 py-1 rounded-lg text-xs font-extrabold ${!isPer?'bg-acc-soft text-acc':''}">Global</button><button type="button" data-action="app-mode" data-mode="perTab" class="px-3 py-1 rounded-lg text-xs font-extrabold ${isPer?'bg-acc-soft text-acc':''}">Pro Reiter</button><button type="button" data-action="edit-scope" data-scope="lobby" class="px-3 py-1 rounded-lg text-xs font-extrabold hover:text-acc">🏠 Lobby-Design</button></div></div>${isPer?`<div class="flex flex-wrap gap-1.5">${TABS.map(t=>`<button type="button" data-action="edit-scope" data-scope="${t.id}" class="btn text-xs ${S.appearance.editScope===t.id?'btn-pri':''}">${t.l}</button>`).join('')}</div>`:''}`}</div>
           <div class="subcard space-y-3">
             <div class="flex flex-wrap items-center justify-between gap-2">
               <h3 class="text-xs font-extrabold text-acc">3. LAYOUT-THEMA &amp; EIGENE FARBPALETTEN (${esc(scopeLbl)})</h3>
@@ -5104,8 +5020,9 @@
     }
 
     function compressImg(file,maxDim,q,cb){
+      if(!file) return;
       const rd=new FileReader();
-      rd.onload=ev=>{const im=new Image();im.onload=()=>{let w=im.width,h=im.height;if(w>maxDim||h>maxDim){if(w>h){h=Math.round(h*maxDim/w);w=maxDim;}else{w=Math.round(w*maxDim/h);h=maxDim;}}const cv=document.createElement('canvas');cv.width=w;cv.height=h;cv.getContext('2d').drawImage(im,0,0,w,h);let out=cv.toDataURL('image/webp',q);if(!out.startsWith('data:image/webp'))out=cv.toDataURL('image/jpeg',q);cb(out);};im.src=ev.target.result;};
+      rd.onload=ev=>{const im=new Image();im.onload=()=>{let w=im.width||1,h=im.height||1;if(w>maxDim||h>maxDim){if(w>h){h=Math.round(h*maxDim/w);w=maxDim;}else{w=Math.round(w*maxDim/h);h=maxDim;}}const cv=document.createElement('canvas');cv.width=w;cv.height=h;cv.getContext('2d').drawImage(im,0,0,w,h);let out=cv.toDataURL('image/webp',q);if(!out.startsWith('data:image/webp'))out=cv.toDataURL('image/jpeg',q);cb(out);};im.onerror=()=>cb(String(ev.target.result||''));im.src=String(ev.target.result||'');};
       rd.readAsDataURL(file);
     }
 
@@ -5268,11 +5185,11 @@
           if(i>-1&&ni>=0&&ni<S.chrSecOrder.length){const [it]=S.chrSecOrder.splice(i,1);S.chrSecOrder.splice(ni,0,it);renderMain();save();}
           break;
         }
-        case 'open-chrsec-color': {if(!S.chrSecMeta)S.chrSecMeta=makeChrSecMeta();const m=S.chrSecMeta[el.dataset.sec];if(m){UI.colTarget='chrsec';UI.colPwId=el.dataset.sec;UI.colMode=el.dataset.cmode==='bg'?'bg':'text';const cur=UI.colMode==='bg'?m.bgColor:m.color;UI.colDraft=isHex(cur)?cur:(UI.colMode==='bg'?'#1e293b':'#38bdf8');UI.modal='color';renderModal();}break;}
+        case 'open-chrsec-color': if(!S.chrSecMeta)S.chrSecMeta=makeChrSecMeta(); openDualColorModal('chrsec',el.dataset.sec,el.dataset.cmode); break;
         case 'sec-step': S.secondary[el.dataset.field]=toInt(S.secondary[el.dataset.field])+Number(el.dataset.delta); renderMain(); save(); break;
         case 'cres-step': S.customRes.current=toInt(S.customRes.current)+Number(el.dataset.delta); renderMain(); save(); break;
         case 'add-extra-sec': if(!Array.isArray(S.extraSecList))S.extraSecList=[]; S.extraSecList.push(makeExtraSec(S.extraSecList.length+1)); renderMain(); save(); toast('Sekundärattribut hinzugefügt'); break;
-        case 'ask-del-extra-sec': case 'del-extra-sec': UI.confirmDelExSecId=el.dataset.id; renderMain(); break;
+        case 'ask-del-extra-sec': UI.confirmDelExSecId=el.dataset.id; renderMain(); break;
         case 'cancel-del-extra-sec': UI.confirmDelExSecId=null; renderMain(); break;
         case 'confirm-del-extra-sec': {
           const id=el.dataset.id, ex=(S.extraSecList||[]).find(x=>x.id===id);
@@ -5291,25 +5208,24 @@
         case 'open-attr-colors': UI.colTarget='attr'; UI.attrGroupSel='ST_KO'; UI.colDraft=S.attrColors.ST_KO; UI.modal='color'; renderModal(); break;
         case 'sel-attr-grp': UI.attrGroupSel=el.dataset.grp; UI.colDraft=S.attrColors[UI.attrGroupSel]; renderModal(); break;
         case 'open-sec-color': UI.colTarget=el.dataset.target; UI.colDraft=getSecCol(UI.colTarget); UI.modal='color'; renderModal(); break;
-        case 'open-pw-color': {const it=findPwItem(el.dataset.kind,el.dataset.id);if(it){UI.colTarget='pw';UI.colPwKind=el.dataset.kind;UI.colPwId=el.dataset.id;UI.colMode=el.dataset.cmode==='bg'?'bg':'text';const cur=UI.colMode==='bg'?it.bgColor:it.color;UI.colDraft=isHex(cur)?cur:(UI.colMode==='bg'?'#1e293b':'#38bdf8');UI.modal='color';renderModal();}break;}
-        case 'open-sec-folder-color': {const sec=S.powerSections.find(s=>s.id===el.dataset.id);if(sec){UI.colTarget='sec-folder';UI.colPwId=sec.id;UI.colMode=el.dataset.cmode==='bg'?'bg':'text';const cur=UI.colMode==='bg'?sec.bgColor:sec.color;UI.colDraft=isHex(cur)?cur:(UI.colMode==='bg'?'#1e293b':'#38bdf8');UI.modal='color';renderModal();}break;}
-        case 'open-sksec-color': {const sec=S.skillSections.find(s=>s.id===el.dataset.id);if(sec){UI.colTarget='sksec-folder';UI.colPwId=sec.id;UI.colMode=el.dataset.cmode==='bg'?'bg':'text';const cur=UI.colMode==='bg'?sec.bgColor:sec.color;UI.colDraft=isHex(cur)?cur:(UI.colMode==='bg'?'#1e293b':'#38bdf8');UI.modal='color';renderModal();}break;}
-        case 'open-sk-color': {const sk=S.skills.find(s=>s.id===el.dataset.id);if(sk){UI.colTarget='sk-item';UI.colPwId=sk.id;UI.colMode=el.dataset.cmode==='bg'?'bg':'text';const cur=UI.colMode==='bg'?sk.bgColor:sk.color;UI.colDraft=isHex(cur)?cur:(UI.colMode==='bg'?'#1e293b':'#38bdf8');UI.modal='color';renderModal();}break;}
-        case 'open-eq-color': {const it=findEqItem(el.dataset.kind,el.dataset.id);if(it){UI.colTarget='eq';UI.colPwKind=el.dataset.kind;UI.colPwId=el.dataset.id;UI.colMode=el.dataset.cmode==='bg'?'bg':'text';const cur=UI.colMode==='bg'?it.bgColor:it.color;UI.colDraft=isHex(cur)?cur:(UI.colMode==='bg'?'#1e293b':'#38bdf8');UI.modal='color';renderModal();}break;}
-        case 'open-eqsec-color': {if(!S.equipSecMeta)S.equipSecMeta=makeEqSecMeta();const m=S.equipSecMeta[el.dataset.sec];if(m){UI.colTarget='eqsec';UI.colPwId=el.dataset.sec;UI.colMode=el.dataset.cmode==='bg'?'bg':'text';const cur=UI.colMode==='bg'?m.bgColor:m.color;UI.colDraft=isHex(cur)?cur:(UI.colMode==='bg'?'#1e293b':'#38bdf8');UI.modal='color';renderModal();}break;}
-        case 'open-camp-color': {if(!CLOUD.isAdmin)break;const cp=getCampaigns().find(c=>c.id===el.dataset.id);if(cp){UI.colTarget='camp';UI.colPwId=cp.id;UI.colMode=el.dataset.cmode==='bg'?'bg':'text';const cur=UI.colMode==='bg'?cp.bgColor:cp.color;UI.colDraft=isHex(cur)?cur:(UI.colMode==='bg'?'#1e293b':'#38bdf8');UI.modal='color';renderModal();}break;}
+        case 'open-pw-color': openDualColorModal('pw',el.dataset.id,el.dataset.cmode,el.dataset.kind); break;
+        case 'open-sec-folder-color': openDualColorModal('sec-folder',el.dataset.id,el.dataset.cmode); break;
+        case 'open-sksec-color': openDualColorModal('sksec-folder',el.dataset.id,el.dataset.cmode); break;
+        case 'open-sk-color': openDualColorModal('sk-item',el.dataset.id,el.dataset.cmode); break;
+        case 'open-eq-color': openDualColorModal('eq',el.dataset.id,el.dataset.cmode,el.dataset.kind); break;
+        case 'open-eqsec-color': if(!S.equipSecMeta)S.equipSecMeta=makeEqSecMeta(); openDualColorModal('eqsec',el.dataset.sec,el.dataset.cmode); break;
+        case 'open-camp-color': if(CLOUD.isAdmin) openDualColorModal('camp',el.dataset.id,el.dataset.cmode); break;
         case 'switch-col-mode': {
           UI.colMode=el.dataset.cmode==='bg'?'bg':'text';
-          const it=UI.colTarget==='pw'?findPwItem(UI.colPwKind,UI.colPwId):UI.colTarget==='sec-folder'?S.powerSections.find(s=>s.id===UI.colPwId):UI.colTarget==='sksec-folder'?S.skillSections.find(s=>s.id===UI.colPwId):UI.colTarget==='sk-item'?S.skills.find(s=>s.id===UI.colPwId):UI.colTarget==='eq'?findEqItem(UI.colPwKind,UI.colPwId):UI.colTarget==='chrsec'?S.chrSecMeta?.[UI.colPwId]:UI.colTarget==='camp'?getCampaigns().find(c=>c.id===UI.colPwId):S.equipSecMeta?.[UI.colPwId];
-          const cur=UI.colMode==='bg'?it?.bgColor:it?.color;
+          const it=getColTargetObj(), cur=UI.colMode==='bg'?it?.bgColor:it?.color;
           UI.colDraft=isHex(cur)?cur:(UI.colMode==='bg'?'#1e293b':'#38bdf8');
           renderModal(); break;
         }
         case 'col-preset': UI.colDraft=el.dataset.col; renderModal(); break;
         case 'reset-col':
           if(UI.colTarget==='attr') UI.colDraft=DEF_ATTR_COLS[UI.attrGroupSel];
-          else if(UI.colTarget==='pw'||UI.colTarget==='sec-folder'||UI.colTarget==='sksec-folder'||UI.colTarget==='sk-item'||UI.colTarget==='eq'||UI.colTarget==='eqsec'||UI.colTarget==='chrsec'||UI.colTarget==='camp'){
-            const it=UI.colTarget==='pw'?findPwItem(UI.colPwKind,UI.colPwId):UI.colTarget==='sec-folder'?S.powerSections.find(s=>s.id===UI.colPwId):UI.colTarget==='sksec-folder'?S.skillSections.find(s=>s.id===UI.colPwId):UI.colTarget==='sk-item'?S.skills.find(s=>s.id===UI.colPwId):UI.colTarget==='eq'?findEqItem(UI.colPwKind,UI.colPwId):UI.colTarget==='chrsec'?S.chrSecMeta?.[UI.colPwId]:UI.colTarget==='camp'?getCampaigns().find(c=>c.id===UI.colPwId):S.equipSecMeta?.[UI.colPwId];
+          else if(DUAL_COL_TARGETS.has(UI.colTarget)){
+            const it=getColTargetObj();
             if(it){if(UI.colMode==='bg')it.bgColor='';else it.color='';}
             const wasCamp=UI.colTarget==='camp';
             UI.modal=null;
@@ -5324,8 +5240,8 @@
         case 'save-col': {
           const raw=$('colHexInp')?$('colHexInp').value.trim():UI.colDraft, hx=raw.startsWith('#')?raw:'#'+raw, fin=isHex(hx)?hx.toLowerCase():UI.colDraft;
           if(UI.colTarget==='attr'){S.attrColors[UI.attrGroupSel]=fin;renderMain();save();renderModal();toast('Paarfarbe gespeichert');}
-          else if(UI.colTarget==='pw'||UI.colTarget==='sec-folder'||UI.colTarget==='sksec-folder'||UI.colTarget==='sk-item'||UI.colTarget==='eq'||UI.colTarget==='eqsec'||UI.colTarget==='chrsec'||UI.colTarget==='camp'){
-            const it=UI.colTarget==='pw'?findPwItem(UI.colPwKind,UI.colPwId):UI.colTarget==='sec-folder'?S.powerSections.find(s=>s.id===UI.colPwId):UI.colTarget==='sksec-folder'?S.skillSections.find(s=>s.id===UI.colPwId):UI.colTarget==='sk-item'?S.skills.find(s=>s.id===UI.colPwId):UI.colTarget==='eq'?findEqItem(UI.colPwKind,UI.colPwId):UI.colTarget==='chrsec'?S.chrSecMeta?.[UI.colPwId]:UI.colTarget==='camp'?getCampaigns().find(c=>c.id===UI.colPwId):S.equipSecMeta?.[UI.colPwId];
+          else if(DUAL_COL_TARGETS.has(UI.colTarget)){
+            const it=getColTargetObj();
             if(it){if(UI.colMode==='bg')it.bgColor=fin;else it.color=fin;}
             const wasCamp=UI.colTarget==='camp';
             UI.modal=null;
@@ -5816,7 +5732,6 @@
         case 'dis-step': {const r=applyDiceAutoAdvDis(false);D.disAdj=Math.max(-r.autoDis,toInt(D.disAdj,0)+Number(el.dataset.d));applyDiceAutoAdvDis(false);renderDice();break;}
         case 'reset-dice-diff': D.dMode='direct'; D.dDirect=40; D.dAttr=30; D.dSkill='10'; D.dCustom=25; renderDice(); break;
         case 'reset-dice-advdis': D.advAdj=0; D.disAdj=0; applyDiceAutoAdvDis(true); renderDice(); break;
-        case 'adv-reset': D.sitActive={}; applyDiceAutoAdvDis(true); renderDice(); break;
         case 'cnt-step': D.cnt=Math.max(1,Math.min(10,D.cnt+Number(el.dataset.d))); renderDice(); break;
         case 'crit-step': {const T=calcThreshold(),i=CRIT_SEQ.indexOf(T.effCrit),ni=Math.max(0,Math.min(CRIT_SEQ.length-1,i+Number(el.dataset.d)));D.critOff=ni-T.autoCrit;D.crit=CRIT_SEQ[ni];renderDice();break;}
         case 'crit-mode': D.critMode=D.critMode==='range'?'exact':'range'; renderDice(); break;
@@ -5832,9 +5747,8 @@
         case 'rm-camp-img': if(CLOUD.isAdmin){const c=getCampaigns().find(x=>x.id===CLOUD.activeCampaignId);if(c){c.img='';saveRegistryLocal();renderMain();syncCloudRegistry(true);toast('🗑️ Kampagnenbild entfernt.');}} break;
         case 'rm-avatar': S.profile.avatar=''; renderHeader(); renderModal(); save(); toast('Profilbild entfernt'); break;
         case 'open-lobby':
-        case 'close-active-sheet':
           if(!CLOUD.viewingRemote&&UI.sheetLoaded&&S.cloudAutoSync&&(CLOUD.currentUser||CLOUD.isAdmin)) pushToCloud(true);
-          UI.inLobby=true; UI.sheetLoaded=false; UI.modal=null; CLOUD.viewingRemote=false; CLOUD.remoteCharId=''; CLOUD.ownBackupJson=null;
+          UI.inLobby=true; UI.sheetLoaded=false; UI.modal=null; CLOUD.viewingRemote=false; CLOUD.remoteCharId='';
           CLOUD.confirmDelCloudId=null; CLOUD.confirmClearDice=false; CLOUD.campAction='';
           D.open=false; CN.open=false;
           try{window.history.replaceState({},'',`${window.location.pathname}?lobby=1`);}catch(e){}
@@ -5842,7 +5756,7 @@
           toast('🏠 Charakterbogen geschlossen – du bist in der Lobby.');
           break;
         case 'open-local-sheet':
-          CLOUD.viewingRemote=false; CLOUD.remoteCharId=''; CLOUD.ownBackupJson=null;
+          CLOUD.viewingRemote=false; CLOUD.remoteCharId='';
           load();
           if(CLOUD.currentUser&&!S.owner) S.owner=CLOUD.currentUser;
           if(!S.campaignId) S.campaignId=CLOUD.activeCampaignId||'default';
@@ -6011,7 +5925,7 @@
           if(exKey){toast(`⚠️ Account „${exKey}“ existiert bereits – bitte auf „Anmelden“ klicken.`);break;}
           CLOUD.registry.users[u]={passHash:simpleHash(p),createdAt:stamp()};
           CLOUD.currentUser=u;
-          try{localStorage.setItem('scherbensturm_cloud_user',u);}catch(e){}
+          try{loadLobbyStyleForCurrentUser();applyTheme();localStorage.setItem('scherbensturm_cloud_user',u);}catch(e){}
           syncCloudRegistry(true); renderModal(); toast(`✨ Account „${u}“ registriert & angemeldet!`);
           break;
         }
@@ -6024,7 +5938,7 @@
             toast('🔒 Passwort stimmt nicht.');break;
           }
           CLOUD.currentUser=exKey;
-          try{localStorage.setItem('scherbensturm_cloud_user',exKey);}catch(e){}
+          try{loadLobbyStyleForCurrentUser();applyTheme();localStorage.setItem('scherbensturm_cloud_user',exKey);}catch(e){}
           renderModal(); toast(`🔑 Willkommen zurück, ${exKey}!`);
           break;
         }
@@ -6039,7 +5953,7 @@
           syncCloudRegistry(true); renderModal(); toast('🔑 Passwort erfolgreich geändert!');
           break;
         }
-        case 'user-logout': CLOUD.currentUser=''; CLOUD.showPwChange=false; CLOUD.filterMine=false; try{localStorage.removeItem('scherbensturm_cloud_user');}catch(e){} renderHeader(); renderMain(); renderModal(); toast('Abgemeldet'); break;
+        case 'user-logout': CLOUD.currentUser=''; CLOUD.showPwChange=false; CLOUD.filterMine=false; try{localStorage.removeItem('scherbensturm_cloud_user');loadLobbyStyleForCurrentUser();applyTheme();}catch(e){} renderHeader(); renderMain(); renderModal(); toast('Abgemeldet'); break;
         case 'toggle-admin-bar': CLOUD.showAdminBar=!CLOUD.showAdminBar; renderHeader(); renderMain(); renderModal(); if(CLOUD.showAdminBar) setTimeout(()=>{const p=$('inpAdminMasterPin');if(p){p.scrollIntoView({behavior:'smooth',block:'center'});p.focus();}},40); break;
         case 'toggle-user-mgmt': CLOUD.userMgmtOpen=!CLOUD.userMgmtOpen; renderModal(); break;
         case 'admin-unlock': {
@@ -6083,7 +5997,7 @@
             });
             if(CLOUD.currentUser&&CLOUD.currentUser.toLowerCase()===uLow){
               CLOUD.currentUser='';
-              try{localStorage.removeItem('scherbensturm_cloud_user');}catch(e){}
+              try{localStorage.removeItem('scherbensturm_cloud_user');loadLobbyStyleForCurrentUser();applyTheme();}catch(e){}
             }
             syncCloudRegistry(true);
             delete CLOUD.registry.users[u];
@@ -6124,7 +6038,6 @@
           break;
         }
         case 'cloud-push-now': S.cloudAutoSync=true; save(false); pushToCloud(false); break;
-        case 'toggle-cloud-autosync': S.cloudAutoSync=!S.cloudAutoSync; save(true); renderHeader(); renderModal(); if(S.cloudAutoSync) pushToCloud(false); else toast('Auto-Sync deaktiviert'); break;
         case 'copy-share-link': {const u=el.dataset.url;if(u&&navigator.clipboard){navigator.clipboard.writeText(u);toast('🔗 Direktlink in die Zwischenablage kopiert!');}break;}
         case 'cloud-refresh-list': fetchLobbyList(false); break;
         case 'save-cloud-url': {const v=($('inpCloudServerUrl')?.value||'').trim().replace(/\/+$/,'');CLOUD.serverUrl=v;try{localStorage.setItem('scherbensturm_cloud_url',v);}catch(e){}initLiveDiceChannel();fetchLobbyList(false);break;}
@@ -6135,29 +6048,29 @@
         case 'cloud-del-yes': deleteCloudCharacter(el.dataset.id); break;
         case 'cloud-reload-view': if(CLOUD.remoteCharId) loadCloudCharacter(CLOUD.remoteCharId,true); break;
         case 'cloud-adopt-copy': {
-          CLOUD.viewingRemote=false; CLOUD.remoteCharId=''; CLOUD.ownBackupJson=null; UI.inLobby=false; UI.sheetLoaded=true; UI.modal=null;
-          S.charId=uid(); S.cloudAutoSync=false; S.cloudPin='';
+          CLOUD.viewingRemote=false; CLOUD.remoteCharId=''; UI.inLobby=false; UI.sheetLoaded=true; UI.modal=null;
+          S.charId=uid(); S.cloudAutoSync=false;
           renderAll(true); toast('📥 Charakter als eigene lokale Kopie übernommen!');
           break;
         }
         case 'cloud-exit-view': {
-          UI.inLobby=true; UI.sheetLoaded=false; UI.modal=null; CLOUD.viewingRemote=false; CLOUD.remoteCharId=''; CLOUD.ownBackupJson=null;
+          UI.inLobby=true; UI.sheetLoaded=false; UI.modal=null; CLOUD.viewingRemote=false; CLOUD.remoteCharId='';
           D.open=false; CN.open=false;
           try{window.history.replaceState({},'',`${window.location.pathname}?lobby=1`);}catch(e){}
           renderAll(false); fetchLobbyList(true);
           toast('🔙 Ansichtsmodus beendet – du bist in der Lobby.');
           break;
         }
-        case 'open-settings': S.appearance.editScope=S.activeTab; UI.modal='settings'; UI.confirmNew=false; syncPalDraftFromSlot(); applyTheme(); renderModal(); break;
+        case 'open-settings': S.appearance.editScope=UI.inLobby?'lobby':S.activeTab; UI.modal='settings'; UI.confirmNew=false; syncPalDraftFromSlot(); applyTheme(); renderModal(); break;
         case 'open-info': UI.modal='info'; renderModal(); break;
         case 'close-modal': case 'close-modal-bg': UI.modal=null; applyTheme(); renderModal(); if(D.open) renderDice(); break;
         case 'info-tab': UI.infoTab=el.dataset.itab; renderModal(); break;
         case 'toggle-dark': S.appearance.dark=!S.appearance.dark; syncPalDraftFromSlot(); applyTheme(); renderModal(); save(); break;
         case 'app-mode': S.appearance.mode=el.dataset.mode; S.appearance.editScope=S.activeTab; syncPalDraftFromSlot(); applyTheme(); renderModal(); save(); break;
         case 'edit-scope': S.appearance.editScope=el.dataset.scope; syncPalDraftFromSlot(); applyTheme(); renderModal(); save(false); break;
-        case 'pick-pal': {const sl=getEditStyleSlot();sl.palette=el.dataset.pal;sl.customColors=null;syncPalDraftFromSlot(sl);applyTheme();renderModal();save();break;}
+        case 'pick-pal': {const sl=getEditStyleSlot();sl.palette=el.dataset.pal;sl.customColors=null;if(UI.inLobby||S.appearance.editScope==='lobby')saveLobbyStyleLocal();syncPalDraftFromSlot(sl);applyTheme();renderModal();save();break;}
         case 'toggle-pal-builder': UI.palBuilderOpen=!UI.palBuilderOpen; if(UI.palBuilderOpen)syncPalDraftFromSlot(); renderModal(); break;
-        case 'pal-draft-islt': {UI.palDraft.isLt=!UI.palDraft.isLt;const sl=getEditStyleSlot();sl.customColors={...UI.palDraft};applyTheme();renderModal();save();break;}
+        case 'pal-draft-islt': {UI.palDraft.isLt=!UI.palDraft.isLt;const sl=getEditStyleSlot();sl.customColors={...UI.palDraft};if(UI.inLobby||S.appearance.editScope==='lobby')saveLobbyStyleLocal();applyTheme();renderModal();save();break;}
         case 'save-custom-pal': {
           const nm=(($('inpCustomPalName')?.value||UI.palDraft.name||'').trim())||`Eigene Palette ${(S.customPalettes?.length||0)+1}`;
           const np={id:'cp_'+uid(),name:nm,isLt:Boolean(UI.palDraft.isLt),bg:UI.palDraft.bg||'#020617',acc:UI.palDraft.acc||'#0ea5e9',acc2:UI.palDraft.acc2||'#6366f1',txt:UI.palDraft.txt||'#f1f5f9',mut:UI.palDraft.mut||'#94a3b8',btnTxt:UI.palDraft.btnTxt||'#ffffff'};
@@ -6165,6 +6078,7 @@
           S.customPalettes.push(np);
           saveCustomPalettesLocal();
           const sl=getEditStyleSlot(); sl.palette=np.id; sl.customColors=null;
+          if(UI.inLobby||S.appearance.editScope==='lobby') saveLobbyStyleLocal();
           UI.palDraft.name=np.name;
           applyTheme(); renderModal(); save(); toast(`🎨 Farbpalette „${nm}“ gespeichert!`);
           break;
@@ -6176,6 +6090,7 @@
             Object.assign(cp,{name:nm,isLt:Boolean(UI.palDraft.isLt),bg:UI.palDraft.bg,acc:UI.palDraft.acc,acc2:UI.palDraft.acc2,txt:UI.palDraft.txt,mut:UI.palDraft.mut,btnTxt:UI.palDraft.btnTxt});
             saveCustomPalettesLocal();
             const sl=getEditStyleSlot(); sl.palette=cp.id; sl.customColors=null;
+            if(UI.inLobby||S.appearance.editScope==='lobby') saveLobbyStyleLocal();
             applyTheme(); renderModal(); save(); toast(`✓ Farbpalette „${nm}“ aktualisiert!`);
           }
           break;
@@ -6185,17 +6100,18 @@
           S.customPalettes=(S.customPalettes||[]).filter(p=>p.id!==pid);
           saveCustomPalettesLocal();
           if(S.appearance.global.palette===pid) S.appearance.global.palette='azur';
+          if(S.appearance.lobby?.palette===pid){S.appearance.lobby.palette='azur';saveLobbyStyleLocal();}
           TABS.forEach(t=>{if(S.appearance.tabs[t.id]?.palette===pid)S.appearance.tabs[t.id].palette='azur';});
           syncPalDraftFromSlot(); applyTheme(); renderModal(); save(); toast('Eigene Farbpalette gelöscht');
           break;
         }
         case 'pick-bg': $('fileBg').click(); break;
-        case 'rm-bg': getEditStyleSlot().bg=''; applyTheme(); renderModal(); save(); break;
+        case 'rm-bg': getEditStyleSlot().bg=''; if(UI.inLobby||S.appearance.editScope==='lobby')saveLobbyStyleLocal(); applyTheme(); renderModal(); save(); break;
         case 'export-json': {const nm=(S.profile.name||'Scherbensturm_Charakter').replace(/[^a-zA-Z0-9äöüÄÖÜß_-]/g,'_'),a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(S,null,2)],{type:'application/json'}));a.download=`${nm}_Stufe${S.progression.level}.json`;a.click();URL.revokeObjectURL(a.href);toast('Charakterbogen exportiert (.json)');break;}
         case 'import-json': $('fileImport').click(); break;
         case 'new-sheet-ask': UI.confirmNew=true; renderModal(); break;
         case 'new-sheet-no': UI.confirmNew=false; renderModal(); break;
-        case 'new-sheet-yes': CLOUD.viewingRemote=false; CLOUD.remoteCharId=''; CLOUD.ownBackupJson=null; S=defaultState(); UI.inLobby=false; UI.sheetLoaded=true; UI.modal=null; UI.confirmNew=false; renderAll(); toast('Neuer Charakterbogen geladen'); break;
+        case 'new-sheet-yes': CLOUD.viewingRemote=false; CLOUD.remoteCharId=''; S=defaultState(); UI.inLobby=false; UI.sheetLoaded=true; UI.modal=null; UI.confirmNew=false; renderAll(); toast('Neuer Charakterbogen geladen'); break;
       }
     });
 
@@ -6282,7 +6198,6 @@
           else{const it=findPwItem(parts[0],parts[1]);if(it)it.boxH[parts[2]]=el.offsetHeight;}
         }
       }
-      if(el.dataset.cloudPin){S.cloudPin='';save(false);return;}
       if(el.dataset.bind){const [a,b]=el.dataset.bind.split('.');if(b)S[a][b]=el.value;else S[a]=el.value;save();return;}
       if(el.dataset.bindRtf){S[el.dataset.bindRtf]=val;save();return;}
       if(el.dataset.cnotetitle){const n=S.campaignNotes.find(x=>x.id===el.dataset.cnotetitle);if(n){n.title=el.value;save();}return;}
@@ -6360,19 +6275,13 @@
         save();
         return;
       }
-      if(el.id==='colPickerInp'){
-        UI.colDraft=el.value;
-        if($('colHexInp'))$('colHexInp').value=el.value.toUpperCase();
-        if((UI.colTarget==='pw'||UI.colTarget==='sec-folder'||UI.colTarget==='sksec-folder'||UI.colTarget==='eq'||UI.colTarget==='eqsec'||UI.colTarget==='chrsec')&&UI.colMode==='bg'){if($('colPrevBox'))$('colPrevBox').style.background=`color-mix(in srgb,${el.value} 38%,var(--surf))`;}
-        else if($('colPrevTxt'))$('colPrevTxt').style.color=el.value;
-        if($('colPrevHex'))$('colPrevHex').textContent=el.value.toUpperCase();
-        return;
-      }
-      if(el.id==='colHexInp'){
-        let v=el.value.trim();if(v&&!v.startsWith('#'))v='#'+v;
+      if(el.id==='colPickerInp'||el.id==='colHexInp'){
+        let v=el.value.trim();if(el.id==='colHexInp'&&v&&!v.startsWith('#'))v='#'+v;
         if(isHex(v)){
-          UI.colDraft=v;if($('colPickerInp'))$('colPickerInp').value=v;
-          if((UI.colTarget==='pw'||UI.colTarget==='sec-folder'||UI.colTarget==='sksec-folder'||UI.colTarget==='eq'||UI.colTarget==='eqsec'||UI.colTarget==='chrsec')&&UI.colMode==='bg'){if($('colPrevBox'))$('colPrevBox').style.background=`color-mix(in srgb,${v} 38%,var(--surf))`;}
+          UI.colDraft=v;
+          if(el.id==='colPickerInp'&&$('colHexInp'))$('colHexInp').value=v.toUpperCase();
+          if(el.id==='colHexInp'&&$('colPickerInp'))$('colPickerInp').value=v;
+          if(DUAL_COL_TARGETS.has(UI.colTarget)&&UI.colMode==='bg'){if($('colPrevBox'))$('colPrevBox').style.background=`color-mix(in srgb,${v} 38%,var(--surf))`;}
           else if($('colPrevTxt'))$('colPrevTxt').style.color=v;
           if($('colPrevHex'))$('colPrevHex').textContent=v.toUpperCase();
         }
@@ -6403,7 +6312,7 @@
           }else{
             sk.bonusOvr=String(toInt(raw,getSkAutoBonus(sk.rank)));
           }
-          const autoB=getSkAutoBonus(sk.rank), hasOvr=hasSkBonusOvr(sk), effB=getSkBonus(sk), av=getAttrTot(sk.linkedAttr), pool=av+effB;
+          const autoB=getSkAutoBonus(sk.rank), hasOvr=hasSkBonusOvr(sk);
           const rb=$(`skRollBtn_${sk.id}`);
           if(rb){const bm=buildSkRollBtnMeta(sk);rb.innerHTML=bm.innerHtml;rb.dataset.tip=bm.tip;}
           ['','chr_'].forEach(p=>{
@@ -6517,14 +6426,15 @@
         }
         syncLiveCalculations();return;
       }
-      if(el.id==='rngOverlay'){const t=getEditStyleSlot();t.overlay=toInt(el.value,75);if($('bgOvLbl'))$('bgOvLbl').textContent=t.overlay+'%';applyTheme();save();return;}
-      if(el.id==='rngBlur'){const t=getEditStyleSlot();t.blur=toInt(el.value,0);if($('bgBlurLbl'))$('bgBlurLbl').textContent=t.blur+' px';applyTheme();save();return;}
+      if(el.id==='rngOverlay'){const t=getEditStyleSlot();t.overlay=toInt(el.value,75);if(UI.inLobby||S.appearance.editScope==='lobby')saveLobbyStyleLocal();if($('bgOvLbl'))$('bgOvLbl').textContent=t.overlay+'%';applyTheme();save();return;}
+      if(el.id==='rngBlur'){const t=getEditStyleSlot();t.blur=toInt(el.value,0);if(UI.inLobby||S.appearance.editScope==='lobby')saveLobbyStyleLocal();if($('bgBlurLbl'))$('bgBlurLbl').textContent=t.blur+' px';applyTheme();save();return;}
       if(el.dataset.palName){UI.palDraft.name=el.value;return;}
       if(el.dataset.palCol){
         const k=el.dataset.palCol, v=el.value;
         UI.palDraft[k]=v;
         const hx=document.querySelector(`input[data-pal-hex="${k}"]`); if(hx) hx.value=v.toUpperCase();
         const sl=getEditStyleSlot(); sl.customColors={...UI.palDraft};
+        if(UI.inLobby||S.appearance.editScope==='lobby')saveLobbyStyleLocal();
         applyTheme(); save(); return;
       }
       if(el.dataset.palHex){
@@ -6533,6 +6443,7 @@
           UI.palDraft[k]=v.toLowerCase();
           const cp=document.querySelector(`input[data-pal-col="${k}"]`); if(cp) cp.value=v.toLowerCase();
           const sl=getEditStyleSlot(); sl.customColors={...UI.palDraft};
+          if(UI.inLobby||S.appearance.editScope==='lobby')saveLobbyStyleLocal();
           applyTheme(); save();
         }
         return;
@@ -6551,29 +6462,10 @@
       }
     });
 
-        function compressImgFile(file,maxSide,cb){
-      if(!file) return;
-      const r=new FileReader();
-      r.onload=ev=>{
-        const img=new Image();
-        img.onload=()=>{
-          const scale=Math.min(1,maxSide/Math.max(img.width||1,img.height||1));
-          const w=Math.max(1,Math.round((img.width||1)*scale)), h=Math.max(1,Math.round((img.height||1)*scale));
-          const cv=document.createElement('canvas'); cv.width=w; cv.height=h;
-          const ctx=cv.getContext('2d'); ctx.drawImage(img,0,0,w,h);
-          let dataUrl=cv.toDataURL('image/webp',0.82);
-          if(!dataUrl||dataUrl.indexOf('data:image/webp')!==0) dataUrl=cv.toDataURL('image/jpeg',0.82);
-          cb(dataUrl);
-        };
-        img.onerror=()=>cb(String(ev.target.result||''));
-        img.src=String(ev.target.result||'');
-      };
-      r.readAsDataURL(file);
-    }
     $('fileLobbyLogo')?.addEventListener('change',e=>{
       const f=e.target.files?.[0]; e.target.value='';
       if(!f||!CLOUD.isAdmin) return;
-      compressImgFile(f,256,dataUrl=>{
+      compressImg(f,256,0.82,dataUrl=>{
         CLOUD.registry.lobbyLogo=dataUrl;
         saveRegistryLocal();
         renderHeader();
@@ -6585,7 +6477,7 @@
     $('fileCampImg')?.addEventListener('change',e=>{
       const f=e.target.files?.[0]; e.target.value='';
       if(!f||!CLOUD.isAdmin) return;
-      compressImgFile(f,480,dataUrl=>{
+      compressImg(f,480,0.82,dataUrl=>{
         const camp=getCampaigns().find(c=>c.id===CLOUD.activeCampaignId);
         if(camp){
           camp.img=dataUrl;
@@ -6597,18 +6489,6 @@
       });
     });
     document.addEventListener('change',e=>{
-      if(e.target&&e.target.dataset?.pwFilterChk){
-        const raw=String(e.target.dataset.pwFilterChk||''), sep=raw.indexOf(':');
-        if(sep>0){
-          const fk=raw.slice(0,sep), fv=raw.slice(sep+1);
-          const arrKey=fk==='art'?'pwFilterArts':fk==='tier'?'pwFilterTiers':'pwFilterSubs';
-          if(!Array.isArray(UI[arrKey])) UI[arrKey]=[];
-          if(e.target.checked){if(!UI[arrKey].includes(fv))UI[arrKey].push(fv);}
-          else{UI[arrKey]=UI[arrKey].filter(x=>x!==fv);}
-          renderMain();
-        }
-        return;
-      }
       if(e.target&&e.target.dataset?.inspInp){renderMain();save();return;}
       const stEl=e.target;
       if(stEl&&stEl.dataset&&(stEl.dataset.stStacks||stEl.dataset.stOvr)){
@@ -6703,9 +6583,9 @@
         return;
       }
       if(el.id==='selNewCharCamp'){CLOUD.newCharCampId=el.value;return;}
-      if(el.dataset.adminCampChar||el.dataset.adminCharCamp){
-        const cid=el.dataset.adminCampChar||el.dataset.adminCharCamp, newCampId=String(el.value||'default').trim()||'default';
-        const owner=getCharOwner(cid), isMyChar=Boolean(owner&&CLOUD.currentUser&&owner.toLowerCase()===CLOUD.currentUser.toLowerCase()), isMyClaim=isMyChar;
+      if(el.dataset.adminCampChar){
+        const cid=el.dataset.adminCampChar, newCampId=String(el.value||'default').trim()||'default';
+        const owner=getCharOwner(cid), isMyChar=Boolean(owner&&CLOUD.currentUser&&owner.toLowerCase()===CLOUD.currentUser.toLowerCase());
         if(!CLOUD.isAdmin&&!isMyChar&&!canManageCampaign(getCharCampaignId(cid))) return;
         const camps=CLOUD.isAdmin?getCampaigns():getCreatableCampaigns(CLOUD.currentUser);
         const targetCamp=camps.find(c=>c.id===newCampId)||camps[0]||{id:'default',name:'Ohne Kampagne / Allgemein'};
@@ -6761,7 +6641,7 @@
         return;
       }
       if(el.id==='fileAvatar'&&el.files[0]){compressImg(el.files[0],240,0.85,url=>{S.profile.avatar=url;renderHeader();if(UI.modal==='avatar')renderModal();save();toast('Profilbild gespeichert');});el.value='';return;}
-      if(el.id==='fileBg'&&el.files[0]){compressImg(el.files[0],1400,0.78,url=>{getEditStyleSlot().bg=url;applyTheme();renderModal();save();toast('Hintergrund gespeichert');});el.value='';return;}
+      if(el.id==='fileBg'&&el.files[0]){compressImg(el.files[0],1400,0.78,url=>{getEditStyleSlot().bg=url;if(UI.inLobby||S.appearance.editScope==='lobby')saveLobbyStyleLocal();applyTheme();renderModal();save();toast('Hintergrund gespeichert');});el.value='';return;}
       if(el.id==='fileItemImg'&&el.files[0]){
         compressImg(el.files[0],320,0.82,url=>{
           const k={weapon:'weapons',armor:'armors',ammo:'ammos',inv:'inventory'}[UI.imgTargetKind],it=(S[k]||[]).find(x=>x.id===UI.imgTargetId);
@@ -6776,7 +6656,7 @@
         });
         el.value='';return;
       }
-      if(el.id==='fileImport'&&el.files[0]){const r=new FileReader();r.onload=ev=>{try{mergeLoaded(JSON.parse(ev.target.result)); UI.inLobby=false; UI.sheetLoaded=true; UI.modal=null;UI.modal=null;renderAll();toast('Charakterbogen importiert!');}catch(err){toast('Ungültige JSON-Datei.');}};r.readAsText(el.files[0]);el.value='';}
+      if(el.id==='fileImport'&&el.files[0]){const r=new FileReader();r.onload=ev=>{try{mergeLoaded(JSON.parse(ev.target.result)); UI.inLobby=false; UI.sheetLoaded=true; UI.modal=null; renderAll();toast('Charakterbogen importiert!');}catch(err){toast('Ungültige JSON-Datei.');}};r.readAsText(el.files[0]);el.value='';}
     });
 
     document.addEventListener('submit',e=>{
