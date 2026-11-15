@@ -792,7 +792,7 @@
         inventory:[makeInvItem()],equipNotes:'',
         bio:{aussehen:'',persoenlichkeit:'',faehigkeiten:'',persoenlicheDaten:'',geschichte:'',notizen:''},
         bioImages:[],bioBoxH:{equipNotes:0,aussehen:0,persoenlichkeit:0,faehigkeiten:0,persoenlicheDaten:0,geschichte:0,notizen:0},
-        campaignNotes:[{id:'cn_main',title:'Allgemein',content:'',isPublic:false,updatedAt:''},{id:'cn_public',title:'🌐 Öffentlich',content:'',isPublic:true,updatedAt:''}],activeCampNoteId:'cn_main',
+        campaignNotes:[{id:'cn_main',title:'Allgemein',content:'',isPublic:false,updatedAt:''}],activeCampNoteId:'cn_main',
         customPalettes:[]
       };
     }
@@ -827,7 +827,7 @@
       }
       return list;
     }
-    let CLOUD={serverUrl:'',list:[],loading:false,syncing:false,error:'',lastSyncTs:'',viewingRemote:false,remoteCharId:'',confirmDelCloudId:null,filterMine:false,currentUser:'',isAdmin:false,showAdminBar:false,userMgmtOpen:false,showPwChange:false,activeCampaignId:'default',campAction:'',newCharOpen:false,newCharName:'',newCharAncestry:'',newCharConcept:'',newCharCampId:'default',publicNotesOpen:true,activePublicPageKey:'',registryLoaded:false,diceFeed:[],diceConnected:false,diceToast:true,diceCollapsed:false,confirmClearDice:false,registry:{users:{},claims:{},charCampaigns:{},publicNotes:{},deletedCharIds:[],campaigns:[{id:'default',name:'Ohne Kampagne / Allgemein',allowedUsers:[],gmUsers:[],img:''}],gmUsers:[],lobbyLogo:'',adminHash:'',diceFeed:[],diceClearedAt:0}}, cloudSyncTimer=null, liveDiceES=null, liveDiceBC=null, liveDiceTopicCur='', liveDicePollTimer=null, registryPushInFlight=0, lastRegistryPushMs=0;
+    let CLOUD={serverUrl:'',list:[],loading:false,syncing:false,error:'',lastSyncTs:'',viewingRemote:false,remoteCharId:'',confirmDelCloudId:null,confirmDelCampPageId:null,filterMine:false,currentUser:'',isAdmin:false,showAdminBar:false,userMgmtOpen:false,showPwChange:false,activeCampaignId:'default',campAction:'',newCharOpen:false,newCharName:'',newCharAncestry:'',newCharConcept:'',newCharCampId:'default',publicNotesOpen:true,activePublicPageKey:'',registryLoaded:false,diceFeed:[],diceConnected:false,diceToast:true,diceCollapsed:false,confirmClearDice:false,registry:{users:{},claims:{},charCampaigns:{},publicNotes:{},campaignSharedNotes:{},deletedCharIds:[],campaigns:[{id:'default',name:'Ohne Kampagne / Allgemein',allowedUsers:[],gmUsers:[],img:''}],gmUsers:[],lobbyLogo:'',adminHash:'',diceFeed:[],diceClearedAt:0}}, cloudSyncTimer=null, liveDiceES=null, liveDiceBC=null, liveDiceTopicCur='', liveDicePollTimer=null, registryPushInFlight=0, lastRegistryPushMs=0;
     try{
       CLOUD.serverUrl=localStorage.getItem('scherbensturm_cloud_url')||'';
       CLOUD.currentUser=localStorage.getItem('scherbensturm_cloud_user')||'';
@@ -842,6 +842,7 @@
           ...parsedReg,
           charCampaigns:(parsedReg.charCampaigns&&typeof parsedReg.charCampaigns==='object')?parsedReg.charCampaigns:{},
           publicNotes:(parsedReg.publicNotes&&typeof parsedReg.publicNotes==='object')?parsedReg.publicNotes:{},
+          campaignSharedNotes:(parsedReg.campaignSharedNotes&&typeof parsedReg.campaignSharedNotes==='object')?parsedReg.campaignSharedNotes:{},
           deletedCharIds:Array.isArray(parsedReg.deletedCharIds)?[...new Set(parsedReg.deletedCharIds.map(x=>String(x||'').trim()).filter(Boolean))]:[],
           campaigns:normalizeCampaigns(parsedReg.campaigns),
           gmUsers:Array.isArray(parsedReg.gmUsers)?parsedReg.gmUsers:[],
@@ -1025,6 +1026,150 @@
     }
     function handleIncomingDicePayload(rawObj,isRealtimePush=false){
       if(!rawObj||typeof rawObj!=='object') return;
+      if(rawObj.type==='campnote_live'){
+        if(rawObj.senderTabId===LIVE_TAB_ID) return;
+        const pgPayload=(rawObj.page&&typeof rawObj.page==='object')?rawObj.page:rawObj;
+        const pnePayload=(rawObj.publicNoteEntry&&typeof rawObj.publicNoteEntry==='object')?rawObj.publicNoteEntry:null;
+        if(rawObj.scope==='camp'){
+          const campId=String(rawObj.campaignId||'').trim();
+          const pid=String(rawObj.pageId||pgPayload.id||'').trim();
+          if(campId&&campId!=='default'){
+            const shared=getCampaignSharedPages(campId);
+            const idx=shared.findIndex(p=>p.id===pid);
+            if(rawObj.deleted===true){
+              if(idx>=0&&shared[idx].id!=='camp_main') shared.splice(idx,1);
+              if(!shared.length) getCampaignSharedPages(campId);
+            }else if(pid){
+              if(idx>=0){
+                if(pgPayload.title!==undefined) shared[idx].title=String(pgPayload.title||'Notiz');
+                if(pgPayload.content!==undefined) shared[idx].content=String(pgPayload.content??'');
+                shared[idx].updatedAt=String(pgPayload.updatedAt||rawObj.updatedAt||stamp());
+                if(pgPayload.lastEditor!==undefined) shared[idx].lastEditor=String(pgPayload.lastEditor||'');
+              }else{
+                shared.push({
+                  id:pid,
+                  title:String(pgPayload.title||'Notiz'),
+                  content:String(pgPayload.content??''),
+                  updatedAt:String(pgPayload.updatedAt||rawObj.updatedAt||stamp()),
+                  lastEditor:String(pgPayload.lastEditor||''),
+                  originCharName:String(pgPayload.originCharName||''),
+                  originOwner:String(pgPayload.originOwner||''),
+                  isDetached:Boolean(pgPayload.isDetached),
+                  isCampaignNative:Boolean(pgPayload.isCampaignNative)
+                });
+              }
+            }
+          }
+        }else if(rawObj.scope==='char'){
+          const cid=String(rawObj.charId||pnePayload?.charId||'').trim();
+          if(cid){
+            if(!CLOUD.registry.publicNotes||typeof CLOUD.registry.publicNotes!=='object') CLOUD.registry.publicNotes={};
+            if(pnePayload){
+              CLOUD.registry.publicNotes[cid]={
+                ...CLOUD.registry.publicNotes[cid],
+                ...pnePayload,
+                charId:cid,
+                pages:Array.isArray(pnePayload.pages)?pnePayload.pages:(CLOUD.registry.publicNotes[cid]?.pages||[])
+              };
+            }else{
+              if(!CLOUD.registry.publicNotes[cid]){
+                CLOUD.registry.publicNotes[cid]={
+                  charId:cid,
+                  campaignId:String(rawObj.campaignId||getCharCampaignId(cid)||'default'),
+                  charName:String(rawObj.charName||'Unbenannter Held'),
+                  avatar:String(rawObj.avatar||''),
+                  owner:String(rawObj.owner||getCharOwner(cid)||''),
+                  content:'',
+                  updatedAt:String(rawObj.updatedAt||stamp()),
+                  pages:[]
+                };
+              }
+              const pubEntry=CLOUD.registry.publicNotes[cid];
+              if(rawObj.campaignId) pubEntry.campaignId=String(rawObj.campaignId);
+              if(rawObj.charName) pubEntry.charName=String(rawObj.charName);
+              if(rawObj.owner!==undefined) pubEntry.owner=String(rawObj.owner);
+              pubEntry.updatedAt=String(rawObj.updatedAt||stamp());
+              if(Array.isArray(rawObj.pages)){
+                pubEntry.pages=rawObj.pages;
+              }else if(rawObj.pageId){
+                if(!Array.isArray(pubEntry.pages)) pubEntry.pages=[];
+                const pIdx=pubEntry.pages.findIndex(p=>p.id===rawObj.pageId);
+                if(rawObj.deleted===true||rawObj.isPublic===false){
+                  if(pIdx>=0) pubEntry.pages.splice(pIdx,1);
+                }else if(pIdx>=0){
+                  if(rawObj.title!==undefined) pubEntry.pages[pIdx].title=String(rawObj.title||'🌐 Öffentlich');
+                  if(rawObj.content!==undefined) pubEntry.pages[pIdx].content=String(rawObj.content??'');
+                  pubEntry.pages[pIdx].updatedAt=String(rawObj.updatedAt||stamp());
+                }else{
+                  pubEntry.pages.push({
+                    id:String(rawObj.pageId),
+                    title:String(rawObj.title||'🌐 Öffentlich'),
+                    content:String(rawObj.content??''),
+                    updatedAt:String(rawObj.updatedAt||stamp())
+                  });
+                }
+              }
+              pubEntry.content=String(pubEntry.pages?.[0]?.content??rawObj.content??pubEntry.content??'');
+            }
+            if(cid===S.charId&&Array.isArray(S.campaignNotes)){
+              const incPages=CLOUD.registry.publicNotes[cid]?.pages;
+              if(Array.isArray(incPages)){
+                incPages.forEach(ip=>{
+                  const localPg=S.campaignNotes.find(n=>n.id===ip.id);
+                  if(localPg){
+                    if(ip.title!==undefined) localPg.title=String(ip.title||localPg.title);
+                    if(ip.content!==undefined) localPg.content=String(ip.content??'');
+                    localPg.updatedAt=String(ip.updatedAt||stamp());
+                  }
+                });
+                save(false);
+              }
+            }
+          }
+        }
+        saveRegistryLocal();
+        if(UI.inLobby){
+          const ae=document.activeElement;
+          const isTypingNote=Boolean(ae&&ae.matches&&(ae.matches('[data-lobby-pubnote]')||ae.matches('[data-lobby-camptitle]')));
+          const curPageId=String((ae&&(ae.dataset?.pageid||ae.getAttribute('data-lobby-camptitle')||ae.getAttribute('data-lobby-pubnote')))||(CLOUD.activePublicPageKey||'').split('::').pop()||'');
+          const incPageId=String(rawObj.pageId||pgPayload?.id||(pnePayload?.pages?.find(p=>p.id===curPageId)?.id)||'');
+          const incPgObj=pnePayload?.pages?.find(p=>p.id===curPageId)||pgPayload;
+          const incContent=incPgObj?.content!==undefined?incPgObj.content:rawObj.content;
+          const incTitle=incPgObj?.title!==undefined?incPgObj.title:rawObj.title;
+          const incUpdatedAt=incPgObj?.updatedAt||rawObj.updatedAt||pnePayload?.updatedAt;
+          const isSamePage=Boolean(incPageId&&curPageId&&curPageId===incPageId);
+          if(!isTypingNote||!isSamePage){
+            const isTypingOtherInput=Boolean(!isTypingNote&&ae&&(ae.tagName==='INPUT'||ae.tagName==='TEXTAREA'||ae.isContentEditable));
+            if(!isTypingOtherInput&&!isTypingNote){
+              renderMain();
+            }else if(isSamePage){
+              const box=document.querySelector('[data-lobby-pubnote]');
+              if(box&&incContent!==undefined) box.innerHTML=toRtfHtml(incContent);
+              const tInp=document.querySelector('[data-lobby-camptitle]');
+              if(tInp&&incTitle!==undefined) tInp.value=String(incTitle||'');
+              const tsEl=document.querySelector('[data-lobby-notets]');
+              if(tsEl&&incUpdatedAt) tsEl.textContent=String(incUpdatedAt);
+            }
+          }else{
+            if(!ae.matches('[data-lobby-pubnote]')&&incContent!==undefined){
+              const box=document.querySelector('[data-lobby-pubnote]');
+              if(box) box.innerHTML=toRtfHtml(incContent);
+            }
+            if(!ae.matches('[data-lobby-camptitle]')&&incTitle!==undefined){
+              const tInp=document.querySelector('[data-lobby-camptitle]');
+              if(tInp) tInp.value=String(incTitle||'');
+            }
+            const tsEl=document.querySelector('[data-lobby-notets]');
+            if(tsEl&&incUpdatedAt) tsEl.textContent=String(incUpdatedAt);
+          }
+        }
+        if(CN.open){
+          const ae=document.activeElement;
+          const isTypingCN=Boolean(ae&&ae.closest&&ae.closest('#notesMount'));
+          if(!isTypingCN) renderCampNotes();
+        }
+        return;
+      }
       if(rawObj.type==='clear_dice'){
         if(rawObj.campaignId){
           CLOUD.diceFeed=(CLOUD.diceFeed||[]).filter(e=>getRollCampaignId(e)!==rawObj.campaignId);
@@ -1075,7 +1220,7 @@
               const outer=JSON.parse(ev.data);
               if(outer&&outer.event==='message'&&typeof outer.message==='string'){
                 handleIncomingDicePayload(JSON.parse(outer.message),true);
-              }else if(outer&&outer.id&&Array.isArray(outer.res)){
+              }else if(outer&&((outer.id&&Array.isArray(outer.res))||outer.type==='campnote_live'||outer.type==='clear_dice')){
                 handleIncomingDicePayload(outer,true);
               }
             }catch(err){}
@@ -1098,6 +1243,19 @@
         fetch(`https://ntfy.sh/${encodeURIComponent(topic)}`,{method:'POST',body:JSON.stringify(entry)}).catch(()=>{});
       }catch(e){}
       syncCloudRegistry(true);
+    }
+    let liveNoteSyncTimer = null;
+    function publishLiveCampNote(noteMsg){
+      if(!noteMsg||typeof noteMsg!=='object') return;
+      noteMsg.type = 'campnote_live';
+      noteMsg.senderTabId = LIVE_TAB_ID;
+      noteMsg.tsMs = Date.now();
+      try{if (liveDiceBC) liveDiceBC.postMessage(noteMsg);}catch(e){}
+      try{
+        fetch('https://ntfy.sh/' + encodeURIComponent(getLiveDiceTopic()), { method: 'POST', body: JSON.stringify(noteMsg) }).catch(()=>{});
+      }catch(e){}
+      clearTimeout(liveNoteSyncTimer);
+      liveNoteSyncTimer = setTimeout(() => syncCloudRegistry(true), 1200);
     }
     function clearLiveDiceFeed(){
       const campId=getActiveLiveCampaignId();
@@ -1990,33 +2148,17 @@
       S.bioImages=Array.isArray(raw.bioImages)?raw.bioImages.filter(im=>im&&im.url).map(im=>({id:im.id||uid(),url:String(im.url),caption:String(im.caption||'')})):[];
       S.bioBoxH={...def.bioBoxH,...(raw.bioBoxH&&typeof raw.bioBoxH==='object'?raw.bioBoxH:{})};
       if(Array.isArray(raw.campaignNotes)&&raw.campaignNotes.length){
-        S.campaignNotes=raw.campaignNotes.map(n=>{
-          const isFixedPub=n?.id==='cn_public';
-          return {
-            id:isFixedPub?'cn_public':(n?.id||uid()),
-            title:isFixedPub?'🌐 Öffentlich':String(n?.title||'Notiz'),
-            content:String(n?.content||''),
-            isPublic:Boolean(n?.id==='cn_public'||n?.isPublic),
-            updatedAt:String(n?.updatedAt||'')
-          };
-        });
+        S.campaignNotes=raw.campaignNotes.map(n=>({
+          id:n?.id||uid(),
+          title:String(n?.title||'Notiz'),
+          content:String(n?.content||''),
+          isPublic:Boolean(n?.isPublic),
+          updatedAt:String(n?.updatedAt||'')
+        }));
       }else if(typeof raw.campaignNotes==='string'&&raw.campaignNotes.trim()){
         S.campaignNotes=[{id:'cn_main',title:'Allgemein',content:raw.campaignNotes,isPublic:false,updatedAt:''}];
       }else{
         S.campaignNotes=[{id:'cn_main',title:'Allgemein',content:'',isPublic:false,updatedAt:''}];
-      }
-      if(!S.campaignNotes.some(n=>n.id==='cn_public')){
-        const fallbackPub=String(raw._summary?.publicNote??raw.publicNote??CLOUD.registry?.publicNotes?.[cid]?.content??'');
-        const fallbackTs=String(CLOUD.registry?.publicNotes?.[cid]?.updatedAt||'');
-        const pubTab={id:'cn_public',title:'🌐 Öffentlich',content:fallbackPub,isPublic:true,updatedAt:fallbackTs};
-        const mainIdx=S.campaignNotes.findIndex(n=>n.id==='cn_main');
-        if(mainIdx>=0) S.campaignNotes.splice(mainIdx+1,0,pubTab);
-        else S.campaignNotes.unshift(pubTab);
-      }else{
-        const pubTab=S.campaignNotes.find(n=>n.id==='cn_public');
-        pubTab.title='🌐 Öffentlich';
-        pubTab.isPublic=true;
-        pubTab.updatedAt=String(pubTab.updatedAt||'');
       }
       if(!S.campaignNotes.some(n=>n.id===S.activeCampNoteId)) S.activeCampNoteId=S.campaignNotes[0].id;
       const basisSecMap={};
@@ -2078,6 +2220,7 @@
         claims:CLOUD.registry.claims||{},
         charCampaigns:CLOUD.registry.charCampaigns||{},
         publicNotes:CLOUD.registry.publicNotes||{},
+        campaignSharedNotes:CLOUD.registry.campaignSharedNotes||{},
         deletedCharIds:Array.isArray(CLOUD.registry.deletedCharIds)?[...new Set(CLOUD.registry.deletedCharIds.map(x=>String(x||'').trim()).filter(Boolean))]:[],
         campaigns:normalizeCampaigns(CLOUD.registry.campaigns),
         gmUsers:Array.isArray(CLOUD.registry.gmUsers)?[...new Set(CLOUD.registry.gmUsers.map(u=>String(u||'').trim()).filter(Boolean))]:[],
@@ -2110,6 +2253,12 @@
             if(!push){
               Object.entries(rem.registry.publicNotes||{}).forEach(([k,v])=>{if(v&&typeof v==='object')mergedPublicNotes[k]={...v};});
             }
+            const mergedCampaignSharedNotes={...(rem.registry.campaignSharedNotes||{})};
+            const srcCampSharedNotes=localSnap?localSnap.campaignSharedNotes:(CLOUD.registry.campaignSharedNotes||{});
+            Object.entries(srcCampSharedNotes||{}).forEach(([k,v])=>{if(Array.isArray(v))mergedCampaignSharedNotes[k]=JSON.parse(JSON.stringify(v));});
+            if(!push){
+              Object.entries(rem.registry.campaignSharedNotes||{}).forEach(([k,v])=>{if(Array.isArray(v))mergedCampaignSharedNotes[k]=JSON.parse(JSON.stringify(v));});
+            }
             const remHasCamps=Array.isArray(rem.registry.campaigns)&&rem.registry.campaigns.length>0;
             const mergedCampaigns=push
               ?normalizeCampaigns(localSnap.campaigns)
@@ -2136,6 +2285,7 @@
               claims:mergedClaims,
               charCampaigns:mergedCharCampaigns,
               publicNotes:mergedPublicNotes,
+              campaignSharedNotes:mergedCampaignSharedNotes,
               deletedCharIds:mergedDeletedCharIds,
               campaigns:mergedCampaigns,
               gmUsers: push ? (localSnap.gmUsers||[]) : (Array.isArray(rem.registry.gmUsers)?rem.registry.gmUsers:(CLOUD.registry.gmUsers||[])),
@@ -2252,10 +2402,34 @@
       saveRegistryLocal(); renderModal(); syncCloudRegistry(true);
       toast(`🎲 „${clean}“ als Haupt-Spielleiter von „${camp.name}“ entfernt.`);
     }
+    function archiveCharPublicNotesToCampaign(charId, explicitCampId=''){
+      const campId = explicitCampId || getCharCampaignId(charId);
+      if(!campId || campId === 'default') return;
+      const pubEntry = CLOUD.registry.publicNotes?.[charId];
+      const pages = (charId === S.charId && Array.isArray(S.campaignNotes)) ? extractPublicPages(S.campaignNotes) : (Array.isArray(pubEntry?.pages) ? pubEntry.pages : []);
+      const validPages = pages.filter(pg => Boolean(stripHtml(pg?.content || '').trim()));
+      if(!validPages.length) return;
+      const shared = getCampaignSharedPages(campId);
+      const originCharName = pubEntry?.charName || (charId === S.charId ? S.profile.name : '') || 'Ehemaliger Charakter';
+      const originOwner = pubEntry?.owner || getCharOwner(charId) || '';
+      let archived = false;
+      validPages.forEach(pg => {
+        const title = String(pg.title || 'Notiz');
+        const content = String(pg.content || '');
+        const alreadyExists = shared.some(sp => String(sp.title || '') === title && String(sp.content || '') === content && String(sp.originCharName || '') === originCharName);
+        if(!alreadyExists){
+          shared.push({ id: 'arch_' + uid(), title, content, updatedAt: pg.updatedAt || stamp(), lastEditor: pubEntry?.owner || '', originCharName, originOwner, isDetached: true });
+          archived = true;
+        }
+      });
+      if(archived) saveRegistryLocal();
+    }
     async function kickCharFromCampaign(charId){
       const curCampId=getCharCampaignId(charId);
       if(!curCampId||curCampId==='default') return;
       if(!CLOUD.isAdmin&&!canManageCampaign(curCampId)){toast('🔒 Nur Spielleiter oder der Admin dürfen Charaktere aus der Kampagne werfen.');return;}
+      archiveCharPublicNotesToCampaign(charId, curCampId);
+      if(CLOUD.registry.publicNotes) delete CLOUD.registry.publicNotes[charId];
       CLOUD.registry.charCampaigns[charId]='default';
       const ch=CLOUD.list.find(x=>x.id===charId); if(ch) ch.campaignId='default';
       if(S.charId===charId) S.campaignId='default';
@@ -2286,17 +2460,28 @@
         toast(`📋 Kopie „${srcData.profile.name}“ unter „Ohne Kampagne / Allgemein“ angelegt!`);
       }catch(e){toast('⚠️ Kopieren fehlgeschlagen.');}
     }
+    function getCampaignSharedPages(campId){
+      if(!CLOUD.registry.campaignSharedNotes||typeof CLOUD.registry.campaignSharedNotes!=='object'){
+        CLOUD.registry.campaignSharedNotes={};
+      }
+      if(!Array.isArray(CLOUD.registry.campaignSharedNotes[campId])||!CLOUD.registry.campaignSharedNotes[campId].length){
+        CLOUD.registry.campaignSharedNotes[campId]=[{id:'camp_main',title:'📖 Gemeinsame Notizen',content:'',updatedAt:'',lastEditor:'',isCampaignNative:true}];
+      }
+      return CLOUD.registry.campaignSharedNotes[campId];
+    }
     function extractPublicPages(notesArr,fallbackContent='',fallbackTs=''){
-      if(Array.isArray(notesArr)&&notesArr.length){
-        const pages=notesArr.filter(n=>n&&(n.id==='cn_public'||n.isPublic)).map(n=>({
+      if(Array.isArray(notesArr)){
+        return notesArr.filter(n=>Boolean(n&&n.isPublic)).map(n=>({
           id:String(n.id||'cn_public'),
           title:String(n.title||'🌐 Öffentlich'),
           content:String(n.content||''),
           updatedAt:String(n.updatedAt||fallbackTs||'')
         }));
-        if(pages.length) return pages;
       }
-      return [{id:'cn_public',title:'🌐 Öffentlich',content:String(fallbackContent||''),updatedAt:String(fallbackTs||'')}];
+      if(String(fallbackContent||'').trim()){
+        return [{id:'cn_public',title:'🌐 Öffentlich',content:String(fallbackContent||''),updatedAt:String(fallbackTs||'')}];
+      }
+      return [];
     }
     async function fetchLobbyList(silent=false){
       const showLoader=!silent||!CLOUD.list.length;
@@ -2518,9 +2703,10 @@
         await res.json().catch(()=>({}));
         if(!Array.isArray(CLOUD.registry.deletedCharIds)) CLOUD.registry.deletedCharIds=[];
         if(id&&!CLOUD.registry.deletedCharIds.includes(id)) CLOUD.registry.deletedCharIds.push(id);
+        archiveCharPublicNotesToCampaign(id);
+        if(CLOUD.registry.publicNotes) delete CLOUD.registry.publicNotes[id];
         delete CLOUD.registry.claims[id];
         if(CLOUD.registry.charCampaigns) delete CLOUD.registry.charCampaigns[id];
-        if(CLOUD.registry.publicNotes) delete CLOUD.registry.publicNotes[id];
         CLOUD.list=(CLOUD.list||[]).filter(c=>c&&c.id!==id);
         await syncCloudRegistry(true);
         CLOUD.confirmDelCloudId=null;
@@ -4051,24 +4237,51 @@
         return {id:ch.id,charName,avatar,owner,updatedAt,content,pages,hasContent:Boolean(stripHtml(content).trim())||pages.some(pg=>Boolean(stripHtml(pg?.content||'').trim())),isMyChar,canEditNote};
       }):[];
       const allPublicPages=[];
-      pubNotesDocEntries.forEach(entry=>{
-        (entry.pages||[]).forEach(pg=>{
+      if(canReadPublicNotes){
+        getCampaignSharedPages(activeCampId).forEach(pg=>{
           allPublicPages.push({
-            pageKey:`${entry.id}::${pg.id}`,
-            charId:entry.id,
-            pageId:pg.id,
-            pageTitle:pg.title||'🌐 Öffentlich',
-            charName:entry.charName,
-            avatar:entry.avatar,
-            owner:entry.owner,
-            updatedAt:pg.updatedAt||entry.updatedAt||'',
-            content:String(pg.content||''),
-            hasContent:Boolean(stripHtml(pg.content||'').trim()),
-            isMyChar:entry.isMyChar,
-            canEditNote:entry.canEditNote
+            pageKey: 'camp::' + pg.id,
+            isCampPage: true,
+            isDetached: Boolean(pg.isDetached),
+            charId: '_camp_',
+            pageId: pg.id,
+            pageTitle: pg.title || '📖 Gemeinsame Notizen',
+            charName: pg.isDetached ? ('Archiv: ' + (pg.originCharName || 'Charakter')) : 'Kampagne (Alle)',
+            avatar: '',
+            owner: pg.isDetached ? (pg.originOwner || '') : (pg.lastEditor || ''),
+            originCharName: pg.originCharName || '',
+            originOwner: pg.originOwner || '',
+            lastEditor: pg.lastEditor || '',
+            updatedAt: pg.updatedAt || '',
+            content: String(pg.content || ''),
+            hasContent: Boolean(stripHtml(pg.content || '').trim()),
+            isMyChar: false,
+            canEditNote: true,
+            canDeletePage: Boolean(pg.id !== 'camp_main')
           });
         });
-      });
+        pubNotesDocEntries.forEach(entry=>{
+          (entry.pages||[]).forEach(pg=>{
+            allPublicPages.push({
+              pageKey:`${entry.id}::${pg.id}`,
+              isCampPage:false,
+              isDetached:false,
+              charId:entry.id,
+              pageId:pg.id,
+              pageTitle:pg.title||'🌐 Öffentlich',
+              charName:entry.charName,
+              avatar:entry.avatar,
+              owner:entry.owner,
+              updatedAt:pg.updatedAt||entry.updatedAt||'',
+              content:String(pg.content||''),
+              hasContent:Boolean(stripHtml(pg.content||'').trim()),
+              isMyChar:entry.isMyChar,
+              canEditNote:entry.canEditNote,
+              canDeletePage:false
+            });
+          });
+        });
+      }
       const activePubPage=allPublicPages.find(p=>p.pageKey===CLOUD.activePublicPageKey)||allPublicPages.find(p=>p.hasContent)||allPublicPages[0]||null;
       if(activePubPage) CLOUD.activePublicPageKey=activePubPage.pageKey;
       const myCampNoteChar=pubNotesDocEntries.find(e=>e.isMyChar)||(CLOUD.currentUser?campCharList.find(ch=>getCharOwner(ch.id).toLowerCase()===CLOUD.currentUser.toLowerCase()):null);
@@ -4321,33 +4534,74 @@
               ${CLOUD.publicNotesOpen?(allPublicPages.length&&activePubPage?`
                 <div class="subcard p-4 sm:p-5 bg-black/30 border bdr-line space-y-3.5">
                   <!-- Oben: Seiten-Reiterleiste -->
-                  <div class="flex flex-wrap items-center gap-1.5 border-b bdr-line pb-2.5">
-                    ${allPublicPages.map(pg=>{
-                      const isAct=pg.pageKey===activePubPage?.pageKey;
-                      const showSubTitle=Boolean(pg.pageTitle&&pg.pageTitle!=='🌐 Öffentlich');
-                      return `<button type="button" data-action="select-lobby-pubpage" data-pagekey="${esc(pg.pageKey)}" class="btn py-1.5 px-2.5 text-xs flex items-center gap-1.5 ${isAct?'btn-pri':'opacity-85 hover:opacity-100'}">
-                        <span class="w-4 h-4 rounded overflow-hidden border bdr-acc bg-black/40 shrink-0 inline-flex items-center justify-center">
-                          ${pg.avatar?`<img src="${pg.avatar}" class="w-full h-full object-cover"/>`:`<span class="text-[9px] font-black text-acc">📝</span>`}
-                        </span>
-                        <span class="font-extrabold truncate max-w-[140px]">${esc(pg.charName)}</span>
-                        ${showSubTitle?`<span class="text-[10px] opacity-85 truncate max-w-[120px]">• ${esc(pg.pageTitle)}</span>`:''}
-                        ${pg.hasContent?`<span class="w-2 h-2 rounded-full bg-emerald-400 shrink-0" data-tip="Enthält öffentliche Notizen"></span>`:''}
-                      </button>`;
-                    }).join('')}
+                  <div class="flex flex-wrap items-center justify-between gap-2 border-b bdr-line pb-2.5">
+                    <div class="flex flex-wrap items-center gap-1.5">
+                      ${allPublicPages.map(pg=>{
+                        const isAct=pg.pageKey===activePubPage?.pageKey;
+                        if(pg.isCampPage&&!pg.isDetached){
+                          return `<button type="button" data-action="select-lobby-pubpage" data-pagekey="${esc(pg.pageKey)}" class="btn py-1.5 px-2.5 text-xs flex items-center gap-1.5 ${isAct?'btn-pri':'opacity-85 hover:opacity-100'}">
+                            <span class="text-xs leading-none shrink-0">📖</span>
+                            <span class="font-extrabold truncate max-w-[160px]">${esc(pg.pageTitle)}</span>
+                            ${pg.hasContent?`<span class="w-2 h-2 rounded-full bg-emerald-400 shrink-0" data-tip="Enthält öffentliche Notizen"></span>`:''}
+                          </button>`;
+                        }
+                        if(pg.isDetached){
+                          return `<button type="button" data-action="select-lobby-pubpage" data-pagekey="${esc(pg.pageKey)}" class="btn py-1.5 px-2.5 text-xs flex items-center gap-1.5 ${isAct?'btn-pri':'opacity-85 hover:opacity-100'}">
+                            <span class="text-xs leading-none shrink-0">🏛️</span>
+                            <span class="font-extrabold truncate max-w-[140px]">${esc(pg.pageTitle)}</span>
+                            <span class="text-[10px] opacity-80 truncate max-w-[120px]">(${esc(pg.originCharName||'Charakter')})</span>
+                            ${pg.hasContent?`<span class="w-2 h-2 rounded-full bg-emerald-400 shrink-0" data-tip="Enthält öffentliche Notizen"></span>`:''}
+                          </button>`;
+                        }
+                        return `<button type="button" data-action="select-lobby-pubpage" data-pagekey="${esc(pg.pageKey)}" class="btn py-1.5 px-2.5 text-xs flex items-center gap-1.5 ${isAct?'btn-pri':'opacity-85 hover:opacity-100'}">
+                          <span class="w-4 h-4 rounded overflow-hidden border bdr-acc bg-black/40 shrink-0 inline-flex items-center justify-center">
+                            ${pg.avatar?`<img src="${pg.avatar}" class="w-full h-full object-cover"/>`:`<span class="text-[9px] font-black text-acc">📝</span>`}
+                          </span>
+                          <span class="font-extrabold truncate max-w-[140px]">${esc(pg.charName)}</span>
+                          <span class="text-[10px] opacity-85 truncate max-w-[120px]">• ${esc(pg.pageTitle)}</span>
+                          ${pg.hasContent?`<span class="w-2 h-2 rounded-full bg-emerald-400 shrink-0" data-tip="Enthält öffentliche Notizen"></span>`:''}
+                        </button>`;
+                      }).join('')}
+                    </div>
+                    <button type="button" data-action="add-lobby-camppage" data-tip="Neue gemeinsame Kampagnenseite für alle Mitglieder erstellen" class="btn bdr-acc bg-acc-soft text-acc py-1.5 px-2.5 text-xs font-extrabold shrink-0">+ Gemeinsamer Tab</button>
                   </div>
 
                   <!-- Mitte: Klarstellungs-Banner der geöffneten Seite activePubPage -->
                   <div class="p-3 rounded-xl bg-black/35 border bdr-line flex flex-wrap items-center justify-between gap-2.5">
-                    <div class="flex flex-wrap items-center gap-2 min-w-0">
-                      <div class="w-9 h-9 rounded-xl overflow-hidden border bdr-acc bg-black/40 shrink-0 flex items-center justify-center shadow-sm">
-                        ${activePubPage.avatar?`<img src="${activePubPage.avatar}" class="w-full h-full object-cover"/>`:`<span class="text-xs font-black text-acc">📝</span>`}
+                    ${activePubPage.isCampPage&&!activePubPage.isDetached?`
+                      <div class="flex flex-wrap items-center gap-2 min-w-0">
+                        <input type="text" data-lobby-camptitle="${esc(activePubPage.pageId)}" value="${esc(activePubPage.pageTitle)}" placeholder="Tab-Titel..." class="inp py-1 px-2.5 text-xs sm:text-sm font-extrabold w-48 sm:w-64"/>
+                        <span class="px-2.5 py-1 rounded-md text-[10px] sm:text-[11px] font-extrabold bg-acc-soft text-acc border bdr-acc">📖 Gemeinsame Kampagnenseite (Alle Kampagnen-Mitglieder können hier schreiben)</span>
                       </div>
-                      <span class="text-xs sm:text-sm font-black text-acc">Seite von Charakterbogen: ${esc(activePubPage.charName)}</span>
-                      ${activePubPage.owner?`<span class="px-2 py-0.5 rounded-md text-[10px] font-black ${activePubPage.isMyChar?'bg-emerald-500/25 text-emerald-300 border border-emerald-400/50':'bg-indigo-500/20 text-indigo-300 border border-indigo-400/40'}">👤 ${esc(activePubPage.owner)}</span>`:`<span class="px-2 py-0.5 rounded-md text-[10px] font-semibold bg-black/25 t-mut">⚪ Frei</span>`}
-                      <span class="px-2 py-0.5 rounded-md text-[10px] font-extrabold bg-acc-soft text-acc border bdr-acc">📄 ${esc(activePubPage.pageTitle)}</span>
-                      <button type="button" data-action="cloud-load-char" data-id="${esc(activePubPage.charId)}" class="btn py-1 px-2.5 text-[11px] bdr-acc bg-acc-soft text-acc font-extrabold shrink-0">📖 Charakterbogen öffnen</button>
-                    </div>
-                    <div class="text-[11px] font-bold t-mut tabular shrink-0">🕒 Zuletzt bearbeitet: ${esc(activePubPage.updatedAt||'Noch keine Zeitangabe')}</div>
+                      <div class="flex flex-wrap items-center gap-2 shrink-0">
+                        <div class="text-[11px] font-bold t-mut tabular">🕒 Zuletzt bearbeitet: <span data-lobby-notets="1">${esc(activePubPage.updatedAt || 'Noch keine Einträge')}</span>${activePubPage.lastEditor ? ' (👤 ' + esc(activePubPage.lastEditor) + ')' : ''}</div>
+                        ${activePubPage.canDeletePage?(CLOUD.confirmDelCampPageId===activePubPage.pageId?`<span class="inline-flex items-center gap-1"><button type="button" data-action="confirm-del-lobby-camppage" data-pageid="${esc(activePubPage.pageId)}" class="btn bg-rose-600 text-white border-rose-600 py-1 px-2.5 text-[11px] font-black">Endgültig löschen? (2/2)</button><button type="button" data-action="cancel-del-lobby-camppage" class="btn py-1 px-2 text-[11px]">✕</button></span>`:`<button type="button" data-action="ask-del-lobby-camppage" data-pageid="${esc(activePubPage.pageId)}" class="btn btn-err py-1 px-2.5 text-[11px]">🗑️ Seite löschen</button>`):''}
+                      </div>
+                    `:activePubPage.isDetached?`
+                      <div class="flex flex-wrap items-center gap-2 min-w-0">
+                        <input type="text" data-lobby-camptitle="${esc(activePubPage.pageId)}" value="${esc(activePubPage.pageTitle)}" placeholder="Tab-Titel..." class="inp py-1 px-2.5 text-xs sm:text-sm font-extrabold w-48 sm:w-64"/>
+                        <span class="px-2.5 py-1 rounded-md text-[10px] sm:text-[11px] font-extrabold bg-amber-500/20 text-amber-300 border border-amber-400/50">🏛️ Erhaltene Notiz aus ehemaligem Charakterbogen: „${esc(activePubPage.originCharName)}“${activePubPage.originOwner ? ' (👤 ' + esc(activePubPage.originOwner) + ')' : ''}</span>
+                      </div>
+                      <div class="flex flex-wrap items-center gap-2 shrink-0">
+                        <div class="text-[11px] font-bold t-mut tabular">🕒 Zuletzt bearbeitet: <span data-lobby-notets="1">${esc(activePubPage.updatedAt)}</span></div>
+                        ${activePubPage.canDeletePage?(CLOUD.confirmDelCampPageId===activePubPage.pageId?`<span class="inline-flex items-center gap-1"><button type="button" data-action="confirm-del-lobby-camppage" data-pageid="${esc(activePubPage.pageId)}" class="btn bg-rose-600 text-white border-rose-600 py-1 px-2.5 text-[11px] font-black">Endgültig löschen? (2/2)</button><button type="button" data-action="cancel-del-lobby-camppage" class="btn py-1 px-2 text-[11px]">✕</button></span>`:`<button type="button" data-action="ask-del-lobby-camppage" data-pageid="${esc(activePubPage.pageId)}" class="btn btn-err py-1 px-2.5 text-[11px]">🗑️ Seite löschen</button>`):''}
+                      </div>
+                    `:`
+                      <div class="flex flex-wrap items-center gap-2 min-w-0">
+                        <div class="w-9 h-9 rounded-xl overflow-hidden border bdr-acc bg-black/40 shrink-0 flex items-center justify-center shadow-sm">
+                          ${activePubPage.avatar?`<img src="${activePubPage.avatar}" class="w-full h-full object-cover"/>`:`<span class="text-xs font-black text-acc">📝</span>`}
+                        </div>
+                        <span class="text-xs sm:text-sm font-black text-acc">Von Charakterbogen: ${esc(activePubPage.charName)}</span>
+                        ${activePubPage.owner?`<span class="px-2 py-0.5 rounded-md text-[10px] font-black ${activePubPage.isMyChar?'bg-emerald-500/25 text-emerald-300 border border-emerald-400/50':'bg-indigo-500/20 text-indigo-300 border border-indigo-400/40'}">👤 ${esc(activePubPage.owner)}</span>`:`<span class="px-2 py-0.5 rounded-md text-[10px] font-semibold bg-black/25 t-mut">⚪ Frei</span>`}
+                        <span class="px-2 py-0.5 rounded-md text-[10px] font-extrabold bg-acc-soft text-acc border bdr-acc">📄 ${esc(activePubPage.pageTitle)}</span>
+                        <button type="button" data-action="cloud-load-char" data-id="${esc(activePubPage.charId)}" class="btn py-1 px-2.5 text-[11px] bdr-acc bg-acc-soft text-acc font-extrabold shrink-0">🔎 Bogen öffnen</button>
+                        <button type="button" data-action="detach-lobby-pubpage" data-id="${esc(activePubPage.charId)}" data-pageid="${esc(activePubPage.pageId)}" data-tip="Diese Seite dauerhaft in eine allgemeine Kampagnenseite umwandeln" class="btn py-1 px-2.5 text-[11px] border-amber-400/50 text-amber-300 font-bold shrink-0">📌 An Kampagne übergeben</button>
+                      </div>
+                      <div class="flex flex-wrap items-center gap-2 shrink-0">
+                        <div class="text-[11px] font-bold t-mut tabular">🕒 Zuletzt bearbeitet: <span data-lobby-notets="1">${esc(activePubPage.updatedAt)}</span></div>
+                        ${activePubPage.canDeletePage?(CLOUD.confirmDelCampPageId===activePubPage.pageId?`<span class="inline-flex items-center gap-1"><button type="button" data-action="confirm-del-lobby-camppage" data-pageid="${esc(activePubPage.pageId)}" class="btn bg-rose-600 text-white border-rose-600 py-1 px-2.5 text-[11px] font-black">Endgültig löschen? (2/2)</button><button type="button" data-action="cancel-del-lobby-camppage" class="btn py-1 px-2 text-[11px]">✕</button></span>`:`<button type="button" data-action="ask-del-lobby-camppage" data-pageid="${esc(activePubPage.pageId)}" class="btn btn-err py-1 px-2.5 text-[11px]">🗑️ Seite löschen</button>`):''}
+                      </div>
+                    `}
                   </div>
 
                   <!-- Unten: Dokumentenblatt -->
@@ -4611,26 +4865,19 @@
       if(CN.docked&&xl){bd.classList.add('hidden');p.className='z-20 w-full xl:w-[440px] shrink-0 sticky top-36 card p-0 overflow-hidden shadow-xl';}
       else{bd.classList.remove('hidden');p.className='fixed right-3 sm:right-5 top-3 sm:top-5 z-50 w-[calc(100vw-1.5rem)] max-w-lg card p-0 overflow-hidden shadow-2xl';}
       if(!Array.isArray(S.campaignNotes)||!S.campaignNotes.length){
-        S.campaignNotes=[{id:'cn_main',title:'Allgemein',content:'',isPublic:false,updatedAt:''},{id:'cn_public',title:'🌐 Öffentlich',content:'',isPublic:true,updatedAt:''}];
-      }else if(!S.campaignNotes.some(n=>n.id==='cn_public')){
-        const pubTab={id:'cn_public',title:'🌐 Öffentlich',content:'',isPublic:true,updatedAt:''};
-        const mIdx=S.campaignNotes.findIndex(n=>n.id==='cn_main');
-        if(mIdx>=0) S.campaignNotes.splice(mIdx+1,0,pubTab);
-        else S.campaignNotes.unshift(pubTab);
+        S.campaignNotes=[{id:'cn_main',title:'Allgemein',content:'',isPublic:false,updatedAt:''}];
       }
       let actNote=S.campaignNotes.find(n=>n.id===S.activeCampNoteId);
       if(!actNote){actNote=S.campaignNotes[0];S.activeCampNoteId=actNote.id;}
-      const isFixedPub=actNote.id==='cn_public';
-      if(isFixedPub){actNote.title='🌐 Öffentlich';actNote.isPublic=true;}
-      else actNote.isPublic=Boolean(actNote.isPublic);
+      actNote.isPublic=Boolean(actNote.isPublic);
       actNote.updatedAt=String(actNote.updatedAt||'');
-      const isPub=isFixedPub||Boolean(actNote.isPublic);
+      const isPub=Boolean(actNote.isPublic);
       const charCampId=getCharCampaignId(S.charId);
       const hasNoteAccess=!CLOUD.viewingRemote||canAccessCampNotes(charCampId);
-      const canDeleteCur=!CLOUD.viewingRemote&&!isFixedPub&&S.campaignNotes.filter(n=>n.id!=='cn_public').length>1;
+      const canDeleteCur=!CLOUD.viewingRemote&&S.campaignNotes.length>1;
       const isDelAsk=canDeleteCur&&CN.confirmDelId===actNote.id;
       p.innerHTML=`<div class="flex items-center justify-between gap-2 px-4 py-3 border-b bdr-line" style="background:var(--surf2)">
-        <div class="min-w-0"><h2 class="text-sm font-extrabold">📝 Kampagnennotizen</h2><p class="text-[11px] text-acc font-bold truncate">${hasNoteAccess?(isFixedPub?'🌐 Öffentlich':`${actNote.isPublic?'🌐 ':''}${esc(actNote.title||'Notizseite')}`):'🔒 Zugriff gesperrt'}</p></div>
+        <div class="min-w-0"><h2 class="text-sm font-extrabold">📝 Kampagnennotizen</h2><p class="text-[11px] text-acc font-bold truncate">${hasNoteAccess?`${actNote.isPublic?'🌐 ':''}${esc(actNote.title||'Notizseite')}`:'🔒 Zugriff gesperrt'}</p></div>
         <div class="flex gap-1.5 shrink-0">
           <button type="button" data-action="dock-cnotes" class="hidden xl:inline-flex btn py-1 px-2 text-xs">${CN.docked?'🗗 Overlay':'📌 Andocken'}</button>
           <button type="button" data-action="close-cnotes" class="btn py-1 px-2">✕</button>
@@ -4645,17 +4892,15 @@
       </div>`:`<div class="p-4 space-y-3 max-h-[calc(100vh-5rem)] xl:max-h-none overflow-y-auto">
         <div class="flex flex-wrap items-center gap-1.5 border-b bdr-line pb-2">
           ${S.campaignNotes.map(n=>{
-            const nPub=n.id==='cn_public'||Boolean(n.isPublic);
-            const lbl=n.id==='cn_public'?'🌐 Öffentlich':`${n.isPublic&&n.id!=='cn_public'?'🌐 ':''}${esc(n.title||'Notiz')}`;
+            const nPub=Boolean(n.isPublic);
+            const lbl=`${nPub?'🌐 ':''}${esc(n.title||'Notiz')}`;
             return `<button type="button" data-action="switch-cnote-tab" data-id="${n.id}" class="btn py-1 px-2.5 text-xs ${n.id===actNote.id?'btn-pri':(nPub?'bdr-acc bg-acc-soft text-acc font-extrabold':'')}">${lbl}</button>`;
           }).join('')}
           ${!CLOUD.viewingRemote?`<button type="button" data-action="add-cnote-tab" data-tip="Neue Notizseite anlegen" class="btn btn-ok py-1 px-2.5 text-xs">+ Seite</button>`:''}
         </div>
         <div id="cnoteStamp" class="text-[11px] t-mut font-medium tabular">${actNote.updatedAt ? '🕒 Zuletzt bearbeitet: ' + esc(actNote.updatedAt) : '🕒 Noch nicht bearbeitet'}</div>
         <div class="flex flex-wrap items-center justify-between gap-2">
-          ${actNote.id==='cn_public'
-            ?`<div class="flex items-center gap-2 flex-1 min-w-[140px] py-0.5"><span class="text-sm font-extrabold text-acc">🌐 Öffentlich</span><span class="px-2 py-0.5 rounded text-[10px] font-bold bg-acc-soft border bdr-acc text-acc">Festes Kampagnen-Dokument</span></div>`
-            :`<div class="flex items-center gap-2 flex-1 min-w-[180px]"><input data-cnotetitle="${actNote.id}" data-cnote-title="${actNote.id}" type="text" value="${esc(actNote.title)}" ${CLOUD.viewingRemote?'disabled':''} placeholder="Seitentitel (z.B. Questlog, NPCs, Orte)..." class="inp-line flex-1 min-w-[120px] text-sm font-extrabold"/><button type="button" data-action="toggle-cnote-public" data-id="${actNote.id}" ${CLOUD.viewingRemote?'disabled':''} class="btn py-0.5 px-2 text-[11px] font-extrabold shrink-0 ${actNote.isPublic?'bdr-acc bg-acc-soft text-acc':'opacity-80'}">${actNote.isPublic?'🌐 Öffentlich in Lobby':'🔒 Privat'}</button></div>`}
+          <div class="flex items-center gap-2 flex-1 min-w-[180px]"><input data-cnotetitle="${actNote.id}" data-cnote-title="${actNote.id}" type="text" value="${esc(actNote.title)}" ${CLOUD.viewingRemote?'disabled':''} placeholder="Seitentitel (z.B. Questlog, NPCs, Orte)..." class="inp-line flex-1 min-w-[120px] text-sm font-extrabold"/><button type="button" data-action="toggle-cnote-public" data-id="${actNote.id}" ${CLOUD.viewingRemote?'disabled':''} class="btn py-0.5 px-2 text-[11px] font-extrabold shrink-0 ${actNote.isPublic?'bdr-acc bg-acc-soft text-acc':'opacity-80'}">${actNote.isPublic?'🌐 In Kampagne geteilt ✓':'🔒 Nur im Bogen'}</button></div>
           <div class="flex items-center gap-1">
             <button type="button" data-action="rtf-cmd" data-cmd="bold" data-tip="Fett (Strg+B)" class="btn py-0.5 px-2 text-xs font-black">B</button>
             <button type="button" data-action="rtf-cmd" data-cmd="italic" data-tip="Kursiv (Strg+I)" class="btn py-0.5 px-2 text-xs italic font-serif">I</button>
@@ -5303,7 +5548,7 @@
       else{S.progression.ep=ep;logChron(`${lbl} (EP: ${ep}/100).`);}
     }
 
-    document.addEventListener('click',e=>{
+    document.addEventListener('click',async e=>{
       const el=e.target.closest('[data-action]'); if(!el) return;
       const act=el.dataset.action; if(act==='close-modal-bg'&&e.target!==el) return;
       switch(act){
@@ -5978,23 +6223,59 @@
         case 'toggle-cnote-public': {
           if(CLOUD.viewingRemote) break;
           const note=S.campaignNotes.find(n=>n.id===el.dataset.id);
-          if(note&&note.id!=='cn_public'){
+          if(note){
             note.isPublic=!note.isPublic;
             note.updatedAt=stamp();
+            const effCampId=S.campaignId!=='default'?S.campaignId:getCharCampaignId(S.charId);
+            if(effCampId!=='default'){
+              if(!CLOUD.registry.publicNotes||typeof CLOUD.registry.publicNotes!=='object') CLOUD.registry.publicNotes={};
+              const pubPages=extractPublicPages(S.campaignNotes,'',note.updatedAt);
+              CLOUD.registry.publicNotes[S.charId]={
+                charId:S.charId,
+                campaignId:effCampId,
+                charName:S.profile.name||'Unbenannter Held',
+                avatar:S.profile.avatar||'',
+                owner:S.owner||CLOUD.currentUser||'',
+                content:String(pubPages[0]?.content||''),
+                updatedAt:note.updatedAt,
+                pages:pubPages
+              };
+              saveRegistryLocal();
+              publishLiveCampNote({scope:'char',campaignId:effCampId,charId:S.charId,publicNoteEntry:CLOUD.registry.publicNotes[S.charId]});
+            }
             save();
             renderCampNotes();
           }
           break;
         }
-        case 'add-cnote-tab': {if(CLOUD.viewingRemote)break;const privCnt=S.campaignNotes.filter(n=>n.id!=='cn_public').length;const nn={id:uid(),title:`Seite ${privCnt+1}`,content:'',isPublic:false,updatedAt:''};S.campaignNotes.push(nn);S.activeCampNoteId=nn.id;CN.confirmDelId=null;renderCampNotes();save();break;}
-        case 'ask-del-cnote': if(el.dataset.id==='cn_public') break; CN.confirmDelId=el.dataset.id; renderCampNotes(); break;
+        case 'add-cnote-tab': {if(CLOUD.viewingRemote)break;const privCnt=S.campaignNotes.length;const nn={id:uid(),title:`Seite ${privCnt+1}`,content:'',isPublic:false,updatedAt:''};S.campaignNotes.push(nn);S.activeCampNoteId=nn.id;CN.confirmDelId=null;renderCampNotes();save();break;}
+        case 'ask-del-cnote': if(S.campaignNotes.length<=1) break; CN.confirmDelId=el.dataset.id; renderCampNotes(); break;
         case 'cancel-del-cnote': CN.confirmDelId=null; renderCampNotes(); break;
         case 'confirm-del-cnote': {
-          if(el.dataset.id==='cn_public'){CN.confirmDelId=null;renderCampNotes();break;}
-          if(S.campaignNotes.filter(n=>n.id!=='cn_public').length>1){
+          if(S.campaignNotes.length>1){
+            const delNote=S.campaignNotes.find(n=>n.id===el.dataset.id);
             S.campaignNotes=S.campaignNotes.filter(n=>n.id!==el.dataset.id);
             if(!S.campaignNotes.some(n=>n.id===S.activeCampNoteId)) S.activeCampNoteId=S.campaignNotes[0].id;
-            CN.confirmDelId=null; renderCampNotes(); save(); toast('Notizseite gelöscht');
+            CN.confirmDelId=null;
+            const effCampId=S.campaignId!=='default'?S.campaignId:getCharCampaignId(S.charId);
+            if(delNote?.isPublic&&effCampId!=='default'){
+              if(!CLOUD.registry.publicNotes||typeof CLOUD.registry.publicNotes!=='object') CLOUD.registry.publicNotes={};
+              const nowTs=stamp();
+              const pubPages=extractPublicPages(S.campaignNotes,'',nowTs);
+              CLOUD.registry.publicNotes[S.charId]={
+                charId:S.charId,
+                campaignId:effCampId,
+                charName:S.profile.name||'Unbenannter Held',
+                avatar:S.profile.avatar||'',
+                owner:S.owner||CLOUD.currentUser||'',
+                content:String(pubPages[0]?.content||''),
+                updatedAt:nowTs,
+                pages:pubPages
+              };
+              saveRegistryLocal();
+              publishLiveCampNote({scope:'char',campaignId:effCampId,charId:S.charId,publicNoteEntry:CLOUD.registry.publicNotes[S.charId]});
+            }
+            renderCampNotes(); save(); toast('Notizseite gelöscht');
           }
           break;
         }
@@ -6002,12 +6283,119 @@
         case 'toggle-lobby-pubnotes': CLOUD.publicNotesOpen=!CLOUD.publicNotesOpen; renderMain(); break;
         case 'select-lobby-pubpage': {
           CLOUD.activePublicPageKey=el.dataset.pagekey||'';
+          CLOUD.confirmDelCampPageId=null;
           renderMain();
+          break;
+        }
+        case 'add-lobby-camppage': {
+          const shared=getCampaignSharedPages(CLOUD.activeCampaignId);
+          const newPg={
+            id:'cpg_'+uid(),
+            title:'Neue Seite',
+            content:'',
+            updatedAt:stamp(),
+            lastEditor:CLOUD.currentUser||'Admin',
+            isCampaignNative:true
+          };
+          shared.push(newPg);
+          CLOUD.activePublicPageKey='camp::'+newPg.id;
+          CLOUD.confirmDelCampPageId=null;
+          saveRegistryLocal();
+          renderMain();
+          publishLiveCampNote({scope:'camp',campaignId:CLOUD.activeCampaignId,pageId:newPg.id,page:newPg});
+          break;
+        }
+        case 'ask-del-lobby-camppage': {
+          CLOUD.confirmDelCampPageId=el.dataset.pageid||null;
+          renderMain();
+          break;
+        }
+        case 'cancel-del-lobby-camppage': {
+          CLOUD.confirmDelCampPageId=null;
+          renderMain();
+          break;
+        }
+        case 'confirm-del-lobby-camppage': {
+          const pid=el.dataset.pageid||'';
+          if(pid&&pid!=='camp_main'){
+            const shared=getCampaignSharedPages(CLOUD.activeCampaignId);
+            CLOUD.registry.campaignSharedNotes[CLOUD.activeCampaignId]=shared.filter(p=>p&&p.id!==pid);
+            CLOUD.confirmDelCampPageId=null;
+            CLOUD.activePublicPageKey='';
+            saveRegistryLocal();
+            renderMain();
+            publishLiveCampNote({scope:'camp',campaignId:CLOUD.activeCampaignId,pageId:pid,deleted:true});
+            toast('🗑️ Kampagnenseite gelöscht.');
+          }
+          break;
+        }
+        case 'detach-lobby-pubpage': {
+          const cid=el.dataset.id||'';
+          const pid=el.dataset.pageid||'';
+          if(!cid||!pid||cid==='_camp_') break;
+          const nowTs=stamp();
+          const pubEntry=CLOUD.registry.publicNotes?.[cid];
+          const ownNote=(cid===S.charId&&!CLOUD.viewingRemote&&Array.isArray(S.campaignNotes))?S.campaignNotes.find(n=>n&&n.id===pid):null;
+          const regPg=Array.isArray(pubEntry?.pages)?pubEntry.pages.find(p=>p&&p.id===pid):null;
+          const rtfEl=document.querySelector(`[data-lobby-pubnote="${cid}"][data-pageid="${pid}"]`)||document.querySelector(`[data-lobby-pubnote="${cid}"]`);
+          const pageTitle=String(ownNote?.title||regPg?.title||'Notiz');
+          const pageContent=String(rtfEl?rtfEl.innerHTML:(ownNote?.content??regPg?.content??pubEntry?.content??''));
+          const ch=CLOUD.list.find(x=>x.id===cid);
+          const originCharName=pubEntry?.charName||ch?.name||(cid===S.charId?S.profile.name:'')||'Charakter';
+          const originOwner=pubEntry?.owner||getCharOwner(cid)||(cid===S.charId?S.owner:'')||CLOUD.currentUser||'';
+          const newCampPg={
+            id:'cpg_'+uid(),
+            title:pageTitle,
+            content:pageContent,
+            updatedAt:nowTs,
+            lastEditor:CLOUD.currentUser||originOwner||'Admin',
+            originCharName,
+            originOwner,
+            isDetached:true,
+            isCampaignNative:false
+          };
+          getCampaignSharedPages(CLOUD.activeCampaignId).push(newCampPg);
+          if(ownNote){
+            ownNote.isPublic=false;
+            ownNote.updatedAt=nowTs;
+            save(false);
+          }
+          if(pubEntry){
+            if(cid===S.charId&&!CLOUD.viewingRemote){
+              pubEntry.pages=extractPublicPages(S.campaignNotes,'',nowTs);
+            }else if(Array.isArray(pubEntry.pages)){
+              pubEntry.pages=pubEntry.pages.filter(p=>p&&p.id!==pid);
+            }
+            pubEntry.content=String(pubEntry.pages?.[0]?.content||'');
+            pubEntry.updatedAt=nowTs;
+          }
+          CLOUD.activePublicPageKey='camp::'+newCampPg.id;
+          saveRegistryLocal();
+          renderMain();
+          if(CN.open) renderCampNotes();
+          publishLiveCampNote({scope:'camp',campaignId:CLOUD.activeCampaignId,pageId:newCampPg.id,page:newCampPg});
+          if(CLOUD.registry.publicNotes?.[cid]){
+            publishLiveCampNote({scope:'char',campaignId:CLOUD.activeCampaignId,charId:cid,publicNoteEntry:CLOUD.registry.publicNotes[cid]});
+          }
+          if(cid===S.charId&&!CLOUD.viewingRemote){
+            pushToCloud(true);
+          }else{
+            updateCloudCharacterMeta(cid,data=>{
+              if(Array.isArray(data.campaignNotes)){
+                const tn=data.campaignNotes.find(n=>n&&n.id===pid);
+                if(tn){tn.isPublic=false;tn.updatedAt=nowTs;}
+              }
+            },'');
+          }
+          toast('📌 Seite an die Kampagne übergeben!');
           break;
         }
         case 'lobby-focus-my-pubnote': {
           const charId=el.dataset.id||S.charId||'';
-          if(charId) CLOUD.activePublicPageKey=`${charId}::cn_public`;
+          if(charId){
+            const firstPid=(charId===S.charId?(S.campaignNotes||[]).find(n=>n&&n.isPublic)?.id:'')||CLOUD.registry.publicNotes?.[charId]?.pages?.[0]?.id||'cn_public';
+            CLOUD.activePublicPageKey=`${charId}::${firstPid}`;
+          }
           CLOUD.publicNotesOpen=true;
           renderMain();
           setTimeout(()=>{
@@ -6028,6 +6416,21 @@
           const rtfEl=document.querySelector(`[data-lobby-pubnote="${cid}"][data-pageid="${pid}"]`)||document.querySelector(`[data-lobby-pubnote="${cid}"]`);
           const content=rtfEl?rtfEl.innerHTML:'';
           const nowTs=stamp();
+          if(cid==='_camp_'){
+            const shared=getCampaignSharedPages(CLOUD.activeCampaignId);
+            const pg=shared.find(p=>p&&p.id===pid);
+            if(pg){
+              pg.content=content;
+              pg.updatedAt=nowTs;
+              pg.lastEditor=CLOUD.currentUser||'Admin';
+              saveRegistryLocal();
+              publishLiveCampNote({scope:'camp',campaignId:CLOUD.activeCampaignId,pageId:pid,page:pg});
+              await syncCloudRegistry(true);
+              renderMain();
+              toast('💾 Gemeinsame Kampagnenseite gespeichert!');
+            }
+            break;
+          }
           if(!CLOUD.registry.publicNotes||typeof CLOUD.registry.publicNotes!=='object') CLOUD.registry.publicNotes={};
           if(!CLOUD.registry.publicNotes[cid]){
             const ch=CLOUD.list.find(x=>x.id===cid);
@@ -6051,12 +6454,11 @@
             }else{
               entry.pages.push({id:pid,title:pid==='cn_public'?'🌐 Öffentlich':'Notiz',content,updatedAt:nowTs});
             }
-            if(pid==='cn_public'){
-              entry.content=content;
-              entry.updatedAt=nowTs;
-            }
+            entry.content=String(entry.pages[0]?.content??content??'');
+            entry.updatedAt=nowTs;
           }
           saveRegistryLocal();
+          publishLiveCampNote({scope:'char',campaignId:CLOUD.activeCampaignId,charId:cid,publicNoteEntry:CLOUD.registry.publicNotes[cid]});
           if(cid===S.charId&&!CLOUD.viewingRemote){
             const ownNote=(S.campaignNotes||[]).find(n=>n&&n.id===pid);
             if(ownNote){
@@ -6091,18 +6493,24 @@
         case 'lobby-open-char-pubnote': {
           const cid=el.dataset.id||'';
           if(!cid) break;
+          const focusFirstPublic=()=>{
+            const pubPg=(S.campaignNotes||[]).find(n=>n&&n.isPublic);
+            if(pubPg) S.activeCampNoteId=pubPg.id;
+            else if(S.campaignNotes?.[0]) S.activeCampNoteId=S.campaignNotes[0].id;
+            CN.open=true;
+          };
           if(UI.sheetLoaded&&S.charId===cid&&!CLOUD.viewingRemote){
             UI.inLobby=false; UI.sheetLoaded=true; UI.modal=null;
-            S.activeCampNoteId='cn_public'; CN.open=true;
+            focusFirstPublic();
             renderAll(false);
           }else{
             loadCloudCharacter(cid,false,true).then(()=>{
               if(!UI.inLobby&&S.charId===cid){
-                S.activeCampNoteId='cn_public'; CN.open=true;
+                focusFirstPublic();
                 renderHeader(); renderCampNotes();
               }else if(S.charId===cid){
                 UI.inLobby=false; UI.sheetLoaded=true; UI.modal=null;
-                S.activeCampNoteId='cn_public'; CN.open=true;
+                focusFirstPublic();
                 renderAll(false);
               }
             });
@@ -6587,10 +6995,27 @@
         if(CLOUD.viewingRemote) return;
         const tid=el.dataset.cnotetitle||el.dataset.cnoteTitle;
         const note=S.campaignNotes.find(x=>x.id===tid);
-        if(note&&note.id!=='cn_public'){
+        if(note){
           note.title=el.value;
           note.updatedAt=stamp();
           const tsEl=$('cnoteStamp'); if(tsEl) tsEl.textContent='🕒 Zuletzt bearbeitet: '+note.updatedAt;
+          const effCampId=S.campaignId!=='default'?S.campaignId:getCharCampaignId(S.charId);
+          if(note.isPublic&&effCampId!=='default'){
+            if(!CLOUD.registry.publicNotes||typeof CLOUD.registry.publicNotes!=='object') CLOUD.registry.publicNotes={};
+            const pubPages=extractPublicPages(S.campaignNotes,'',note.updatedAt);
+            CLOUD.registry.publicNotes[S.charId]={
+              charId:S.charId,
+              campaignId:effCampId,
+              charName:S.profile.name||'Unbenannter Held',
+              avatar:S.profile.avatar||'',
+              owner:S.owner||CLOUD.currentUser||'',
+              content:String(pubPages[0]?.content||''),
+              updatedAt:note.updatedAt,
+              pages:pubPages
+            };
+            saveRegistryLocal();
+            publishLiveCampNote({scope:'char',campaignId:effCampId,charId:S.charId,publicNoteEntry:CLOUD.registry.publicNotes[S.charId]});
+          }
           save();
         }
         return;
@@ -6603,22 +7028,43 @@
           note.content=val;
           note.updatedAt=stamp();
           const tsEl=$('cnoteStamp'); if(tsEl) tsEl.textContent='🕒 Zuletzt bearbeitet: '+note.updatedAt;
-          if(note.id==='cn_public'||note.isPublic){
+          if(note.isPublic){
             if(!CLOUD.registry.publicNotes||typeof CLOUD.registry.publicNotes!=='object') CLOUD.registry.publicNotes={};
-            const pubNote=S.campaignNotes.find(n=>n&&n.id==='cn_public')||note;
+            const effCampId=S.campaignId!=='default'?S.campaignId:getCharCampaignId(S.charId);
+            const pubPages=extractPublicPages(S.campaignNotes,'',note.updatedAt);
             CLOUD.registry.publicNotes[S.charId]={
               charId:S.charId,
-              campaignId:getCharCampaignId(S.charId),
+              campaignId:effCampId,
               charName:S.profile.name||'Unbenannter Held',
               avatar:S.profile.avatar||'',
               owner:S.owner||CLOUD.currentUser||'',
-              content:String(pubNote?.content||''),
+              content:String(pubPages[0]?.content||''),
               updatedAt:note.updatedAt,
-              pages:extractPublicPages(S.campaignNotes,'',note.updatedAt)
+              pages:pubPages
             };
             saveRegistryLocal();
+            if(effCampId!=='default'){
+              publishLiveCampNote({scope:'char',campaignId:effCampId,charId:S.charId,publicNoteEntry:CLOUD.registry.publicNotes[S.charId]});
+            }
           }
           save();
+        }
+        return;
+      }
+      if(el.dataset.lobbyCamptitle){
+        const pid=el.dataset.lobbyCamptitle;
+        const shared=getCampaignSharedPages(CLOUD.activeCampaignId);
+        const pg=shared.find(p=>p&&p.id===pid);
+        if(pg){
+          pg.title=el.value;
+          pg.updatedAt=stamp();
+          pg.lastEditor=CLOUD.currentUser||'Admin';
+          const tabTxt=document.querySelector(`[data-action="select-lobby-pubpage"][data-pagekey="camp::${pid}"] span.font-extrabold`);
+          if(tabTxt) tabTxt.textContent=pg.title||'Neue Seite';
+          const tsEl=document.querySelector('[data-lobby-notets]');
+          if(tsEl) tsEl.textContent=pg.updatedAt;
+          saveRegistryLocal();
+          publishLiveCampNote({scope:'camp',campaignId:CLOUD.activeCampaignId,pageId:pid,page:pg});
         }
         return;
       }
@@ -6626,6 +7072,20 @@
         const cid=el.dataset.lobbyPubnote;
         const pid=el.dataset.pageid||'cn_public';
         const nowTs=stamp();
+        if(cid==='_camp_'){
+          const shared=getCampaignSharedPages(CLOUD.activeCampaignId);
+          const pg=shared.find(p=>p&&p.id===pid);
+          if(pg){
+            pg.content=String(val||'');
+            pg.updatedAt=nowTs;
+            pg.lastEditor=CLOUD.currentUser||'Admin';
+            const tsEl=document.querySelector('[data-lobby-notets]');
+            if(tsEl) tsEl.textContent=nowTs;
+            saveRegistryLocal();
+            publishLiveCampNote({scope:'camp',campaignId:CLOUD.activeCampaignId,pageId:pid,page:pg});
+          }
+          return;
+        }
         if(!CLOUD.registry.publicNotes||typeof CLOUD.registry.publicNotes!=='object') CLOUD.registry.publicNotes={};
         if(!CLOUD.registry.publicNotes[cid]){
           const ch=CLOUD.list.find(x=>x.id===cid);
@@ -6649,10 +7109,8 @@
           }else{
             entry.pages.push({id:pid,title:pid==='cn_public'?'🌐 Öffentlich':'Notiz',content:String(val||''),updatedAt:nowTs});
           }
-          if(pid==='cn_public'){
-            entry.content=String(val||'');
-            entry.updatedAt=nowTs;
-          }
+          entry.content=String(entry.pages[0]?.content??val??'');
+          entry.updatedAt=nowTs;
         }
         saveRegistryLocal();
         if(cid===S.charId&&!CLOUD.viewingRemote){
@@ -6660,9 +7118,12 @@
           if(ownNote){
             ownNote.content=String(val||'');
             ownNote.updatedAt=nowTs;
-            save();
+            save(false);
           }
         }
+        const tsEl=document.querySelector('[data-lobby-notets]');
+        if(tsEl) tsEl.textContent=nowTs;
+        publishLiveCampNote({scope:'char',campaignId:CLOUD.activeCampaignId,charId:cid,publicNoteEntry:CLOUD.registry.publicNotes[cid]});
         return;
       }
       if(el.dataset.secf){const [id,f]=el.dataset.secf.split(':'),sec=S.powerSections.find(s=>s.id===id);if(sec){sec[f]=el.value;save();}return;}
