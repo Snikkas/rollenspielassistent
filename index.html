@@ -376,15 +376,15 @@
         inventory:[makeInvItem()],equipNotes:'',
         bio:{aussehen:'',persoenlichkeit:'',faehigkeiten:'',persoenlicheDaten:'',geschichte:'',notizen:''},
         bioImages:[],bioBoxH:{equipNotes:0,aussehen:0,persoenlichkeit:0,faehigkeiten:0,persoenlicheDaten:0,geschichte:0,notizen:0},
-        campaignNotes:[{id:'cn_main',title:'Allgemein',content:'',isPublic:false,updatedAt:''}],activeCampNoteId:'cn_main',
+        campNoteFolders:[{id:'cf_private',name:'🔒 Private Notizen',isPublic:false,collapsed:false,isSystem:true},{id:'cf_public',name:'🌐 Öffentliche Notizen',isPublic:true,collapsed:false,isSystem:true}],campaignNotes:[{id:'cn_main',title:'Allgemein',content:'',isPublic:false,folderId:'cf_private',updatedAt:''},{id:'cn_public',title:'Öffentliche Notiz',content:'',isPublic:true,folderId:'cf_public',updatedAt:''}],activeCampNoteId:'cn_main',
         customPalettes:[]
       };
     }
 
     const DICE_DEF={open:false,docked:false,floating:false,x:null,y:null,w:0,h:0,z:50,label:'Freie Probe',skillId:null,attrKey:null,weaponId:null,wRollCat:'Normaler Test',cMode:'direct',cDirect:0,cAttr:0,cSkill:'0',cCustom:25,dMode:'direct',dDirect:40,dAttr:30,dSkill:'10',dCustom:25,adv:0,dis:0,advAdj:0,disAdj:0,cnt:1,crit:'1',critOff:0,critMode:'range',sitActive:{},blockFollowAtk:40};
-    const CNOTES_DEF={open:false,docked:false,floating:false,x:null,y:null,w:0,h:0,z:50,tocOpen:false,confirmDelId:null};
+    const CNOTES_DEF={open:false,docked:false,floating:false,x:null,y:null,w:0,h:0,z:50,tocOpen:true,confirmDelId:null,confirmDelFolderId:null,newFolderOpen:false,newFolderName:'',newFolderPublic:false};
     const LIVEDICE_DEF={open:false,docked:false,floating:false,x:null,y:null,w:0,h:0,z:50};
-    let S=defaultState(), D={...DICE_DEF}, CN={...CNOTES_DEF}, LD={...LIVEDICE_DEF}, diceLogs=[], toastTimer=null, dragPwId=null, dragAugId=null, dragSecId=null, dragSkSecId=null, dragSkId=null, dragChrPw=null, dragChrSec=null, dragEqSec=null, dragEqItem=null, dragCampId=null, dragCnPageId=null, dragToken='';
+    let S=defaultState(), D={...DICE_DEF}, CN={...CNOTES_DEF}, LD={...LIVEDICE_DEF}, diceLogs=[], toastTimer=null, dragPwId=null, dragAugId=null, dragSecId=null, dragSkSecId=null, dragSkId=null, dragChrPw=null, dragChrSec=null, dragEqSec=null, dragEqItem=null, dragCampId=null, dragCnPageId=null, dragCnFolderId=null, dragToken='';
     const getWinState=k=>k==='cnotes'?CN:k==='livedice'?LD:D;
     function applyWinFrame(k,mount,bd,defWClass){
       const st=getWinState(k);
@@ -1780,18 +1780,48 @@
       S.inventory=Array.isArray(raw.inventory)?raw.inventory.map(it=>({...makeInvItem(),...(it||{}),id:it?.id||uid(),color:isHex(it?.color)?it.color:'',bgColor:isHex(it?.bgColor)?it.bgColor:'',img:String(it?.img||''),name:String(it?.name||''),category:String(it?.category||'Inventar'),qty:String(it?.qty??'1'),notes:String(it?.notes||'')})):def.inventory;
       S.bioImages=Array.isArray(raw.bioImages)?raw.bioImages.filter(im=>im&&im.url).map(im=>({id:im.id||uid(),url:String(im.url),caption:String(im.caption||'')})):[];
       S.bioBoxH={...def.bioBoxH,...(raw.bioBoxH&&typeof raw.bioBoxH==='object'?raw.bioBoxH:{})};
+      const rawFolders=Array.isArray(raw.campNoteFolders)?raw.campNoteFolders:[];
+      const sysPriv=rawFolders.find(f=>f&&f.id==='cf_private');
+      const sysPub=rawFolders.find(f=>f&&f.id==='cf_public');
+      const customFolders=rawFolders.filter(f=>f&&f.id&&f.id!=='cf_private'&&f.id!=='cf_public').map(f=>({
+        id:String(f.id),
+        name:String(f.name||'Kapitel').trim()||'Kapitel',
+        isPublic:Boolean(f.isPublic),
+        collapsed:Boolean(f.collapsed),
+        isSystem:false
+      }));
+      S.campNoteFolders=[
+        {id:'cf_private',name:String(sysPriv?.name||'🔒 Private Notizen'),isPublic:false,collapsed:Boolean(sysPriv?.collapsed),isSystem:true},
+        {id:'cf_public',name:String(sysPub?.name||'🌐 Öffentliche Notizen'),isPublic:true,collapsed:Boolean(sysPub?.collapsed),isSystem:true},
+        ...customFolders
+      ];
+      const validFolderIds=new Set(S.campNoteFolders.map(f=>f.id));
       if(Array.isArray(raw.campaignNotes)&&raw.campaignNotes.length){
-        S.campaignNotes=raw.campaignNotes.map(n=>({
-          id:n?.id||uid(),
-          title:String(n?.title||'Notiz'),
-          content:String(n?.content||''),
-          isPublic:Boolean(n?.isPublic),
-          updatedAt:String(n?.updatedAt||'')
-        }));
+        S.campaignNotes=raw.campaignNotes.map(n=>{
+          const isPub=Boolean(n?.isPublic||n?.id==='cn_public');
+          let fid=String(n?.folderId||'').trim();
+          if(!validFolderIds.has(fid)){
+            fid=isPub?'cf_public':'cf_private';
+          }else{
+            const fObj=S.campNoteFolders.find(f=>f.id===fid);
+            if(fObj&&fObj.isSystem) fid=isPub?'cf_public':'cf_private';
+          }
+          return {
+            id:n?.id||uid(),
+            title:String(n?.title||(isPub?'Öffentliche Notiz':'Notiz')),
+            content:String(n?.content||''),
+            isPublic:isPub,
+            folderId:fid,
+            updatedAt:String(n?.updatedAt||'')
+          };
+        });
       }else if(typeof raw.campaignNotes==='string'&&raw.campaignNotes.trim()){
-        S.campaignNotes=[{id:'cn_main',title:'Allgemein',content:raw.campaignNotes,isPublic:false,updatedAt:''}];
+        S.campaignNotes=[{id:'cn_main',title:'Allgemein',content:raw.campaignNotes,isPublic:false,folderId:'cf_private',updatedAt:''}];
       }else{
-        S.campaignNotes=[{id:'cn_main',title:'Allgemein',content:'',isPublic:false,updatedAt:''}];
+        S.campaignNotes=[
+          {id:'cn_main',title:'Allgemein',content:'',isPublic:false,folderId:'cf_private',updatedAt:''},
+          {id:'cn_public',title:'Öffentliche Notiz',content:'',isPublic:true,folderId:'cf_public',updatedAt:''}
+        ];
       }
       if(!S.campaignNotes.some(n=>n.id===S.activeCampNoteId)) S.activeCampNoteId=S.campaignNotes[0].id;
       const basisSecMap={};
@@ -1830,13 +1860,15 @@
     };
     const canManageChar=id=>{
       if(CLOUD.isAdmin) return true;
+      if(!CLOUD.viewingRemote&&id===S.charId) return true;
       const own=getCharOwner(id);
-      if(own&&CLOUD.currentUser&&own.toLowerCase()===CLOUD.currentUser.toLowerCase()) return true;
+      if(!own) return true;
+      if(CLOUD.currentUser&&own.toLowerCase()===CLOUD.currentUser.toLowerCase()) return true;
       const charCampId=getCharCampaignId(id);
       return Boolean(charCampId&&charCampId!=='default'&&canManageCampaign(charCampId,CLOUD.currentUser));
     };
     const canAccessCampNotes=(campId=getCharCampaignId(S.charId))=>{
-      if(CLOUD.isAdmin||canManageChar(S.charId)) return true;
+      if(!CLOUD.viewingRemote||CLOUD.isAdmin||canManageChar(S.charId)) return true;
       const cid=String(campId||S.campaignId||'default').trim()||'default';
       if(cid==='default'||!CLOUD.currentUser) return false;
       const camp=getCampaigns().find(c=>c.id===cid);
@@ -4531,110 +4563,215 @@
       </div>${renderWinResizeHandles('livedice')}</div>`;
     }
 
-    function renderCampNotes(){
-      const mount=$('notesMount'), p=mount, bd=$('notesBackdrop'), xl=window.innerWidth>=1280;
-      if(!mount||!bd) return;
-      applyWinFrame('cnotes', mount, bd, 'xl:w-[440px] 2xl:w-[500px]'); if(!CN.open){mount.innerHTML='';return;}
-      if(!Array.isArray(S.campaignNotes)||!S.campaignNotes.length){
-        S.campaignNotes=[{id:'cn_main',title:'Allgemein',content:'',isPublic:false,updatedAt:''}];
+    function ensureCampNotesStructure(){
+      if(!Array.isArray(S.campNoteFolders)||!S.campNoteFolders.length){
+        S.campNoteFolders=[
+          {id:'cf_private',name:'🔒 Private Notizen',isPublic:false,collapsed:false,isSystem:true},
+          {id:'cf_public',name:'🌐 Öffentliche Notizen',isPublic:true,collapsed:false,isSystem:true}
+        ];
       }
-      let curIdx=S.campaignNotes.findIndex(n=>n.id===S.activeCampNoteId);
-      if(curIdx<0){curIdx=0;S.activeCampNoteId=S.campaignNotes[0].id;}
-      const actNote=S.campaignNotes[curIdx];
-      actNote.isPublic=Boolean(actNote.isPublic);
-      actNote.updatedAt=String(actNote.updatedAt||'');
-      const isPub=Boolean(actNote.isPublic);
-      const charCampId=getCharCampaignId(S.charId);
-      const hasNoteAccess=!CLOUD.viewingRemote||canAccessCampNotes(charCampId);
-      const canDeleteCur=!CLOUD.viewingRemote&&S.campaignNotes.length>1;
-      const isDelAsk=canDeleteCur&&CN.confirmDelId===actNote.id;
-      const rectLeft=p.getBoundingClientRect?.()?.left||999;
-      const tocRightSide=xl&&rectLeft>0&&rectLeft<290;
-      const tocPosCls=tocRightSide?'xl:left-full xl:ml-2':'xl:right-full xl:mr-2';
-      const tocHtml=(CN.tocOpen&&hasNoteAccess)?`<div class="book-card p-3.5 shadow-2xl z-50 w-full xl:w-80 mb-2 xl:mb-0 xl:absolute xl:top-0 ${tocPosCls} space-y-2.5">
-        <div class="flex items-center justify-between gap-2 border-b bdr-line pb-2">
-          <div class="min-w-0">
-            <div class="text-xs font-black text-acc uppercase tracking-wider flex items-center gap-1.5"><span>📖</span><span>Inhaltsverzeichnis</span></div>
-            <div class="text-[10px] t-mut font-semibold">${S.campaignNotes.length} ${S.campaignNotes.length===1?'Kapitel':'Kapitel'} • Drag &amp; Drop zum Sortieren</div>
-          </div>
-          <div class="flex items-center gap-1 shrink-0">
-            ${!CLOUD.viewingRemote?`<button type="button" data-action="add-cnote-tab" data-tip="Neues Kapitel / neue Seite anlegen" class="btn btn-ok py-0.5 px-2 text-[11px] font-extrabold">+ Seite</button>`:''}
-            <button type="button" data-action="toggle-cn-toc" data-tip="Inhaltsverzeichnis schließen" class="btn py-0.5 px-2 text-xs">✕</button>
-          </div>
-        </div>
-        <div class="space-y-1 max-h-56 xl:max-h-[68vh] overflow-y-auto pr-0.5 tabular">
-          ${S.campaignNotes.map((n,idx)=>{
-            const isAct=n.id===actNote.id;
-            const nPub=Boolean(n.isPublic);
-            const chapNum=String(idx+1).padStart(2,'0')+'.';
-            return `<div draggable="${CLOUD.viewingRemote?'false':'true'}" data-drag-cnpage="${esc(n.id)}" data-drop-cnpage="${esc(n.id)}" class="flex items-center justify-between gap-1.5 p-1.5 rounded-lg border transition-all ${isAct?'bdr-acc bg-acc-soft/50 text-acc font-extrabold shadow-sm':'bdr-line bg-black/15 hover:border-sky-400/40'} ${CLOUD.viewingRemote?'':'cursor-grab'}">
-              <button type="button" data-action="switch-cnote-tab" data-id="${esc(n.id)}" class="flex items-center gap-2 min-w-0 flex-1 text-left py-0.5 px-1">
-                <span class="text-[11px] font-black opacity-75 shrink-0">${chapNum}</span>
-                <span class="text-xs shrink-0" data-tip="${nPub?'Öffentlich (In Kampagne geteilt)':'Privat (Nur im Bogen)'}">${nPub?'🌐':'🔒'}</span>
-                <span data-cn-toc-title="${esc(n.id)}" class="text-xs truncate flex-1">${esc(n.title||('Seite '+(idx+1)))}</span>
-              </button>
-              ${!CLOUD.viewingRemote&&S.campaignNotes.length>1?`<div class="inline-flex items-center gap-0.5 shrink-0">
-                <button type="button" data-action="move-cn-page" data-id="${esc(n.id)}" data-dir="-1" ${idx===0?'disabled':''} data-tip="Kapitel nach oben schieben" class="btn py-0.5 px-1.5 text-[10px] leading-none">▲</button>
-                <button type="button" data-action="move-cn-page" data-id="${esc(n.id)}" data-dir="1" ${idx===S.campaignNotes.length-1?'disabled':''} data-tip="Kapitel nach unten schieben" class="btn py-0.5 px-1.5 text-[10px] leading-none">▼</button>
-              </div>`:''}
-            </div>`;
-          }).join('')}
-        </div>
-      </div>`:'';
-      p.innerHTML=`${tocHtml}<div class="card book-card p-0 book-spine overflow-hidden rounded-2xl relative">
-        <div data-win-drag="cnotes" class="flex flex-wrap items-center justify-between gap-2 px-4 py-3 border-b bdr-line win-drag-hdr" style="background:var(--surf2)">
-          <div class="min-w-0">
-            <h2 class="text-sm font-extrabold flex items-center gap-1.5"><span>📖</span><span>Kampagnennotizen</span></h2>
-            <p id="cnoteHdrSub" class="text-[11px] text-acc font-bold truncate">${hasNoteAccess?`${actNote.isPublic?'🌐 ':'🔒 '}${esc(actNote.title||'Notizseite')}`:'🔒 Zugriff gesperrt'}</p>
-          </div>
-          <div class="flex flex-wrap items-center gap-1.5 shrink-0">
-            ${hasNoteAccess?`<button type="button" data-action="toggle-cn-toc" data-tip="Buch-Inhaltsverzeichnis seitlich nach außen auf-/zuklappen" class="btn py-1 px-2.5 text-xs font-extrabold ${CN.tocOpen?'btn-pri':'bdr-acc bg-acc-soft text-acc'}">📖 Inhaltsverzeichnis (${S.campaignNotes.length})</button>`:''}
-            ${renderWinCtrlBtns('cnotes')}<button type="button" data-action="toggle-dock-cnotes" class="hidden xl:inline-flex btn py-1 px-2 text-xs">${CN.docked?'🗗 Overlay':'📌 Andocken'}</button>
-            <button type="button" data-action="close-cnotes" class="btn py-1 px-2">✕</button>
-          </div>
-        </div>
-        ${!hasNoteAccess?`<div class="p-4 space-y-3 max-h-[calc(100vh-5rem)] xl:max-h-none overflow-y-auto">
-          <div class="subcard p-5 border-2 border-rose-500/45 bg-rose-500/10 text-center space-y-2">
-            <div class="text-2xl">🔒</div>
-            <div class="text-sm font-black text-rose-300">Kampagnennotizen im Ansichtsmodus gesperrt</div>
-            <p class="text-xs t-mut leading-relaxed">Der Zugriff auf die öffentlichen und privaten Kampagnennotizen dieses Charakters ist nur für freigeschaltete Mitglieder der zugehörigen Kampagne, die Spielleitung, den Charakter-Besitzer oder den Admin gestattet.</p>
-          </div>
-        </div>`:`<div class="p-4 space-y-3 max-h-[calc(100vh-5rem)] xl:max-h-none overflow-y-auto">
-          <div class="subcard p-3 space-y-2.5 border bdr-line">
-            <div class="flex flex-wrap items-center justify-between gap-2 text-xs tabular">
-              <div class="flex items-center gap-1.5">
-                <button type="button" data-action="step-cn-page" data-dir="-1" ${curIdx<=0?'disabled':''} data-tip="Zur vorherigen Buchseite blättern" class="btn py-1 px-2.5 text-xs font-bold">‹ Vorherige</button>
-                <span class="px-2.5 py-1 rounded-lg bg-black/25 border bdr-line text-[11px] font-extrabold text-acc">Seite ${curIdx + 1} von ${S.campaignNotes.length}</span>
-                <button type="button" data-action="step-cn-page" data-dir="1" ${curIdx>=S.campaignNotes.length-1?'disabled':''} data-tip="Zur nächsten Buchseite blättern" class="btn py-1 px-2.5 text-xs font-bold">Nächste ›</button>
-              </div>
-              <div class="flex items-center gap-1.5">
-                ${!CLOUD.viewingRemote?`<button type="button" data-action="add-cnote-tab" data-tip="Neue Notizseite anlegen" class="btn btn-ok py-1 px-2.5 text-xs">+ Seite</button>`:''}
-                ${canDeleteCur?(isDelAsk?`<button type="button" data-action="confirm-del-cnote" data-id="${actNote.id}" class="btn bg-rose-600 text-white border-rose-600 py-1 px-2 text-[10px] font-black">Löschen? (2/2)</button><button type="button" data-action="cancel-del-cnote" class="btn py-1 px-1.5 text-[10px]">✕</button>`:`<button type="button" data-action="ask-del-cnote" data-id="${actNote.id}" data-tip="Diese Notizseite entfernen" class="btn btn-err py-1 px-2 text-xs">🗑️</button>`):''}
-              </div>
-            </div>
-            <div class="flex items-center gap-2 pt-0.5">
-              <span class="h-px flex-1 bg-gradient-to-r from-transparent via-sky-400/45 to-sky-400/20"></span>
-              <span class="text-[10px] font-black tracking-[0.18em] uppercase text-acc shrink-0">✦ Kapitel ${String(curIdx+1).padStart(2,'0')} ✦</span>
-              <span class="h-px flex-1 bg-gradient-to-l from-transparent via-sky-400/45 to-sky-400/20"></span>
-            </div>
-            <div class="flex flex-wrap items-center justify-between gap-2 pt-0.5">
-              <div class="flex items-center gap-2 flex-1 min-w-[180px]">
-                <input data-cnotetitle="${actNote.id}" data-cnote-title="${actNote.id}" type="text" value="${esc(actNote.title)}" ${CLOUD.viewingRemote?'disabled':''} placeholder="Kapiteltitel (z.B. Questlog, NPCs, Orte)..." class="inp-line flex-1 min-w-[120px] text-sm sm:text-base font-black tracking-tight"/>
-                <button type="button" data-action="toggle-cnote-public" data-id="${actNote.id}" ${CLOUD.viewingRemote?'disabled':''} class="btn py-1 px-2.5 text-[11px] font-extrabold shrink-0 ${actNote.isPublic?'bdr-acc bg-acc-soft text-acc':'opacity-80'}">${actNote.isPublic?'🌐 In Kampagne geteilt ✓':'🔒 Nur im Bogen'}</button>
-              </div>
-            </div>
-            <div class="flex flex-wrap items-center justify-between gap-2 pt-1.5 border-t bdr-line">
-              <div id="cnoteStamp" class="text-[11px] t-mut font-medium tabular">${actNote.updatedAt ? '🕒 Zuletzt bearbeitet: ' + esc(actNote.updatedAt) : '🕒 Noch nicht bearbeitet'}</div>
-              ${renderRtfToolbarHtml(false)}
-            </div>
-          </div>
-          ${isPub?`<div class="subcard p-2.5 border bdr-acc bg-acc-soft/30 flex flex-wrap items-center justify-between gap-2 text-xs">
-            <span class="text-acc font-semibold leading-snug flex-1 min-w-[200px]">🌐 Öffentliche Kampagnennotiz: Dieser Tab ist in der Lobby für alle freigeschalteten Mitglieder deiner aktuellen Kampagne (und den Admin) in einem gemeinsamen Dokument einsehbar.</span>
-            ${!CLOUD.viewingRemote?`<button type="button" data-action="sync-public-note" class="btn btn-ok py-1 px-2.5 text-[11px] font-extrabold shrink-0">${CLOUD.syncing?'⏳ Sync...':'☁️ Jetzt mit Lobby synchronisieren'}</button>`:''}
-          </div>`:''}
-          <div contenteditable="${CLOUD.viewingRemote?'false':'true'}" data-campnote="${actNote.id}" data-cnotebody="${actNote.id}" data-cnote-body="${actNote.id}" data-ph="Kampagnennotizen, Hinweise, NPCs, Orte &amp; Verlauf hier eintragen (Tipp: * + Leertaste für Aufzählungspunkte, Tab zum Einrücken)..." class="inp w-full rtf-box book-page-area min-h-[340px] max-h-[60vh] overflow-y-auto text-xs sm:text-sm leading-relaxed">${toRtfHtml(actNote.content)}</div>
-        </div>`}
+      if(!S.campNoteFolders.some(f=>f.id==='cf_private')) S.campNoteFolders.unshift({id:'cf_private',name:'🔒 Private Notizen',isPublic:false,collapsed:false,isSystem:true});
+      if(!S.campNoteFolders.some(f=>f.id==='cf_public')) S.campNoteFolders.splice(1,0,{id:'cf_public',name:'🌐 Öffentliche Notizen',isPublic:true,collapsed:false,isSystem:true});
+      if(!Array.isArray(S.campaignNotes)||!S.campaignNotes.length){
+        S.campaignNotes=[{id:'cn_main',title:'Allgemein',content:'',isPublic:false,folderId:'cf_private',updatedAt:''}];
+      }
+      const fMap=new Map(S.campNoteFolders.map(f=>[f.id,f]));
+      S.campaignNotes.forEach(n=>{
+        const isPub=Boolean(n.isPublic);
+        if(!n.folderId||!fMap.has(n.folderId)){
+          n.folderId=isPub?'cf_public':'cf_private';
+        }else{
+          const f=fMap.get(n.folderId);
+          if(f&&Boolean(f.isPublic)!==isPub){
+            n.isPublic=Boolean(f.isPublic);
+          }
+        }
+      });
+      if(!S.campaignNotes.some(n=>n.id===S.activeCampNoteId)){
+        S.activeCampNoteId=S.campaignNotes[0].id;
+      }
+    }
+
+    function syncPublicNotesAfterChange(activePage=null,deletedPageId=''){
+      const campId=getCharCampaignId(S.charId);
+      const pubPages=extractPublicPages(S.campaignNotes,'',stamp());
+      upsertPublicNoteEntry(S.charId,{
+        campaignId:campId,
+        charName:S.profile.name||'Unbenannter Held',
+        avatar:S.profile.avatar||'',
+        owner:S.owner||CLOUD.currentUser||'',
+        content:String(pubPages[0]?.content||''),
+        updatedAt:stamp(),
+        pages:pubPages
+      });
+      saveRegistryLocal();
+      if(activePage||deletedPageId){
+        publishLiveCampNote({
+          scope:'char',
+          charId:S.charId,
+          campaignId:campId,
+          charName:S.profile.name||'Unbenannter Held',
+          owner:S.owner||CLOUD.currentUser||'',
+          pageId:deletedPageId||activePage?.id||'',
+          title:activePage?.title||'',
+          content:activePage?.content||'',
+          isPublic:Boolean(activePage?.isPublic),
+          deleted:Boolean(deletedPageId),
+          updatedAt:stamp(),
+          pages:pubPages,
+          publicNoteEntry:CLOUD.registry.publicNotes?.[S.charId]
+        });
+      }
+    }
+
+    function renderCampNotes(){
+      const mount=$('notesMount'), bd=$('notesBackdrop');
+      if(!mount) return;
+      if(!CN.open){
+        applyWinFrame('cnotes',mount,bd,'w-[500px] xl:w-[540px]');
+        return;
+      }
+      ensureCampNotesStructure();
+      applyWinFrame('cnotes',mount,bd,'w-[500px] xl:w-[540px]');
+      const campId=getCharCampaignId(S.charId);
+      const campObj=getCampaigns().find(c=>c.id===campId);
+      const hasCamp=Boolean(campId&&campId!=='default');
+      const canEdit=!CLOUD.viewingRemote||canManageChar(S.charId);
+      const orderedPages=[];
+      S.campNoteFolders.forEach(folder=>{
+        S.campaignNotes.filter(n=>n.folderId===folder.id).forEach(n=>orderedPages.push(n));
+      });
+      S.campaignNotes.forEach(n=>{if(!orderedPages.includes(n)) orderedPages.push(n);});
+      const activePage=orderedPages.find(n=>n.id===S.activeCampNoteId)||orderedPages[0];
+      if(activePage) S.activeCampNoteId=activePage.id;
+      const curIdx=Math.max(0,orderedPages.indexOf(activePage));
+      const activeFolder=S.campNoteFolders.find(f=>f.id===activePage?.folderId)||S.campNoteFolders[0];
+      const pubCount=S.campaignNotes.filter(n=>n.isPublic).length;
+      const privCount=S.campaignNotes.length-pubCount;
+
+      mount.innerHTML=`<div class="book-card p-3.5 sm:p-4 space-y-3 relative">
         ${renderWinResizeHandles('cnotes')}
+        <div data-win-drag="cnotes" class="win-drag-hdr flex flex-wrap items-center justify-between gap-2 border-b bdr-line pb-2.5">
+          <div class="flex items-center gap-2 min-w-0">
+            <span class="text-lg leading-none">📖</span>
+            <div class="min-w-0">
+              <h3 class="text-sm sm:text-base font-black text-acc truncate">Kampagnennotizen &amp; Chronik-Buch</h3>
+              <div class="text-[11px] t-mut flex flex-wrap items-center gap-1.5">
+                <span>📁 ${esc(campObj?.name||'Ohne Kampagne / Allgemein')}</span>
+                <span>•</span>
+                <span class="text-emerald-400 font-bold">🌐 ${pubCount} öffentlich</span>
+                <span>•</span>
+                <span>🔒 ${privCount} privat</span>
+              </div>
+            </div>
+          </div>
+          <div class="flex flex-wrap items-center gap-1">
+            ${renderWinCtrlBtns('cnotes')}
+            ${!UI.inLobby&&!CN.floating?`<button type="button" data-action="dock-cnotes" data-tip="Zwischen angedockter Seitenleiste und Overlay umschalten" class="btn py-1 px-2 text-xs ${CN.docked?'btn-pri':''}">📌 ${CN.docked?'Angedockt':'Andocken'}</button>`:''}
+            <button type="button" data-action="close-cnotes" class="btn btn-err py-1 px-2 text-xs font-black">✕</button>
+          </div>
+        </div>
+
+        <div class="book-spine space-y-3">
+          <div class="flex flex-wrap items-center justify-between gap-1.5">
+            <div class="flex flex-wrap items-center gap-1.5">
+              <button type="button" data-action="toggle-cn-toc" class="btn py-1 px-2.5 text-xs font-extrabold ${CN.tocOpen?'btn-pri':'bdr-acc bg-acc-soft text-acc'}">📑 Inhaltsverzeichnis (${S.campNoteFolders.length} Ordner • ${orderedPages.length} S.) ${CN.tocOpen?'▴':'▾'}</button>
+              ${canEdit?`<button type="button" data-action="add-cn-page" data-pub="0" data-folder="${activeFolder&&!activeFolder.isPublic?esc(activeFolder.id):'cf_private'}" data-tip="Neue private Notizseite anlegen" class="btn py-1 px-2 text-xs font-bold">+ 🔒 Privat</button>
+              <button type="button" data-action="add-cn-page" data-pub="1" data-folder="${activeFolder&&activeFolder.isPublic?esc(activeFolder.id):'cf_public'}" data-tip="Neue öffentliche Notizseite anlegen (wird mit der Kampagne in der Lobby geteilt)" class="btn btn-ok py-1 px-2 text-xs font-bold">+ 🌐 Öffentlich</button>
+              <button type="button" data-action="toggle-cn-newfolder" data-tip="Neuen Ordner / neues Kapitel anlegen" class="btn py-1 px-2 text-xs bdr-acc bg-acc-soft text-acc">+ 📁 Ordner</button>`:''}
+            </div>
+            <div class="flex items-center gap-1 tabular">
+              <button type="button" data-action="prev-cn-page" ${curIdx<=0?'disabled':''} data-tip="Vorherige Seite" class="btn py-1 px-2 text-xs font-black">◀</button>
+              <span class="px-2 py-0.5 rounded bg-black/25 border bdr-line text-[11px] font-extrabold">${curIdx+1} / ${orderedPages.length}</span>
+              <button type="button" data-action="next-cn-page" ${curIdx>=orderedPages.length-1?'disabled':''} data-tip="Nächste Seite" class="btn py-1 px-2 text-xs font-black">▶</button>
+            </div>
+          </div>
+
+          ${CN.newFolderOpen&&canEdit?`<div class="subcard p-2.5 border bdr-acc bg-acc-soft/20 flex flex-wrap items-center gap-2 text-xs">
+            <span class="font-extrabold text-acc">📁 Neuer Ordner / Kapitel:</span>
+            <input id="inpNewCnFolderName" type="text" value="${esc(CN.newFolderName||'')}" placeholder="z.B. Kapitel 1: Sturm über Vhendris..." class="inp flex-1 min-w-[150px] py-1 px-2 text-xs font-bold"/>
+            <button type="button" data-action="toggle-cn-newfolder-pub" class="btn py-1 px-2 text-xs font-extrabold ${CN.newFolderPublic?'!border-emerald-500/60 !bg-emerald-500/20 text-emerald-300':'bdr-line'}">${CN.newFolderPublic?'🌐 Öffentlicher Ordner':'🔒 Privater Ordner'}</button>
+            <button type="button" data-action="create-cn-folder" class="btn btn-ok py-1 px-2.5 text-xs font-black">✓ Anlegen</button>
+            <button type="button" data-action="toggle-cn-newfolder" class="btn py-1 px-2 text-xs">✕</button>
+          </div>`:''}
+
+          ${CN.tocOpen?`<div class="subcard p-2.5 space-y-2.5 border bdr-acc bg-black/25 max-h-80 overflow-y-auto">
+            <div class="flex items-center justify-between text-[11px] t-mut px-1">
+              <span class="font-extrabold text-acc uppercase tracking-wider">📖 Ordner &amp; Kapitel (Drag &amp; Drop ⠿ oder ▲/▼)</span>
+              <span>Seiten frei zwischen Ordnern verschiebbar</span>
+            </div>
+            ${S.campNoteFolders.map((folder,fIdx)=>{
+              const fPages=S.campaignNotes.filter(n=>n.folderId===folder.id);
+              const isPubFolder=Boolean(folder.isPublic);
+              const fBdr=isPubFolder?'border-emerald-500/40 bg-emerald-500/5':'bdr-line bg-black/20';
+              return `<div data-drop-cnfolder="${esc(folder.id)}" class="rounded-xl border ${fBdr} p-2 space-y-1.5 transition-colors">
+                <div class="flex flex-wrap items-center justify-between gap-1.5">
+                  <div class="flex items-center gap-1.5 flex-1 min-w-[160px]">
+                    <button type="button" data-action="toggle-cnfolder-collapse" data-fid="${esc(folder.id)}" class="btn w-6 h-6 p-0 text-[10px] font-black shrink-0">${folder.collapsed?'▸':'▾'}</button>
+                    ${canEdit?`<span draggable="true" data-drag-cnfolder="${esc(folder.id)}" title="Ordner ziehen zum Umsortieren" class="px-1.5 py-0.5 rounded bg-black/30 border bdr-line text-[10px] font-black cursor-grab select-none shrink-0">⠿</span>`:''}
+                    <span class="px-1.5 py-0.5 rounded text-[10px] font-black shrink-0 ${isPubFolder?'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40':'bg-slate-500/20 text-slate-300 border border-slate-500/40'}">${isPubFolder?'🌐 Öffentlich':'🔒 Privat'}</span>
+                    ${!folder.isSystem&&canEdit
+                      ?`<input data-cnfolder-name="${esc(folder.id)}" type="text" value="${esc(folder.name)}" class="inp-line text-xs font-extrabold flex-1 min-w-[100px]"/>`
+                      :`<span class="text-xs font-extrabold truncate ${isPubFolder?'text-emerald-300':'text-acc'}">${esc(folder.name)}</span>`}
+                    <span class="text-[10px] t-mut tabular">(${fPages.length})</span>
+                  </div>
+                  <div class="flex items-center gap-1 shrink-0">
+                    ${canEdit?`<button type="button" data-action="add-cn-page" data-pub="${isPubFolder?'1':'0'}" data-folder="${esc(folder.id)}" data-tip="Neue Seite in diesem Ordner erstellen" class="btn py-0.5 px-1.5 text-[10px] font-black">+ Seite</button>`:''}
+                    ${canEdit&&!folder.isSystem?`<button type="button" data-action="toggle-cnfolder-pub" data-fid="${esc(folder.id)}" data-tip="Ordner samt enthaltenen Seiten zwischen Öffentlich &amp; Privat umschalten" class="btn py-0.5 px-1.5 text-[10px]">${isPubFolder?'→ 🔒':'→ 🌐'}</button>`:''}
+                    ${canEdit&&S.campNoteFolders.length>1?`<button type="button" data-action="move-cnfolder" data-fid="${esc(folder.id)}" data-dir="-1" ${fIdx===0?'disabled':''} class="btn py-0.5 px-1 text-[10px]">▲</button><button type="button" data-action="move-cnfolder" data-fid="${esc(folder.id)}" data-dir="1" ${fIdx===S.campNoteFolders.length-1?'disabled':''} class="btn py-0.5 px-1 text-[10px]">▼</button>`:''}
+                    ${canEdit&&!folder.isSystem?(CN.confirmDelFolderId===folder.id
+                      ?`<button type="button" data-action="confirm-del-cnfolder" data-fid="${esc(folder.id)}" class="btn bg-rose-600 text-white py-0.5 px-1.5 text-[10px] font-black">Löschen? (2/2)</button><button type="button" data-action="cancel-del-cnfolder" class="btn py-0.5 px-1 text-[10px]">✕</button>`
+                      :`<button type="button" data-action="ask-del-cnfolder" data-fid="${esc(folder.id)}" data-tip="Ordner entfernen (Seiten wandern in den Standard-Ordner)" class="btn btn-err py-0.5 px-1.5 text-[10px]">🗑️</button>`):''}
+                  </div>
+                </div>
+                ${!folder.collapsed?`<div class="space-y-1 pl-2 border-l border-white/10">
+                  ${fPages.length?fPages.map((pg,pIdx)=>{
+                    const isAct=pg.id===activePage?.id;
+                    return `<div data-drop-cnpage="${esc(pg.id)}" data-drop-cnfolder="${esc(folder.id)}" class="flex items-center justify-between gap-1.5 px-2 py-1 rounded-lg border text-xs transition-all ${isAct?'bdr-acc bg-acc-soft text-acc font-extrabold':'bdr-line bg-black/25 hover:border-sky-400/50'}">
+                      <div class="flex items-center gap-1.5 min-w-0 flex-1">
+                        ${canEdit?`<span draggable="true" data-drag-cnpage="${esc(pg.id)}" title="Seite ziehen zum Sortieren oder in anderen Ordner legen" class="px-1.5 py-0.5 rounded bg-black/30 border bdr-line text-[10px] font-black cursor-grab select-none shrink-0">⠿</span>`:''}
+                        <button type="button" data-action="sel-cn-page" data-id="${esc(pg.id)}" class="text-left truncate flex-1 min-w-0 flex items-center gap-1.5">
+                          <span>${pg.isPublic?'🌐':'🔒'}</span>
+                          <span class="truncate">${esc(pg.title||'Unbenannte Seite')}</span>
+                        </button>
+                      </div>
+                      <div class="flex items-center gap-1 shrink-0 tabular">
+                        ${pg.updatedAt?`<span class="text-[9px] t-mut hidden sm:inline">${esc(pg.updatedAt)}</span>`:''}
+                        ${canEdit&&fPages.length>1?`<button type="button" data-action="move-cnpage" data-id="${esc(pg.id)}" data-dir="-1" ${pIdx===0?'disabled':''} title="Nach oben" class="btn py-0 px-1 text-[10px]">▲</button><button type="button" data-action="move-cnpage" data-id="${esc(pg.id)}" data-dir="1" ${pIdx===fPages.length-1?'disabled':''} title="Nach unten" class="btn py-0 px-1 text-[10px]">▼</button>`:''}
+                      </div>
+                    </div>`;
+                  }).join(''):`<div data-drop-cnfolder="${esc(folder.id)}" class="py-2 px-2 text-[11px] t-mut italic border border-dashed bdr-line rounded-lg text-center">Keine Seiten in diesem Ordner – ziehe eine Seite an ⠿ hierher oder klicke auf „+ Seite“.</div>`}
+                </div>`:''}
+              </div>`;
+            }).join('')}
+          </div>`:''}
+
+          ${activePage?`<div class="space-y-2.5">
+            <div class="subcard p-2.5 space-y-2 border ${activePage.isPublic?'border-emerald-500/45 bg-emerald-500/5':'bdr-line'}">
+              <div class="flex flex-wrap items-center justify-between gap-2">
+                <div class="flex items-center gap-1.5 flex-1 min-w-[180px]">
+                  <span class="text-sm">${activePage.isPublic?'🌐':'🔒'}</span>
+                  <input id="inpCnTitle" data-cn-title="${esc(activePage.id)}" type="text" value="${esc(activePage.title)}" ${!canEdit?'disabled':''} placeholder="Seitentitel..." class="inp-line flex-1 text-sm sm:text-base font-black"/>
+                </div>
+                <div class="flex flex-wrap items-center gap-1.5">
+                  ${canEdit?`<select data-cn-folder-sel="${esc(activePage.id)}" data-tip="Seite in einen anderen Ordner / ein anderes Kapitel verschieben" class="inp py-1 px-2 text-[11px] font-bold max-w-[175px]">
+                    ${S.campNoteFolders.map(f=>`<option value="${esc(f.id)}" ${activePage.folderId===f.id?'selected':''}>${f.isPublic?'🌐':'🔒'} ${esc(f.name)}</option>`).join('')}
+                  </select>
+                  <button type="button" data-action="toggle-cn-public" data-id="${esc(activePage.id)}" data-tip="Wechselt die Seite zwischen dem Öffentlichen Ordner und dem Privaten Ordner" class="btn py-1 px-2.5 text-[11px] font-extrabold ${activePage.isPublic?'!border-emerald-500/60 !bg-emerald-500/20 text-emerald-300':'bdr-line opacity-85'}">${activePage.isPublic?'🌐 Öffentlich (In Lobby geteilt)':'🔒 Privat (Nur für dich)'}</button>`:''}
+                  ${canEdit&&S.campaignNotes.length>1?(CN.confirmDelId===activePage.id
+                    ?`<button type="button" data-action="confirm-del-cnpage" data-id="${esc(activePage.id)}" class="btn bg-rose-600 text-white py-1 px-2 text-[11px] font-black">Seite löschen? (2/2)</button><button type="button" data-action="cancel-del-cnpage" class="btn py-1 px-1.5 text-[11px]">✕</button>`
+                    :`<button type="button" data-action="ask-del-cnpage" data-id="${esc(activePage.id)}" data-tip="Diese Notizseite löschen" class="btn btn-err py-1 px-2 text-xs">🗑️</button>`):''}
+                </div>
+              </div>
+              ${activePage.isPublic&&!hasCamp?`<div class="text-[11px] text-amber-300 bg-amber-500/10 border border-amber-400/30 rounded-lg px-2.5 py-1">ℹ️ Diese Seite liegt im Ordner <strong>🌐 Öffentliche Notizen</strong>. Sobald dein Charakter in der Lobby einer Kampagne zugeordnet ist, erscheint sie dort automatisch im gemeinsamen Kampagnenbuch.</div>`:''}
+              <div class="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-white/10">
+                ${canEdit?renderRtfToolbarHtml(true):'<span class="text-[11px] t-mut">Ansichtsmodus</span>'}
+                <span data-cn-ts="${esc(activePage.id)}" class="text-[10px] t-mut tabular">${activePage.updatedAt?`Zuletzt geändert: ${esc(activePage.updatedAt)}`:'Noch nicht geändert'}</span>
+              </div>
+            </div>
+            <div contenteditable="${canEdit?'true':'false'}" id="cnEditorBox" data-cn-content="${esc(activePage.id)}" data-ph="Schreibe hier deine Notizen für „${esc(activePage.title||'diese Seite')}“..." class="inp w-full min-h-[280px] sm:min-h-[340px] resize-y text-xs sm:text-sm rtf-box book-page-area">${toRtfHtml(activePage.content)}</div>
+          </div>`:''}
+        </div>
       </div>`;
     }
     const renderCNotes=renderCampNotes;
@@ -5951,100 +6088,167 @@
         case 'close-cnotes': CN.open=false; CN.confirmDelId=null; renderHeader(); renderCampNotes(); break;
         case 'dock-cnotes':
         case 'toggle-dock-cnotes': CN.docked=!CN.docked; if(CN.docked) CN.floating=false; renderCampNotes(); break;
-        case 'toggle-cn-toc': CN.tocOpen=!CN.tocOpen; renderCampNotes(); break;
-        case 'step-cn-page': {
-          const dir=toInt(el.dataset.dir,0);
-          const curIdx=S.campaignNotes.findIndex(n=>n.id===S.activeCampNoteId);
-          const nxtIdx=curIdx+dir;
-          if(nxtIdx>=0&&nxtIdx<S.campaignNotes.length){
-            S.activeCampNoteId=S.campaignNotes[nxtIdx].id;
-            CN.confirmDelId=null;
-            renderCampNotes();
-            save(false);
-          }
-          break;
+        case 'toggle-cn-toc':
+        case 'toggle-cn-newfolder':
+        case 'toggle-cn-newfolder-pub':
+        case 'create-cn-folder':
+        case 'toggle-cnfolder-collapse':
+        case 'toggle-cnfolder-pub':
+        case 'move-cnfolder':
+        case 'ask-del-cnfolder':
+        case 'cancel-del-cnfolder':
+        case 'confirm-del-cnfolder':
+        case 'add-cn-page':
+        case 'sel-cn-page':
+        case 'prev-cn-page':
+        case 'next-cn-page':
+        case 'toggle-cn-public':
+        case 'move-cnpage':
+        case 'ask-del-cnpage':
+        case 'cancel-del-cnpage':
+        case 'confirm-del-cnpage':
+      if(act==='toggle-cn-toc'){CN.tocOpen=!CN.tocOpen;renderCampNotes();return;}
+      if(act==='toggle-cn-newfolder'){CN.newFolderOpen=!CN.newFolderOpen;CN.newFolderName='';renderCampNotes();setTimeout(()=>$('inpNewCnFolderName')?.focus(),20);return;}
+      if(act==='toggle-cn-newfolder-pub'){CN.newFolderPublic=!CN.newFolderPublic;renderCampNotes();return;}
+      if(act==='create-cn-folder'){
+        ensureCampNotesStructure();
+        const rawName=String($('inpNewCnFolderName')?.value||CN.newFolderName||'').trim()||'Neues Kapitel';
+        const isPub=Boolean(CN.newFolderPublic);
+        const fid='cf_'+uid();
+        S.campNoteFolders.push({id:fid,name:rawName,isPublic:isPub,collapsed:false,isSystem:false});
+        CN.newFolderOpen=false; CN.newFolderName=''; CN.tocOpen=true;
+        save(); renderCampNotes(); toast(`📁 Ordner „${rawName}“ angelegt!`);
+        return;
+      }
+      if(act==='toggle-cnfolder-collapse'){
+        ensureCampNotesStructure();
+        const f=S.campNoteFolders.find(x=>x.id===btn.dataset.fid);
+        if(f){f.collapsed=!f.collapsed;save(false);renderCampNotes();}
+        return;
+      }
+      if(act==='toggle-cnfolder-pub'){
+        ensureCampNotesStructure();
+        const f=S.campNoteFolders.find(x=>x.id===btn.dataset.fid);
+        if(f&&!f.isSystem){
+          f.isPublic=!f.isPublic;
+          S.campaignNotes.filter(n=>n.folderId===f.id).forEach(n=>{n.isPublic=f.isPublic;n.updatedAt=stamp();});
+          syncPublicNotesAfterChange();
+          save(); renderCampNotes();
+          toast(f.isPublic?`🌐 Ordner „${f.name}“ ist jetzt öffentlich!`:`🔒 Ordner „${f.name}“ ist jetzt privat.`);
         }
-        case 'move-cn-page': {
-          if(CLOUD.viewingRemote) break;
-          const pid=el.dataset.id, dir=toInt(el.dataset.dir,0);
-          const idx=S.campaignNotes.findIndex(n=>n.id===pid);
-          const nxt=idx+dir;
-          if(idx>=0&&nxt>=0&&nxt<S.campaignNotes.length){
-            const [moved]=S.campaignNotes.splice(idx,1);
-            S.campaignNotes.splice(nxt,0,moved);
-            const effCampId=S.campaignId!=='default'?S.campaignId:getCharCampaignId(S.charId);
-            if(effCampId!=='default'&&S.campaignNotes.some(n=>n.isPublic)){
-              const nowTs=stamp();
-              const pubPages=extractPublicPages(S.campaignNotes,'',nowTs);
-              upsertPublicNoteEntry(S.charId,{campaignId:effCampId,charName:S.profile.name||'Unbenannter Held',avatar:S.profile.avatar||'',owner:S.owner||CLOUD.currentUser||'',content:String(pubPages[0]?.content||''),updatedAt:nowTs,pages:pubPages});
-              saveRegistryLocal();
-              publishLiveCampNote({scope:'char',campaignId:effCampId,charId:S.charId,publicNoteEntry:CLOUD.registry.publicNotes[S.charId]});
-            }
-            renderCampNotes();
-            save();
-          }
-          break;
+        return;
+      }
+      if(act==='move-cnfolder'){
+        ensureCampNotesStructure();
+        const idx=S.campNoteFolders.findIndex(x=>x.id===btn.dataset.fid), dir=toInt(btn.dataset.dir,0);
+        const targetIdx=idx+dir;
+        if(idx>=0&&targetIdx>=0&&targetIdx<S.campNoteFolders.length){
+          const [mv]=S.campNoteFolders.splice(idx,1);
+          S.campNoteFolders.splice(targetIdx,0,mv);
+          save(); renderCampNotes();
         }
-        case 'switch-cnote-tab': S.activeCampNoteId=el.dataset.id; CN.confirmDelId=null; renderCampNotes(); save(false); break;
-        case 'toggle-cnote-public': {
-          if(CLOUD.viewingRemote) break;
-          const note=S.campaignNotes.find(n=>n.id===el.dataset.id);
-          if(note){
-            note.isPublic=!note.isPublic;
-            note.updatedAt=stamp();
-            const effCampId=S.campaignId!=='default'?S.campaignId:getCharCampaignId(S.charId);
-            if(effCampId!=='default'){
-              if(!CLOUD.registry.publicNotes||typeof CLOUD.registry.publicNotes!=='object') CLOUD.registry.publicNotes={};
-              const pubPages=extractPublicPages(S.campaignNotes,'',note.updatedAt);
-              CLOUD.registry.publicNotes[S.charId]={
-                charId:S.charId,
-                campaignId:effCampId,
-                charName:S.profile.name||'Unbenannter Held',
-                avatar:S.profile.avatar||'',
-                owner:S.owner||CLOUD.currentUser||'',
-                content:String(pubPages[0]?.content||''),
-                updatedAt:note.updatedAt,
-                pages:pubPages
-              };
-              saveRegistryLocal();
-              publishLiveCampNote({scope:'char',campaignId:effCampId,charId:S.charId,publicNoteEntry:CLOUD.registry.publicNotes[S.charId]});
-            }
-            save();
-            renderCampNotes();
-          }
-          break;
+        return;
+      }
+      if(act==='ask-del-cnfolder'){CN.confirmDelFolderId=btn.dataset.fid;renderCampNotes();return;}
+      if(act==='cancel-del-cnfolder'){CN.confirmDelFolderId=null;renderCampNotes();return;}
+      if(act==='confirm-del-cnfolder'){
+        ensureCampNotesStructure();
+        const fid=btn.dataset.fid, f=S.campNoteFolders.find(x=>x.id===fid);
+        if(f&&!f.isSystem){
+          const fallbackId=f.isPublic?'cf_public':'cf_private';
+          S.campaignNotes.filter(n=>n.folderId===fid).forEach(n=>{n.folderId=fallbackId;});
+          S.campNoteFolders=S.campNoteFolders.filter(x=>x.id!==fid);
+          CN.confirmDelFolderId=null;
+          save(); renderCampNotes(); toast('🗑️ Ordner entfernt (Seiten wurden in den Standard-Ordner verschoben).');
         }
-        case 'add-cnote-tab': {if(CLOUD.viewingRemote)break;const privCnt=S.campaignNotes.length;const nn={id:uid(),title:`Seite ${privCnt+1}`,content:'',isPublic:false,updatedAt:''};S.campaignNotes.push(nn);S.activeCampNoteId=nn.id;CN.confirmDelId=null;renderCampNotes();save();break;}
-        case 'ask-del-cnote': if(S.campaignNotes.length<=1) break; CN.confirmDelId=el.dataset.id; renderCampNotes(); break;
-        case 'cancel-del-cnote': CN.confirmDelId=null; renderCampNotes(); break;
-        case 'confirm-del-cnote': {
-          if(S.campaignNotes.length>1){
-            const delNote=S.campaignNotes.find(n=>n.id===el.dataset.id);
-            S.campaignNotes=S.campaignNotes.filter(n=>n.id!==el.dataset.id);
-            if(!S.campaignNotes.some(n=>n.id===S.activeCampNoteId)) S.activeCampNoteId=S.campaignNotes[0].id;
-            CN.confirmDelId=null;
-            const effCampId=S.campaignId!=='default'?S.campaignId:getCharCampaignId(S.charId);
-            if(delNote?.isPublic&&effCampId!=='default'){
-              if(!CLOUD.registry.publicNotes||typeof CLOUD.registry.publicNotes!=='object') CLOUD.registry.publicNotes={};
-              const nowTs=stamp();
-              const pubPages=extractPublicPages(S.campaignNotes,'',nowTs);
-              CLOUD.registry.publicNotes[S.charId]={
-                charId:S.charId,
-                campaignId:effCampId,
-                charName:S.profile.name||'Unbenannter Held',
-                avatar:S.profile.avatar||'',
-                owner:S.owner||CLOUD.currentUser||'',
-                content:String(pubPages[0]?.content||''),
-                updatedAt:nowTs,
-                pages:pubPages
-              };
-              saveRegistryLocal();
-              publishLiveCampNote({scope:'char',campaignId:effCampId,charId:S.charId,publicNoteEntry:CLOUD.registry.publicNotes[S.charId]});
-            }
-            renderCampNotes(); save(); toast('Notizseite gelöscht');
-          }
-          break;
+        return;
+      }
+      if(act==='add-cn-page'){
+        ensureCampNotesStructure();
+        const isPub=btn.dataset.pub==='1';
+        const targetFolderId=btn.dataset.folder||(isPub?'cf_public':'cf_private');
+        const folder=S.campNoteFolders.find(f=>f.id===targetFolderId)||(isPub?S.campNoteFolders.find(f=>f.id==='cf_public'):S.campNoteFolders.find(f=>f.id==='cf_private'));
+        if(folder) folder.collapsed=false;
+        const newPg={
+          id:'cn_'+uid(),
+          title:isPub?'Öffentliche Notiz':'Neue Notiz',
+          content:'',
+          isPublic:Boolean(folder?folder.isPublic:isPub),
+          folderId:folder?folder.id:(isPub?'cf_public':'cf_private'),
+          updatedAt:stamp()
+        };
+        S.campaignNotes.push(newPg);
+        S.activeCampNoteId=newPg.id;
+        CN.confirmDelId=null;
+        syncPublicNotesAfterChange(newPg);
+        save(); renderCampNotes();
+        setTimeout(()=>$('inpCnTitle')?.focus(),20);
+        return;
+      }
+      if(act==='sel-cn-page'){
+        S.activeCampNoteId=btn.dataset.id;
+        CN.confirmDelId=null;
+        save(false); renderCampNotes();
+        return;
+      }
+      if(act==='prev-cn-page'||act==='next-cn-page'){
+        ensureCampNotesStructure();
+        const ordered=[];
+        S.campNoteFolders.forEach(f=>S.campaignNotes.filter(n=>n.folderId===f.id).forEach(n=>ordered.push(n)));
+        const idx=ordered.findIndex(n=>n.id===S.activeCampNoteId);
+        const nextIdx=act==='prev-cn-page'?idx-1:idx+1;
+        if(nextIdx>=0&&nextIdx<ordered.length){
+          S.activeCampNoteId=ordered[nextIdx].id;
+          CN.confirmDelId=null;
+          save(false); renderCampNotes();
         }
+        return;
+      }
+      if(act==='toggle-cn-public'){
+        ensureCampNotesStructure();
+        const pg=S.campaignNotes.find(n=>n.id===btn.dataset.id);
+        if(pg){
+          pg.isPublic=!pg.isPublic;
+          const curF=S.campNoteFolders.find(f=>f.id===pg.folderId);
+          if(!curF||Boolean(curF.isPublic)!==pg.isPublic){
+            pg.folderId=pg.isPublic?'cf_public':'cf_private';
+          }
+          pg.updatedAt=stamp();
+          syncPublicNotesAfterChange(pg);
+          save(); renderCampNotes();
+          toast(pg.isPublic?'🌐 Seite in „Öffentliche Notizen“ verschoben!':'🔒 Seite in „Private Notizen“ verschoben.');
+        }
+        return;
+      }
+      if(act==='move-cnpage'){
+        ensureCampNotesStructure();
+        const pg=S.campaignNotes.find(n=>n.id===btn.dataset.id);
+        if(!pg) return;
+        const fPages=S.campaignNotes.filter(n=>n.folderId===pg.folderId);
+        const pIdx=fPages.indexOf(pg), dir=toInt(btn.dataset.dir,0), targetPg=fPages[pIdx+dir];
+        if(targetPg){
+          const aIdx=S.campaignNotes.indexOf(pg), bIdx=S.campaignNotes.indexOf(targetPg);
+          S.campaignNotes[aIdx]=targetPg;
+          S.campaignNotes[bIdx]=pg;
+          syncPublicNotesAfterChange(pg);
+          save(); renderCampNotes();
+        }
+        return;
+      }
+      if(act==='ask-del-cnpage'){CN.confirmDelId=btn.dataset.id;renderCampNotes();return;}
+      if(act==='cancel-del-cnpage'){CN.confirmDelId=null;renderCampNotes();return;}
+      if(act==='confirm-del-cnpage'){
+        ensureCampNotesStructure();
+        const delId=btn.dataset.id;
+        if(S.campaignNotes.length<=1) return;
+        S.campaignNotes=S.campaignNotes.filter(n=>n.id!==delId);
+        if(S.activeCampNoteId===delId) S.activeCampNoteId=S.campaignNotes[0].id;
+        CN.confirmDelId=null;
+        syncPublicNotesAfterChange(null,delId);
+        save(); renderCampNotes(); toast('🗑️ Notizseite gelöscht.');
+        return;
+      }
+        break;
         case 'sync-public-note': S.cloudAutoSync=true; save(false); pushToCloud(false); break;
         case 'toggle-lobby-pubnotes': CLOUD.publicNotesOpen=!CLOUD.publicNotesOpen; renderMain(); break;
         case 'select-lobby-pubpage': {
@@ -6750,7 +6954,7 @@
         }
         return;
       }
-      const el=e.target.closest?.('[contenteditable="true"]')||e.target;
+      const el=e.target.closest?.('[contenteditable="true"]')||e.target, t=el;
       const val=el.isContentEditable?el.innerHTML:el.value;
       if(el.classList?.contains('autogrow')&&el.dataset.boxh){
         if(el.scrollHeight>el.clientHeight){
@@ -6762,64 +6966,45 @@
       }
       if(el.dataset.bind){const [a,b]=el.dataset.bind.split('.');if(b)S[a][b]=el.value;else S[a]=el.value;save();return;}
       if(el.dataset.bindRtf){S[el.dataset.bindRtf]=val;save();return;}
-      if(el.dataset.cnotetitle||el.dataset.cnoteTitle){
-        if(CLOUD.viewingRemote) return;
-        const tid=el.dataset.cnotetitle||el.dataset.cnoteTitle;
-        const note=S.campaignNotes.find(x=>x.id===tid);
-        if(note){
-          note.title=el.value;
-          note.updatedAt=stamp();
-          const tsEl=$('cnoteStamp'); if(tsEl) tsEl.textContent='🕒 Zuletzt bearbeitet: '+note.updatedAt;
-          const tocT=document.querySelector(`[data-cn-toc-title="${note.id}"]`); if(tocT) tocT.textContent=note.title||'Notizseite';
-          const hdrS=$('cnoteHdrSub'); if(hdrS) hdrS.textContent=`${note.isPublic?'🌐 ':'🔒 '}${note.title||'Notizseite'}`;
-          const effCampId=S.campaignId!=='default'?S.campaignId:getCharCampaignId(S.charId);
-          if(note.isPublic&&effCampId!=='default'){
-            if(!CLOUD.registry.publicNotes||typeof CLOUD.registry.publicNotes!=='object') CLOUD.registry.publicNotes={};
-            const pubPages=extractPublicPages(S.campaignNotes,'',note.updatedAt);
-            CLOUD.registry.publicNotes[S.charId]={
-              charId:S.charId,
-              campaignId:effCampId,
-              charName:S.profile.name||'Unbenannter Held',
-              avatar:S.profile.avatar||'',
-              owner:S.owner||CLOUD.currentUser||'',
-              content:String(pubPages[0]?.content||''),
-              updatedAt:note.updatedAt,
-              pages:pubPages
-            };
-            saveRegistryLocal();
-            publishLiveCampNote({scope:'char',campaignId:effCampId,charId:S.charId,publicNoteEntry:CLOUD.registry.publicNotes[S.charId]});
-          }
+      if(t.id==='inpNewCnFolderName'){CN.newFolderName=t.value;return;}
+      if(t.dataset.cnfolderName){
+        const f=(S.campNoteFolders||[]).find(x=>x.id===t.dataset.cnfolderName);
+        if(f&&!f.isSystem){f.name=t.value;save();}
+        return;
+      }
+      if(t.dataset.cnFolderSel){
+        ensureCampNotesStructure();
+        const pg=S.campaignNotes.find(n=>n.id===t.dataset.cnFolderSel);
+        const targetF=S.campNoteFolders.find(f=>f.id===t.value);
+        if(pg&&targetF){
+          pg.folderId=targetF.id;
+          pg.isPublic=Boolean(targetF.isPublic);
+          pg.updatedAt=stamp();
+          syncPublicNotesAfterChange(pg);
+          save(); renderCampNotes();
+        }
+        return;
+      }
+      if(t.dataset.cnTitle){
+        const pg=(S.campaignNotes||[]).find(n=>n.id===t.dataset.cnTitle);
+        if(pg){
+          pg.title=t.value;
+          pg.updatedAt=stamp();
+          const tsEl=document.querySelector(`[data-cn-ts="${pg.id}"]`);
+          if(tsEl) tsEl.textContent=`Zuletzt geändert: ${pg.updatedAt}`;
+          syncPublicNotesAfterChange(pg);
           save();
         }
         return;
       }
-      if(el.dataset.campnote||el.dataset.cnotebody||el.dataset.cnoteBody){
-        if(CLOUD.viewingRemote) return;
-        const bid=el.dataset.campnote||el.dataset.cnotebody||el.dataset.cnoteBody;
-        const note=S.campaignNotes.find(x=>x.id===bid);
-        if(note){
-          note.content=val;
-          note.updatedAt=stamp();
-          const tsEl=$('cnoteStamp'); if(tsEl) tsEl.textContent='🕒 Zuletzt bearbeitet: '+note.updatedAt;
-          if(note.isPublic){
-            if(!CLOUD.registry.publicNotes||typeof CLOUD.registry.publicNotes!=='object') CLOUD.registry.publicNotes={};
-            const effCampId=S.campaignId!=='default'?S.campaignId:getCharCampaignId(S.charId);
-            const pubPages=extractPublicPages(S.campaignNotes,'',note.updatedAt);
-            CLOUD.registry.publicNotes[S.charId]={
-              charId:S.charId,
-              campaignId:effCampId,
-              charName:S.profile.name||'Unbenannter Held',
-              avatar:S.profile.avatar||'',
-              owner:S.owner||CLOUD.currentUser||'',
-              content:String(pubPages[0]?.content||''),
-              updatedAt:note.updatedAt,
-              pages:pubPages
-            };
-            saveRegistryLocal();
-            if(effCampId!=='default'){
-              publishLiveCampNote({scope:'char',campaignId:effCampId,charId:S.charId,publicNoteEntry:CLOUD.registry.publicNotes[S.charId]});
-            }
-          }
+      if(t.dataset.cnContent){
+        const pg=(S.campaignNotes||[]).find(n=>n.id===t.dataset.cnContent);
+        if(pg){
+          pg.content=cleanInlineStyles(t.innerHTML);
+          pg.updatedAt=stamp();
+          const tsEl=document.querySelector(`[data-cn-ts="${pg.id}"]`);
+          if(tsEl) tsEl.textContent=`Zuletzt geändert: ${pg.updatedAt}`;
+          syncPublicNotesAfterChange(pg);
           save();
         }
         return;
@@ -7192,7 +7377,7 @@
         renderMain(); renderHeader(); renderDice(); save();
         return;
       }
-      const el=e.target;
+      const el=e.target, t=el;
       if(el.dataset.lobbyBookSel){
         const val=String(el.value||'').trim();
         if(!val||val==='camp'){
@@ -7210,7 +7395,20 @@
       if(el.dataset.exsec?.endsWith(':name')){const id=el.dataset.exsec.split(':')[0],ex=(S.extraSecList||[]).find(x=>x.id===id);if(ex){syncCresRenameInTokens(el.dataset.prevExName||'',getExtraSecName(ex));el.dataset.prevExName=getExtraSecName(ex);renderHeader();syncLiveCalculations();}return;}
       if(el.dataset.mv?.endsWith(':ovr')&&String(el.value).trim()===''){renderMain();save();return;}
       if(el.dataset.bstInp){if(String(el.value??'').trim()===''){S.bstOvr='';S.bst=getBstAuto();}renderMain();save();return;}
-      if(el.dataset.cnotetitle||el.dataset.cnoteTitle){renderCampNotes();save();return;}
+      if(t.dataset.cnFolderSel){
+        ensureCampNotesStructure();
+        const pg=S.campaignNotes.find(n=>n.id===t.dataset.cnFolderSel);
+        const targetF=S.campNoteFolders.find(f=>f.id===t.value);
+        if(pg&&targetF){
+          pg.folderId=targetF.id;
+          pg.isPublic=Boolean(targetF.isPublic);
+          pg.updatedAt=stamp();
+          syncPublicNotesAfterChange(pg);
+          save(); renderCampNotes();
+        }
+        return;
+      }
+      if(t.dataset.cnTitle||t.dataset.cnfolderName){renderCampNotes();save();return;}
       if(el.dataset.secf?.endsWith(':name')||el.dataset.sksecf?.endsWith(':name')){renderMain();save();return;}
       if(el.dataset.skBon){const sk=S.skills.find(x=>x.id===el.dataset.skBon);if(sk){if(String(el.value).trim()==='')sk.bonusOvr='';renderMain();save();}return;}
       if(el.dataset.secParent){
@@ -7408,7 +7606,7 @@
       }
     });
 
-    const isAnyDragging=()=>Boolean(dragPwId||dragAugId||dragSecId||dragSkSecId||dragSkId||dragChrPw||dragChrSec||dragEqSec||dragEqItem||dragCampId||dragCnPageId||dragToken);
+    const isAnyDragging=()=>Boolean(dragPwId||dragAugId||dragSecId||dragSkSecId||dragSkId||dragChrPw||dragChrSec||dragEqSec||dragEqItem||dragCampId||dragCnPageId||dragCnFolderId||dragToken);
     function stopDragAutoScroll(){
       dragMouseY=null;
       if(dragScrollRaf){cancelAnimationFrame(dragScrollRaf);dragScrollRaf=null;}
@@ -7496,8 +7694,12 @@
     },{passive:false});
 
     document.addEventListener('dragstart',e=>{
-      const pw=e.target.closest('[data-drag-pw]'), ag=e.target.closest('[data-drag-aug]'), sec=e.target.closest('[data-drag-sec]'), sksec=e.target.closest('[data-drag-sksec]'), sk=e.target.closest('[data-drag-sk]'), cpw=e.target.closest('[data-drag-chr-pw]'), chs=e.target.closest('[data-drag-chrsec]'), eqs=e.target.closest('[data-drag-eqsec]'), eqi=e.target.closest('[data-drag-eqitem]'), cmp=CLOUD.isAdmin?e.target.closest('[data-drag-camp]'):null, cnp=!CLOUD.viewingRemote?e.target.closest('[data-drag-cnpage]'):null, tk=e.target.closest('[data-drag-tok]');
-      dragPwId=null; dragAugId=null; dragSecId=null; dragSkSecId=null; dragSkId=null; dragChrPw=null; dragChrSec=null; dragEqSec=null; dragEqItem=null; dragCampId=null; dragCnPageId=null; dragToken='';
+      dragPwId=null; dragAugId=null; dragSecId=null; dragSkSecId=null; dragSkId=null; dragChrPw=null; dragChrSec=null; dragEqSec=null; dragEqItem=null; dragCampId=null; dragCnPageId=null; dragCnFolderId=null; dragToken='';
+      const cnPgEl=e.target.closest('[data-drag-cnpage]');
+      if(cnPgEl){dragCnPageId=cnPgEl.dataset.dragCnpage;e.dataTransfer.effectAllowed='move';e.dataTransfer.setData('text/plain',dragCnPageId);return;}
+      const cnFldEl=e.target.closest('[data-drag-cnfolder]');
+      if(cnFldEl){dragCnFolderId=cnFldEl.dataset.dragCnfolder;e.dataTransfer.effectAllowed='move';e.dataTransfer.setData('text/plain',dragCnFolderId);return;}
+      const pw=e.target.closest('[data-drag-pw]'), ag=e.target.closest('[data-drag-aug]'), sec=e.target.closest('[data-drag-sec]'), sksec=e.target.closest('[data-drag-sksec]'), sk=e.target.closest('[data-drag-sk]'), cpw=e.target.closest('[data-drag-chr-pw]'), chs=e.target.closest('[data-drag-chrsec]'), eqs=e.target.closest('[data-drag-eqsec]'), eqi=e.target.closest('[data-drag-eqitem]'), cmp=CLOUD.isAdmin?e.target.closest('[data-drag-camp]'):null, tk=e.target.closest('[data-drag-tok]');
       if(pw){dragPwId=pw.dataset.dragPw;e.dataTransfer.setData('text/plain',dragPwId);}
       else if(ag){dragAugId=ag.dataset.dragAug;e.dataTransfer.setData('text/plain',dragAugId);}
       else if(sec){dragSecId=sec.dataset.dragSec;e.dataTransfer.setData('text/plain',dragSecId);}
@@ -7508,16 +7710,18 @@
       else if(eqs){dragEqSec=eqs.dataset.dragEqsec;e.dataTransfer.setData('text/plain',dragEqSec);}
       else if(eqi){dragEqItem=eqi.dataset.dragEqitem;e.dataTransfer.setData('text/plain',dragEqItem);}
       else if(cmp&&CLOUD.isAdmin){dragCampId=cmp.dataset.dragCamp;e.dataTransfer.setData('text/plain',dragCampId);}
-      else if(cnp&&!CLOUD.viewingRemote){dragCnPageId=cnp.dataset.dragCnpage;e.dataTransfer.setData('text/plain',dragCnPageId);}
       else if(tk){dragToken=tk.dataset.dragTok;e.dataTransfer.setData('text/plain',dragToken);}
       if(isAnyDragging()){dragMouseY=e.clientY;startDragAutoScroll();}
     });
     document.addEventListener('dragend',()=>{
       stopDragAutoScroll();
       document.querySelectorAll('.pw-drop-over,.sk-drop-over').forEach(x=>x.classList.remove('pw-drop-over','sk-drop-over'));
-      dragPwId=null; dragAugId=null; dragSecId=null; dragSkSecId=null; dragSkId=null; dragChrPw=null; dragChrSec=null; dragEqSec=null; dragEqItem=null; dragCampId=null; dragCnPageId=null; dragToken='';
+      dragCnPageId=null; dragCnFolderId=null;
+      dragPwId=null; dragAugId=null; dragSecId=null; dragSkSecId=null; dragSkId=null; dragChrPw=null; dragChrSec=null; dragEqSec=null; dragEqItem=null; dragCampId=null; dragToken='';
     });
     document.addEventListener('dragover',e=>{
+      if(dragCnPageId&&(e.target.closest('[data-drop-cnpage]')||e.target.closest('[data-drop-cnfolder]'))){e.preventDefault();return;}
+      if(dragCnFolderId&&e.target.closest('[data-drop-cnfolder]')){e.preventDefault();return;}
       if(isAnyDragging()){
         e.preventDefault();
         dragMouseY=e.clientY;
@@ -7533,11 +7737,10 @@
       const eqSecBox=dragEqSec?e.target.closest('[data-eqsec]'):null;
       const eqItemBox=dragEqItem?e.target.closest('[data-eqitem]'):null;
       const campTabBox=(dragCampId&&CLOUD.isAdmin)?e.target.closest('[data-camp-tab]'):null;
-      const cnPageBox=dragCnPageId?e.target.closest('[data-drop-cnpage]'):null;
       const ta=dragToken?e.target.closest('[id^="eff_"]'):null;
-      if(grp||secBox||skSecBox||agCard||skRow||cpwRow||chrSecBox||eqSecBox||eqItemBox||campTabBox||cnPageBox||ta){
+      if(grp||secBox||skSecBox||agCard||skRow||cpwRow||chrSecBox||eqSecBox||eqItemBox||campTabBox||ta){
         e.preventDefault();
-        document.querySelectorAll('[data-pw-sec].pw-drop-over,[data-sk-sec].pw-drop-over,[data-camp-tab].pw-drop-over,[data-drop-cnpage].sk-drop-over').forEach(x=>x.classList.remove('pw-drop-over','sk-drop-over'));
+        document.querySelectorAll('[data-pw-sec].pw-drop-over,[data-sk-sec].pw-drop-over,[data-camp-tab].pw-drop-over').forEach(x=>x.classList.remove('pw-drop-over','sk-drop-over'));
         if(grp) grp.classList.add('pw-drop-over');
         else if(secBox) secBox.classList.add('pw-drop-over');
         if(skRow) skRow.classList.add('sk-drop-over');
@@ -7548,7 +7751,6 @@
         if(eqSecBox) eqSecBox.classList.add('pw-drop-over');
         if(eqItemBox) eqItemBox.classList.add('pw-drop-over');
         if(campTabBox) campTabBox.classList.add('pw-drop-over');
-        if(cnPageBox) cnPageBox.classList.add('sk-drop-over');
         if(ta){
           ta.classList.add('pw-drop-over');
           const r=getCaretRangeAtPoint(e.clientX,e.clientY);
@@ -7573,6 +7775,55 @@
     document.addEventListener('drop',e=>{
       stopDragAutoScroll();
       document.querySelectorAll('.pw-drop-over,.sk-drop-over').forEach(x=>x.classList.remove('pw-drop-over','sk-drop-over'));
+      if(dragCnFolderId){
+        const dropFld=e.target.closest('[data-drop-cnfolder]');
+        const targetFid=dropFld?.dataset.dropCnfolder;
+        const srcFid=dragCnFolderId; dragCnFolderId=null;
+        if(targetFid&&srcFid&&targetFid!==srcFid){
+          ensureCampNotesStructure();
+          const fIdx=S.campNoteFolders.findIndex(f=>f.id===srcFid);
+          const tIdx=S.campNoteFolders.findIndex(f=>f.id===targetFid);
+          if(fIdx>=0&&tIdx>=0){
+            const [mv]=S.campNoteFolders.splice(fIdx,1);
+            S.campNoteFolders.splice(tIdx,0,mv);
+            save(); renderCampNotes();
+          }
+        }
+        return;
+      }
+      if(dragCnPageId){
+        const dropPg=e.target.closest('[data-drop-cnpage]');
+        const dropFld=e.target.closest('[data-drop-cnfolder]');
+        const srcId=dragCnPageId; dragCnPageId=null;
+        ensureCampNotesStructure();
+        const srcPg=S.campaignNotes.find(n=>n.id===srcId);
+        if(!srcPg) return;
+        if(dropPg&&dropPg.dataset.dropCnpage&&dropPg.dataset.dropCnpage!==srcId){
+          const targetPg=S.campaignNotes.find(n=>n.id===dropPg.dataset.dropCnpage);
+          if(targetPg){
+            const targetFolder=S.campNoteFolders.find(f=>f.id===targetPg.folderId);
+            srcPg.folderId=targetPg.folderId;
+            srcPg.isPublic=Boolean(targetFolder?targetFolder.isPublic:targetPg.isPublic);
+            srcPg.updatedAt=stamp();
+            const fromIdx=S.campaignNotes.indexOf(srcPg);
+            S.campaignNotes.splice(fromIdx,1);
+            const toIdx=S.campaignNotes.indexOf(targetPg);
+            S.campaignNotes.splice(toIdx,0,srcPg);
+            syncPublicNotesAfterChange(srcPg);
+            save(); renderCampNotes();
+          }
+        }else if(dropFld&&dropFld.dataset.dropCnfolder){
+          const targetFolder=S.campNoteFolders.find(f=>f.id===dropFld.dataset.dropCnfolder);
+          if(targetFolder){
+            srcPg.folderId=targetFolder.id;
+            srcPg.isPublic=Boolean(targetFolder.isPublic);
+            srcPg.updatedAt=stamp();
+            syncPublicNotesAfterChange(srcPg);
+            save(); renderCampNotes();
+          }
+        }
+        return;
+      }
       if(dragPwId){
         const grp=e.target.closest('[data-pw-group]'), secBox=e.target.closest('[data-pw-sec]');
         if(grp&&grp.dataset.pwGroup!==dragPwId){
@@ -7716,27 +7967,7 @@
           }
         }
         dragCampId=null;
-      }else if(dragCnPageId){
-        const cnPageBox=e.target.closest('[data-drop-cnpage]');
-        if(cnPageBox&&cnPageBox.dataset.dropCnpage&&cnPageBox.dataset.dropCnpage!==dragCnPageId&&!CLOUD.viewingRemote){
-          e.preventDefault();
-          const i1=S.campaignNotes.findIndex(n=>n.id===dragCnPageId), i2=S.campaignNotes.findIndex(n=>n.id===cnPageBox.dataset.dropCnpage);
-          if(i1>-1&&i2>-1){
-            const [moved]=S.campaignNotes.splice(i1,1);
-            S.campaignNotes.splice(i2,0,moved);
-            const effCampId=S.campaignId!=='default'?S.campaignId:getCharCampaignId(S.charId);
-            if(effCampId!=='default'&&S.campaignNotes.some(n=>n.isPublic)){
-              const nowTs=stamp();
-              const pubPages=extractPublicPages(S.campaignNotes,'',nowTs);
-              upsertPublicNoteEntry(S.charId,{campaignId:effCampId,charName:S.profile.name||'Unbenannter Held',avatar:S.profile.avatar||'',owner:S.owner||CLOUD.currentUser||'',content:String(pubPages[0]?.content||''),updatedAt:nowTs,pages:pubPages});
-              saveRegistryLocal();
-              publishLiveCampNote({scope:'char',campaignId:effCampId,charId:S.charId,publicNoteEntry:CLOUD.registry.publicNotes[S.charId]});
-            }
-            renderCampNotes();
-            save();
-          }
-        }
-        dragCnPageId=null;
+
       }else if(dragToken){
         const ta=e.target.closest('[id^="eff_"]');
         if(ta){e.preventDefault();const [kind,id]=ta.dataset.pwf.split(':');insertTokenAtCursor(kind,id,dragToken,{x:e.clientX,y:e.clientY});}
