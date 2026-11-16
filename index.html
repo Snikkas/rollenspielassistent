@@ -438,7 +438,7 @@
       }
       return list;
     }
-    let CLOUD={serverUrl:'',list:[],loading:false,syncing:false,error:'',lastSyncTs:'',viewingRemote:false,remoteCharId:'',confirmDelCloudId:null,confirmDelCampPageId:null,filterMine:false,currentUser:'',isAdmin:false,showAdminBar:false,userMgmtOpen:false,showPwChange:false,activeCampaignId:'default',campAction:'',newCharOpen:false,newCharName:'',newCharAncestry:'',newCharConcept:'',newCharCampId:'default',publicNotesOpen:true,activePublicPageKey:'',registryLoaded:false,diceFeed:[],diceConnected:false,diceToast:true,diceCollapsed:false,confirmClearDice:false,registry:{users:{},claims:{},charCampaigns:{},publicNotes:{},campaignSharedNotes:{},deletedCharIds:[],campaigns:[{id:'default',name:'Ohne Kampagne / Allgemein',allowedUsers:[],gmUsers:[],img:''}],gmUsers:[],lobbyLogo:'',adminHash:'',diceFeed:[],diceClearedAt:0}}, cloudSyncTimer=null, liveDiceES=null, liveDiceBC=null, liveDiceTopicCur='', liveDicePollTimer=null, registryPushInFlight=0, lastRegistryPushMs=0;
+    let CLOUD={serverUrl:'',list:[],loading:false,syncing:false,error:'',lastSyncTs:'',viewingRemote:false,remoteCharId:'',confirmDelCloudId:null,confirmDelCampPageId:null,filterMine:false,currentUser:'',isAdmin:false,showAdminBar:false,userMgmtOpen:false,showPwChange:false,activeCampaignId:'default',campAction:'',newCharOpen:false,newCharName:'',newCharAncestry:'',newCharConcept:'',newCharCampId:'default',publicNotesOpen:true,activePublicPageKey:'',registryLoaded:false,diceFeed:[],diceConnected:false,diceToast:true,diceCollapsed:false,confirmClearDice:false,registry:{users:{},claims:{},charCampaigns:{},publicNotes:{},campaignSharedNotes:{},deletedCharIds:[],campaigns:[{id:'default',name:'Ohne Kampagne / Allgemein',allowedUsers:[],gmUsers:[],img:''}],gmUsers:[],lobbyLogo:'',adminHash:'',diceFeed:[],diceClearedAt:0,diceClearedByCamp:{}}}, cloudSyncTimer=null, liveDiceES=null, liveDiceBC=null, liveDiceTopicCur='', liveDicePollTimer=null, registryPushInFlight=0, lastRegistryPushMs=0;
     try{
       CLOUD.serverUrl=localStorage.getItem('scherbensturm_cloud_url')||'';
       CLOUD.currentUser=localStorage.getItem('scherbensturm_cloud_user')||'';
@@ -457,7 +457,8 @@
           deletedCharIds:Array.isArray(parsedReg.deletedCharIds)?[...new Set(parsedReg.deletedCharIds.map(x=>String(x||'').trim()).filter(Boolean))]:[],
           campaigns:normalizeCampaigns(parsedReg.campaigns),
           gmUsers:Array.isArray(parsedReg.gmUsers)?parsedReg.gmUsers:[],
-          lobbyLogo:String(parsedReg.lobbyLogo||'')
+          lobbyLogo:String(parsedReg.lobbyLogo||''),
+          diceClearedByCamp:(parsedReg.diceClearedByCamp&&typeof parsedReg.diceClearedByCamp==='object')?parsedReg.diceClearedByCamp:{}
         };
       }
       const locDice=localStorage.getItem('scherbensturm_live_dice_feed');
@@ -472,6 +473,7 @@
       const id=String(campId||'default').trim()||'default';
       CLOUD.activeCampaignId=id;
       try{localStorage.setItem('scherbensturm_active_campaign',id);}catch(e){}
+      CLOUD.confirmClearDice=false;
       updateLobbyLiveDiceDOM();
     }
     function isUserInCampaign(camp,username){
@@ -482,6 +484,16 @@
     function isGlobalGM(username=CLOUD.currentUser){const u=String(username||'').trim().toLowerCase();return Boolean(u&&Array.isArray(CLOUD.registry?.gmUsers)&&CLOUD.registry.gmUsers.some(x=>String(x||'').trim().toLowerCase()===u));}
     function isCampaignMainGM(campOrId,username=CLOUD.currentUser){const u=String(username||'').trim().toLowerCase();if(!u||!isGlobalGM(u))return false;const c=typeof campOrId==='string'?getCampaigns().find(x=>x.id===campOrId):campOrId;if(!c||c.id==='default')return false;return Array.isArray(c.gmUsers)&&c.gmUsers.some(x=>String(x||'').trim().toLowerCase()===u);}
     function canManageCampaign(campOrId,username=CLOUD.currentUser){if(CLOUD.isAdmin) return true; return isCampaignMainGM(campOrId, username);}
+    function canClearLiveDice(campOrId=getActiveLiveCampaignId(),username=CLOUD.currentUser){
+      if(CLOUD.isAdmin) return true;
+      const u=String(username||'').trim().toLowerCase();
+      if(!u) return false;
+      const c=typeof campOrId==='string'?getCampaigns().find(x=>x.id===campOrId):campOrId;
+      if(!c||c.id==='default') return false;
+      const inCampGmList=Array.isArray(c.gmUsers)&&c.gmUsers.some(x=>String(x||'').trim().toLowerCase()===u);
+      const isGmInCamp=isGlobalGM(u)&&(inCampGmList||isUserInCampaign(c,u));
+      return Boolean(inCampGmList||isGmInCamp);
+    }
     function getAccessibleCampaigns(username=CLOUD.currentUser){
       const all=getCampaigns(); if(CLOUD.isAdmin) return all;
       return all.filter(c=>c.id==='default'||(username&&(isUserInCampaign(c,username)||isCampaignMainGM(c,username))));
@@ -498,12 +510,22 @@
       const key=(!base||base==='null'||base.startsWith('file:'))?'scherbensturm_global_net':base;
       return `scherbensturm_live_${simpleHash(key)}`;
     };
-    function mergeDiceFeeds(incArr,clearedAt=0){
+    function mergeDiceFeeds(incArr,clearedAt=0,clearedByCamp=null){
       const clr=Math.max(toInt(CLOUD.registry?.diceClearedAt,0),toInt(clearedAt,0));
       if(clr>toInt(CLOUD.registry?.diceClearedAt,0)) CLOUD.registry.diceClearedAt=clr;
+      if(!CLOUD.registry.diceClearedByCamp||typeof CLOUD.registry.diceClearedByCamp!=='object') CLOUD.registry.diceClearedByCamp={};
+      if(clearedByCamp&&typeof clearedByCamp==='object'){
+        Object.entries(clearedByCamp).forEach(([k,v])=>{
+          CLOUD.registry.diceClearedByCamp[k]=Math.max(toInt(CLOUD.registry.diceClearedByCamp[k],0),toInt(v,0));
+        });
+      }
       const map=new Map();
       [...(CLOUD.diceFeed||[]),...(Array.isArray(incArr)?incArr:[])].forEach(r=>{
-        if(r&&r.id&&toInt(r.tsMs,0)>clr){
+        if(!r||!r.id) return;
+        const ts=toInt(r.tsMs,0);
+        const rCamp=getRollCampaignId(r);
+        const campClr=toInt(CLOUD.registry?.diceClearedByCamp?.[rCamp],0);
+        if(ts>clr&&ts>campClr){
           if(!map.has(r.id)) map.set(r.id,r);
         }
       });
@@ -623,7 +645,7 @@
             <button type="button" data-action="lobby-open-dice" data-tip="Öffnet den W100-Würfelassistenten direkt über der Lobby" class="btn btn-pri py-1 px-2.5 text-xs font-extrabold">🎲 Würfelassistent</button>
             <button type="button" data-action="toggle-dice-toast" data-tip="Toast-Einblendung bei eingehenden Live-Würfen anderer Spieler ein-/ausschalten" class="btn py-1 px-2 text-[11px] ${CLOUD.diceToast?'bdr-acc text-acc':'opacity-70'}">${CLOUD.diceToast?'🔔 Live-Popup An':'🔕 Popup Aus'}</button>
             <button type="button" data-action="lobby-sync-dice" data-tip="Würfel-Feed jetzt mit dem Server abgleichen" class="btn py-1 px-2 text-[11px]">🔄</button>
-            ${feed.length?(CLOUD.confirmClearDice?`<span class="inline-flex items-center gap-1"><button type="button" data-action="confirm-clear-lobby-dice" class="btn bg-rose-600 text-white border-rose-600 py-0.5 px-2 text-[10px] font-black">Alle löschen? (2/2)</button><button type="button" data-action="cancel-clear-lobby-dice" class="btn py-0.5 px-1.5 text-[10px]">✕</button></span>`:`<button type="button" data-action="ask-clear-lobby-dice" data-tip="Live-Würfellog für die Lobby leeren" class="btn btn-err py-1 px-2 text-[11px]">🗑️</button>`):''}
+            ${(feed.length&&canClearLiveDice(activeCampId))?(CLOUD.confirmClearDice?`<span class="inline-flex items-center gap-1"><button type="button" data-action="confirm-clear-lobby-dice" class="btn bg-rose-600 text-white border-rose-600 py-0.5 px-2 text-[10px] font-black">Alle löschen? (2/2)</button><button type="button" data-action="cancel-clear-lobby-dice" class="btn py-0.5 px-1.5 text-[10px]">✕</button></span>`:`<button type="button" data-action="ask-clear-lobby-dice" data-tip="Live-Würfellog für die Lobby leeren" class="btn btn-err py-1 px-2 text-[11px]">🗑️</button>`):''}
           </div>
         </div>
         ${!CLOUD.diceCollapsed?(feed.length?`<div class="space-y-2.5 max-h-[340px] overflow-y-auto pr-1">${feed.map((e,i)=>renderRollCard(e,i)).join('')}</div>`:`<div class="subcard border-dashed py-6 text-center text-xs t-mut">Noch keine Würfe in der Kampagne „${esc(activeCampObj?.name || 'Hauptkampagne')}“ im Live-Kanal. Klicke oben auf <strong>„⚡ Schnellwurf“</strong> oder öffne den <strong>„🎲 Würfelassistent“</strong> – jeder Wurf erscheint sofort in Echtzeit mit Krits, EG/MEG und kompletter Aufschlüsselung bei allen Spielern in der Lobby!</div>`):''}
@@ -764,11 +786,13 @@
         return;
       }
       if(rawObj.type==='clear_dice'){
+        const clr=toInt(rawObj.clearedAt,Date.now());
         if(rawObj.campaignId){
-          CLOUD.diceFeed=(CLOUD.diceFeed||[]).filter(e=>getRollCampaignId(e)!==rawObj.campaignId);
-          CLOUD.registry.diceFeed=(CLOUD.registry.diceFeed||[]).filter(e=>getRollCampaignId(e)!==rawObj.campaignId);
+          if(!CLOUD.registry.diceClearedByCamp||typeof CLOUD.registry.diceClearedByCamp!=='object') CLOUD.registry.diceClearedByCamp={};
+          CLOUD.registry.diceClearedByCamp[rawObj.campaignId]=Math.max(toInt(CLOUD.registry.diceClearedByCamp[rawObj.campaignId],0),clr);
+          CLOUD.diceFeed=(CLOUD.diceFeed||[]).filter(e=>getRollCampaignId(e)!==rawObj.campaignId||toInt(e.tsMs,0)>clr);
+          CLOUD.registry.diceFeed=(CLOUD.registry.diceFeed||[]).filter(e=>getRollCampaignId(e)!==rawObj.campaignId||toInt(e.tsMs,0)>clr);
         }else{
-          const clr=toInt(rawObj.clearedAt,Date.now());
           CLOUD.registry.diceClearedAt=Math.max(toInt(CLOUD.registry.diceClearedAt,0),clr);
           CLOUD.diceFeed=[];
           CLOUD.registry.diceFeed=[];
@@ -778,7 +802,9 @@
         return;
       }
       if(!rawObj.id||!Array.isArray(rawObj.res)) return;
-      if(toInt(rawObj.tsMs,0)<=toInt(CLOUD.registry.diceClearedAt,0)) return;
+      const rollCampId=getRollCampaignId(rawObj);
+      const campClrAt=toInt(CLOUD.registry?.diceClearedByCamp?.[rollCampId],0);
+      if(toInt(rawObj.tsMs,0)<=Math.max(toInt(CLOUD.registry.diceClearedAt,0),campClrAt)) return;
       const already=(CLOUD.diceFeed||[]).some(x=>x.id===rawObj.id);
       if(already) return;
       mergeDiceFeeds([rawObj]);
@@ -852,7 +878,15 @@
     }
     function clearLiveDiceFeed(){
       const campId=getActiveLiveCampaignId();
+      if(!canClearLiveDice(campId)){
+        CLOUD.confirmClearDice=false;
+        updateLobbyLiveDiceDOM();
+        toast('🔒 Nur der Admin oder ein Spielleiter dieser Kampagne kann den Live-Würfellog leeren.');
+        return;
+      }
       const clr=Date.now();
+      if(!CLOUD.registry.diceClearedByCamp||typeof CLOUD.registry.diceClearedByCamp!=='object') CLOUD.registry.diceClearedByCamp={};
+      CLOUD.registry.diceClearedByCamp[campId]=clr;
       CLOUD.diceFeed=(CLOUD.diceFeed||[]).filter(e=>getRollCampaignId(e)!==campId);
       CLOUD.registry.diceFeed=(CLOUD.registry.diceFeed||[]).filter(e=>getRollCampaignId(e)!==campId);
       CLOUD.confirmClearDice=false;
@@ -1891,7 +1925,8 @@
         gmUsers:Array.isArray(CLOUD.registry.gmUsers)?[...new Set(CLOUD.registry.gmUsers.map(u=>String(u||'').trim()).filter(Boolean))]:[],
         lobbyLogo:String(CLOUD.registry.lobbyLogo??''),
         adminHash:CLOUD.registry.adminHash??'',
-        diceClearedAt:toInt(CLOUD.registry.diceClearedAt,0)
+        diceClearedAt:toInt(CLOUD.registry.diceClearedAt,0),
+        diceClearedByCamp:clone(CLOUD.registry.diceClearedByCamp||{})
       }):null;
       try{
         const getRes=await fetch(`${getCloudEndpoint()}?id=${encodeURIComponent(REGISTRY_ID)}`,{headers:{'Accept':'application/json'}});
@@ -1900,6 +1935,12 @@
           if(rem&&typeof rem==='object'&&rem.registry){
             if(!push&&(registryPushInFlight>0||(Date.now()-lastRegistryPushMs<2500))) return;
             const clrAt=Math.max(toInt(rem.registry.diceClearedAt,0),toInt(localSnap?localSnap.diceClearedAt:CLOUD.registry.diceClearedAt,0));
+            const mergedDiceClearedByCamp={};
+            const remByCamp=(rem.registry.diceClearedByCamp&&typeof rem.registry.diceClearedByCamp==='object')?rem.registry.diceClearedByCamp:{};
+            const locByCamp=localSnap?(localSnap.diceClearedByCamp||{}):(CLOUD.registry.diceClearedByCamp||{});
+            new Set([...Object.keys(remByCamp),...Object.keys(locByCamp)]).forEach(k=>{
+              mergedDiceClearedByCamp[k]=Math.max(toInt(remByCamp[k],0),toInt(locByCamp[k],0));
+            });
             const mergedClaims={...(rem.registry.claims||{})};
             const srcClaims=localSnap?localSnap.claims:(CLOUD.registry.claims||{});
             Object.entries(srcClaims).forEach(([k,v])=>{mergedClaims[k]=v??'';});
@@ -1957,6 +1998,7 @@
               lobbyLogo: push ? (localSnap.lobbyLogo??'') : (rem.registry.lobbyLogo!==undefined?String(rem.registry.lobbyLogo):(CLOUD.registry.lobbyLogo||'')),
               adminHash:push?(localSnap.adminHash!==''?localSnap.adminHash:(rem.registry.adminHash||'')):(rem.registry.adminHash||CLOUD.registry.adminHash||''),
               diceClearedAt:clrAt,
+              diceClearedByCamp:mergedDiceClearedByCamp,
               diceFeed:CLOUD.diceFeed||[]
             };
             CLOUD.list=(CLOUD.list||[]).filter(ch=>ch&&!delSet.has(ch.id));
@@ -1968,7 +2010,7 @@
               }
             });
             CLOUD.registryLoaded=true;
-            mergeDiceFeeds(rem.registry.diceFeed||[],clrAt);
+            mergeDiceFeeds(rem.registry.diceFeed||[],clrAt,mergedDiceClearedByCamp);
             saveRegistryLocal();
             updateLobbyLiveDiceDOM();
           }
@@ -6657,9 +6699,9 @@
         case 'lobby-quick-roll': syncDiceFromSheet(); executeDiceRoll(); break;
         case 'toggle-dice-toast': CLOUD.diceToast=!CLOUD.diceToast; try{localStorage.setItem('scherbensturm_dice_toast',CLOUD.diceToast?'1':'0');}catch(e){} updateLobbyLiveDiceDOM(); toast(CLOUD.diceToast?'🔔 Live-Wurf-Popups aktiviert':'🔕 Live-Wurf-Popups stummgeschaltet'); break;
         case 'lobby-sync-dice': initLiveDiceChannel(); syncCloudRegistry(false); toast('🔄 Live-Würfelfenster synchronisiert'); break;
-        case 'ask-clear-lobby-dice': CLOUD.confirmClearDice=true; updateLobbyLiveDiceDOM(); break;
+        case 'ask-clear-lobby-dice': if(!canClearLiveDice()){toast('🔒 Nur der Admin oder ein Spielleiter dieser Kampagne kann den Live-Würfellog leeren.');return;} CLOUD.confirmClearDice=true; updateLobbyLiveDiceDOM(); break;
         case 'cancel-clear-lobby-dice': CLOUD.confirmClearDice=false; updateLobbyLiveDiceDOM(); break;
-        case 'confirm-clear-lobby-dice': clearLiveDiceFeed(); break;
+        case 'confirm-clear-lobby-dice': if(!canClearLiveDice()){CLOUD.confirmClearDice=false;updateLobbyLiveDiceDOM();toast('🔒 Nur der Admin oder ein Spielleiter dieser Kampagne kann den Live-Würfellog leeren.');return;} clearLiveDiceFeed(); break;
         case 'toggle-lobby-filter': CLOUD.filterMine=!CLOUD.filterMine; renderModal(); break;
         case 'lobby-new-sheet': {
           if(!CLOUD.currentUser){toast('🔒 Charaktererstellung ist nur für angemeldete Spieler-Accounts möglich. Bitte melde dich zuerst an!');break;}
