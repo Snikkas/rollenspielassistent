@@ -387,12 +387,25 @@
     let S=defaultState(), D={...DICE_DEF}, CN={...CNOTES_DEF}, LD={...LIVEDICE_DEF}, diceLogs=[], toastTimer=null, dragPwId=null, dragAugId=null, dragSecId=null, dragSkSecId=null, dragSkId=null, dragChrPw=null, dragChrSec=null, dragEqSec=null, dragEqItem=null, dragCampId=null, dragCnPageId=null, dragToken='';
     const getWinState=k=>k==='cnotes'?CN:k==='livedice'?LD:D;
     function applyWinFrame(k,mount,bd,defWClass){
-      const st=getWinState(k); if(!st.open){mount.className='hidden';mount.style.cssText='';if(bd)bd.classList.add('hidden');return;}
-      const isDock=st.docked&&!UI.inLobby;
-      if(bd) bd.classList.toggle('hidden', isDock || st.floating);
-      if(isDock){ mount.className='w-full '+defWClass+' shrink-0 xl:sticky xl:top-24 z-30 max-h-[calc(100vh-7rem)] overflow-y-auto relative'; mount.style.cssText=st.w>280?'width:'+st.w+'px;max-width:92vw':''; }
-      else if(st.floating){ mount.className='fixed z-50 overflow-y-auto shadow-2xl rounded-2xl relative'; const w=st.w||460,h=st.h||Math.min(680,window.innerHeight-80),x=st.x!==null?st.x:Math.max(16,Math.round((window.innerWidth-w)/2)),y=st.y!==null?st.y:70; mount.style.cssText='left:'+x+'px;top:'+y+'px;width:'+w+'px;max-height:'+h+'px;z-index:'+(st.z||50); }
-      else { mount.className='fixed z-50 inset-x-3 top-16 bottom-5 sm:inset-x-auto sm:right-6 sm:top-20 sm:bottom-6 sm:'+defWClass+' overflow-y-auto relative'; mount.style.cssText=st.w>280?'width:'+st.w+'px;max-width:94vw':''; }
+      const st=getWinState(k);
+      if(!st.open){mount.className='hidden';mount.style.cssText='';if(bd)bd.classList.add('hidden');return;}
+      const isDock=Boolean(st.docked&&!UI.inLobby&&!st.floating);
+      if(bd) bd.classList.toggle('hidden', isDock || Boolean(st.floating));
+      if(isDock){
+        mount.className='w-full '+defWClass+' shrink-0 xl:sticky xl:top-24 z-30 max-h-[calc(100vh-7rem)] overflow-y-auto relative';
+        mount.style.cssText=st.w>280?`width:${st.w}px;max-width:92vw;position:sticky`:'';
+      }else if(st.floating){
+        const w=Math.max(320,Math.min(window.innerWidth-24,st.w||460));
+        const h=Math.max(280,Math.min(window.innerHeight-24,st.h||Math.min(680,window.innerHeight-80)));
+        const x=st.x!==null?Math.max(8,Math.min(window.innerWidth-120,st.x)):Math.max(16,Math.round((window.innerWidth-w)/2));
+        const y=st.y!==null?Math.max(8,Math.min(window.innerHeight-60,st.y)):70;
+        st.x=x; st.y=y;
+        mount.className='fixed z-50 overflow-y-auto shadow-2xl rounded-2xl';
+        mount.style.cssText=`position:fixed!important;left:${x}px;top:${y}px;width:${w}px;max-height:${h}px;z-index:${st.z||50};margin:0;right:auto;bottom:auto`;
+      }else{
+        mount.className='fixed z-50 inset-x-3 top-16 bottom-5 sm:inset-x-auto sm:right-6 sm:top-20 sm:bottom-6 sm:'+defWClass+' overflow-y-auto';
+        mount.style.cssText=st.w>280?`position:fixed!important;width:${st.w}px;max-width:94vw`:'position:fixed!important';
+      }
     }
     function renderWinCtrlBtns(k){
       const st=getWinState(k), hasCustom=Boolean(st.w||st.h||st.x!==null);
@@ -8084,59 +8097,63 @@
       fetchLobbyList(true);
     }
 
+    const WIN_CFG={
+      cnotes:{m:'notesMount',b:'notesBackdrop',c:'xl:w-[440px] 2xl:w-[500px]',r:()=>renderCampNotes()},
+      livedice:{m:'liveDiceMount',b:'liveDiceBackdrop',c:'xl:w-[420px] 2xl:w-[460px]',r:()=>renderLiveDice()},
+      dice:{m:'diceMount',b:'diceBackdrop',c:'xl:w-[430px] 2xl:w-[470px]',r:()=>renderDice()}
+    };
     let winAct=null;
-    const getWinMount=k=>$(k==='cnotes'?'notesMount':k==='livedice'?'liveDiceMount':'diceMount');
-    const getWinBd=k=>$(k==='cnotes'?'notesBackdrop':k==='livedice'?'liveDiceBackdrop':'diceBackdrop');
     document.addEventListener('pointerdown',e=>{
       const rEl=e.target.closest('[data-win-resize],[data-win-resize-w]');
       if(rEl){
-        const isW=rEl.hasAttribute('data-win-resize-w'), k=isW?rEl.dataset.winResizeW:rEl.dataset.winResize, mount=getWinMount(k), st=getWinState(k);
+        const k=rEl.dataset.winResize||rEl.dataset.winResizeW, onlyW=Boolean(rEl.dataset.winResizeW), cfg=WIN_CFG[k], mount=$(cfg?.m);
         if(!mount) return;
-        st.z=Math.max(CN.z||50,D.z||50,LD.z||50)+1; if(st.floating) mount.style.zIndex=st.z;
-        const rect=mount.getBoundingClientRect();
-        winAct={mode:isW?'resize-w':'resize',k,st,mount,sx:e.clientX,sy:e.clientY,sw:rect.width,sh:rect.height};
-        e.preventDefault(); return;
+        e.preventDefault();
+        const st=getWinState(k), rect=mount.getBoundingClientRect();
+        st.z=Math.max(CN.z||50,D.z||50,LD.z||50)+1;
+        winAct={mode:onlyW?'rw':'rwh',k,cfg,mount,st,sx:e.clientX,sy:e.clientY,sw:rect.width,sh:rect.height,sl:rect.left};
+        return;
       }
-      const dragEl=e.target.closest('[data-win-drag]');
-      if(!dragEl||e.target.closest('button,input,select,a,[contenteditable]')) return;
-      const k=dragEl.dataset.winDrag, st=getWinState(k), mount=getWinMount(k), bd=getWinBd(k);
+      const dEl=e.target.closest('[data-win-drag]');
+      if(!dEl||e.target.closest('button,input,select,textarea,a,[contenteditable="true"]')) return;
+      const k=dEl.dataset.winDrag, cfg=WIN_CFG[k], mount=$(cfg?.m);
       if(!mount) return;
-      st.z=Math.max(CN.z||50,D.z||50,LD.z||50)+1;
-      const rect=mount.getBoundingClientRect();
-      if(!st.floating){
-        st.x=Math.round(rect.left); st.y=Math.round(rect.top); st.w=Math.round(rect.width); if(!st.h) st.h=Math.round(rect.height);
-        st.floating=true; st.docked=false;
-        if(bd) bd.classList.add('hidden');
-        mount.className='fixed z-50 overflow-y-auto shadow-2xl rounded-2xl relative';
-        mount.style.cssText=`left:${st.x}px;top:${st.y}px;width:${st.w}px;max-height:${st.h||Math.min(680,window.innerHeight-80)}px;z-index:${st.z}`;
-      }else{
-        if(st.x===null) st.x=Math.round(rect.left);
-        if(st.y===null) st.y=Math.round(rect.top);
-        mount.style.zIndex=st.z;
-      }
-      winAct={mode:'drag',k,st,mount,ox:e.clientX-st.x,oy:e.clientY-st.y};
       e.preventDefault();
+      const st=getWinState(k), rect=mount.getBoundingClientRect();
+      st.z=Math.max(CN.z||50,D.z||50,LD.z||50)+1;
+      if(!st.floating){
+        st.w=Math.round(rect.width);
+        st.h=Math.round(rect.height);
+        st.x=Math.max(8,Math.min(window.innerWidth-120,Math.round(rect.left)));
+        st.y=Math.max(8,Math.min(window.innerHeight-60,Math.round(rect.top)));
+        st.floating=true; st.docked=false;
+        applyWinFrame(k,mount,$(cfg.b),cfg.c);
+      }
+      winAct={mode:'drag',k,cfg,mount,st,ox:e.clientX-(st.x||rect.left),oy:e.clientY-(st.y||rect.top)};
     });
     document.addEventListener('pointermove',e=>{
       if(!winAct) return;
-      const {mode,st,mount}=winAct;
+      const {mode,mount,st}=winAct;
       if(mode==='drag'){
-        st.x=Math.round(Math.max(8,Math.min(window.innerWidth-120,e.clientX-winAct.ox)));
-        st.y=Math.round(Math.max(8,Math.min(window.innerHeight-60,e.clientY-winAct.oy)));
+        st.x=Math.max(8,Math.min(window.innerWidth-120,Math.round(e.clientX-winAct.ox)));
+        st.y=Math.max(8,Math.min(window.innerHeight-60,Math.round(e.clientY-winAct.oy)));
         mount.style.left=st.x+'px'; mount.style.top=st.y+'px';
-      }else{
-        const dx=mode==='resize-w'?(winAct.sx-e.clientX):(e.clientX-winAct.sx);
-        st.w=Math.round(Math.max(320,Math.min(window.innerWidth-20,winAct.sw+dx)));
+      }else if(mode==='rw'){
+        const dx=winAct.sx-e.clientX;
+        st.w=Math.max(320,Math.min(window.innerWidth-20,Math.round(winAct.sw+dx)));
         mount.style.width=st.w+'px';
-        if(mode==='resize'){
-          st.h=Math.round(Math.max(280,Math.min(window.innerHeight-30,winAct.sh+(e.clientY-winAct.sy))));
-          if(st.floating) mount.style.maxHeight=st.h+'px';
-        }
+      }else{
+        st.w=Math.max(320,Math.min(window.innerWidth-20,Math.round(winAct.sw+(e.clientX-winAct.sx))));
+        st.h=Math.max(280,Math.min(window.innerHeight-24,Math.round(winAct.sh+(e.clientY-winAct.sy))));
+        mount.style.width=st.w+'px';
+        if(st.floating) mount.style.maxHeight=st.h+'px';
       }
     });
-    const endWinAct=()=>{if(winAct) winAct=null;};
-    document.addEventListener('pointerup',endWinAct);
-    document.addEventListener('pointercancel',endWinAct);
+    document.addEventListener('pointerup',()=>{
+      if(!winAct) return;
+      const fn=winAct.cfg?.r; winAct=null;
+      if(fn) fn();
+    });
   })();
   </script>
 </body>
