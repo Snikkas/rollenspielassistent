@@ -36,6 +36,12 @@
     .tr-sm.on{background:var(--ac,var(--acc));border-color:transparent;color:#0f172a;font-weight:900}
     .tr-lg{height:1.55rem;font-size:.72rem;font-weight:900}.tr-lg.on{background:linear-gradient(135deg,#f59e0b,#eab308);border-color:#fbbf24;color:#0f172a}
     .pw-drop-over{outline:2px dashed var(--acc);outline-offset:4px;border-radius:1rem}
+    .pw-sec-list{margin-top:.25rem!important}
+    .pw-sec-slot{height:18px;position:relative;border-radius:.5rem;transition:background .12s}
+    .pw-sec-slot.active{background:var(--accS)}
+    .pw-sec-slot.active::after{content:'';position:absolute;left:.5rem;right:.5rem;top:50%;transform:translateY(-50%);height:4px;background:var(--acc);border-radius:99px;box-shadow:0 0 10px var(--accB);pointer-events:none}
+    .pw-drop-before{box-shadow:0 -4px 0 0 var(--acc),0 6px 22px rgba(0,0,0,.16)!important}
+    .pw-drop-after{box-shadow:0 4px 0 0 var(--acc),0 6px 22px rgba(0,0,0,.16)!important}
     .sk-drop-over{background:var(--accS)!important;outline:2px dashed var(--acc)}
     .autogrow{min-height:58px;resize:vertical;overflow-y:auto;line-height:1.45}
     .rtf-box{white-space:pre-wrap;word-break:break-word;cursor:text;color:var(--txt);font-weight:400}
@@ -4096,6 +4102,9 @@
       if(S.powers.filter(p=>p.sectionId===secId).some(matchesPwGroupFilter)) return true;
       return S.powerSections.filter(s=>(s.parentSectionId||'')===secId).some(cs=>secHasFilteredPowers(cs.id));
     }
+    function renderPwSecSlot(parentId,beforeSecId){
+      return `<div data-pw-sec-slot="${esc(parentId)}" data-before-sec="${esc(beforeSecId||'')}" class="pw-sec-slot"></div>`;
+    }
     function renderPwSection(sec,sIdx,sibLen=1,depth=0){
       const allSecPowers=S.powers.filter(p=>p.sectionId===sec.id), fAct=hasActivePwFilter(), secPowers=fAct?allSecPowers.filter(matchesPwGroupFilter):allSecPowers;
       if(fAct&&!secHasFilteredPowers(sec.id)) return '';
@@ -4136,7 +4145,7 @@
             ${isDelAsk?`<span class="inline-flex items-center gap-1"><button type="button" data-action="confirm-del-sec" data-id="${sec.id}" class="btn bg-rose-600 text-white border-rose-600 py-1 px-2 text-[11px] font-black">Sektion löschen? (2/2)</button><button type="button" data-action="cancel-del-sec" class="btn py-1 px-2 text-[11px]">✕</button></span>`:`<button type="button" data-action="ask-del-sec" data-id="${sec.id}" data-tip="Sektion entfernen (enthaltene Kräfte &amp; Untersektionen bleiben erhalten)" class="btn btn-err py-1 px-2 text-xs">✕</button>`}
           </div>
         </div>
-        ${showBody?((secPowers.length||childSecs.length)?`<div class="space-y-4 pt-1">${secPowers.length?renderPwGroupList(secPowers):''}${childSecs.length?`<div class="pl-2.5 sm:pl-6 border-l-2 bdr-acc space-y-4 pt-1">${childSecs.map((cs,ci)=>renderPwSection(cs,ci,childSecs.length,depth+1)).join('')}</div>`:''}</div>`:`<div class="subcard border-dashed text-center py-5 text-xs t-mut">Ziehe Kräfte oder Sektionen am Viereck ⠿ per Drag &amp; Drop hierher, nutze den Art-Sammler oder klicke auf „+ Kraft“.</div>`):''}
+        ${showBody?((secPowers.length||childSecs.length)?`<div class="space-y-4 pt-1">${secPowers.length?renderPwGroupList(secPowers):''}${childSecs.length?`<div class="pl-2.5 sm:pl-6 border-l-2 bdr-acc">${childSecs.map((cs,ci)=>renderPwSecSlot(sec.id,cs.id)+renderPwSection(cs,ci,childSecs.length,depth+1)).join('')}${renderPwSecSlot(sec.id,'')}</div>`:''}</div>`:`<div class="subcard border-dashed text-center py-5 text-xs t-mut">Ziehe Kräfte oder Sektionen am Viereck ⠿ per Drag &amp; Drop hierher, nutze den Art-Sammler oder klicke auf „+ Kraft“.</div>`):''}
       </section>`;
     }
 
@@ -4192,7 +4201,7 @@
       return `<section class="card space-y-3"><div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3"><div><h2 class="text-base sm:text-lg font-extrabold cursor-help" data-tip="Erstelle beliebige Sektionen (Ordner), ziehe Kräfte am Viereck ⠿ hinein oder sammle Kräfte nach Art.\nÜber 🎨 (Textfarbe) und 🪟 (Fensterfarbe) lassen sich Kräfte, Augmente und Sektionen frei einfärben.">Kräfte &amp; Augmente</h2><p class="text-xs t-mut">Aktuelle Kosten: <strong id="pwSummaryHdr" class="text-acc">${P.pwSp} SP${P.pwMsp?` + ${P.pwMsp} MsP`:''}</strong></p></div><div class="flex flex-wrap items-center gap-2"><button type="button" data-action="toggle-pw-filter" data-tip="Kräfte &amp; Augmente nach Kraft-Art, Lernkosten-Stufe oder Unterkategorie live filtern" class="btn py-1 px-2.5 text-xs ${(UI.pwFilterOpen||fAct)?'bdr-acc bg-acc-soft text-acc font-extrabold':''}">🔍 Filter${fAct?` (${fCnt})`:''} ${UI.pwFilterOpen?'▴':'▾'}</button>${fAct&&!UI.pwFilterOpen?`<button type="button" data-action="reset-pw-filter" data-tip="Aktiven Kräfte-Filter zurücksetzen" class="btn btn-err py-1 px-2 text-xs">✕</button>`:''}${hasAny?`<button type="button" data-action="collapse-all-pw" data-val="1" class="btn py-1 px-2.5 text-xs">▸ Alle einklappen</button><button type="button" data-action="collapse-all-pw" data-val="0" class="btn py-1 px-2.5 text-xs">▾ Alle ausklappen</button>`:''}<button type="button" data-action="open-pw-library" data-tip="Server-Bibliothek durchsuchen, Basisaktionen abrufen oder lokale .json-Pakete importieren" class="btn bg-acc-soft bdr-acc text-acc">📚 Bibliothek / Import</button><button type="button" data-action="export-pw-all" data-tip="Alle Kräfte, Augmente &amp; Sektionen als .json-Paket herunterladen" class="btn">📤 Export</button><button type="button" data-action="add-pw-section" class="btn bg-acc-soft bdr-acc text-acc">+ Sektion</button><button type="button" data-action="add-power" class="btn btn-pri">+ Kraft</button><button type="button" data-action="add-augment" class="btn border-amber-400 text-amber-500">+ Freies Augment</button></div></div>${filterMenuHtml}${activeTagsHtml}</section>
       ${!hasAny?`<div class="card text-center py-8 text-xs t-mut">Noch keine Sektionen, Kräfte oder Augmente vorhanden.</div>`:''}
       ${fAct&&totalMatchedCnt===0?`<div class="card text-center py-8 space-y-2 text-xs t-mut"><div class="font-extrabold text-sm text-acc">Keine Kräfte oder Augmente mit Überschneidung zum gewählten Filter gefunden.</div><div>Passe die Filterauswahl oben an oder setze den Filter zurück.</div><div><button type="button" data-action="reset-pw-filter" class="btn btn-pri py-1 px-3 text-xs mt-1">↺ Filter zurücksetzen</button></div></div>`:''}
-      ${rootSecs.length?`<div class="space-y-5">${rootSecs.map((sec,sIdx)=>renderPwSection(sec,sIdx,rootSecs.length,0)).join('')}</div>`:''}
+      ${rootSecs.length?`<div class="pw-sec-list">${rootSecs.map((sec,sIdx)=>renderPwSecSlot('',sec.id)+renderPwSection(sec,sIdx,rootSecs.length,0)).join('')}${renderPwSecSlot('','')}</div>`:''}
       ${unsecPowers.length?`<div data-pw-sec="" class="space-y-5 ${rootSecs.length?'pt-2':''}">${S.powerSections.length?`<div class="flex items-center justify-between px-1"><h3 class="text-sm font-extrabold t-mut">Kräfte ohne Sektion (${fAct?`${unsecPowers.length}/${allUnsecPowers.length}`:unsecPowers.length})</h3><span class="text-[11px] t-mut">Hierher ziehen zum Herauslösen aus einer Sektion</span></div>`:''}${renderPwGroupList(unsecPowers)}</div>`:(S.powerSections.length&&S.powers.length&&!fAct?`<div data-pw-sec="" class="subcard border-dashed text-center py-3 text-xs t-mut">Hierher ziehen, um eine Kraft aus einer Sektion herauszulösen</div>`:'')}
       ${unlinked.length?`<section class="space-y-3 pt-2"><h3 class="text-sm font-extrabold text-amber-400 px-1">Ungebundene Augmente (${fAct?`${unlinked.length}/${allUnlinked.length}`:unlinked.length})</h3>${unlinked.map((ag,ai)=>renderPwCard('augment',ag,ai,unlinked.length)).join('')}</section>`:''}`;
     }
@@ -9195,9 +9204,42 @@
       else if(tk){const it=(tk.dataset.pwKind&&tk.dataset.pwId)?findPwItem(tk.dataset.pwKind,tk.dataset.pwId):null;const tok=it?getPwBuilderToken(it):(tk.dataset.dragTok||'');if(!tok){e.preventDefault();return;}dragToken=tok;tk.dataset.dragTok=tok;e.dataTransfer.setData('text/plain',dragToken);}
       if(isAnyDragging()){dragMouseY=e.clientY;startDragAutoScroll();}
     });
+    function clearPwSecDropIndicators(){
+      document.querySelectorAll('.pw-sec-slot.active').forEach(x=>x.classList.remove('active'));
+      document.querySelectorAll('.pw-drop-before,.pw-drop-after,.pw-drop-over').forEach(x=>x.classList.remove('pw-drop-before','pw-drop-after','pw-drop-over'));
+    }
+    function placePowerSection(secId,newParentId,beforeSecId,afterSecId){
+      if(!secId||secId===beforeSecId||secId===afterSecId) return false;
+      const targetParent=String(newParentId||'');
+      if(!canSetSecParent(S.powerSections,secId,targetParent)) return false;
+      const oldIdx=S.powerSections.findIndex(s=>s.id===secId);
+      if(oldIdx<0) return false;
+      const [moved]=S.powerSections.splice(oldIdx,1);
+      moved.parentSectionId=targetParent;
+      let insertIdx=-1;
+      if(beforeSecId){
+        insertIdx=S.powerSections.findIndex(s=>s.id===beforeSecId);
+      }else if(afterSecId){
+        const ai=S.powerSections.findIndex(s=>s.id===afterSecId);
+        if(ai>-1) insertIdx=ai+1;
+      }else{
+        let lastSibIdx=-1;
+        for(let i=0;i<S.powerSections.length;i++){
+          if(String(S.powerSections[i].parentSectionId||'')===targetParent) lastSibIdx=i;
+        }
+        insertIdx=lastSibIdx>-1?lastSibIdx+1:S.powerSections.length;
+      }
+      if(insertIdx<0||insertIdx>S.powerSections.length) insertIdx=S.powerSections.length;
+      S.powerSections.splice(insertIdx,0,moved);
+      sanitizeSecHierarchy(S.powerSections);
+      save();
+      renderMain();
+      return true;
+    }
     document.addEventListener('dragend',()=>{
       stopDragAutoScroll();
-      document.querySelectorAll('.pw-drop-over,.sk-drop-over').forEach(x=>x.classList.remove('pw-drop-over','sk-drop-over'));
+      clearPwSecDropIndicators();
+      document.querySelectorAll('.sk-drop-over').forEach(x=>x.classList.remove('sk-drop-over'));
       dragCnPageId=null; dragCnFolderId=null;
       dragPwId=null; dragAugId=null; dragSecId=null; dragSkSecId=null; dragSkId=null; dragChrPw=null; dragChrSec=null; dragEqSec=null; dragEqItem=null; dragCampId=null; dragToken='';
     });
@@ -9209,8 +9251,46 @@
         dragMouseY=e.clientY;
         startDragAutoScroll();
       }
+      if(dragSecId){
+        clearPwSecDropIndicators();
+        const tgt=e.target&&e.target.nodeType===1?e.target:e.target?.parentElement;
+        const slot=tgt?.closest?.('[data-pw-sec-slot]');
+        if(slot){
+          const slotParentId=slot.dataset.pwSecSlot||'';
+          const slotBeforeSecId=slot.dataset.beforeSec||'';
+          if(slotBeforeSecId!==dragSecId&&canSetSecParent(S.powerSections,dragSecId,slotParentId)){
+            slot.classList.add('active');
+          }
+          return;
+        }
+        const secBox=tgt?.closest?.('[data-pw-sec]');
+        if(secBox){
+          const targetId=secBox.dataset.pwSec||'';
+          if(!targetId){
+            const dragged=S.powerSections.find(s=>s.id===dragSecId);
+            if(dragged&&dragged.parentSectionId) secBox.classList.add('pw-drop-over');
+            return;
+          }
+          if(targetId!==dragSecId){
+            const targetSec=S.powerSections.find(s=>s.id===targetId);
+            if(targetSec){
+              const rect=secBox.getBoundingClientRect();
+              const relY=rect.height>0?(e.clientY-rect.top)/rect.height:0.5;
+              const sibParentId=String(targetSec.parentSectionId||'');
+              if(relY<0.22){
+                if(canSetSecParent(S.powerSections,dragSecId,sibParentId)) secBox.classList.add('pw-drop-before');
+              }else if(relY>0.78){
+                if(canSetSecParent(S.powerSections,dragSecId,sibParentId)) secBox.classList.add('pw-drop-after');
+              }else{
+                if(canSetSecParent(S.powerSections,dragSecId,targetSec.id)) secBox.classList.add('pw-drop-over');
+              }
+            }
+          }
+        }
+        return;
+      }
       const grp=dragPwId?e.target.closest('[data-pw-group]'):null;
-      const secBox=(dragPwId||dragSecId)?e.target.closest('[data-pw-sec]'):null;
+      const secBox=dragPwId?e.target.closest('[data-pw-sec]'):null;
       const skSecBox=(dragSkId||dragSkSecId)?e.target.closest('[data-sk-sec]'):null;
       const agCard=dragAugId?e.target.closest('[data-aug-card]'):null;
       const skRow=dragSkId?e.target.closest('[data-sk-row]'):null;
@@ -9251,12 +9331,21 @@
       }
     });
     document.addEventListener('dragleave',e=>{
+      if(dragSecId){
+        const tgt=e.target&&e.target.nodeType===1?e.target:e.target?.parentElement;
+        const sl=tgt?.closest?.('[data-pw-sec-slot]');
+        if(sl&&(!e.relatedTarget||!sl.contains(e.relatedTarget))) sl.classList.remove('active');
+        const sb=tgt?.closest?.('[data-pw-sec]');
+        if(sb&&(!e.relatedTarget||!sb.contains(e.relatedTarget))) sb.classList.remove('pw-drop-before','pw-drop-after','pw-drop-over');
+        return;
+      }
       ['[data-pw-group]','[data-pw-sec]','[data-sk-sec]','[data-aug-card]','[data-chrsec]','[data-eqsec]','[data-eqitem]','[data-camp-tab]','[id^="eff_"]','#avatarDropZone'].forEach(sel=>{const x=e.target.closest?.(sel);if(x)x.classList.remove('pw-drop-over');});
       ['[data-sk-row]','[data-chr-pw]','[data-drop-cnpage]'].forEach(sel=>{const x=e.target.closest?.(sel);if(x)x.classList.remove('sk-drop-over');});
     });
     document.addEventListener('drop',e=>{
       stopDragAutoScroll();
-      document.querySelectorAll('.pw-drop-over,.sk-drop-over').forEach(x=>x.classList.remove('pw-drop-over','sk-drop-over'));
+      clearPwSecDropIndicators();
+      document.querySelectorAll('.sk-drop-over').forEach(x=>x.classList.remove('sk-drop-over'));
       if(dragCnFolderId){
         const dropFld=e.target.closest('[data-drop-cnfolder]');
         const targetFid=dropFld?.dataset.dropCnfolder;
@@ -9326,22 +9415,64 @@
         }
         dragPwId=null;
       }else if(dragSecId){
-        const secBox=e.target.closest('[data-pw-sec]');
-        if(secBox){
-          const targetId=secBox.dataset.pwSec||'', dragged=S.powerSections.find(s=>s.id===dragSecId);
-          if(dragged&&targetId!==dragSecId){
-            e.preventDefault();
-            if(!canSetSecParent(S.powerSections,dragSecId,targetId)){
-              toast('⚠️ Zyklus verhindert: Eine Sektion kann nicht in ihre eigene Untersektion verschoben werden.');
-            }else{
-              dragged.parentSectionId=targetId;
-              if(targetId){const par=S.powerSections.find(s=>s.id===targetId);if(par)par.collapsed=false;}
-              renderMain();save();
-              toast(targetId?`Sektion „${dragged.name||'Sektion'}“ in Sektion verschoben`:`Sektion „${dragged.name||'Sektion'}“ auf Hauptebene verschoben`);
+        const srcId=dragSecId;
+        dragSecId=null;
+        const tgt=e.target&&e.target.nodeType===1?e.target:e.target?.parentElement;
+        const slot=tgt?.closest?.('[data-pw-sec-slot]');
+        const dragged=S.powerSections.find(s=>s.id===srcId);
+        if(slot&&dragged){
+          e.preventDefault();
+          const slotParentId=slot.dataset.pwSecSlot||'';
+          const slotBeforeSecId=slot.dataset.beforeSec||'';
+          if(!canSetSecParent(S.powerSections,srcId,slotParentId)){
+            toast('⚠️ Zyklus verhindert: Eine Sektion kann nicht in ihre eigene Untersektion verschoben werden.');
+          }else if(placePowerSection(srcId,slotParentId,slotBeforeSecId,'')){
+            toast(slotParentId?`Sektion „${dragged.name||'Sektion'}“ in Unterebene einsortiert`:`Sektion „${dragged.name||'Sektion'}“ auf Hauptebene einsortiert`);
+          }
+        }else{
+          const secBox=tgt?.closest?.('[data-pw-sec]');
+          if(secBox&&dragged){
+            const targetId=secBox.dataset.pwSec||'';
+            if(!targetId){
+              if(dragged.parentSectionId){
+                e.preventDefault();
+                if(placePowerSection(srcId,'','','')){
+                  toast(`Sektion „${dragged.name||'Sektion'}“ auf Hauptebene verschoben`);
+                }
+              }
+            }else if(targetId!==srcId){
+              const targetSec=S.powerSections.find(s=>s.id===targetId);
+              if(targetSec){
+                e.preventDefault();
+                const rect=secBox.getBoundingClientRect();
+                const relY=rect.height>0?(e.clientY-rect.top)/rect.height:0.5;
+                const sibParentId=String(targetSec.parentSectionId||'');
+                if(relY<0.22){
+                  if(!canSetSecParent(S.powerSections,srcId,sibParentId)){
+                    toast('⚠️ Zyklus verhindert: Eine Sektion kann nicht in ihre eigene Untersektion verschoben werden.');
+                  }else if(placePowerSection(srcId,sibParentId,targetSec.id,'')){
+                    toast(`Sektion „${dragged.name||'Sektion'}“ vor „${targetSec.name||'Sektion'}“ einsortiert`);
+                  }
+                }else if(relY>0.78){
+                  if(!canSetSecParent(S.powerSections,srcId,sibParentId)){
+                    toast('⚠️ Zyklus verhindert: Eine Sektion kann nicht in ihre eigene Untersektion verschoben werden.');
+                  }else if(placePowerSection(srcId,sibParentId,'',targetSec.id)){
+                    toast(`Sektion „${dragged.name||'Sektion'}“ nach „${targetSec.name||'Sektion'}“ einsortiert`);
+                  }
+                }else{
+                  if(!canSetSecParent(S.powerSections,srcId,targetSec.id)){
+                    toast('⚠️ Zyklus verhindert: Eine Sektion kann nicht in ihre eigene Untersektion verschoben werden.');
+                  }else{
+                    targetSec.collapsed=false;
+                    if(placePowerSection(srcId,targetSec.id,'','')){
+                      toast(`Sektion „${dragged.name||'Sektion'}“ in „${targetSec.name||'Sektion'}“ verschoben`);
+                    }
+                  }
+                }
+              }
             }
           }
         }
-        dragSecId=null;
       }else if(dragAugId){
         const agCard=e.target.closest('[data-aug-card]');
         if(agCard&&agCard.dataset.augCard!==dragAugId){
