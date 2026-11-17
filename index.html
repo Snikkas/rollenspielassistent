@@ -441,7 +441,7 @@
     function renderWinResizeHandles(k){return '<div data-win-resize-w="'+k+'" title="Breite ziehen" class="win-resize-w"></div><div data-win-resize="'+k+'" title="Größe ziehen" class="win-resize-h">◢</div>';}
     let dragMouseY=null, dragScrollRaf=null;
     const savedEffRanges={};
-    let UI={inLobby:true,sheetLoaded:false,modal:null,mobileHdrOpen:false,mobileLobbyMenuOpen:false,infoTab:'dice',listType:'art',ammoModalWeaponId:'',skSort:{col:'',asc:true},editSkNameId:null,imgTargetKind:'',imgTargetId:'',confirmNew:false,confirmLog:false,confirmDelId:null,confirmDelSecId:null,confirmSecPullId:null,confirmDelSkSecId:null,confirmSkSecPullId:null,confirmDelExSecId:null,confirmHzStep:1,pwFilterOpen:false,pwFilterMode:'or',pwFilterArts:[],pwFilterTiers:[],pwFilterSubs:[],statusIniPromptKey:'',lastRollHtml:'',lastBlockBaseHtml:'',lastBlockFollowRes:null,colTarget:'cres',colMode:'text',colPwKind:'power',colPwId:'',colDraft:'#c084fc',attrGroupSel:'ST_KO',savedOnce:true,palBuilderOpen:false,palDraft:{name:'',isLt:false,bg:'#020617',acc:'#0ea5e9',acc2:'#6366f1',txt:'#f1f5f9',mut:'#94a3b8',btnTxt:'#ffffff'}};
+    let UI={inLobby:true,sheetLoaded:false,modal:null,mobileHdrOpen:false,mobileLobbyMenuOpen:false,infoTab:'dice',listType:'art',ammoModalWeaponId:'',skSort:{col:'',asc:true},editSkNameId:null,imgTargetKind:'',imgTargetId:'',confirmNew:false,confirmLog:false,confirmDelId:null,confirmDelSecId:null,confirmSecPullId:null,confirmDelSkSecId:null,confirmSkSecPullId:null,confirmDelExSecId:null,confirmHzStep:1,pwFilterOpen:false,pwFilterMode:'or',pwFilterTypes:[],pwFilterIncludeLinkedAugs:true,pwFilterArts:[],pwFilterTiers:[],pwFilterSubs:[],statusIniPromptKey:'',lastRollHtml:'',lastBlockBaseHtml:'',lastBlockFollowRes:null,colTarget:'cres',colMode:'text',colPwKind:'power',colPwId:'',colDraft:'#c084fc',attrGroupSel:'ST_KO',savedOnce:true,palBuilderOpen:false,palDraft:{name:'',isLt:false,bg:'#020617',acc:'#0ea5e9',acc2:'#6366f1',txt:'#f1f5f9',mut:'#94a3b8',btnTxt:'#ffffff'}};
     const REGISTRY_ID='_lobby_meta_registry_', LIVE_TAB_ID=uid();
     const LIBRARY_ID='_power_library_';
     const REPO_LIBRARY_URL='./data/powers-library.json';
@@ -2779,7 +2779,6 @@
       save(false);
       renderAll(true);
       await pushToCloud(false);
-      fetchAndSyncBasisPowers('skipExisting',{silent:true}).catch(()=>{});
     }
     async function updateCloudCharacterMeta(id,mutatorFn,successMsg){
       if(!CLOUD.registry.publicNotes||typeof CLOUD.registry.publicNotes!=='object') CLOUD.registry.publicNotes={};
@@ -3958,13 +3957,19 @@
       return tok;
     }
 
-    function renderPwCard(kind,it,idx,listLen){
+    function renderPwCard(kind,it,idx,listLen,opts={}){
       const isAug=kind==='augment', c=calcPwCost(it), gi=getGroupMspInfo(kind,it), colStyle=it.color?`style="color:${esc(it.color)}"`:'', winStyle=cardColorStyle(it);
+      const linkedParent=isAug&&it.parentPowerId?S.powers.find(p=>p.id===it.parentPowerId):null;
+      const showParentBadge=Boolean(opts.showParentBadge&&linkedParent);
+      const viaParentPower=Boolean(opts.viaParentPower&&isAug);
+      const parentBadgeHtml=showParentBadge?`<span data-tip="${esc(`Verknüpft mit Kraft „${linkedParent.name||'Unbenannte Kraft'}“ (Zuordnung bleibt beim Filtern unverändert)`)}" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md border border-amber-400/60 bg-amber-500/20 text-amber-300 text-[11px] font-extrabold shrink-0 max-w-full sm:max-w-[240px] truncate">↳ Kraft: ${esc(linkedParent.name||'Unbenannte Kraft')}</span>`:'';
+      const viaParentBadgeHtml=viaParentPower?`<span data-tip="Mitangezeigt, weil die übergeordnete Hauptkraft dem Filter entspricht (erfüllt den Filter selbst nicht direkt)" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md border border-amber-500/35 bg-amber-500/10 text-amber-300/85 text-[10px] font-bold shrink-0">↳ an Kraft gebunden</span>`:'';
       const pOpts=isAug?`<option value="" ${!it.parentPowerId?'selected':''}>— Freies Augment —</option>`+S.powers.map(p=>{const cnt=getLinkedAugs(p.id).length,full=cnt>=3&&it.parentPowerId!==p.id;return `<option value="${p.id}" ${it.parentPowerId===p.id?'selected':''} ${full?'disabled':''}>${esc(p.name||'Unbenannte Kraft')} (${cnt}/3)</option>`;}).join(''):'';
       const secOpts=!isAug&&S.powerSections.length?`<select data-pw-sec-sel="${it.id}" data-tip="Sektion / Ordner zuordnen" class="inp py-1 px-2 text-xs font-semibold max-w-full sm:max-w-[160px]"><option value="" ${!it.sectionId?'selected':''}>📁 Ohne Sektion</option>${S.powerSections.map(s=>`<option value="${s.id}" ${it.sectionId===s.id?'selected':''}>📁 ${esc(s.name||'Sektion')}</option>`).join('')}</select>`:'';
-      const hdrLeft=`<div class="flex items-center gap-2 flex-1 min-w-0 w-full sm:w-auto sm:min-w-[200px]"><button type="button" data-action="toggle-pw-collapse" data-kind="${kind}" data-id="${it.id}" data-tip="${it.collapsed?'Ausklappen':'Einklappen (nur Titel anzeigen)'}" class="btn w-7 h-7 p-0 text-xs font-black shrink-0">${it.collapsed?'▸':'▾'}</button>
+      const hdrLeft=`<div class="flex flex-wrap sm:flex-nowrap items-center gap-2 flex-1 min-w-0 w-full sm:w-auto sm:min-w-[200px]"><button type="button" data-action="toggle-pw-collapse" data-kind="${kind}" data-id="${it.id}" data-tip="${it.collapsed?'Ausklappen':'Einklappen (nur Titel anzeigen)'}" class="btn w-7 h-7 p-0 text-xs font-black shrink-0">${it.collapsed?'▸':'▾'}</button>
         ${!isAug?`<span draggable="true" data-drag-pw="${it.id}" data-tip="Ziehen zum Verschieben der Kraft (inkl. gebundener Augmente)" class="w-7 h-7 rounded bg-acc-soft border bdr-acc text-acc text-xs font-black cursor-grab select-none shrink-0 inline-flex items-center justify-center">⠿</span>`:`<span draggable="true" data-drag-aug="${it.id}" data-tip="Ziehen oder ▲/▼ nutzen zum Sortieren des Augments" class="w-7 h-7 rounded text-xs font-black bg-amber-500/15 text-amber-400 border border-amber-500/40 cursor-grab select-none shrink-0 inline-flex items-center justify-center">⠿</span>`}
         <input data-pwf="${kind}:${it.id}:name" type="text" value="${esc(it.name)}" ${colStyle} placeholder="Name ${isAug?'des Augments':'der Kraft'}..." class="inp-line flex-1 min-w-0 sm:min-w-[140px] ${it.collapsed?'text-sm':'text-base'} font-extrabold"/>
+        ${parentBadgeHtml}${viaParentBadgeHtml}
         ${renderColorPairBtns('open-pw-color',`data-kind="${kind}" data-id="${it.id}"`,it,false,'Textfarbe (Name) anpassen','Fensterfarbe (Hintergrund) anpassen')}</div>`;
       const stToksInCard=parseStatusTokens(it.effects), uCosts=Array.isArray(it.useCosts)?it.useCosts:(it.useRes&&toInt(it.useAmt,0)>0?[{res:it.useRes,amt:toInt(it.useAmt,0)}]:[]), costSummary=formatPwUseCosts(it), hasUseCost=Boolean(costSummary), canSpendPw=hasUseCost||stToksInCard.length>0;
       const hdrRight=`<div class="flex flex-wrap items-center gap-1.5">
@@ -3977,7 +3982,7 @@
       </div>`;
 
       if(it.collapsed){
-        return `<div ${isAug?`data-aug-card="${it.id}"`:""} class="card py-2 px-3 ${isAug?'border-amber-500/45 max-w-4xl':''}" ${winStyle}><div class="flex flex-wrap items-center justify-between gap-2">${hdrLeft}${hdrRight}</div></div>`;
+        return `<div ${isAug?`data-aug-card="${it.id}"`:""} class="card py-2 px-3 ${isAug?'border-amber-500/45 max-w-4xl':''}${viaParentPower?' opacity-75 hover:opacity-100 transition-opacity':''}" ${winStyle}><div class="flex flex-wrap items-center justify-between gap-2">${hdrLeft}${hdrRight}</div></div>`;
       }
 
       const statGroups=getStatGroups();
@@ -3988,7 +3993,7 @@
       const hD=it.boxH?.desc>0?`style="height:${it.boxH.desc}px"`:'', hE=it.boxH?.effects>0?`style="height:${it.boxH.effects}px"`:'', hR=it.boxH?.rules>0?`style="height:${it.boxH.rules}px"`:'';
       const availSubs=S.subcatList.filter(s=>!it.subcats.includes(s));
       const linked=!isAug?getLinkedAugs(it.id):[], unlinked=!isAug?getUnlinkedAugs():[];
-      return `<div ${isAug?`data-aug-card="${it.id}"`:""} class="card space-y-3 ${isAug?'border-amber-500/45':''}" ${winStyle}>
+      return `<div ${isAug?`data-aug-card="${it.id}"`:""} class="card space-y-3 ${isAug?'border-amber-500/45':''}${viaParentPower?' opacity-75 hover:opacity-100 transition-opacity':''}" ${winStyle}>
         <div class="flex flex-wrap items-center justify-between gap-2 border-b bdr-line pb-2">${hdrLeft}${hdrRight}</div>
         <div class="grid grid-cols-1 md:grid-cols-12 gap-2.5 text-xs">
           <div class="md:col-span-4"><label class="font-bold t-mut block mb-1">Voraussetzungen</label><input data-pwf="${kind}:${it.id}:req" type="text" value="${esc(it.req)}" placeholder="z.B. ST 30..." class="inp w-full"/></div>
@@ -4060,17 +4065,23 @@
       </div>`;
     }
 
-    const getPwFilterCnt=()=>(UI.pwFilterArts?.length||0)+(UI.pwFilterTiers?.length||0)+(UI.pwFilterSubs?.length||0);
+    const getPwFilterCnt=()=>(UI.pwFilterTypes?.length||0)+(UI.pwFilterArts?.length||0)+(UI.pwFilterTiers?.length||0)+(UI.pwFilterSubs?.length||0);
     const hasActivePwFilter=()=>getPwFilterCnt()>0;
-    function matchesPwItemFilter(it){
+    const isOnlyPowersFilter=()=>Array.isArray(UI.pwFilterTypes)&&UI.pwFilterTypes.length===1&&UI.pwFilterTypes[0]==='power';
+    const isOnlyAugsFilter=()=>Array.isArray(UI.pwFilterTypes)&&UI.pwFilterTypes.length===1&&UI.pwFilterTypes[0]==='augment';
+    function matchesPwItemFilter(it,kind){
       if(!hasActivePwFilter()) return true;
-      const itemArt=String(it?.art||'').trim();
-      const isLegacyBasis=!it?.parentPowerId&&it?.tier==='marginal'&&it?.manualCost&&toInt(it?.sp,0)===0&&toInt(it?.msp,0)===0;
-      const tKey=isLegacyBasis?'basisaktion':(PW_TIERS[it?.tier]?it.tier:'marginal');
-      const itemSubs=Array.isArray(it?.subcats)?it.subcats.map(s=>String(s||'').trim()):[];
+      const itemKind=kind||(S.augments.includes(it)?'augment':'power');
+      const hasTypes=(UI.pwFilterTypes?.length||0)>0;
+      if(hasTypes&&!UI.pwFilterTypes.includes(itemKind)) return false;
       const hasArts=(UI.pwFilterArts?.length||0)>0;
       const hasTiers=(UI.pwFilterTiers?.length||0)>0;
       const hasSubs=(UI.pwFilterSubs?.length||0)>0;
+      if(!hasArts&&!hasTiers&&!hasSubs) return true;
+      const itemArt=String(it?.art||'').trim();
+      const isLegacyBasis=itemKind!=='augment'&&!it?.parentPowerId&&it?.tier==='marginal'&&it?.manualCost&&toInt(it?.sp,0)===0&&toInt(it?.msp,0)===0;
+      const tKey=isLegacyBasis?'basisaktion':(PW_TIERS[it?.tier]?it.tier:'marginal');
+      const itemSubs=Array.isArray(it?.subcats)?it.subcats.map(s=>String(s||'').trim()):[];
       const matchArt=hasArts&&UI.pwFilterArts.includes(itemArt);
       const matchTier=hasTiers&&UI.pwFilterTiers.includes(tKey);
       const matchSub=hasSubs&&itemSubs.some(sc=>UI.pwFilterSubs.includes(sc));
@@ -4081,20 +4092,33 @@
     }
     function matchesPwGroupFilter(p){
       if(!hasActivePwFilter()) return true;
-      return matchesPwItemFilter(p)||getLinkedAugs(p.id).some(ag=>matchesPwItemFilter(ag));
+      return matchesPwItemFilter(p,'power')||getLinkedAugs(p.id).some(ag=>matchesPwItemFilter(ag,'augment'));
     }
 
     function renderPwGroupList(pwArr){
       const fAct=hasActivePwFilter();
+      const onlyPw=isOnlyPowersFilter();
       return pwArr.map((p,i)=>{
-        const pMatches=!fAct||matchesPwItemFilter(p);
+        const pMatches=!fAct||matchesPwItemFilter(p,'power');
         const allLinked=getLinkedAugs(p.id);
-        const linked=fAct?allLinked.filter(matchesPwItemFilter):allLinked;
+        let linked;
+        if(!fAct){
+          linked=allLinked;
+        }else if(pMatches){
+          if(onlyPw) linked=[];
+          else if(UI.pwFilterIncludeLinkedAugs) linked=allLinked;
+          else linked=allLinked.filter(ag=>matchesPwItemFilter(ag,'augment'));
+        }else{
+          linked=allLinked.filter(ag=>matchesPwItemFilter(ag,'augment'));
+        }
         if(!pMatches&&!linked.length) return '';
         if(!pMatches){
-          return `<div data-pw-group="${p.id}" class="space-y-2.5">${linked.map((ag,ai)=>renderPwCard('augment',ag,ai,linked.length)).join('')}</div>`;
+          return `<div data-pw-group="${p.id}" class="space-y-2.5">${linked.map((ag,ai)=>renderPwCard('augment',ag,ai,linked.length,{showParentBadge:true})).join('')}</div>`;
         }
-        return `<div data-pw-group="${p.id}" class="space-y-2.5">${renderPwCard('power',p,i,pwArr.length)}${linked.length?`<div class="pl-2.5 sm:pl-7 border-l-2 border-amber-500/45 space-y-2.5">${linked.map((ag,ai)=>renderPwCard('augment',ag,ai,linked.length)).join('')}</div>`:''}</div>`;
+        return `<div data-pw-group="${p.id}" class="space-y-2.5">${renderPwCard('power',p,i,pwArr.length)}${linked.length?`<div class="pl-2.5 sm:pl-7 border-l-2 border-amber-500/45 space-y-2.5">${linked.map((ag,ai)=>{
+          const viaParent=fAct&&!matchesPwItemFilter(ag,'augment');
+          return renderPwCard('augment',ag,ai,linked.length,{viaParentPower:viaParent});
+        }).join('')}</div>`:''}</div>`;
       }).filter(Boolean).join('');
     }
 
@@ -4115,6 +4139,9 @@
       const showBody=!sec.collapsed||fAct;
       const validParents=S.powerSections.filter(s=>canSetSecParent(S.powerSections,sec.id,s.id));
       const parentSel=S.powerSections.length>1?`<select data-sec-parent="${sec.id}" data-tip="Übergeordnete Sektion wählen (Ordner in Ordner verschachteln)" class="inp py-1 px-2 text-xs font-semibold max-w-full sm:max-w-[165px]"><option value="" ${!sec.parentSectionId?'selected':''}>📁 Hauptebene</option>${validParents.map(s=>`<option value="${s.id}" ${sec.parentSectionId===s.id?'selected':''}>↳ in: ${esc(s.name||'Sektion')}</option>`).join('')}</select>`:'';
+      const secDirectPwCnt=fAct?allSecPowers.filter(p=>matchesPwItemFilter(p,'power')).length:allSecPowers.length;
+      const secDirectAugCnt=fAct?allSecPowers.reduce((s,p)=>s+getLinkedAugs(p.id).filter(ag=>matchesPwItemFilter(ag,'augment')).length,0):0;
+      const secPillTxt=fAct?(secDirectPwCnt===0&&secDirectAugCnt>0?`${secDirectAugCnt} ${secDirectAugCnt===1?'Augment':'Augmente'}`:`${secDirectPwCnt}/${allSecPowers.length} Kräfte${secDirectAugCnt?` • ${secDirectAugCnt} Aug.`:''}`):`${secPowers.length} ${allSecPowers.length===1?'Kraft':'Kräfte'}`;
       return `<section data-pw-sec="${sec.id}" class="card space-y-3 border-2 bdr-acc ${depth>0?'bg-black/15':''}" ${winStyle}>
         <div class="flex flex-wrap items-center justify-between gap-2 ${showBody?'border-b bdr-line pb-2.5':''}">
           <div class="flex flex-wrap sm:flex-nowrap items-center gap-1.5 flex-1 min-w-0 w-full sm:w-auto sm:min-w-[200px]">
@@ -4125,7 +4152,7 @@
               <input data-secf="${sec.id}:name" type="text" value="${esc(sec.name)}" ${colStyle} placeholder="Sektionsname (z.B. Eigenschaften)..." class="inp-line flex-1 min-w-0 sm:min-w-[130px] text-base font-black"/>
               ${renderColorPairBtns('open-sec-folder-color',`data-id="${sec.id}"`,sec,false,'Textfarbe der Sektion anpassen','Fensterfarbe der Sektion anpassen')}
             </div>
-            <span class="pill cursor-default text-[11px] py-0.5 px-2 tabular shrink-0">${fAct?`${secPowers.length}/${allSecPowers.length}`:secPowers.length} ${allSecPowers.length===1&&!fAct?'Kraft':'Kräfte'}${childSecs.length?` • ${childSecs.length} Unterordner`:''}</span>
+            <span class="pill cursor-default text-[11px] py-0.5 px-2 tabular shrink-0">${secPillTxt}${childSecs.length?` • ${childSecs.length} Unterordner`:''}</span>
           </div>
           <div class="flex flex-wrap items-center gap-1.5">
             ${parentSel}
@@ -4151,17 +4178,19 @@
 
     function tplPowers(){
       const P=calcProg(), fAct=hasActivePwFilter(), fCnt=getPwFilterCnt();
-      const allUnlinked=getUnlinkedAugs(), unlinked=fAct?allUnlinked.filter(matchesPwItemFilter):allUnlinked;
+      const onlyPw=isOnlyPowersFilter(), onlyAugs=isOnlyAugsFilter();
+      const allUnlinked=getUnlinkedAugs(), unlinked=fAct?allUnlinked.filter(ag=>matchesPwItemFilter(ag,'augment')):allUnlinked;
       const allUnsecPowers=S.powers.filter(p=>!p.sectionId||!S.powerSections.some(s=>s.id===p.sectionId)), unsecPowers=fAct?allUnsecPowers.filter(matchesPwGroupFilter):allUnsecPowers;
       const hasAny=S.powers.length>0||S.augments.length>0||S.powerSections.length>0;
       const allArts=sortAlpha([...S.artList,...S.powers.map(p=>p.art),...S.augments.map(a=>a.art)]);
       const allSubs=sortAlpha([...S.subcatList,...S.powers.flatMap(p=>p.subcats||[]),...S.augments.flatMap(a=>a.subcats||[])]);
-      const matchedPwCnt=fAct?S.powers.filter(matchesPwItemFilter).length:S.powers.length;
-      const matchedAugCnt=fAct?S.augments.filter(matchesPwItemFilter).length:S.augments.length;
+      const matchedPwCnt=fAct?S.powers.filter(p=>matchesPwItemFilter(p,'power')).length:S.powers.length;
+      const matchedAugCnt=fAct?S.augments.filter(ag=>matchesPwItemFilter(ag,'augment')).length:S.augments.length;
       const totalMatchedCnt=matchedPwCnt+matchedAugCnt;
       const activeTagsHtml=fAct?`<div class="subcard p-2.5 border bdr-acc bg-acc-soft/30 flex flex-wrap items-center justify-between gap-2 text-xs">
         <div class="flex flex-wrap items-center gap-1.5">
           <span class="font-extrabold text-acc">🎯 Aktiver Filter (${totalMatchedCnt} ${totalMatchedCnt===1?'Treffer':'Treffer'}):</span>
+          ${(UI.pwFilterTypes||[]).map(tp=>`<button type="button" data-action="toggle-pw-filter-opt" data-fkind="type" data-fval="${esc(tp)}" data-tip="Filter entfernen" class="tag cursor-pointer">Typ: ${tp==='augment'?'Augmente':'Kräfte'} ✕</button>`).join('')}
           ${(UI.pwFilterArts||[]).map(a=>`<button type="button" data-action="toggle-pw-filter-opt" data-fkind="art" data-fval="${esc(a)}" data-tip="Filter entfernen" class="tag cursor-pointer">Art: ${esc(a)} ✕</button>`).join('')}
           ${(UI.pwFilterTiers||[]).map(k=>`<button type="button" data-action="toggle-pw-filter-opt" data-fkind="tier" data-fval="${esc(k)}" data-tip="Filter entfernen" class="tag cursor-pointer">Stufe: ${esc(PW_TIERS[k]?.l||k)} ✕</button>`).join('')}
           ${(UI.pwFilterSubs||[]).map(sc=>`<button type="button" data-action="toggle-pw-filter-opt" data-fkind="sub" data-fval="${esc(sc)}" data-tip="Filter entfernen" class="tag cursor-pointer">Tag: ${esc(sc)} ✕</button>`).join('')}
@@ -4183,6 +4212,15 @@
             <button type="button" data-action="toggle-pw-filter" class="btn py-0.5 px-2 text-[11px]">✕</button>
           </div>
         </div>
+        <div class="space-y-1.5 pb-1 border-b bdr-line">
+          <div class="text-[11px] font-extrabold t-mut uppercase tracking-wider">Typ</div>
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <div class="flex flex-wrap gap-1.5">
+              ${[['power','Kräfte'],['augment','Augmente']].map(([val,lbl])=>{const on=(UI.pwFilterTypes||[]).includes(val);return `<button type="button" data-action="toggle-pw-filter-opt" data-fkind="type" data-fval="${val}" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border cursor-pointer select-none transition-colors ${on?'bdr-acc bg-acc-soft text-acc font-extrabold':'bdr-line bg-black/20 hover:border-sky-400/50'}"><span class="text-xs leading-none">${on?'☑':'☐'}</span><span>${lbl}</span></button>`;}).join('')}
+            </div>
+            ${(!onlyPw&&!onlyAugs)?`<button type="button" data-action="toggle-pw-filter-linked" data-tip="Wenn aktiv, werden verknüpfte Augmente einer passenden Hauptkraft direkt darunter mitangezeigt (statt ausgeblendet zu werden)" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border cursor-pointer select-none transition-colors ${UI.pwFilterIncludeLinkedAugs?'border-amber-400/60 bg-amber-500/15 text-amber-300 font-extrabold':'bdr-line bg-black/20 t-mut hover:border-amber-400/50'}"><span class="text-xs leading-none">${UI.pwFilterIncludeLinkedAugs?'☑':'☐'}</span><span>Gebundene Augmente bei passenden Kräften mitzeigen</span></button>`:''}
+          </div>
+        </div>
         <div class="space-y-1.5">
           <div class="text-[11px] font-extrabold t-mut uppercase tracking-wider">Kraft-Art (${allArts.length})</div>
           <div class="flex flex-wrap gap-1.5">${allArts.map(a=>{const on=(UI.pwFilterArts||[]).includes(a);return `<button type="button" data-action="toggle-pw-filter-opt" data-fkind="art" data-fval="${esc(a)}" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border cursor-pointer select-none transition-colors ${on?'bdr-acc bg-acc-soft text-acc font-extrabold':'bdr-line bg-black/20 hover:border-sky-400/50'}"><span class="text-xs leading-none">${on?'☑':'☐'}</span><span>${esc(a)}</span></button>`;}).join('')}</div>
@@ -4197,13 +4235,25 @@
         </div>`:''}
       </div>`:'';
       const rawRootSecs=S.powerSections.filter(s=>!s.parentSectionId||!S.powerSections.some(p=>p.id===s.parentSectionId));
-      const rootSecs=fAct?rawRootSecs.filter(s=>secHasFilteredPowers(s.id)):rawRootSecs;
-      return `<section class="card space-y-3"><div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3"><div><h2 class="text-base sm:text-lg font-extrabold cursor-help" data-tip="Erstelle beliebige Sektionen (Ordner), ziehe Kräfte am Viereck ⠿ hinein oder sammle Kräfte nach Art.\nÜber 🎨 (Textfarbe) und 🪟 (Fensterfarbe) lassen sich Kräfte, Augmente und Sektionen frei einfärben.">Kräfte &amp; Augmente</h2><p class="text-xs t-mut">Aktuelle Kosten: <strong id="pwSummaryHdr" class="text-acc">${P.pwSp} SP${P.pwMsp?` + ${P.pwMsp} MsP`:''}</strong></p></div><div class="flex flex-wrap items-center gap-2"><button type="button" data-action="toggle-pw-filter" data-tip="Kräfte &amp; Augmente nach Kraft-Art, Lernkosten-Stufe oder Unterkategorie live filtern" class="btn py-1 px-2.5 text-xs ${(UI.pwFilterOpen||fAct)?'bdr-acc bg-acc-soft text-acc font-extrabold':''}">🔍 Filter${fAct?` (${fCnt})`:''} ${UI.pwFilterOpen?'▴':'▾'}</button>${fAct&&!UI.pwFilterOpen?`<button type="button" data-action="reset-pw-filter" data-tip="Aktiven Kräfte-Filter zurücksetzen" class="btn btn-err py-1 px-2 text-xs">✕</button>`:''}${hasAny?`<button type="button" data-action="collapse-all-pw" data-val="1" class="btn py-1 px-2.5 text-xs">▸ Alle einklappen</button><button type="button" data-action="collapse-all-pw" data-val="0" class="btn py-1 px-2.5 text-xs">▾ Alle ausklappen</button>`:''}<button type="button" data-action="open-pw-library" data-tip="Server-Bibliothek durchsuchen, Basisaktionen abrufen oder lokale .json-Pakete importieren" class="btn bg-acc-soft bdr-acc text-acc">📚 Bibliothek / Import</button><button type="button" data-action="export-pw-all" data-tip="Alle Kräfte, Augmente &amp; Sektionen als .json-Paket herunterladen" class="btn">📤 Export</button><button type="button" data-action="add-pw-section" class="btn bg-acc-soft bdr-acc text-acc">+ Sektion</button><button type="button" data-action="add-power" class="btn btn-pri">+ Kraft</button><button type="button" data-action="add-augment" class="btn border-amber-400 text-amber-500">+ Freies Augment</button></div></div>${filterMenuHtml}${activeTagsHtml}</section>
-      ${!hasAny?`<div class="card text-center py-8 text-xs t-mut">Noch keine Sektionen, Kräfte oder Augmente vorhanden.</div>`:''}
+      const rootSecs=fAct&&!onlyAugs?rawRootSecs.filter(s=>secHasFilteredPowers(s.id)):rawRootSecs;
+      const onlyAugsLinked=onlyAugs?S.powers.flatMap(p=>getLinkedAugs(p.id)).filter(ag=>matchesPwItemFilter(ag,'augment')):[];
+      const onlyAugsListHtml=onlyAugs&&(onlyAugsLinked.length||unlinked.length)?`<section class="space-y-3">
+        <div class="flex flex-wrap items-center justify-between gap-2 px-1">
+          <h3 class="text-sm font-extrabold text-amber-400">Augmente – Trefferliste (${onlyAugsLinked.length+unlinked.length})</h3>
+          <span class="text-[11px] t-mut tabular">${onlyAugsLinked.length} gebunden • ${unlinked.length} ungebunden</span>
+        </div>
+        ${onlyAugsLinked.length?`<div class="space-y-2.5">${onlyAugsLinked.map(ag=>{
+          const sibs=getLinkedAugs(ag.parentPowerId);
+          return renderPwCard('augment',ag,sibs.indexOf(ag),sibs.length,{showParentBadge:true});
+        }).join('')}</div>`:''}
+        ${unlinked.length?`<div class="space-y-2.5 ${onlyAugsLinked.length?'pt-2':''}">${onlyAugsLinked.length?`<div class="text-xs font-extrabold text-amber-400/90 px-1">Ungebundene Augmente (${unlinked.length})</div>`:''}${unlinked.map((ag,ai)=>renderPwCard('augment',ag,ai,unlinked.length)).join('')}</div>`:''}
+      </section>`:'';
+      return `<section class="card space-y-3"><div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3"><div><h2 class="text-base sm:text-lg font-extrabold cursor-help" data-tip="Erstelle beliebige Sektionen (Ordner), ziehe Kräfte am Viereck ⠿ hinein oder sammle Kräfte nach Art.\nÜber 🎨 (Textfarbe) und 🪟 (Fensterfarbe) lassen sich Kräfte, Augmente und Sektionen frei einfärben.">Kräfte &amp; Augmente</h2><p class="text-xs t-mut">Aktuelle Kosten: <strong id="pwSummaryHdr" class="text-acc">${P.pwSp} SP${P.pwMsp?` + ${P.pwMsp} MsP`:''}</strong></p></div><div class="flex flex-wrap items-center gap-2"><button type="button" data-action="toggle-pw-filter" data-tip="Kräfte &amp; Augmente nach Typ, Kraft-Art, Lernkosten-Stufe oder Unterkategorie live filtern" class="btn py-1 px-2.5 text-xs ${(UI.pwFilterOpen||fAct)?'bdr-acc bg-acc-soft text-acc font-extrabold':''}">🔍 Filter${fAct?` (${fCnt})`:''} ${UI.pwFilterOpen?'▴':'▾'}</button>${fAct&&!UI.pwFilterOpen?`<button type="button" data-action="reset-pw-filter" data-tip="Aktiven Kräfte-Filter zurücksetzen" class="btn btn-err py-1 px-2 text-xs">✕</button>`:''}${hasAny?`<button type="button" data-action="collapse-all-pw" data-val="1" class="btn py-1 px-2.5 text-xs">▸ Alle einklappen</button><button type="button" data-action="collapse-all-pw" data-val="0" class="btn py-1 px-2.5 text-xs">▾ Alle ausklappen</button>`:''}<button type="button" data-action="open-pw-library" data-tip="Server-Bibliothek durchsuchen, Basisaktionen abrufen oder lokale .json-Pakete importieren" class="btn bg-acc-soft bdr-acc text-acc">📚 Bibliothek / Import</button><button type="button" data-action="export-pw-all" data-tip="Alle Kräfte, Augmente &amp; Sektionen als .json-Paket herunterladen" class="btn">📤 Export</button><button type="button" data-action="add-pw-section" class="btn bg-acc-soft bdr-acc text-acc">+ Sektion</button><button type="button" data-action="add-power" class="btn btn-pri">+ Kraft</button><button type="button" data-action="add-augment" class="btn border-amber-400 text-amber-500">+ Freies Augment</button></div></div>${filterMenuHtml}${activeTagsHtml}</section>
+      ${!hasAny?`<div class="card text-center py-8 space-y-2.5 text-xs t-mut"><div class="font-extrabold text-sm text-acc">Noch keine Sektionen, Kräfte oder Augmente vorhanden.</div><div>Über die Bibliothek kannst du bei Bedarf Basisaktionen, Vorlagen vom Server oder eigene .json-Pakete importieren.</div><div class="pt-1"><button type="button" data-action="open-pw-library" class="btn btn-pri py-1.5 px-3.5 text-xs">📚 Bibliothek / Import öffnen</button></div></div>`:''}
       ${fAct&&totalMatchedCnt===0?`<div class="card text-center py-8 space-y-2 text-xs t-mut"><div class="font-extrabold text-sm text-acc">Keine Kräfte oder Augmente mit Überschneidung zum gewählten Filter gefunden.</div><div>Passe die Filterauswahl oben an oder setze den Filter zurück.</div><div><button type="button" data-action="reset-pw-filter" class="btn btn-pri py-1 px-3 text-xs mt-1">↺ Filter zurücksetzen</button></div></div>`:''}
-      ${rootSecs.length?`<div class="pw-sec-list">${rootSecs.map((sec,sIdx)=>renderPwSecSlot('',sec.id)+renderPwSection(sec,sIdx,rootSecs.length,0)).join('')}${renderPwSecSlot('','')}</div>`:''}
+      ${onlyAugs?onlyAugsListHtml:`${rootSecs.length?`<div class="pw-sec-list">${rootSecs.map((sec,sIdx)=>renderPwSecSlot('',sec.id)+renderPwSection(sec,sIdx,rootSecs.length,0)).join('')}${renderPwSecSlot('','')}</div>`:''}
       ${unsecPowers.length?`<div data-pw-sec="" class="space-y-5 ${rootSecs.length?'pt-2':''}">${S.powerSections.length?`<div class="flex items-center justify-between px-1"><h3 class="text-sm font-extrabold t-mut">Kräfte ohne Sektion (${fAct?`${unsecPowers.length}/${allUnsecPowers.length}`:unsecPowers.length})</h3><span class="text-[11px] t-mut">Hierher ziehen zum Herauslösen aus einer Sektion</span></div>`:''}${renderPwGroupList(unsecPowers)}</div>`:(S.powerSections.length&&S.powers.length&&!fAct?`<div data-pw-sec="" class="subcard border-dashed text-center py-3 text-xs t-mut">Hierher ziehen, um eine Kraft aus einer Sektion herauszulösen</div>`:'')}
-      ${unlinked.length?`<section class="space-y-3 pt-2"><h3 class="text-sm font-extrabold text-amber-400 px-1">Ungebundene Augmente (${fAct?`${unlinked.length}/${allUnlinked.length}`:unlinked.length})</h3>${unlinked.map((ag,ai)=>renderPwCard('augment',ag,ai,unlinked.length)).join('')}</section>`:''}`;
+      ${unlinked.length?`<section class="space-y-3 pt-2"><h3 class="text-sm font-extrabold text-amber-400 px-1">Ungebundene Augmente (${fAct?`${unlinked.length}/${allUnlinked.length}`:unlinked.length})</h3>${unlinked.map((ag,ai)=>renderPwCard('augment',ag,ai,unlinked.length)).join('')}</section>`:''}`}`;
     }
 
     function buildPwCatPillsHtml(){
@@ -7094,9 +7144,10 @@
         case 'toggle-pw-collapse': {const it=findPwItem(el.dataset.kind,el.dataset.id);if(it){it.collapsed=!it.collapsed;renderMain();save(false);}break;}
         case 'toggle-pw-filter': UI.pwFilterOpen=!UI.pwFilterOpen; renderMain(); break;
         case 'toggle-pw-filter-mode': UI.pwFilterMode=UI.pwFilterMode==='and'?'or':'and'; renderMain(); break;
+        case 'toggle-pw-filter-linked': UI.pwFilterIncludeLinkedAugs=!UI.pwFilterIncludeLinkedAugs; renderMain(); break;
         case 'toggle-pw-filter-opt': {
           const fk=el.dataset.fkind, fv=String(el.dataset.fval||'');
-          const arrKey=fk==='art'?'pwFilterArts':fk==='tier'?'pwFilterTiers':'pwFilterSubs';
+          const arrKey=fk==='type'?'pwFilterTypes':fk==='art'?'pwFilterArts':fk==='tier'?'pwFilterTiers':'pwFilterSubs';
           if(!Array.isArray(UI[arrKey])) UI[arrKey]=[];
           const idx=UI[arrKey].indexOf(fv);
           if(idx>=0) UI[arrKey].splice(idx,1);
@@ -7104,7 +7155,7 @@
           renderMain();
           break;
         }
-        case 'reset-pw-filter': UI.pwFilterArts=[]; UI.pwFilterTiers=[]; UI.pwFilterSubs=[]; renderMain(); toast('Kräfte-Filter zurückgesetzt'); break;
+        case 'reset-pw-filter': UI.pwFilterTypes=[]; UI.pwFilterArts=[]; UI.pwFilterTiers=[]; UI.pwFilterSubs=[]; renderMain(); toast('Kräfte-Filter zurückgesetzt'); break;
         case 'collapse-all-pw': {const v=el.dataset.val==='1';[...S.powers,...S.augments,...S.powerSections].forEach(it=>{it.collapsed=v;});renderMain();save(false);break;}
         case 'ask-del-pw': UI.confirmDelId=el.dataset.id; renderMain(); break;
         case 'cancel-del-pw': UI.confirmDelId=null; renderMain(); break;
@@ -7764,14 +7815,13 @@
           break;
         case 'open-local-sheet': {
           CLOUD.viewingRemote=false; CLOUD.remoteCharId='';
-          const hadLocal=load();
+          load();
           if(CLOUD.currentUser&&!S.owner) S.owner=CLOUD.currentUser;
           if(!S.campaignId) S.campaignId=CLOUD.activeCampaignId||'default';
           UI.inLobby=false; UI.sheetLoaded=true; UI.modal=null;
           try{window.history.replaceState({},'',S.charId?`${window.location.pathname}?char=${encodeURIComponent(S.charId)}`:window.location.pathname);}catch(e){}
           renderAll();
           toast(`🛠️ Lokaler Charakterbogen „${S.profile.name||'Charakter'}“ geöffnet!`);
-          if(!hadLocal&&!S.powers.length&&!S.powerSections.length) fetchAndSyncBasisPowers('skipExisting',{silent:true}).catch(()=>{});
           break;
         }
         case 'copy-char-link': {
@@ -8271,7 +8321,7 @@
         case 'pwlib-pick-file': $('filePwImport')?.click(); break;
         case 'new-sheet-ask': UI.confirmNew=true; renderModal(); break;
         case 'new-sheet-no': UI.confirmNew=false; renderModal(); break;
-        case 'new-sheet-yes': CLOUD.viewingRemote=false; CLOUD.remoteCharId=''; S=defaultState(); UI.inLobby=false; UI.sheetLoaded=true; UI.modal=null; UI.confirmNew=false; renderAll(); toast('Neuer Charakterbogen geladen'); fetchAndSyncBasisPowers('skipExisting',{silent:true}).catch(()=>{}); break;
+        case 'new-sheet-yes': CLOUD.viewingRemote=false; CLOUD.remoteCharId=''; S=defaultState(); UI.inLobby=false; UI.sheetLoaded=true; UI.modal=null; UI.confirmNew=false; renderAll(); toast('Neuer Charakterbogen geladen'); break;
       }
     });
 
@@ -10055,7 +10105,7 @@
       },120);
     });
 
-    const hadLocalSheet=load();
+    load();
     initLiveDiceChannel();
     const params=new URLSearchParams(window.location.search);
     const reqCharId=(params.get('char')||'').trim();
@@ -10070,7 +10120,6 @@
       UI.inLobby=false; UI.sheetLoaded=true; UI.modal=null;
       renderAll(false);
       fetchLobbyList(true);
-      if(!hadLocalSheet&&!S.powers.length&&!S.powerSections.length) fetchAndSyncBasisPowers('skipExisting',{silent:true}).catch(()=>{});
     }else{
       UI.inLobby=true; UI.sheetLoaded=false; UI.modal=null;
       renderAll(false);
