@@ -307,7 +307,7 @@
         if(s.parentSectionId&&!canSetSecParent(secList,s.id,s.parentSectionId)) s.parentSectionId='';
       });
     };
-    const makePower=(secId='')=>({id:uid(),name:'',color:'',bgColor:'',sectionId:secId,collapsed:false,req:'',tier:'marginal',manualCost:false,sp:1,msp:0,showManual:false,art:'Grundaktion',artManual:false,subcats:[],useCosts:[{res:'ap',amt:1}],useAmt:1,useRes:'ap',desc:'',effects:'',rules:'',applyMods:true,bldAmt:'+1',bldStat:'LP-Max',boxH:{desc:0,effects:0,rules:0}});
+    const makePower=(secId='')=>({id:uid(),name:'',color:'',bgColor:'',sectionId:secId,collapsed:false,req:'',tier:'marginal',manualCost:false,sp:1,msp:0,showManual:false,art:'Grundaktion',artManual:false,subcats:[],useCosts:[{res:'ap',amt:1}],useAmt:1,useRes:'ap',desc:'',effects:'',rules:'',applyMods:true,bldAmt:'+1',bldStat:'LP-Max',bldMode:'stat',bldSkCnt:'1',bldSkKind:'adv',bldSkId:'',boxH:{desc:0,effects:0,rules:0}});
     const makeAugment=(pid='')=>({...makePower(''),id:uid(),parentPowerId:pid,art:'Eigenschaft',useCosts:[],useAmt:0,useRes:''});
     const DEF_BASIS_POWERS=[
       ["umwf0mjhyrjyv", "Schub", "Freiaktion", [], [{"res": "ap", "amt": 1}], "<i>Du bringst zusätzliche Anstrengung auf, um kurzzeitig einen Aspekt von dir zu verstärken.</i>\n\n", "\nBis zum Ende deines nächsten Zuges hast du einen der folgenden Effekte, für den du die entsprechenden Kosten gezahlt hast:<br><ul><li><b>gestärkt</b> (1 AP)<br></li><li><b>beweglich</b> (1 AP)<br></li><li><b>konzentriert</b> (1 mAP)<br></li><li><b>entschlossen</b> (1 mAP)<br></li></ul><br><b>Blitz</b>: Du kannst diese Aktion jederzeit - auch als Reaktion auf eine beliebige Aktion - einsetzen, solange du nicht handlungsunfähig bist.<br><br>\n\n", "<div><i><b><ul><li>Gestärkt<i>: Deine aktuellen und maximalen LP sind um 2 erhöht. Du hast einen Vorteil auf alle ST- und KO-Tests.</i></li></ul></b></i></div><ul><li><i><b>Beweglich</b></i><i>: Deine Bewegungen sind um eine Stufe erhöht. Du hast einen Vorteil auf alle PR- und GW-Tests.</i><br></li><li><i><b>Konzentriert</b></i><i>: Du hast +10 oder -10 Initiative nach eigener Wahl beim Erhalt des Effektes. Du hast einen Vorteil auf alle WA- und IN-Tests.</i><br></li><li><i><b>Entschlossen</b></i><i>: Deine aktuellen und maximalen mLP sind um 2 erhöht. Du hast einen Vorteil auf alle AU- und WK-Tests.</i><br></li></ul>", {"desc": 88, "effects": 251, "rules": 175}],
@@ -984,6 +984,22 @@
       }
       return `[${String(amtRaw||'+1').trim().replace(/^(\d)/,'+$1')} ${st}]`;
     }
+    function getPwBuilderToken(it){
+      if(!it||it.bldMode!=='skill') return formatBldToken(it?.bldAmt,it?.bldStat);
+      const digits=String(it.bldSkCnt??'').replace(/\D/g,'');
+      const parsed=digits?parseInt(digits,10):0;
+      const n=parsed>=1?parsed:1;
+      const namedSkills=(S.skills||[]).filter(s=>s&&String(s.name||'').trim());
+      if(!namedSkills.length) return '';
+      let sk=it.bldSkId?namedSkills.find(s=>s.id===it.bldSkId):null;
+      if(!sk){
+        sk=[...namedSkills].sort((a,b)=>String(a.name).trim().localeCompare(String(b.name).trim(),'de'))[0];
+      }
+      if(!sk) return '';
+      const skName=String(sk.name).trim();
+      const wort=it.bldSkKind==='dis'?(n===1?'Nachteil':'Nachteile'):(n===1?'Vorteil':'Vorteile');
+      return `[+${n} ${wort} (${skName})]`;
+    }
     function resolveStatusDefByName(rawName){
       const cl=String(rawName||'').trim().toLowerCase().replace(/ä/g,'ae').replace(/ö/g,'oe').replace(/ü/g,'ue');
       return STATUS_DEFS.find(d=>d.k===cl||d.name.toLowerCase()===String(rawName||'').trim().toLowerCase()||d.name.toLowerCase().replace(/ä/g,'ae').replace(/ö/g,'oe').replace(/ü/g,'ue')===cl)||null;
@@ -1073,6 +1089,14 @@
       }
       const pfxM=tail.match(RE_SCOPE.pfx);
       const pfxLen=pfxM?pfxM[0].length:0, rem=tail.slice(pfxLen);
+      if(isParen&&rem.includes('(')){
+        const remLow=rem.trim().toLowerCase();
+        const exactSk=(S.skills||[]).find(s=>s&&String(s.name||'').trim().toLowerCase()===remLow);
+        if(exactSk){
+          const sn=exactSk.name.trim();
+          return {scope:'skill',skillId:exactSk.id,skillName:sn,label:sn,consumedLen:tail.length};
+        }
+      }
       if((m=rem.match(RE_SCOPE.defense))){
         return {scope:'defense',label:'Abwehr/Parieren/Blocken',consumedLen:pfxLen+m[0].length};
       }
@@ -1122,7 +1146,7 @@
       }
       if(isParen){
         const cl=rem.trim();
-        if(cl.length>=2&&cl.length<=45&&!ADV_STOP_WORDS.has(cl.toLowerCase())){
+        if(cl.length>=2&&cl.length<=80&&!ADV_STOP_WORDS.has(cl.toLowerCase())){
           return {scope:'skill',skillName:cl,label:cl,consumedLen:tail.length};
         }
       }else if(['auf','beim','für','mit'].includes(prep)||/proben?|tests?|w(?:ü|ue)rfe?n?|wurf/i.test(pfxM?.[0]||'')){
@@ -1136,7 +1160,7 @@
       return null;
     }
     const RE_ADV_BR=/\[([+-]?\d+)\s+(Vorteil(?:e|en)?|Nachteil(?:e|en)?)(?:\s+([^\]]+))?\]/gi;
-    const RE_NAT=/([+-]?\d+|\bein(?:en|em)?\b|\bzwei\b|\bdrei\b|\bvier\b|\bfünf\b)\s+(Vorteil(?:e|en)?|Nachteil(?:e|en)?)(?:(\s*\()([^)\n]+)(\))|(\s+(?:auf|mit|bei|beim|für|gegen|in|im|zu)\s+)([^.,;!\n\r\]]+))?/gi;
+    const RE_NAT=/([+-]?\d+|\bein(?:en|em)?\b|\bzwei\b|\bdrei\b|\bvier\b|\bfünf\b)\s+(Vorteil(?:e|en)?|Nachteil(?:e|en)?)(?:(\s*\()((?:[^()\n]|\([^()\n]*\))+)(\))|(\s+(?:auf|mit|bei|beim|für|gegen|in|im|zu)\s+)([^.,;!\n\r\]]+))?/gi;
     const RE_ADV_REV=/(?:(?:auf|bei|beim|für|mit)\s+)?([A-Za-zÄÖÜäöüß][A-Za-zÄÖÜäöüß0-9()/ -]{1,34}?)\s+(?:haben|hat|erhalten|erhält|erhaelt|erhältst|bekommen|bekommt|bekommst|gewähren|gewährt)\s+(?:du\s+)?([+-]?\d+|\bein(?:en)?\b|\bzwei\b|\bdrei\b|\bvier\b|\bfünf\b)\s+(Vorteil(?:e|en)?|Nachteil(?:e|en)?)\b/gi;
     function parseAdvDisTokens(text){
       const plain=stripHtml(text), out=[], used=[];
@@ -1512,18 +1536,27 @@
       const skNameLow=sk?String(sk.name||'').trim().toLowerCase():'';
       const skBaseLow=skNameLow.replace(/\s*\([^)]*\)\s*$/,'').trim();
       const ak=ctx.attrKey||(sk?sk.linkedAttr:null)||(w?getWeaponRollMeta(w,M).attrKey:null);
+      const isNormTest=cat==='Normaler Test';
+      const isSkDodge=Boolean(skNameLow==='ausweichen'||skBaseLow==='ausweichen');
+      const isSkParry=Boolean(skNameLow==='parieren'||skBaseLow==='parieren'||skNameLow==='parade'||skBaseLow==='parade');
+      const isSkBlock=Boolean(skNameLow==='blocken'||skBaseLow==='blocken');
+      const isSkDefense=Boolean(isSkDodge||isSkParry||isSkBlock||skNameLow==='abwehr'||skBaseLow==='abwehr');
       const matchesScope=e=>{
         if(e.scope==='all') return true;
         if(e.scope==='hit') return cat==='Trefferwurf';
         if(e.scope==='hit_melee') return cat==='Trefferwurf'&&(w?w.wType!=='ranged':(skNameLow!=='fernkampf'&&skBaseLow!=='fernkampf'));
         if(e.scope==='hit_ranged') return cat==='Trefferwurf'&&(w?w.wType==='ranged':(skNameLow==='fernkampf'||skBaseLow==='fernkampf'));
-        if(e.scope==='defense') return cat==='Parieren'||cat==='Blocken'||cat==='Ausweichen'||cat==='Abwehr';
-        if(e.scope==='parry_block') return cat==='Parieren'||cat==='Blocken';
-        if(e.scope==='parry') return cat==='Parieren';
-        if(e.scope==='block') return cat==='Blocken';
-        if(e.scope==='dodge') return cat==='Ausweichen';
+        if(e.scope==='defense') return cat==='Parieren'||cat==='Blocken'||cat==='Ausweichen'||cat==='Abwehr'||(isNormTest&&isSkDefense);
+        if(e.scope==='parry_block') return cat==='Parieren'||cat==='Blocken'||(isNormTest&&(isSkParry||isSkBlock));
+        if(e.scope==='parry') return cat==='Parieren'||(isNormTest&&isSkParry);
+        if(e.scope==='block') return cat==='Blocken'||(isNormTest&&isSkBlock);
+        if(e.scope==='dodge') return cat==='Ausweichen'||(isNormTest&&isSkDodge);
         if(e.scope==='attr') return Boolean(ak&&e.attrKey===ak);
-        if(e.scope==='skill'){const tLow=String(e.skillName||'').trim().toLowerCase();return Boolean(tLow&&skNameLow&&(skNameLow===tLow||(!tLow.includes('(')&&skBaseLow===tLow)));}
+        if(e.scope==='skill'){
+          if(e.skillId&&sk&&e.skillId===sk.id) return true;
+          const tLow=String(e.skillName||'').trim().toLowerCase();
+          return Boolean(tLow&&skNameLow&&(skNameLow===tLow||(!tLow.includes('(')&&skBaseLow===tLow)));
+        }
         if((e.scope==='skill_multi'||e.scope==='stealth_detect')&&Array.isArray(e.skillCandidates)){
           return Boolean(skNameLow&&e.skillCandidates.some(c=>skNameLow.includes(c)||skBaseLow===c));
         }
@@ -1716,6 +1749,16 @@
         else if(bs===oLow) it.bldStat=n;
       });
     }
+    function syncSkillRenameInTokens(oldName,newName){
+      const o=String(oldName||'').trim(), n=String(newName||'').trim();
+      if(!o||!n||o===n) return;
+      const e=escReStr(o).replace(/ /g,'(?: |&nbsp;)');
+      const r=new RegExp(`(\\[[+-]?\\d+(?:\\s|&nbsp;)+(?:Vorteil(?:e|en)?|Nachteil(?:e|en)?)(?:\\s|&nbsp;)*\\((?:\\s|&nbsp;)*)${e}((?:\\s|&nbsp;)*\\)\\])`,'gi');
+      [...S.powers,...S.augments].forEach(it=>{
+        if(it.effects) it.effects=it.effects.replace(r,(_,pre,post)=>pre+n+post);
+      });
+      invalidateModsCache();
+    }
     function purgeExtraSecFromPowers(secName,exId){
       const o=String(secName||'').trim();
       const e=o?o.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'):'';
@@ -1757,7 +1800,13 @@
       const bh=raw?.boxH&&typeof raw.boxH==='object'?{desc:toInt(raw.boxH.desc,0),effects:toInt(raw.boxH.effects,0),rules:toInt(raw.boxH.rules,0)}:{desc:0,effects:0,rules:0};
       const col=isHex(raw?.color)?raw.color:'', bgCol=isHex(raw?.bgColor)?raw.bgColor:'';
       const applyMods=raw?.applyMods!==undefined?Boolean(raw.applyMods):true;
-      return {...base,...(raw||{}),id:raw?.id||uid(),color:col,bgColor:bgCol,sectionId:String(raw?.sectionId||''),collapsed:Boolean(raw?.collapsed),tier,manualCost:manual,sp:manual?toInt(raw.sp,def.sp):def.sp,msp:manual?toInt(raw.msp,def.msp):def.msp,showManual:Boolean(raw?.showManual),art:(()=>{const a=String(raw?.art??raw?.kind??base.art).trim();return a.toLowerCase()==='sofortaktion'?'Freiaktion':a;})(),artManual:Boolean(raw?.artManual),subcats:Array.isArray(raw?.subcats)?raw.subcats.map(x=>String(x).trim()).filter(Boolean):[],useCosts,useAmt,useRes,desc:String(raw?.desc||''),effects:String(raw?.effects??raw?.extraEffects??''),rules:String(raw?.rules||''),applyMods,bldAmt:String(raw?.bldAmt||'+1'),bldStat:String(raw?.bldStat||'LP-Max'),boxH:bh};
+      const bldMode=raw?.bldMode==='skill'?'skill':'stat';
+      const rawSkCntDigits=String(raw?.bldSkCnt??'').replace(/\D/g,'');
+      const rawSkCntNum=rawSkCntDigits?parseInt(rawSkCntDigits,10):0;
+      const bldSkCnt=String(rawSkCntNum>=1?rawSkCntNum:1);
+      const bldSkKind=raw?.bldSkKind==='dis'?'dis':'adv';
+      const bldSkId=String(raw?.bldSkId||'');
+      return {...base,...(raw||{}),id:raw?.id||uid(),color:col,bgColor:bgCol,sectionId:String(raw?.sectionId||''),collapsed:Boolean(raw?.collapsed),tier,manualCost:manual,sp:manual?toInt(raw.sp,def.sp):def.sp,msp:manual?toInt(raw.msp,def.msp):def.msp,showManual:Boolean(raw?.showManual),art:(()=>{const a=String(raw?.art??raw?.kind??base.art).trim();return a.toLowerCase()==='sofortaktion'?'Freiaktion':a;})(),artManual:Boolean(raw?.artManual),subcats:Array.isArray(raw?.subcats)?raw.subcats.map(x=>String(x).trim()).filter(Boolean):[],useCosts,useAmt,useRes,desc:String(raw?.desc||''),effects:String(raw?.effects??raw?.extraEffects??''),rules:String(raw?.rules||''),applyMods,bldAmt:String(raw?.bldAmt||'+1'),bldStat:String(raw?.bldStat||'LP-Max'),bldMode,bldSkCnt,bldSkKind,bldSkId,boxH:bh};
     }
 
     function mergeLoaded(raw){
@@ -2654,11 +2703,45 @@
     const getEffD=()=>D.dMode==='direct'?toInt(D.dDirect):toInt(D.dAttr)+getDSkVal();
     function formatSrcOriginLabel(s){
       if(!s) return 'Quelle';
-      if(s.tagLbl) return String(s.tagLbl).replace(/\(\s*(\d+)\s*\)/g,' $1').trim();
-      if(s.srcKind==='Statuseffekt') return `Status: ${s.srcName||s.label||'Effekt'}`;
       if(s.srcKind==='Kraft'||s.srcKind==='Augment') return s.srcName?`${s.srcKind}: ${s.srcName}`:s.srcKind;
-      if(s.isSit) return s.label||s.srcName||'Situativ';
+      if(s.srcKind==='Statuseffekt') return `Status: ${s.srcName||s.label||'Effekt'}`;
+      if(s.srcKind==='Waffen-Tag'||s.srcKind==='Munitions-Tag'||s.srcKind==='Rüstungs-Tag'){
+        const tg=s.tagLbl?String(s.tagLbl).replace(/\(\s*(\d+)\s*\)/g,' $1').trim():(s.srcName||'Tag');
+        return `${s.srcKind}: ${tg}`;
+      }
+      if(s.srcKind==='Inspiration') return '✨ Inspiration';
+      if(s.srcKind==='Waffenwurf') return `Waffenwurf: ${s.srcName||'Waffe'}`;
+      if(s.tagLbl) return String(s.tagLbl).replace(/\(\s*(\d+)\s*\)/g,' $1').trim();
+      if(s.isSit) return s.srcName||s.label||'Situativ';
       return s.srcName||s.srcKind||'Effekt';
+    }
+    function formatAdvSrcScope(s){
+      if(!s) return '';
+      if(s.scope==='attr'&&s.attrKey) return s.attrKey;
+      if(s.scope==='skill') return s.skillName||s.label||'';
+      if(s.scope==='dodge') return 'Ausweichen';
+      if(s.scope==='parry') return 'Parieren';
+      if(s.scope==='block') return 'Blocken';
+      if(s.scope==='defense') return 'Abwehr';
+      if(s.scope==='parry_block') return 'Parieren/Blocken';
+      if(s.scope==='hit') return 'Trefferwurf';
+      if(s.scope==='hit_melee') return 'Nahkampf-Treffer';
+      if(s.scope==='hit_ranged') return 'Fernkampf-Treffer';
+      if(s.scope==='all') return s.srcKind==='Inspiration'?'Nächster Wurf':'Alle Proben';
+      const lbl=String(s.label||'').trim(), orig=String(formatSrcOriginLabel(s)||'').trim();
+      if(lbl&&lbl.toLowerCase()!==orig.toLowerCase()) return lbl;
+      return '';
+    }
+    function buildAdvSrcShortList(T){
+      const parts=[];
+      (T?.advSrc||[]).forEach(s=>{
+        if(!s||!s.val) return;
+        const dir=s.kind==='dis'?'N':'V';
+        parts.push(`${fmtSign(s.val)}${dir} (${formatSrcOriginLabel(s)})`);
+      });
+      if(T?.advAdj) parts.push(`${fmtSign(T.advAdj)}V (Manuell)`);
+      if(T?.disAdj) parts.push(`${fmtSign(T.disAdj)}N (Manuell)`);
+      return parts;
     }
     function applyDiceAutoAdvDis(resetManual=false,M=calcActiveMods()){
       if(resetManual){D.advAdj=0;D.disAdj=0;}
@@ -2733,7 +2816,7 @@
       }
       const isNorm=D.wRollCat==='Normaler Test';
       const catPfx=D.wRollCat?`${D.wRollCat}: `:'';
-      if(D.skillId){const sk=S.skills.find(x=>x.id===D.skillId);if(sk){const ak=D.attrKey||sk.linkedAttr,av=getAttrTot(ak),b=getSkBonus(sk);D.cAttr=av;if(['0','10','15','20','30'].includes(String(b))){D.cSkill=String(b);}else{D.cSkill='custom';D.cCustom=b;}D.cDirect=av+b;D.label=`${catPfx}${sk.name} (${fmtSign(b)}) + ${ak} (${av})`;}}
+      if(D.skillId){const sk=S.skills.find(x=>x.id===D.skillId);if(sk){const ak=D.attrKey||sk.linkedAttr,av=getAttrTot(ak),b=getSkBonus(sk);D.cAttr=av;if(['0','10','15','20','30'].includes(String(b))){D.cSkill=String(b);}else{D.cSkill='custom';D.cCustom=b;}D.cDirect=av+b;D.label=`${catPfx}${sk.name} (${fmtSign(b)}) + ${ak} (${av})`;}else{D.skillId=null;}}
       else if(D.attrKey){const av=getAttrTot(D.attrKey);D.cAttr=av;if(D.cMode==='direct')D.cDirect=av;D.label=isNorm?`Normaler Test: ${D.attrKey} (${av})`:`${catPfx}${D.attrKey} (${av})`;}
       else if(!isNorm&&D.wRollCat){D.label=D.wRollCat==='Trefferwurf'?'Trefferwurf (Freie Probe)':`Abwehrprobe: ${D.wRollCat}`;}
       else if(/^(?:Abwehrprobe:|Trefferwurf)/.test(D.label)){D.label='Freie Probe';}
@@ -3253,6 +3336,24 @@
       <button type="button" data-action="toggle-apply-mods" data-kind="${kind}" data-id="${it.id}" data-tip="Verrechnet alle Werte- &amp; Vor-/Nachteils-Effekte dieser Karte live mit Bogen und Würfelassistent" class="btn py-1 px-2.5 text-[11px] ${it.applyMods?'btn-ok':'opacity-80'}">${it.applyMods?'✓ Auf Bogen aktiv':'⚡ Auf Bogen anwenden'}</button>`;
     }
 
+    function updatePwBuilderChipDOM(kind,id){
+      const it=findPwItem(kind,id); if(!it) return '';
+      const tok=getPwBuilderToken(it);
+      const ch=$(`chip_${id}`);
+      if(ch){
+        ch.dataset.dragTok=tok;
+        ch.setAttribute('draggable',tok?'true':'false');
+        ch.textContent=tok?`⠿ ${tok}`:'⚠ Erst Fertigkeit in Tab 2 anlegen';
+        ch.dataset.tip=tok?'Ins Effektfeld ziehen oder „+ Baustein“ klicken':'Erst mindestens eine Fertigkeit in Tab 2 anlegen';
+        ch.classList.toggle('cursor-grab',Boolean(tok));
+        ch.classList.toggle('opacity-60',!tok);
+        ch.classList.toggle('cursor-not-allowed',!tok);
+      }
+      const btn=$(`insTok_${id}`)||document.querySelector(`[data-action="ins-token"][data-kind="${kind}"][data-id="${id}"]`);
+      if(btn) btn.disabled=!tok;
+      return tok;
+    }
+
     function renderPwCard(kind,it,idx,listLen){
       const isAug=kind==='augment', c=calcPwCost(it), gi=getGroupMspInfo(kind,it), colStyle=it.color?`style="color:${esc(it.color)}"`:'', winStyle=cardColorStyle(it);
       const pOpts=isAug?`<option value="" ${!it.parentPowerId?'selected':''}>— Freies Augment —</option>`+S.powers.map(p=>{const cnt=getLinkedAugs(p.id).length,full=cnt>=3&&it.parentPowerId!==p.id;return `<option value="${p.id}" ${it.parentPowerId===p.id?'selected':''} ${full?'disabled':''}>${esc(p.name||'Unbenannte Kraft')} (${cnt}/3)</option>`;}).join(''):'';
@@ -3275,7 +3376,10 @@
       }
 
       const statGroups=getStatGroups();
-      const bldToken=formatBldToken(it.bldAmt,it.bldStat);
+      const isSkBld=it.bldMode==='skill';
+      const sortedSkills=[...(S.skills||[])].filter(s=>s&&String(s.name||'').trim()).sort((a,b)=>String(a.name).trim().localeCompare(String(b.name).trim(),'de'));
+      const selSkId=(it.bldSkId&&sortedSkills.some(s=>s.id===it.bldSkId))?it.bldSkId:(sortedSkills[0]?.id||'');
+      const bldToken=getPwBuilderToken(it);
       const hD=it.boxH?.desc>0?`style="height:${it.boxH.desc}px"`:'', hE=it.boxH?.effects>0?`style="height:${it.boxH.effects}px"`:'', hR=it.boxH?.rules>0?`style="height:${it.boxH.rules}px"`:'';
       const availSubs=S.subcatList.filter(s=>!it.subcats.includes(s));
       const linked=!isAug?getLinkedAugs(it.id):[], unlinked=!isAug?getUnlinkedAugs():[];
@@ -3326,11 +3430,14 @@
                 ${renderRtfToolbarHtml(true)}
               </div>
               <div class="flex flex-wrap items-center gap-1 min-w-0 max-w-full">
-                <input data-pwf="${kind}:${it.id}:bldAmt" type="text" value="${esc(it.bldAmt||'+1')}" class="inp w-12 text-center py-0.5 px-1 text-xs font-black tabular"/>
-                <select data-pw-sel="${kind}:${it.id}:bldStat" class="inp py-0.5 px-1.5 text-xs font-bold max-w-full sm:max-w-[180px]">${statGroups.map(([gl,arr])=>`<optgroup label="${esc(gl)}">${arr.map(st=>`<option value="${esc(st)}" ${it.bldStat===st?'selected':''}>${esc(st)}</option>`).join('')}</optgroup>`).join('')}</select>
-                <span id="chip_${it.id}" draggable="true" data-drag-tok="${esc(bldToken)}" data-tip="Ins Effektfeld ziehen oder „+ Baustein“ klicken" class="tag cursor-grab select-none tabular">⠿ ${esc(bldToken)}</span>
-                <button type="button" data-action="ins-token" data-kind="${kind}" data-id="${it.id}" class="btn btn-ok py-0.5 px-2 text-[11px]">+ Baustein</button>
-                <button type="button" data-action="open-list" data-ltype="customStats" data-tip="Eigene Baukasten-Variablen verwalten" class="btn py-0.5 px-1.5 text-[11px]">⚙️</button>
+                <div class="inline-flex rounded-lg p-0.5 bg-black/25 border bdr-line text-[11px] shrink-0 max-w-full" role="group" aria-label="Baukasten-Modus">
+                  <button type="button" data-action="set-pw-bld-mode" data-kind="${kind}" data-id="${it.id}" data-mode="stat" data-tip="Werte-Baukasten (Attribute, Sekundärwerte, Status)" class="px-2 py-0.5 rounded font-extrabold transition-colors whitespace-nowrap ${!isSkBld?'bg-acc-soft text-acc':'t-mut hover:text-acc'}">Werte</button>
+                  <button type="button" data-action="set-pw-bld-mode" data-kind="${kind}" data-id="${it.id}" data-mode="skill" data-tip="Vor- oder Nachteile auf eine konkrete Fertigkeit aus Tab 2 bauen" class="px-2 py-0.5 rounded font-extrabold transition-colors whitespace-nowrap ${isSkBld?'bg-acc-soft text-acc':'t-mut hover:text-acc'}">Fertigkeit V/N</button>
+                </div>
+                ${isSkBld?`<input data-pw-skcnt="${kind}:${it.id}" type="text" inputmode="numeric" value="${esc(it.bldSkCnt||'1')}" placeholder="1" data-tip="Anzahl Vorteile/Nachteile (nur ganze Zahlen ≥ 1)" class="inp w-12 text-center py-0.5 px-1 text-xs font-black tabular shrink-0"/><select data-pw-sel="${kind}:${it.id}:bldSkKind" data-tip="Vorteil(e) oder Nachteil(e) wählen" class="inp py-0.5 px-1.5 text-xs font-bold min-w-0 max-w-full shrink-0"><option value="adv" ${it.bldSkKind!=='dis'?'selected':''}>Vorteil(e)</option><option value="dis" ${it.bldSkKind==='dis'?'selected':''}>Nachteil(e)</option></select><select data-pw-sel="${kind}:${it.id}:bldSkId" data-tip="Fertigkeit aus Tab 2 wählen" class="inp py-0.5 px-1.5 text-xs font-bold min-w-0 max-w-full sm:max-w-[190px]">${sortedSkills.length?sortedSkills.map(sk=>`<option value="${esc(sk.id)}" ${selSkId===sk.id?'selected':''}>${esc(String(sk.name).trim())}</option>`).join(''):`<option value="" disabled selected>— Erst Fertigkeit in Tab 2 anlegen —</option>`}</select>`:`<input data-pwf="${kind}:${it.id}:bldAmt" type="text" value="${esc(it.bldAmt||'+1')}" class="inp w-12 text-center py-0.5 px-1 text-xs font-black tabular shrink-0"/><select data-pw-sel="${kind}:${it.id}:bldStat" class="inp py-0.5 px-1.5 text-xs font-bold min-w-0 max-w-full sm:max-w-[180px]">${statGroups.map(([gl,arr])=>`<optgroup label="${esc(gl)}">${arr.map(st=>`<option value="${esc(st)}" ${it.bldStat===st?'selected':''}>${esc(st)}</option>`).join('')}</optgroup>`).join('')}</select>`}
+                <span id="chip_${it.id}" draggable="${bldToken?'true':'false'}" data-drag-tok="${esc(bldToken)}" data-pw-kind="${kind}" data-pw-id="${it.id}" data-tip="${bldToken?'Ins Effektfeld ziehen oder „+ Baustein“ klicken':'Erst mindestens eine Fertigkeit in Tab 2 anlegen'}" class="tag select-none tabular max-w-full min-w-0 break-words ${bldToken?'cursor-grab':'opacity-60 cursor-not-allowed'}">${bldToken?`⠿ ${esc(bldToken)}`:'⚠ Erst Fertigkeit in Tab 2 anlegen'}</span>
+                <button type="button" id="insTok_${it.id}" data-action="ins-token" data-kind="${kind}" data-id="${it.id}" ${bldToken?'':'disabled'} class="btn btn-ok py-0.5 px-2 text-[11px] shrink-0">+ Baustein</button>
+                ${!isSkBld?`<button type="button" data-action="open-list" data-ltype="customStats" data-tip="Eigene Baukasten-Variablen verwalten" class="btn py-0.5 px-1.5 text-[11px] shrink-0">⚙️</button>`:''}
               </div>
             </div>
             <div contenteditable="true" id="eff_${it.id}" data-pwf="${kind}:${it.id}:effects" data-boxh="${kind}:${it.id}:effects" ${hE} data-ph="z.B. Erhöht dauerhaft deine Lebenskraft um [+5 LP-Max]..." class="inp w-full autogrow rtf-box">${toRtfHtml(it.effects)}</div>
@@ -4599,24 +4706,37 @@
       const dTip=dSrc.length?`data-tip="${esc('Aktive Nachteils-Quellen:\n'+fmtAdvSrcLines(dSrc))}"`:'';
       const netBonus=T.bonus-T.effTh;
       const fmtSrcChip=s=>{
-        const absV=Math.abs(s.val), unit=s.kind==='dis'?(absV===1?'Nachteil':'Nachteile'):(absV===1?'Vorteil':'Vorteile');
+        const absV=Math.abs(s.val), isDis=s.kind==='dis', isGreen=!isDis||s.val<0;
+        const unit=isDis?(absV===1?'Nachteil':'Nachteile'):(absV===1?'Vorteil':'Vorteile');
+        const badge=`${fmtSign(s.val)}${isDis?'N':'V'}`;
         const orig=formatSrcOriginLabel(s);
-        const cls=s.val<0?'bg-emerald-500/15 text-emerald-300 border-emerald-500/35':s.kind==='dis'?'bg-rose-500/15 text-rose-300 border-rose-500/35':'bg-emerald-500/15 text-emerald-300 border-emerald-500/35';
-        const tip=esc(`${s.srcName} (${s.srcKind}): ${fmtSign(s.val)} ${unit} [${s.label}]`);
-        return `<span data-tip="${tip}" class="px-1.5 py-0.5 rounded border text-[10px] font-bold tabular cursor-help ${cls}">${fmtSign(s.val)} ${unit} (${esc(orig)})</span>`;
+        const scopeTxt=formatAdvSrcScope(s);
+        const cls=isGreen?'bg-emerald-500/15 text-emerald-200 border-emerald-500/35':'bg-rose-500/15 text-rose-200 border-rose-500/35';
+        const badgeCls=isGreen?'bg-emerald-500/25 text-emerald-300':'bg-rose-500/25 text-rose-300';
+        const tip=esc(`${orig}: ${fmtSign(s.val)} ${unit}${scopeTxt?` [${scopeTxt}]`:''}`);
+        return `<span data-tip="${tip}" class="inline-flex flex-wrap items-center gap-1 px-1.5 py-0.5 rounded border text-[10px] leading-snug max-w-full min-w-0 break-words cursor-help ${cls}"><span class="px-1 rounded font-black tabular shrink-0 ${badgeCls}">${badge}</span><span class="font-bold min-w-0 break-words">${esc(orig)}</span>${scopeTxt?`<span class="opacity-80 min-w-0 break-words">• ${esc(scopeTxt)}</span>`:''}</span>`;
       };
-      const hasAdvDisAdj=(D.advAdj!==0||D.disAdj!==0);
+      const hasAutoSrc=Boolean((T.advSrc&&T.advSrc.length)||(T.critSrc&&T.critSrc.length)||(T.rollModSrc&&T.rollModSrc.length));
+      const hasAdvDisAdj=(T.advAdj!==0||T.disAdj!==0);
+      const manChips=[];
+      if(T.advAdj){
+        const isPos=T.advAdj>0;
+        manChips.push(`<span class="inline-flex flex-wrap items-center gap-1 px-1.5 py-0.5 rounded border text-[10px] leading-snug max-w-full min-w-0 break-words ${isPos?'bg-emerald-500/15 text-emerald-200 border-emerald-500/35':'bg-amber-500/15 text-amber-200 border-amber-400/45'}"><span class="px-1 rounded font-black tabular shrink-0 ${isPos?'bg-emerald-500/25 text-emerald-300':'bg-amber-500/25 text-amber-300'}">${fmtSign(T.advAdj)}V</span><span class="font-bold">Manuell</span><span class="opacity-80">• Vorteile</span></span>`);
+      }
+      if(T.disAdj){
+        const isPos=T.disAdj>0;
+        manChips.push(`<span class="inline-flex flex-wrap items-center gap-1 px-1.5 py-0.5 rounded border text-[10px] leading-snug max-w-full min-w-0 break-words ${isPos?'bg-rose-500/15 text-rose-200 border-rose-500/35':'bg-amber-500/15 text-amber-200 border-amber-400/45'}"><span class="px-1 rounded font-black tabular shrink-0 ${isPos?'bg-rose-500/25 text-rose-300':'bg-amber-500/25 text-amber-300'}">${fmtSign(T.disAdj)}N</span><span class="font-bold">Manuell</span><span class="opacity-80">• Nachteile</span></span>`);
+      }
       return `<div class="flex items-center justify-between gap-2 pb-0.5">
         <span class="text-[10px] font-extrabold t-mut uppercase tracking-wider">VORTEILE &amp; NACHTEILE</span>
-        
       </div>
-      <div class="grid grid-cols-11 gap-1.5 items-center">
-        <div ${aTip} class="col-span-5 flex items-center justify-between p-2 rounded-lg bg-emerald-500/10 border border-emerald-500/25 ${aTip?'cursor-help':''}"><div><div class="text-[10px] font-bold text-emerald-500">VORTEILE</div><div class="font-black text-sm tabular flex items-baseline gap-1"><span>${D.adv}</span>${(T.autoAdv||T.advAdj)?`<span class="text-[10px] font-bold text-emerald-400">(${T.autoAdv} Auto${T.advAdj?fmtSign(T.advAdj):''})</span>`:''}</div></div><div class="flex gap-1"><button type="button" data-action="adv-step" data-d="-1" ${D.adv<=0?'disabled':''} class="btn w-7 h-7 p-0">−</button><button type="button" data-action="adv-step" data-d="1" class="btn btn-ok w-7 h-7 p-0">+</button></div></div>
+      <div class="grid grid-cols-11 gap-1.5 items-center min-w-0">
+        <div ${aTip} class="col-span-5 min-w-0 flex items-center justify-between gap-1 p-2 rounded-lg bg-emerald-500/10 border border-emerald-500/25 ${aTip?'cursor-help':''}"><div class="min-w-0"><div class="text-[10px] font-bold text-emerald-500">VORTEILE</div><div class="font-black text-sm tabular flex flex-wrap items-baseline gap-x-1"><span>${D.adv}</span>${(T.autoAdv||T.advAdj)?`<span class="text-[10px] font-bold text-emerald-400">(${T.autoAdv} Auto${T.advAdj?fmtSign(T.advAdj):''})</span>`:''}</div></div><div class="flex gap-1 shrink-0"><button type="button" data-action="adv-step" data-d="-1" ${D.adv<=0?'disabled':''} class="btn w-7 h-7 p-0">−</button><button type="button" data-action="adv-step" data-d="1" class="btn btn-ok w-7 h-7 p-0">+</button></div></div>
         <div class="col-span-1 flex justify-center"><button type="button" data-action="reset-dice-advdis" data-tip="Auf automatisch berechnete Vor-/Nachteile zurücksetzen" class="btn px-1.5 py-2 text-xs font-black ${hasAdvDisAdj?'!border-amber-400 !bg-amber-500/25 text-amber-300':'text-amber-500 opacity-75'}">↺</button></div>
-        <div ${dTip} class="col-span-5 flex items-center justify-between p-2 rounded-lg bg-rose-500/10 border border-rose-500/25 ${dTip?'cursor-help':''}"><div><div class="text-[10px] font-bold text-rose-500">NACHTEILE</div><div class="font-black text-sm tabular flex items-baseline gap-1"><span>${D.dis}</span>${(T.autoDis||T.disAdj)?`<span class="text-[10px] font-bold text-rose-400">(${T.autoDis} Auto${T.disAdj?fmtSign(T.disAdj):''})</span>`:''}</div></div><div class="flex gap-1"><button type="button" data-action="dis-step" data-d="-1" ${D.dis<=0?'disabled':''} class="btn w-7 h-7 p-0">−</button><button type="button" data-action="dis-step" data-d="1" class="btn bg-rose-600 text-white border-rose-600 w-7 h-7 p-0">+</button></div></div>
+        <div ${dTip} class="col-span-5 min-w-0 flex items-center justify-between gap-1 p-2 rounded-lg bg-rose-500/10 border border-rose-500/25 ${dTip?'cursor-help':''}"><div class="min-w-0"><div class="text-[10px] font-bold text-rose-500">NACHTEILE</div><div class="font-black text-sm tabular flex flex-wrap items-baseline gap-x-1"><span>${D.dis}</span>${(T.autoDis||T.disAdj)?`<span class="text-[10px] font-bold text-rose-400">(${T.autoDis} Auto${T.disAdj?fmtSign(T.disAdj):''})</span>`:''}</div></div><div class="flex gap-1 shrink-0"><button type="button" data-action="dis-step" data-d="-1" ${D.dis<=0?'disabled':''} class="btn w-7 h-7 p-0">−</button><button type="button" data-action="dis-step" data-d="1" class="btn bg-rose-600 text-white border-rose-600 w-7 h-7 p-0">+</button></div></div>
       </div>
-      ${((T.advSrc&&T.advSrc.length)||(T.critSrc&&T.critSrc.length)||(T.rollModSrc&&T.rollModSrc.length))?`<div class="p-2 rounded-lg bg-black/25 border bdr-line space-y-1"><div class="text-[10px] font-extrabold text-acc leading-tight">Automatisch aktiv (${esc(D.wRollCat||'Normaler Test')}):</div><div class="flex flex-wrap items-center gap-1">${(T.advSrc||[]).map(fmtSrcChip).join('')}${(T.critSrc||[]).map(c=>`<span data-tip="${esc(`${c.srcName} (${c.srcKind}): Kritische Ziffer ${fmtSign(c.val)}`)}" class="px-1.5 py-0.5 rounded border text-[10px] font-bold tabular cursor-help bg-amber-500/15 text-amber-300 border-amber-400/45">${fmtSign(c.val)} Krit. Ziffer (${esc(c.tagLbl||c.srcName)})</span>`).join('')}${(T.rollModSrc||[]).map(rm=>`<span data-tip="${esc(`${rm.srcName} (${rm.srcKind}): ${fmtSign(rm.val)} auf das geworfene W100-Ergebnis`)}" class="px-1.5 py-0.5 rounded border text-[10px] font-bold tabular cursor-help bg-cyan-500/15 text-cyan-300 border-cyan-400/45">🎲 ${fmtSign(rm.val)} Würfelergebnis (${esc(rm.tagLbl||rm.srcName)})</span>`).join('')}</div></div>`:''}
-      ${(T.sitOptions&&T.sitOptions.length)?`<div class="pt-1 border-t bdr-line space-y-1"><div class="text-[10px] font-extrabold t-mut uppercase tracking-wider">Situative Schalter (bei Bedarf anklicken)</div><div class="flex flex-wrap items-center gap-1.5">${T.sitOptions.map(so=>{const badge=so.reduceDis?`−${so.reduceDis} Nacht.`:so.adv?`+${so.adv} Vort.`:so.dis?`+${so.dis} Nacht.`:'±0';const tipTxt=so.items.map(i=>`${i.srcName}: ${i.label}`).join('\n')+(so.counterNote?`\nVerrechnung: ${so.counterNote}`:'');return `<button type="button" data-action="toggle-dice-sit" data-sit="${esc(so.sitKey)}" data-tip="${esc(tipTxt)}" class="btn py-1 px-2.5 text-[11px] font-bold tabular ${so.active?(so.dis>0&&!so.adv?'bg-rose-600 text-white border-rose-500':'btn-ok'):'opacity-85 hover:opacity-100'}"><span>${so.active?'☑':'☐'}</span><span>${esc(so.sitLabel)} (${badge})</span>${so.counterNote?`<span class="text-[10px] opacity-85">[${esc(so.counterNote)}]</span>`:''}</button>`;}).join('')}</div></div>`:''}
+      ${(hasAutoSrc||hasAdvDisAdj)?`<div class="p-2 rounded-lg bg-black/25 border bdr-line space-y-1.5 min-w-0">${hasAutoSrc?`<div class="space-y-1 min-w-0"><div class="text-[10px] font-extrabold text-acc leading-tight">Automatische Quellen (${esc(D.wRollCat||'Normaler Test')}):</div><div class="flex flex-wrap items-center gap-1 min-w-0">${(T.advSrc||[]).map(fmtSrcChip).join('')}${(T.critSrc||[]).map(c=>`<span data-tip="${esc(`${c.srcName} (${c.srcKind}): Kritische Ziffer ${fmtSign(c.val)}`)}" class="inline-flex flex-wrap items-center gap-1 px-1.5 py-0.5 rounded border text-[10px] leading-snug max-w-full min-w-0 break-words font-bold tabular cursor-help bg-amber-500/15 text-amber-300 border-amber-400/45">${fmtSign(c.val)} Krit. Ziffer (${esc(c.tagLbl||c.srcName)})</span>`).join('')}${(T.rollModSrc||[]).map(rm=>`<span data-tip="${esc(`${rm.srcName} (${rm.srcKind}): ${fmtSign(rm.val)} auf das geworfene W100-Ergebnis`)}" class="inline-flex flex-wrap items-center gap-1 px-1.5 py-0.5 rounded border text-[10px] leading-snug max-w-full min-w-0 break-words font-bold tabular cursor-help bg-cyan-500/15 text-cyan-300 border-cyan-400/45">🎲 ${fmtSign(rm.val)} Würfelergebnis (${esc(rm.tagLbl||rm.srcName)})</span>`).join('')}</div></div>`:''}${hasAdvDisAdj?`<div class="${hasAutoSrc?'pt-1.5 border-t border-white/10 ':''}space-y-1 min-w-0"><div class="text-[10px] font-extrabold text-amber-300 leading-tight">Manuell:</div><div class="flex flex-wrap items-center gap-1 min-w-0">${manChips.join('')}</div></div>`:''}</div>`:''}
+      ${(T.sitOptions&&T.sitOptions.length)?`<div class="pt-1 border-t bdr-line space-y-1 min-w-0"><div class="text-[10px] font-extrabold t-mut uppercase tracking-wider">Situative Schalter (bei Bedarf anklicken)</div><div class="flex flex-wrap items-center gap-1.5 min-w-0">${T.sitOptions.map(so=>{const badge=so.reduceDis?`−${so.reduceDis} Nacht.`:so.adv?`+${so.adv} Vort.`:so.dis?`+${so.dis} Nacht.`:'±0';const tipTxt=so.items.map(i=>`${i.srcName}: ${i.label}`).join('\n')+(so.counterNote?`\nVerrechnung: ${so.counterNote}`:'');return `<button type="button" data-action="toggle-dice-sit" data-sit="${esc(so.sitKey)}" data-tip="${esc(tipTxt)}" class="btn py-1 px-2.5 text-[11px] font-bold tabular max-w-full ${so.active?(so.dis>0&&!so.adv?'bg-rose-600 text-white border-rose-500':'btn-ok'):'opacity-85 hover:opacity-100'}"><span>${so.active?'☑':'☐'}</span><span class="break-words">${esc(so.sitLabel)} (${badge})</span>${so.counterNote?`<span class="text-[10px] opacity-85">[${esc(so.counterNote)}]</span>`:''}</button>`;}).join('')}</div></div>`:''}
       <div class="text-center text-xs font-bold py-1 rounded-lg ${T.net>0?'bg-emerald-500/15 text-emerald-500':T.net<0?'bg-rose-500/15 text-rose-500':'bg-black/15 t-mut'}">${T.net>0?`${Math.abs(T.rawNet)} Netto-Vorteil (${fmtSign(netBonus)})`:T.net<0?`${Math.abs(T.rawNet)} Netto-Nachteil (${netBonus})`:'Ausgeglichen (±0)'}</div>`;
     }
     const buildThresholdInnerHtml=T=>`<div class="text-[11px] font-semibold t-mut">Testschwelle (W100 ≤ Schwelle) • <span class="text-acc font-bold tabular">Chance: ${T.chance}%</span></div><div class="text-4xl font-black tabular my-0.5">${T.th}</div><div class="text-[11px] t-mut tabular">${T.cv} (Wert) + 50 − ${T.dv} (Schw.) ${T.bonus>=0?'+ '+T.bonus:'− '+Math.abs(T.bonus)}${T.effTh?` (inkl. ${fmtSign(T.effTh)} Effekt)`:''} = <strong>${T.th}</strong></div>${T.rollMod?`<div class="text-[11px] font-extrabold text-cyan-300 mt-1">⚡ Würfelergebnis-Modifikator: Geworfene Zahl ${fmtSign(T.rollMod)} (${esc((T.rollModSrc||[]).map(x=>x.tagLbl||x.srcName).join(', '))})</div>`:''}`;
@@ -4648,7 +4768,7 @@
         </div>
         ${(D.wRollCat==='Trefferwurf')?`<div class="flex justify-center"><button type="button" data-action="roll-blocked-hit-20" data-tip="Behält deinen aktuellen Trefferwert bei, setzt die Schwierigkeit auf 20 und würfelt direkt die Erfolgsgrade (EG) für den Grundschaden gegen die Rüstung aus." class="btn w-full py-1.5 px-3 text-xs font-extrabold border-amber-400/60 bg-amber-500/15 text-amber-300 hover:bg-amber-500/25">🛡️ Wurde geblockt (Folgewurf vs. Schw. 20)</button></div>`:''}
         <div>${UI.lastRollHtml||`<div class="subcard border-dashed text-center text-xs t-mut py-3">Bereit zum Würfeln!</div>`}</div>
-        <div class="border-t bdr-line pt-2.5"><div class="flex justify-between mb-1.5"><span class="text-xs font-extrabold t-mut">Würfel-Log (${diceLogs.length})</span><button type="button" data-action="clear-dice-log" class="text-[11px] font-bold t-mut hover:text-rose-500">Leeren</button></div><div class="space-y-1 max-h-32 overflow-y-auto text-xs">${diceLogs.map(l=>`<div class="subcard py-1 px-2.5 flex justify-between gap-2"><span class="truncate"><strong>${esc(l.lbl)}</strong> [≤${l.th}]: ${l.sum}</span><span class="text-[10px] t-mut tabular shrink-0">${l.t}</span></div>`).join('')}</div></div>
+        <div class="border-t bdr-line pt-2.5"><div class="flex justify-between mb-1.5"><span class="text-xs font-extrabold t-mut">Würfel-Log (${diceLogs.length})</span><button type="button" data-action="clear-dice-log" class="text-[11px] font-bold t-mut hover:text-rose-500">Leeren</button></div><div class="space-y-1 max-h-36 overflow-y-auto text-xs">${diceLogs.map(l=>`<div class="subcard py-1 px-2.5 space-y-0.5 min-w-0"><div class="flex justify-between gap-2 min-w-0"><span class="truncate"><strong>${esc(l.lbl)}</strong> [≤${l.th}]: ${l.sum}</span><span class="text-[10px] t-mut tabular shrink-0">${l.t}</span></div>${l.advSrc?`<div class="text-[10px] t-mut break-words">↳ ${esc(l.advSrc)}</div>`:''}</div>`).join('')}</div></div>
       </div>${renderWinResizeHandles('dice')}</div>`;
       if(LD.open) renderLiveDice();
     }
@@ -5195,15 +5315,6 @@
           if(sr){sr.textContent=`(${fmtSign(v.autoStat)})`;sr.classList.toggle('hidden',!v.hasStatOvr);}
           if(ar){ar.textContent=`(+${v.autoAdv})`;ar.classList.toggle('hidden',!v.hasAdvOvr);}
         });
-      }else if(S.activeTab==='skills'){
-        S.skills.forEach(sk=>{
-          const rb=$(`skRollBtn_${sk.id}`);
-          if(rb){
-            const bm=buildSkRollBtnMeta(sk,M);
-            rb.innerHTML=bm.innerHtml;
-            rb.dataset.tip=bm.tip;
-          }
-        });
       }else if(S.activeTab==='powers'){
         const ps=$('pwSummaryHdr'); if(ps) ps.textContent=`${P.pwSp} SP${P.pwMsp?` + ${P.pwMsp} MsP`:''}`;
       }else if(S.activeTab==='chronicle'){
@@ -5225,8 +5336,20 @@
           }
         });
       }
+      S.skills.forEach(sk=>{
+        const rb=$(`skRollBtn_${sk.id}`);
+        if(rb){
+          const bm=buildSkRollBtnMeta(sk,M);
+          rb.innerHTML=bm.innerHtml;
+          rb.dataset.tip=bm.tip;
+        }
+      });
       syncDiceFromSheet();
-      if(D.open){const dT=calcThreshold();if($('diceAdvDisBox'))$('diceAdvDisBox').innerHTML=buildAdvDisInnerHtml(dT);if($('diceThBox'))$('diceThBox').innerHTML=buildThresholdInnerHtml(dT);}
+      if(D.open){
+        const ae=document.activeElement, inDice=Boolean(ae&&ae.closest&&ae.closest('#diceMount'));
+        if(!inDice){renderDice();}
+        else{const dT=calcThreshold();if($('diceAdvDisBox'))$('diceAdvDisBox').innerHTML=buildAdvDisInnerHtml(dT);if($('diceThBox'))$('diceThBox').innerHTML=buildThresholdInnerHtml(dT);}
+      }
       save();
     }
 
@@ -5261,7 +5384,7 @@
     }
 
     function insertTokenAtCursor(kind,id,tok,dropPoint=null){
-      const it=findPwItem(kind,id); if(!it) return;
+      const it=findPwItem(kind,id); if(!it||!tok) return;
       const effEl=$(`eff_${id}`);
       let targetRange=null;
       if(effEl){
@@ -5316,7 +5439,7 @@
         const cur=String(it.effects||'').trim();
         it.effects=cur?`${cur} ${esc(tok)}`:esc(tok);
       });
-      renderMain(); renderHeader(); save(); toast(`Baustein ${tok} eingefügt & auf Bogen aktiv!`);
+      renderMain(); renderHeader(); syncLiveCalculations(); toast(`Baustein ${tok} eingefügt & auf Bogen aktiv!`);
     }
 
     function spendResource(kind,id){
@@ -5447,14 +5570,22 @@
         res.push({r,rawR,rollMod,ok,crit,eg,meg});
       }
       const rollTitle=isAtkBlk20?`${D.label} • 🛡️ Geblockt (Folgewurf vs. Schw. 20)`:D.label;
+      const advSrcParts=buildAdvSrcShortList(T);
+      const advSrcChipsHtml=advSrcParts.map(pt=>{
+        const isN=/^[+-]\d+N\b/.test(pt), isRed=/^-\d+N\b/.test(pt), isMan=/\(Manuell\)$/.test(pt);
+        const cls=isMan?'bg-amber-500/15 text-amber-200 border-amber-400/40':(isN&&!isRed)?'bg-rose-500/15 text-rose-200 border-rose-500/35':'bg-emerald-500/15 text-emerald-200 border-emerald-500/35';
+        return `<span class="px-1.5 py-0.5 rounded border font-bold tabular max-w-full break-words ${cls}">${esc(pt)}</span>`;
+      }).join('');
+      const advSrcRowHtml=advSrcParts.length?`<div class="mt-2 pt-1.5 border-t border-white/10 flex flex-wrap items-center justify-center gap-1 text-[10px] min-w-0 break-words"><span class="font-extrabold t-mut mr-0.5">Vor./Nacht.:</span>${advSrcChipsHtml}</div>`:'';
       let baseHtml='';
       if(res.length===1){
         const x=res[0], cls=x.crit?'crit-glow border-amber-400 bg-amber-500/15':x.ok?'border-emerald-500/60 bg-emerald-500/10':'border-rose-500/60 bg-rose-500/10';
         const blkBanner=isAtkBlk20?`<div class="mt-2.5 pt-2 border-t border-white/10 text-xs font-extrabold ${x.ok?'text-amber-300':'text-rose-400'}">${x.ok?`🛡️ Geblockter Treffer → Erzielte EG für Grundschaden gegen Rüstung: <span class="px-2 py-0.5 rounded bg-amber-500 text-slate-950 font-black">${x.eg} EG</span>`:`🛡️ Am Block gescheitert → 0 EG Grundschaden (MEG: ${x.meg})`}</div>`:'';
-        baseHtml=`<div class="subcard text-center p-4 border-2 ${cls}"><div class="text-[11px] font-bold t-mut">${esc(rollTitle)} • Schwelle ${th}</div><div class="text-5xl font-black tabular my-1">🎲 ${x.r}${x.rollMod&&x.rawR!==undefined?`<span class="text-xs font-bold text-cyan-300 ml-1">(Wurf ${x.rawR}${fmtSign(x.rollMod)})</span>`:''}</div><div class="text-xs font-black uppercase ${x.crit?'text-amber-500':x.ok?'text-emerald-500':'text-rose-500'}">${x.crit?'★ Kritischer Erfolg! ★':x.ok?'Erfolg':'Misserfolg'}</div><div class="mt-2"><span class="px-3.5 py-1 rounded-lg text-white font-extrabold text-sm tabular ${x.ok?'bg-emerald-600':'bg-rose-600'}">${x.ok?'EG: '+x.eg+(isAtkBlk20?' (Grundschaden)':''):'MEG: '+x.meg}</span></div>${blkBanner}</div>`;
+        baseHtml=`<div class="subcard text-center p-4 border-2 ${cls}"><div class="text-[11px] font-bold t-mut">${esc(rollTitle)} • Schwelle ${th}</div><div class="text-5xl font-black tabular my-1">🎲 ${x.r}${x.rollMod&&x.rawR!==undefined?`<span class="text-xs font-bold text-cyan-300 ml-1">(Wurf ${x.rawR}${fmtSign(x.rollMod)})</span>`:''}</div><div class="text-xs font-black uppercase ${x.crit?'text-amber-500':x.ok?'text-emerald-500':'text-rose-500'}">${x.crit?'★ Kritischer Erfolg! ★':x.ok?'Erfolg':'Misserfolg'}</div><div class="mt-2"><span class="px-3.5 py-1 rounded-lg text-white font-extrabold text-sm tabular ${x.ok?'bg-emerald-600':'bg-rose-600'}">${x.ok?'EG: '+x.eg+(isAtkBlk20?' (Grundschaden)':''):'MEG: '+x.meg}</span></div>${advSrcRowHtml}${blkBanner}</div>`;
       }else{
         const w=res.filter(x=>x.ok).length, c=res.filter(x=>x.crit).length;
-        baseHtml=`<div class="space-y-1.5"><div class="subcard py-1.5 px-3 flex justify-between text-xs font-extrabold"><span>${D.cnt}× W100 (≤${th})${isAtkBlk20?' • 🛡️ Folgewurf vs. Schw. 20 (Grundschaden)':''}</span><span>${w}/${D.cnt} Erfolge${c?` • ★ ${c}`:''}</span></div><div class="grid grid-cols-2 gap-1.5">${res.map((x,i)=>`<div class="subcard p-2 flex justify-between items-center ${x.crit?'border-amber-400 bg-amber-500/15':x.ok?'border-emerald-500/50 bg-emerald-500/10':'border-rose-500/50 bg-rose-500/10'}"><span class="font-black tabular">#${i+1}: ${x.r}${x.rollMod&&x.rawR!==undefined?` (${x.rawR}${fmtSign(x.rollMod)})`:""}</span><span class="text-xs font-extrabold">${x.crit?'★ ':''}${x.ok?'EG '+x.eg+(isAtkBlk20?' (GS)':''):'MEG '+x.meg}</span></div>`).join('')}</div></div>`;
+        const multiSrcBox=advSrcParts.length?`<div class="subcard py-1.5 px-2.5 flex flex-wrap items-center gap-1 text-[10px] min-w-0 break-words"><span class="font-extrabold t-mut mr-0.5">Vor./Nacht.:</span>${advSrcChipsHtml}</div>`:'';
+        baseHtml=`<div class="space-y-1.5"><div class="subcard py-1.5 px-3 flex justify-between text-xs font-extrabold"><span>${D.cnt}× W100 (≤${th})${isAtkBlk20?' • 🛡️ Folgewurf vs. Schw. 20 (Grundschaden)':''}</span><span>${w}/${D.cnt} Erfolge${c?` • ★ ${c}`:''}</span></div><div class="grid grid-cols-2 gap-1.5">${res.map((x,i)=>`<div class="subcard p-2 flex justify-between items-center ${x.crit?'border-amber-400 bg-amber-500/15':x.ok?'border-emerald-500/50 bg-emerald-500/10':'border-rose-500/50 bg-rose-500/10'}"><span class="font-black tabular">#${i+1}: ${x.r}${x.rollMod&&x.rawR!==undefined?` (${x.rawR}${fmtSign(x.rollMod)})`:""}</span><span class="text-xs font-extrabold">${x.crit?'★ ':''}${x.ok?'EG '+x.eg+(isAtkBlk20?' (GS)':''):'MEG '+x.meg}</span></div>`).join('')}</div>${multiSrcBox}</div>`;
       }
       if(D.wRollCat==='Blocken'&&res.some(x=>x.ok)){
         D.blockFollowAtk=getEffD();
@@ -5469,7 +5600,7 @@
       const cs=getCSkVal(), ds=getDSkVal();
       const cBreak=D.cMode==='breakdown'?`${D.attrKey||'Attr.'} ${D.cAttr} ${fmtSign(cs)} Fert. = ${T.cv}`:`Direkt ${T.cv}`;
       const dBreak=D.dMode==='breakdown'?`${D.dAttr} ${fmtSign(ds)} = ${T.dv}`:`${T.dv}`;
-      const advBreak=(T.effAdv||T.effDis)?`${T.effAdv}V/${T.effDis}N${T.autoAdv||T.autoDis?' [inkl. Effekt]':''} (Netto ${fmtSign(T.rawNet)} → ${fmtSign(T.bonus-T.effTh)})`:'±0';
+      const advBreak=(T.effAdv||T.effDis||advSrcParts.length)?`${T.effAdv}V/${T.effDis}N (Netto ${fmtSign(T.rawNet)} → ${fmtSign(T.bonus-T.effTh)})${advSrcParts.length?` • ${advSrcParts.join(', ')}`:''}`:'±0';
       const critLbl=(D.crit==='1'?'Endziffer 1':(D.critMode==='range'?`Endziffer 1–${D.crit}`:`nur Endziffer ${D.crit}`))+(T.autoCrit?` [inkl. +${T.autoCrit} Krit-Bonus]`:'');
       const formula=`${T.cv} (Wert) + 50 − ${T.dv} (Schw.) ${T.bonus>=0?'+ '+T.bonus:'− '+Math.abs(T.bonus)}${T.effTh?` [inkl. ${fmtSign(T.effTh)} Effekt]`:''} = ${T.th} (${T.chance}%)`;
       publishLiveRoll({
@@ -5500,7 +5631,7 @@
         cnt:D.cnt,
         res
       });
-      diceLogs.unshift({t:new Date().toLocaleTimeString('de-DE'),lbl:rollTitle,th,sum:res.map(x=>`${x.r}(${x.crit?'★':''}${x.ok?'EG'+x.eg:'MEG'+x.meg})`).join(', ')});
+      diceLogs.unshift({t:new Date().toLocaleTimeString('de-DE'),lbl:rollTitle,th,sum:res.map(x=>`${x.r}(${x.crit?'★':''}${x.ok?'EG'+x.eg:'MEG'+x.meg})`).join(', '),advSrc:advSrcParts.join(', ')});
       if(diceLogs.length>40) diceLogs.length=40;
       if(S.inspirationActive){
         S.inspirationActive=false;
@@ -6013,9 +6144,11 @@
         case 'cancel-del-pw': UI.confirmDelId=null; renderMain(); break;
         case 'confirm-del-pw': {
           const id=el.dataset.id, isAug=el.dataset.kind==='augment'; UI.confirmDelId=null;
-          if(isAug){const a=S.augments.find(x=>x.id===id);S.augments=S.augments.filter(x=>x.id!==id);logChron(`Augment gelöscht${a?.name?`: "${a.name}"`:''}.`);}
-          else{const p=S.powers.find(x=>x.id===id);S.augments.forEach(a=>{if(a.parentPowerId===id)a.parentPowerId='';});S.powers=S.powers.filter(x=>x.id!==id);logChron(`Kraft gelöscht${p?.name?`: "${p.name}"`:''}.`);}
-          renderAll(); toast('Eintrag gelöscht'); break;
+          withPoolSync(()=>{
+            if(isAug){const a=S.augments.find(x=>x.id===id);S.augments=S.augments.filter(x=>x.id!==id);logChron(`Augment gelöscht${a?.name?`: "${a.name}"`:''}.`);}
+            else{const p=S.powers.find(x=>x.id===id);S.augments.forEach(a=>{if(a.parentPowerId===id)a.parentPowerId='';});S.powers=S.powers.filter(x=>x.id!==id);logChron(`Kraft gelöscht${p?.name?`: "${p.name}"`:''}.`);}
+          });
+          syncDiceFromSheet(); renderAll(); toast('Eintrag gelöscht'); break;
         }
         case 'move-pw': {
           const p=S.powers.find(x=>x.id===el.dataset.id); if(!p) break;
@@ -6047,7 +6180,24 @@
         }
         case 'toggle-art-man': {const it=findPwItem(el.dataset.kind,el.dataset.id);if(it){it.artManual=!it.artManual;renderMain();save();}break;}
         case 'rm-subcat': {const it=findPwItem(el.dataset.kind,el.dataset.id);if(it){it.subcats=it.subcats.filter(s=>s!==el.dataset.val);renderMain();save();}break;}
-        case 'ins-token': {const it=findPwItem(el.dataset.kind,el.dataset.id);if(it){const tok=formatBldToken(it.bldAmt,it.bldStat);insertTokenAtCursor(el.dataset.kind,el.dataset.id,tok);}break;}
+        case 'set-pw-bld-mode': {
+          const it=findPwItem(el.dataset.kind,el.dataset.id);
+          if(it){
+            const mode=el.dataset.mode?(el.dataset.mode==='skill'?'skill':'stat'):(it.bldMode==='skill'?'stat':'skill');
+            if(it.bldMode!==mode){
+              it.bldMode=mode;
+              if(mode==='skill'){
+                const named=(S.skills||[]).filter(s=>s&&String(s.name||'').trim()).sort((a,b)=>String(a.name).trim().localeCompare(String(b.name).trim(),'de'));
+                if(!it.bldSkId||!named.some(s=>s.id===it.bldSkId)) it.bldSkId=named[0]?.id||'';
+                if(!String(it.bldSkCnt||'').replace(/\D/g,'').replace(/^0+/,'')) it.bldSkCnt='1';
+                if(it.bldSkKind!=='dis') it.bldSkKind='adv';
+              }
+              renderMain(); save();
+            }
+          }
+          break;
+        }
+        case 'ins-token': {const it=findPwItem(el.dataset.kind,el.dataset.id);if(it){const tok=getPwBuilderToken(it);if(tok)insertTokenAtCursor(el.dataset.kind,el.dataset.id,tok);}break;}
         case 'rm-token': {
           const it=findPwItem(el.dataset.kind,el.dataset.id);
           if(it){
@@ -6063,12 +6213,12 @@
                 }
                 it.effects=nx.replace(/\s{2,}/g,' ').trim();
               });
-              renderMain();renderHeader();if(D.open)renderDice();save();
+              syncDiceFromSheet();renderMain();renderHeader();if(D.open)renderDice();save();
             }
           }
           break;
         }
-        case 'toggle-apply-mods': {const it=findPwItem(el.dataset.kind,el.dataset.id);if(it){withPoolSync(()=>{it.applyMods=!it.applyMods;});renderAll();toast(it.applyMods?'Effekt-Bausteine auf Charakterbogen aktiv!':'Effekt-Bausteine deaktiviert');}break;}
+        case 'toggle-apply-mods': {const it=findPwItem(el.dataset.kind,el.dataset.id);if(it){withPoolSync(()=>{it.applyMods=!it.applyMods;});syncDiceFromSheet();renderAll();toast(it.applyMods?'Effekt-Bausteine auf Charakterbogen aktiv!':'Effekt-Bausteine deaktiviert');}break;}
         case 'spend-pw': spendResource(el.dataset.kind,el.dataset.id); break;
         case 'rm-pw-ucost': {
           const it=findPwItem(el.dataset.kind,el.dataset.id), idx=toInt(el.dataset.cidx,-1);
@@ -7006,7 +7156,7 @@
       }
     });
 
-    document.addEventListener('focusin',e=>{if(e.target.dataset?.cres==='name') e.target.dataset.prevCres=cresName();if(e.target.dataset?.exsec?.endsWith(':name')){const id=e.target.dataset.exsec.split(':')[0],ex=(S.extraSecList||[]).find(x=>x.id===id);if(ex)e.target.dataset.prevExName=getExtraSecName(ex);}});
+    document.addEventListener('focusin',e=>{if(e.target.dataset?.cres==='name') e.target.dataset.prevCres=cresName();if(e.target.dataset?.exsec?.endsWith(':name')){const id=e.target.dataset.exsec.split(':')[0],ex=(S.extraSecList||[]).find(x=>x.id===id);if(ex)e.target.dataset.prevExName=getExtraSecName(ex);}if(e.target.dataset?.sk?.endsWith(':name')){const id=e.target.dataset.sk.split(':')[0],sk=S.skills.find(x=>x.id===id);if(sk)e.target.dataset.prevSkName=String(sk.name||'').trim();}});
 
     document.addEventListener('input',e=>{
       if(e.target?.id==='inpNewCharName'){CLOUD.newCharName=e.target.value;return;}
@@ -7309,7 +7459,26 @@
         return;
       }
       if(el.dataset.prog){const f=el.dataset.prog;S.progression[f]=f==='bonusNote'?el.value:toInt(el.value,0);syncLiveCalculations();return;}
-      if(el.dataset.sk){const [id,f]=el.dataset.sk.split(':'),sk=S.skills.find(x=>x.id===id);if(sk){sk[f]=el.value;save();}return;}
+      if(el.dataset.sk){
+        const [id,f]=el.dataset.sk.split(':'),sk=S.skills.find(x=>x.id===id);
+        if(sk){
+          if(f==='name'){
+            const prev=String(el.dataset.prevSkName!==undefined?el.dataset.prevSkName:(sk.name||'')).trim();
+            if(el.dataset.prevSkName===undefined&&prev) el.dataset.prevSkName=prev;
+            sk.name=el.value;
+            const cur=String(el.value||'').trim();
+            if(cur){
+              if(prev&&prev!==cur) syncSkillRenameInTokens(prev,cur);
+              el.dataset.prevSkName=cur;
+            }
+            if(D.open||D.skillId===sk.id){syncLiveCalculations();return;}
+          }else{
+            sk[f]=el.value;
+          }
+          save();
+        }
+        return;
+      }
       if(el.dataset.skBon){
         const sk=S.skills.find(x=>x.id===el.dataset.skBon);
         if(sk){
@@ -7367,6 +7536,17 @@
         }
         return;
       }
+      if(el.dataset.pwSkcnt){
+        const [kind,id]=el.dataset.pwSkcnt.split(':'),it=findPwItem(kind,id);
+        if(it){
+          const clean=String(el.value||'').replace(/\D/g,'').replace(/^0+/,'');
+          if(el.value!==clean) el.value=clean;
+          it.bldSkCnt=clean;
+          updatePwBuilderChipDOM(kind,id);
+          save();
+        }
+        return;
+      }
       if(el.dataset.pwf){
         const [kind,id,f]=el.dataset.pwf.split(':'),it=findPwItem(kind,id);
         if(it){
@@ -7377,7 +7557,7 @@
           }else{
             it[f]=f==='useAmt'?toInt(el.value,0):val;
             if(f==='useAmt'){if(Array.isArray(it.useCosts)&&it.useCosts[0])it.useCosts[0].amt=Math.max(0,it.useAmt);syncPwUseCostsLegacy(it);}
-            if(f==='bldAmt'){const ch=$(`chip_${id}`);if(ch){const tok=formatBldToken(it.bldAmt,it.bldStat);ch.dataset.dragTok=tok;ch.textContent='⠿ '+tok;}}
+            if(f==='bldAmt') updatePwBuilderChipDOM(kind,id);
             if(f==='name') syncLiveCalculations();
             else save();
           }
@@ -7580,18 +7760,36 @@
         const [id,f]=el.dataset.skSel.split(':'),sk=S.skills.find(x=>x.id===id);
         if(sk){
           sk[f]=f==='rank'?toInt(el.value,0):el.value;
+          if(f==='linkedAttr'&&D.skillId===sk.id&&!D.weaponId) D.attrKey=sk.linkedAttr;
           if(!sk.manualCost){const auto=calcAutoSkCost(sk.category,sk.rank);sk.customSp=auto.sp;sk.customMsp=auto.msp;}
           syncDiceFromSheet();renderAll();
         }
         return;
       }
       if(el.dataset.pwTier){const [kind,id]=el.dataset.pwTier.split(':'),it=findPwItem(kind,id);if(it&&PW_TIERS[el.value]){it.tier=el.value;const d=PW_TIERS[it.tier];if(!it.manualCost){it.sp=d.sp;it.msp=d.msp;}renderAll();}return;}
+      if(el.dataset.pwSkcnt){
+        const [kind,id]=el.dataset.pwSkcnt.split(':'),it=findPwItem(kind,id);
+        if(it){
+          const clean=String(el.value||'').replace(/\D/g,'').replace(/^0+/,'');
+          const finalVal=clean||'1';
+          if(el.value!==finalVal) el.value=finalVal;
+          it.bldSkCnt=finalVal;
+          updatePwBuilderChipDOM(kind,id);
+          save();
+        }
+        return;
+      }
       if(el.dataset.pwSel){
         const [kind,id,f]=el.dataset.pwSel.split(':'),it=findPwItem(kind,id);
         if(it){
           it[f]=el.value;
-          if(f==='useRes'&&!el.value) it.useAmt=0;
-          renderMain();save();
+          if(f==='bldSkKind'||f==='bldSkId'||f==='bldStat'){
+            updatePwBuilderChipDOM(kind,id);
+            save();
+          }else{
+            if(f==='useRes'&&!el.value) it.useAmt=0;
+            renderMain();save();
+          }
         }
         return;
       }
@@ -7835,7 +8033,7 @@
       else if(eqs){dragEqSec=eqs.dataset.dragEqsec;e.dataTransfer.setData('text/plain',dragEqSec);}
       else if(eqi){dragEqItem=eqi.dataset.dragEqitem;e.dataTransfer.setData('text/plain',dragEqItem);}
       else if(cmp&&CLOUD.isAdmin){dragCampId=cmp.dataset.dragCamp;e.dataTransfer.setData('text/plain',dragCampId);}
-      else if(tk){dragToken=tk.dataset.dragTok;e.dataTransfer.setData('text/plain',dragToken);}
+      else if(tk){const it=(tk.dataset.pwKind&&tk.dataset.pwId)?findPwItem(tk.dataset.pwKind,tk.dataset.pwId):null;const tok=it?getPwBuilderToken(it):(tk.dataset.dragTok||'');if(!tok){e.preventDefault();return;}dragToken=tok;tk.dataset.dragTok=tok;e.dataTransfer.setData('text/plain',dragToken);}
       if(isAnyDragging()){dragMouseY=e.clientY;startDragAutoScroll();}
     });
     document.addEventListener('dragend',()=>{
@@ -8495,6 +8693,17 @@
     });
     document.addEventListener('focusout',e=>{
       const inp=e.target;
+      if(inp&&inp.dataset?.pwSkcnt){
+        const [kind,id]=inp.dataset.pwSkcnt.split(':'),it=findPwItem(kind,id);
+        if(it){
+          const clean=String(inp.value||'').replace(/\D/g,'').replace(/^0+/,'');
+          const finalVal=clean||'1';
+          if(inp.value!==finalVal) inp.value=finalVal;
+          if(it.bldSkCnt!==finalVal){it.bldSkCnt=finalVal;save();}
+          updatePwBuilderChipDOM(kind,id);
+        }
+        return;
+      }
       if(inp&&inp.id&&inp.id.startsWith('skNameInp_')){
         const sid=inp.id.slice(10);
         if(UI.editSkNameId===sid){
