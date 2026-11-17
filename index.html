@@ -161,8 +161,8 @@
     ];
     const DEF_SEC_COLS={lp:'#f43f5e',ini:'#f59e0b',mlp:'#818cf8',ap:'#fde047',map:'#38bdf8'};
     const SEC_META={lp:'LP • Lebenspunkte',ini:'Ini • Initiative',mlp:'mLP • Mentale LP',ap:'AP • Ausdauerpunkte',map:'mAP • Mentale Ausdauerpunkte',cres:'Benutzerdefinierte Ressource'};
-    const DEF_ARTS=['Eigenschaft','Einsatz','Freiaktion','Grundaktion','Kraftaktion','Ritual','Schnellaktion'];
-    const DEF_SUBS=['Abwehr','Angriff','Berührungsangriff','Bewegung','Reaktion','Unterstützung','Wurfmanipulation','Zauber'];
+    const DEF_ARTS=['Eigenschaft','Einsatz','Freiaktion','Grundaktion','Schnellaktion'];
+    const DEF_SUBS=['Abwehr','Angriff','Berührungsangriff','Bewegung','Kraftaktion','Reaktion','Unterstützung','Wurfmanipulation','Zauber'];
     const DEF_USERES=['ap','map'];
     const TR_DEFS=[{i:0,b:5,sp:2,msp:0},{i:1,b:5,sp:2,msp:0},{i:2,b:5,sp:3,msp:0},{i:3,b:5,sp:3,msp:0},{i:4,b:10,sp:5,msp:1}];
     const SK_CATS={marginal:{l:'Marginal',s:[0,1,1,2,2]},fundamental:{l:'Fundamental',s:[0,2,2,3,3]},grandios:{l:'Grandios',s:[0,3,2,3,4]}};
@@ -1983,7 +1983,7 @@
       const collectedArts=[], collectedSubs=[], packNames=[];
       const trackMeta=it=>{
         const art=String(it?.art||'').trim();
-        if(art&&art.toLowerCase()!=='sofortaktion') collectedArts.push(art);
+        if(art&&!['sofortaktion','kraftaktion','ritual'].includes(art.toLowerCase())) collectedArts.push(art);
         if(Array.isArray(it?.subcats)) it.subcats.forEach(sc=>{const c=String(sc||'').trim();if(c)collectedSubs.push(c);});
       };
       const findExistingPower=rawPw=>{
@@ -2185,8 +2185,8 @@
       S.extraSecList=Array.isArray(raw.extraSecList)?raw.extraSecList.filter(x=>x&&typeof x==='object').map((x,i)=>({id:x.id||uid(),name:String(x.name||`Ressource ${i+1}`),current:toInt(x.current,3),max:toInt(x.max,3),color:isHex(x.color)?x.color:(COL_PRESETS[(i+6)%COL_PRESETS.length]||'#34d399')})):[];
       S.attrColors={...DEF_ATTR_COLS}; if(raw.attrColors) Object.keys(DEF_ATTR_COLS).forEach(k=>{if(isHex(raw.attrColors[k]))S.attrColors[k]=raw.attrColors[k];});
       S.secColors={...DEF_SEC_COLS}; if(raw.secColors) Object.keys(DEF_SEC_COLS).forEach(k=>{if(isHex(raw.secColors[k]))S.secColors[k]=raw.secColors[k];});
-      S.artList=Array.isArray(raw.artList)&&raw.artList.length?sortAlpha(raw.artList.filter(a=>String(a||'').trim().toLowerCase()!=='sofortaktion')):[...DEF_ARTS];if(!S.artList.length)S.artList=[...DEF_ARTS];
-      S.subcatList=Array.isArray(raw.subcatList)&&raw.subcatList.length?sortAlpha(raw.subcatList):[...DEF_SUBS];
+      S.artList=Array.isArray(raw.artList)&&raw.artList.length?sortAlpha(raw.artList.filter(a=>!['sofortaktion','kraftaktion','ritual'].includes(String(a||'').trim().toLowerCase()))):[...DEF_ARTS];if(!S.artList.length)S.artList=[...DEF_ARTS];
+      S.subcatList=Array.isArray(raw.subcatList)&&raw.subcatList.length?sortAlpha([...raw.subcatList,'Kraftaktion']):[...DEF_SUBS];
       S.useResList=Array.isArray(raw.useResList)&&raw.useResList.length?[...new Set(raw.useResList.map(x=>String(x).trim()).filter(Boolean))]:[...DEF_USERES];
       S.customStats=Array.isArray(raw.customStats)?sortAlpha(raw.customStats):[];
       const mergeDefTags=(rawArr,defArr)=>{const b=Array.isArray(rawArr)?rawArr.filter(t=>t&&String(t.name||'').trim()):[];(defArr||[]).forEach(d=>{if(!b.some(t=>String(t.name).trim().toLowerCase()===d.name.toLowerCase()))b.push({...d});});return sortTagDefs(b);};
