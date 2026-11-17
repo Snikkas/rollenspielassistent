@@ -100,7 +100,7 @@
   <button type="button" data-action="open-info" data-tip="Scherbensturm Regelreferenz, Tabellen &amp; Glossar" class="fixed bottom-5 left-5 z-40 w-12 h-12 rounded-2xl btn-pri font-serif italic font-black text-2xl shadow-xl">i</button>
   <div id="toast" class="fixed bottom-5 left-1/2 -translate-x-1/2 z-[90] px-4 py-2 rounded-xl bg-slate-900 text-white border border-slate-700 text-xs font-bold shadow-xl opacity-0 transition-opacity duration-200"></div>
   <div id="tooltip" class="fixed z-[90] max-w-[calc(100vw-24px)] sm:max-w-xs px-3 py-2 rounded-xl text-xs font-medium bg-slate-950/95 text-slate-100 border border-slate-700 shadow-2xl opacity-0 transition-opacity duration-150" style="top:-9999px;left:-9999px"></div>
-  <input id="fileAvatar" type="file" accept="image/*" class="hidden" /><input id="fileBg" type="file" accept="image/*" class="hidden" /><input id="fileItemImg" type="file" accept="image/*" class="hidden" /><input id="fileBioImg" type="file" accept="image/*" class="hidden" /><input id="fileImport" type="file" accept=".json,application/json" class="hidden" /><input id="fileLobbyLogo" type="file" accept="image/*" class="hidden" /><input id="fileCampImg" type="file" accept="image/*" class="hidden" />
+  <input id="fileAvatar" type="file" accept="image/*" class="hidden" /><input id="fileBg" type="file" accept="image/*" class="hidden" /><input id="fileItemImg" type="file" accept="image/*" class="hidden" /><input id="fileBioImg" type="file" accept="image/*" class="hidden" /><input id="fileImport" type="file" accept=".json,application/json" class="hidden" /><input id="filePwImport" type="file" accept=".json,application/json" class="hidden" /><input id="fileLobbyLogo" type="file" accept="image/*" class="hidden" /><input id="fileCampImg" type="file" accept="image/*" class="hidden" />
   <script>
   (function(){
     'use strict';
@@ -302,26 +302,8 @@
         if(s.parentSectionId&&!canSetSecParent(secList,s.id,s.parentSectionId)) s.parentSectionId='';
       });
     };
-    const makePower=(secId='')=>({id:uid(),name:'',color:'',bgColor:'',sectionId:secId,collapsed:false,req:'',tier:'marginal',manualCost:false,sp:1,msp:0,showManual:false,art:'Grundaktion',artManual:false,subcats:[],useCosts:[{res:'ap',amt:1}],useAmt:1,useRes:'ap',desc:'',effects:'',rules:'',applyMods:true,bldAmt:'+1',bldStat:'LP-Max',bldMode:'stat',bldSkCnt:'1',bldSkKind:'adv',bldSkId:'',boxH:{desc:0,effects:0,rules:0}});
+    const makePower=(secId='')=>({id:uid(),templateId:'',name:'',color:'',bgColor:'',sectionId:secId,collapsed:false,req:'',tier:'marginal',manualCost:false,sp:1,msp:0,showManual:false,art:'Grundaktion',artManual:false,subcats:[],useCosts:[{res:'ap',amt:1}],useAmt:1,useRes:'ap',desc:'',effects:'',rules:'',applyMods:true,bldAmt:'+1',bldStat:'LP-Max',bldMode:'stat',bldSkCnt:'1',bldSkKind:'adv',bldSkId:'',boxH:{desc:0,effects:0,rules:0}});
     const makeAugment=(pid='')=>({...makePower(''),id:uid(),parentPowerId:pid,art:'Eigenschaft',useCosts:[],useAmt:0,useRes:''});
-    const DEF_BASIS_POWERS=[
-      ["umwf0mjhyrjyv", "Schub", "Freiaktion", [], [{"res": "ap", "amt": 1}], "<i>Du bringst zusätzliche Anstrengung auf, um kurzzeitig einen Aspekt von dir zu verstärken.</i>\n\n", "\nBis zum Ende deines nächsten Zuges hast du einen der folgenden Effekte, für den du die entsprechenden Kosten gezahlt hast:<br><ul><li><b>gestärkt</b> (1 AP)<br></li><li><b>beweglich</b> (1 AP)<br></li><li><b>konzentriert</b> (1 mAP)<br></li><li><b>entschlossen</b> (1 mAP)<br></li></ul><br><b>Blitz</b>: Du kannst diese Aktion jederzeit - auch als Reaktion auf eine beliebige Aktion - einsetzen, solange du nicht handlungsunfähig bist.<br><br>\n\n", "<div><i><b><ul><li>Gestärkt<i>: Deine aktuellen und maximalen LP sind um 2 erhöht. Du hast einen Vorteil auf alle ST- und KO-Tests.</i></li></ul></b></i></div><ul><li><i><b>Beweglich</b></i><i>: Deine Bewegungen sind um eine Stufe erhöht. Du hast einen Vorteil auf alle PR- und GW-Tests.</i><br></li><li><i><b>Konzentriert</b></i><i>: Du hast +10 oder -10 Initiative nach eigener Wahl beim Erhalt des Effektes. Du hast einen Vorteil auf alle WA- und IN-Tests.</i><br></li><li><i><b>Entschlossen</b></i><i>: Deine aktuellen und maximalen mLP sind um 2 erhöht. Du hast einen Vorteil auf alle AU- und WK-Tests.</i><br></li></ul>", {"desc": 88, "effects": 251, "rules": 175}],
-      ["umwf0xashy34p", "Wendung", "Freiaktion", ["Reaktion", "Wurfmanipulation"], [], "<i>Du verlässt dich auf dein Glück, um das Ergebnis eines Tests noch einmal zu ändern.</i>\n\n", "<i><b>Reaktion</b></i>: Du kannst diese Reaktion einsetzen, wenn soeben ein Test ausgewürfelt wurde, an dem du beteiligt warst.<br><br>Der Test wird neu ausgewürfelt. Das neue Ergebnis zählt.<br><br><i><b>Limitiert</b></i>: Nachdem du diese Aktion eingesetzt hast, musst du erst rasten, ehe du sie wieder einsetzen kannst.<br>\n", "<ul><li><i><b>Wurfmanipulation</b></i><i>: Es kann pro Test insgesamt nur eine Wurfmanipulation eingesetzt werden, egal von wem!</i><br></li><li><i>Du musst ansagen, dass du diese Reaktion einsetzen möchtest, bevor die Konsequenzen des Wurfergebnisses ausgeführt worden sind.</i><br></li><li><i>Der neue Würfelwurf wird unter den gleichen Bedingungen ausgeführt wie der erste.</i><br></li><li><i>Im Normalfall haben nur Spielercharaktere und besonders mächtige bzw. wichtige Nichtspielercharaktere Zugriff auf diese Aktion.</i><br></li></ul>\n\n", {"desc": 88, "effects": 202, "rules": 175}],
-      ["umwf10seb41yk", "Ausweichen", "Freiaktion", ["Reaktion", "Abwehr"], [], "<i>Eine vielfältige Aktion, die eingesetzt wird, um Trefferversuchen gegen dich auszuweichen.</i>\n\n", "<i><b>Reaktion</b></i>: Du kannst diese Reaktion einsetzen, wenn du zum Ziel eines Trefferwurfes wirst.<br><br>Du bietest deine GW gegen den Trefferwert des Angreifers. Bei Erfolg weichst du dem Treffer aus und vermeidest seine Effekte.<br><br><i><b>Verlängerung</b></i>: Setzt du diese Aktion als Schnellaktion ein, so kannst du dich bei Erfolg zusätzlich bis zu halbe Bew in Metern bewegen. Bei einer Niederlage wirst du getroffen und bewegst dich danach, sofern und soweit noch möglich.<br><br>\n\n", "<ul><li><i><b>Abwehr</b></i><i>: Du kannst nur eine Abwehr pro Trefferversuch einsetzen.</i><br></li><li><i>Du musst den Trefferversuch gut wahrnehmen können, um ihm ausweichen zu dürfen. In manchen Fällen kann es dir der Spielleiter trotzdem erlauben, wenn du realistisch darauf reagieren kannst, wie zum Beispiel bei einem Fernkampfangriff, der sich sehr langsam bewegt.</i><br></li><li><i>Der Einsatz als Schnellaktion kann verwendet werden, um Flächeneffekten auszuweichen. Setzt du diese Aktion gegen Flächeneffekte ein, so musst du in der Lage sein, dich mit deiner GBew aus dem betroffenen Bereich herauszubewegen. Ist dies der Fall, so testest du üblicherweise gegen 50 und bewegst dich bei Erfolg aus dem Flächeneffekt.</i><br></li></ul>\n\n", {"desc": 88, "effects": 202, "rules": 192}],
-      ["umwf122m2xa2r", "Blocken", "Freiaktion", ["Reaktion", "Abwehr"], [], "<i>Diese Aktion wird primär verwendet, um Angriffe abzufangen und auf dich umzuleiten.</i>\n\n", "<i><b>Reaktion</b></i>: Du kannst diese Reaktion einsetzen, wenn ein Trefferversuch durch deinen Nahbereich verläuft.<br><br>Du bietest deine ST gegen den Trefferwert des Angreifers. Bei Erfolg gelten folgende Effekte:<br><ul><li>Du wirst zum neuen Ziel des Trefferversuches, sofern du es nicht ohnehin warst.<br></li><li>Der Angreifer führt im Anschluss einen zusätzlichen Trefferwurf gegen dich aus. Du bietest dabei eine feste Schwierigkeit von 20. Hast du mit einem blockfähigen Gegenstand geblockt, so verringerst du deinen erlittenen Schaden durch den Treffer um 2.<br></li></ul>\n\n", "<ul><li>Zur Erinnerung: Dein Nahbereich ist der Bereich um dich herum, in dem du Dinge mit deinen Händen greifen kannst.<br></li><li><i><b>Abwehr</b></i><i>: Du kannst nur eine Abwehr pro Trefferversuch einsetzen.</i><br></li></ul>\n\n", {"desc": 88, "effects": 210, "rules": 134}],
-      ["umwf12rovzeoq", "Parieren", "Freiaktion", ["Reaktion", "Abwehr"], [], "<i>Du verwendest eine Waffe, um den Angriff eines Gegners abzuleiten und unschädlich zu machen.</i>\n\n", "<i><b>Reaktion</b></i>: Du kannst diese Reaktion einsetzen, wenn du Ziel eines Nahkampfangriffes wirst und eine parierfähige Waffe oder Gegenstand führst.<br><br>Du bietest deine PR gegen den Trefferwert deines Gegners. Bei Erfolg parierst du den Angriff und machst ihn unschädlich.<br><br><i><b>Kritisch</b></i>: Bei einem kritischen Erfolg gegen einen Nahkampfangriff lässt dein Gegner die Waffe/n, die er für den Angriff verwendet hat, fallen.<br><br>\n\n", "<ul><li><i>Ein zu Boden gefallener Gegenstand kann mit einer Schnellaktion aufgehoben werfen.</i><br></li><li><i><b>Abwehr</b></i><i>: Du kannst nur eine Abwehr pro Trefferversuch einsetzen.</i><br></li></ul>\n\n", {"desc": 88, "effects": 202, "rules": 134}],
-      ["umwf13j5b9jhc", "Schnellschritt", "Schnellaktion", ["Bewegung"], [], "<i>Du führst eine kurze, schnelle Bewegung aus, um dich neu zu positionieren.</i>\n\n", "Du bewegst dich bis zu Bew in Metern.\n\n", "", {"desc": 88, "effects": 88, "rules": 0}],
-      ["umwf144s7p1fg", "Plan schmieden", "Schnellaktion", [], [], "<i>Du schmiedest einen Plan für die nahe Zukunft, um den Zeitpunkt einer Aktion genau festzulegen.</i>\n\n", "Wähle eine Aktion und eine Bedingung. Bis zum Ende deines nächsten Zuges kannst du die Aktion als Reaktion einsetzen, wenn die Bedingung eintritt.\n\n", "<ul><li><i>Du kannst nur auf Veränderung reagieren, nicht etwa darauf, dass etwas gleichbleibt oder dass etwas NICHT passiert.</i><br></li><li><i>Die Aktion wird nicht zur freien Aktion und du musst trotzdem alle Kosten der Aktion normal zahlen, du setzt sie nur zu einem anderen Zeitpunkt ein.</i><br></li></ul>\n\n", {"desc": 88, "effects": 88, "rules": 134}],
-      ["umwf14v9u21j7", "Zielen", "Schnellaktion", [], [], "<i>Du nimmst dir einen Moment zum Zielen und stellst so sicher, dass deine Angriffe eine bestimmte Körperzone treffen.</i>\n\n", "Wähle ein Ziel und eine seiner Trefferzonen. Folgende Effekte gelten bis zum Ende deines nächsten Zuges:<br><ul><li>Deine erfolgreichen Trefferwürfe treffen das Ziel an der gewählten Zone.<br></li><li>Hast du eine große Trefferzone gewählt, so erhalten deine Trefferwürfe gegen das Ziel einen Vorteil. Hast du eine kleine Trefferzone gewählt, so erhalten sie stattdessen einen Nachteil.<br></li></ul><br><i><b>Optional</b></i>: Du kannst vor einem Trefferwurf entscheiden, alle Effekte dieser Aktion für diesen Trefferwurf zu ignorieren.<br><br>\n\n", "<i>Du kannst nur von einer Instanz dieser Aktion gleichzeitig profitieren. Es zählt im Zweifel das zuletzt ausgeführte Zielen.</i>\n\n", {"desc": 88, "effects": 210, "rules": 88}],
-      ["umwf15fxv0562", "Ziehen / Wegstecken", "Schnellaktion", [], [], "<i>Diese Aktion wird verwendet, um handliche Gegenstände wie zum Beispiel Waffen, Tränke oder Granaten aus deinem Inventar in die Hand zu nehmen, um sie später benutzen zu können. Gleichermaßen kann sie benutzt werden, um gezogene Gegenstände wieder zurück ins Inventar zu stecken.</i>\n\n", "Du nimmst einen Gegenstand aus deinem Inventar in eine freie Hand oder steckst einen gezogenen Gegenstand zurück in dein Inventar.<br><br>", "", {"desc": 107, "effects": 88, "rules": 0}],
-      ["umwf1683vltu4", "Bewegen", "Grundaktion", ["Bewegung"], [], "<i>Du führst eine gemäßigte Bewegung aus, die eine gute Strecke zurücklegt, ohne dich zu erschöpfen.</i>\n\n", "Du bewegst dich bis zu doppelte Bew in Metern.<br><br>", "", {"desc": 88, "effects": 88, "rules": 0}],
-      ["umwf16wejjxwa", "Vorbereitung", "Grundaktion", [], [], "<i>Du bereitest deine nächsten Handlungen vor.</i>\n\n", "Ein Hauptattribut, eine Fertigkeit oder eine Aktion deiner Wahl ist bis zum Ende deines nächsten Zuges <b>vorbereitet</b>.\n\n", "<ul><li><b>V</b><b>orbereitung</b><i>: Ein Test hat zwei Vorteile, wenn er auf ein vorbereitetes Attribut oder Fertigkeit testet oder wenn er innerhalb einer vorbereiteten Aktion stattfindet.</i><br></li><li><i>Beliebig viele deiner Attribute, Fertigkeiten und Aktionen können vorbereitet sein, aber ein Test kann nur einmal von Vorbereitung profitieren.</i><br></li></ul>\n\n", {"desc": 88, "effects": 88, "rules": 134}],
-      ["umwf17kmxnmuu", "Inspiration", "Grundaktion", ["Unterstützung"], [], "<i>Du unterstützt jemanden durch Ratschläge oder guten Zuspruch.</i>\n\n", "Ein Ziel deiner Wahl, das dich gut wahrnehmen kann, ist für 5 Phasen <b>inspiriert</b>.\n\n", "<ul><li><i><b>Unterstützung</b></i><i>: Du kannst dich mit dieser Aktion nicht selbst als Ziel wählen.</i><br></li><li><i><b>Inspiration</b></i><i>: Du kannst direkt vor einem Test entscheiden, einen Stapel Inspiration aufzubrauchen, um einen Vorteil auf den Test zu erhalten.</i><br></li><li><i>Du kannst pro Wurf nur einen Stapel Inspiration aufbrauchen.</i><br></li></ul>\n\n", {"desc": 88, "effects": 88, "rules": 154}],
-      ["umwf1czaxv9g8", "Abschütteln", "Grundaktion", [], [], "<br>", "Du versuchst, einen Statuseffekt deiner Wahl von dir zu entfernen.\n\n", "<ul><li><i>Der Spielleiter entscheidet, ob ein Test notwendig ist oder ob es überhaupt möglich ist, den Statuseffekt mittels dieser Aktion zu entfernen. Diese Informationen kannst du dir im Vorfeld einholen, ehe du die Aktion einsetzt.</i><br></li><li><i>Mögliche Umsetzungen: 1) gelingt automatisch 2) Test gegen eine festgelegte Schwierigkeit (z.B. 40) 3) Vergleichender Test gegen den Verursacher des Statuseffektes 4) misslingt automatisch</i><br></li><li><i>Bei stapelbaren Statuseffekten wird meist nur ein Stapel oder Stapel in Höhe der Erfolgsgrade entfernt.</i><br></li></ul>\n\n", {"desc": 58, "effects": 88, "rules": 154}],
-      ["umwf1dkamg8t6", "Angriff", "Kraftaktion", [], [], "<i>Du greifst waffenlos oder mit einer gezogenen Waffe an.</i>\n\n", "Du führst einen Angriff aus.\n\n", "", {"desc": 88, "effects": 88, "rules": 0}],
-      ["umwf1e3i37mhc", "Spurt", "Kraftaktion", ["Bewegung"], [], "<i>Du führst eine weitreichende aber kräftezehrende Bewegung aus.</i>\n\n", "Du bewegst dich bis zu vierfache Bew in Metern.\n\n", "", {"desc": 88, "effects": 88, "rules": 0}]
-    ];
-    const makeBasisPower=([id,name,art,subcats,useCosts,desc,effects,rules,boxH])=>{const uc=clone(useCosts);return {...makePower('umwf0mc44chn1'),id,name,collapsed:true,tier:'basisaktion',sp:0,msp:0,art,subcats:[...subcats],useCosts:uc,useAmt:uc[0]?uc[0].amt:0,useRes:uc[0]?uc[0].res:'',desc,effects,rules,boxH:{...boxH}};};
     function syncPwUseCostsLegacy(it){
       if(!it) return;
       if(!Array.isArray(it.useCosts)) it.useCosts=[];
@@ -384,7 +366,7 @@
         statusCollapsed:false,statusEffects:makeDefaultStatusEffects(),inspiration:0,inspirationActive:false,
         thresholds:{woundLight:3,woundMedium:6,woundHeavy:9,traumaLight:3,traumaMedium:6,traumaHeavy:9},
         bst:1,bstOvr:'',movements:[{id:'mv1',type:'Laufen',base:5,ovr:''}],hitZones:clone(DEF_HZ),lastHzRoll:null,
-        combatNotes:{bestehen:'',schaden:'',ruestung:''},skillSections:[],skills:[],powerSections:[{id:'umwf0mc44chn1',name:'Basisaktionen (Immer verfügbar)',color:'',bgColor:'',collapsed:true,filterArt:'',parentSectionId:''}],powers:DEF_BASIS_POWERS.map(makeBasisPower),augments:[],
+        combatNotes:{bestehen:'',schaden:'',ruestung:''},skillSections:[],skills:[],powerSections:[],powers:[],augments:[],
         progression:{level:1,ep:0,bonusSp:0,bonusMsp:0,bonusNote:''},
         chrSecOrder:[...DEF_CHR_SEC_ORDER],chrSecMeta:makeChrSecMeta(),chrTrExpanded:{},
         chronicleLog:[{id:uid(),ts:stamp(),text:'Neuer Scherbensturm-Charakterbogen bereit (Stufe 1, 5 SP).'}],
@@ -455,6 +437,9 @@
     const savedEffRanges={};
     let UI={inLobby:true,sheetLoaded:false,modal:null,mobileHdrOpen:false,mobileLobbyMenuOpen:false,infoTab:'dice',listType:'art',ammoModalWeaponId:'',skSort:{col:'',asc:true},editSkNameId:null,imgTargetKind:'',imgTargetId:'',confirmNew:false,confirmLog:false,confirmDelId:null,confirmDelSecId:null,confirmSecPullId:null,confirmDelSkSecId:null,confirmSkSecPullId:null,confirmDelExSecId:null,confirmHzStep:1,pwFilterOpen:false,pwFilterMode:'or',pwFilterArts:[],pwFilterTiers:[],pwFilterSubs:[],statusIniPromptKey:'',lastRollHtml:'',lastBlockBaseHtml:'',lastBlockFollowRes:null,colTarget:'cres',colMode:'text',colPwKind:'power',colPwId:'',colDraft:'#c084fc',attrGroupSel:'ST_KO',savedOnce:true,palBuilderOpen:false,palDraft:{name:'',isLt:false,bg:'#020617',acc:'#0ea5e9',acc2:'#6366f1',txt:'#f1f5f9',mut:'#94a3b8',btnTxt:'#ffffff'}};
     const REGISTRY_ID='_lobby_meta_registry_', LIVE_TAB_ID=uid();
+    const LIBRARY_ID='_power_library_';
+    const REPO_LIBRARY_URL='./data/powers-library.json';
+    const PWLIB_CACHE_KEY='scherbensturm_power_library_cache';
     function normalizeCampaigns(rawCamps){
       const list=Array.isArray(rawCamps)?rawCamps.filter(c=>c&&typeof c==='object'&&String(c.id||'').trim()).map(c=>{
         const id=String(c.id).trim();
@@ -478,6 +463,7 @@
       return list;
     }
     let CLOUD={serverUrl:'',list:[],loading:false,syncing:false,error:'',lastSyncTs:'',viewingRemote:false,remoteCharId:'',confirmDelCloudId:null,confirmDelCampPageId:null,filterMine:false,currentUser:'',isAdmin:false,showAdminBar:false,userMgmtOpen:false,showPwChange:false,activeCampaignId:'default',campAction:'',newCharOpen:false,newCharName:'',newCharAncestry:'',newCharConcept:'',newCharCampId:'default',publicNotesOpen:true,activePublicPageKey:'',registryLoaded:false,diceFeed:[],diceConnected:false,diceToast:true,diceCollapsed:false,confirmClearDice:false,registry:{users:{},claims:{},charCampaigns:{},publicNotes:{},campaignSharedNotes:{},deletedCharIds:[],campaigns:[{id:'default',name:'Ohne Kampagne / Allgemein',allowedUsers:[],gmUsers:[],img:''}],gmUsers:[],lobbyLogo:'',adminHash:'',diceFeed:[],diceClearedAt:0,diceClearedByCamp:{}}}, cloudSyncTimer=null, liveDiceES=null, liveDiceBC=null, liveDiceTopicCur='', liveDicePollTimer=null, registryPushInFlight=0, lastRegistryPushMs=0;
+    let PWLIB={loaded:false,loading:false,saving:false,error:'',repoPacks:[],cloudPacks:[],tab:'server',search:'',filterCat:'',filterTier:'',selectedPackId:'',selSecIds:{},selPwIds:{},selAugIds:{},targetSecId:'',dedupeMode:'skipExisting',lastLoadedTs:'',adminSrc:'all',adminName:'',adminCat:'Allgemein',adminDesc:'',adminIsBasis:false,confirmDelPackId:''}, pwLibFetchPromise=null;
     try{
       CLOUD.serverUrl=localStorage.getItem('scherbensturm_cloud_url')||'';
       CLOUD.currentUser=localStorage.getItem('scherbensturm_cloud_user')||'';
@@ -1801,7 +1787,364 @@
       const bldSkCnt=String(rawSkCntNum>=1?rawSkCntNum:1);
       const bldSkKind=raw?.bldSkKind==='dis'?'dis':'adv';
       const bldSkId=String(raw?.bldSkId||'');
-      return {...base,...(raw||{}),id:raw?.id||uid(),color:col,bgColor:bgCol,sectionId:String(raw?.sectionId||''),collapsed:Boolean(raw?.collapsed),tier,manualCost:manual,sp:manual?toInt(raw.sp,def.sp):def.sp,msp:manual?toInt(raw.msp,def.msp):def.msp,showManual:Boolean(raw?.showManual),art:(()=>{const a=String(raw?.art??raw?.kind??base.art).trim();return a.toLowerCase()==='sofortaktion'?'Freiaktion':a;})(),artManual:Boolean(raw?.artManual),subcats:Array.isArray(raw?.subcats)?raw.subcats.map(x=>String(x).trim()).filter(Boolean):[],useCosts,useAmt,useRes,desc:String(raw?.desc||''),effects:String(raw?.effects??raw?.extraEffects??''),rules:String(raw?.rules||''),applyMods,bldAmt:String(raw?.bldAmt||'+1'),bldStat:String(raw?.bldStat||'LP-Max'),bldMode,bldSkCnt,bldSkKind,bldSkId,boxH:bh};
+      return {...base,...(raw||{}),id:raw?.id||uid(),templateId:String(raw?.templateId||''),color:col,bgColor:bgCol,sectionId:String(raw?.sectionId||''),collapsed:Boolean(raw?.collapsed),tier,manualCost:manual,sp:manual?toInt(raw.sp,def.sp):def.sp,msp:manual?toInt(raw.msp,def.msp):def.msp,showManual:Boolean(raw?.showManual),art:(()=>{const a=String(raw?.art??raw?.kind??base.art).trim();return a.toLowerCase()==='sofortaktion'?'Freiaktion':a;})(),artManual:Boolean(raw?.artManual),subcats:Array.isArray(raw?.subcats)?raw.subcats.map(x=>String(x).trim()).filter(Boolean):[],useCosts,useAmt,useRes,desc:String(raw?.desc||''),effects:String(raw?.effects??raw?.extraEffects??''),rules:String(raw?.rules||''),applyMods,bldAmt:String(raw?.bldAmt||'+1'),bldStat:String(raw?.bldStat||'LP-Max'),bldMode,bldSkCnt,bldSkKind,bldSkId,boxH:bh};
+    }
+
+    const POWER_PACK_SCHEMA='scherbensturm_power_pack_v1';
+    const normPackMatchName=s=>String(s||'').trim().toLowerCase().replace(/\s+/g,' ');
+    function cleanSecForPowerExport(sec,forceRoot=false){
+      const fa=String(sec?.filterArt||'').trim();
+      return {
+        id:String(sec?.id||uid()),
+        name:String(sec?.name||'Sektion'),
+        color:isHex(sec?.color)?sec.color:'',
+        bgColor:isHex(sec?.bgColor)?sec.bgColor:'',
+        collapsed:Boolean(sec?.collapsed),
+        filterArt:fa.toLowerCase()==='sofortaktion'?'':fa,
+        parentSectionId:forceRoot?'':String(sec?.parentSectionId||'')
+      };
+    }
+    function cleanPwForPowerExport(rawIt,isAug=false){
+      const n=normPwEntry(clone(rawIt||{}),isAug);
+      const out={
+        id:String(n.id||uid()),
+        templateId:String(n.templateId||''),
+        name:String(n.name||''),
+        color:isHex(n.color)?n.color:'',
+        bgColor:isHex(n.bgColor)?n.bgColor:'',
+        sectionId:isAug?'':String(n.sectionId||''),
+        collapsed:Boolean(n.collapsed),
+        req:String(n.req||''),
+        tier:n.tier,
+        manualCost:Boolean(n.manualCost),
+        sp:toInt(n.sp,0),
+        msp:toInt(n.msp,0),
+        showManual:false,
+        art:String(n.art||''),
+        artManual:Boolean(n.artManual),
+        subcats:Array.isArray(n.subcats)?[...n.subcats]:[],
+        useCosts:Array.isArray(n.useCosts)?clone(n.useCosts):[],
+        useAmt:toInt(n.useAmt,0),
+        useRes:String(n.useRes||''),
+        desc:String(n.desc||''),
+        effects:String(n.effects||''),
+        rules:String(n.rules||''),
+        applyMods:Boolean(n.applyMods),
+        bldAmt:String(n.bldAmt||'+1'),
+        bldStat:String(n.bldStat||'LP-Max'),
+        bldMode:n.bldMode==='skill'?'skill':'stat',
+        bldSkCnt:String(n.bldSkCnt||'1'),
+        bldSkKind:n.bldSkKind==='dis'?'dis':'adv',
+        bldSkId:String(n.bldSkId||''),
+        boxH:{desc:toInt(n.boxH?.desc,0),effects:toInt(n.boxH?.effects,0),rules:toInt(n.boxH?.rules,0)}
+      };
+      if(isAug) out.parentPowerId=String(n.parentPowerId||'');
+      return out;
+    }
+    function buildPowerExportPack(opts={}){
+      const mode=opts.mode||'all';
+      let sections=[], powers=[], augments=[], defaultName='Scherbensturm Kräfte-Paket';
+      if(mode==='section'){
+        const rootId=String(opts.sectionId||'').trim();
+        const rootSec=(S.powerSections||[]).find(s=>s&&s.id===rootId);
+        if(rootSec){
+          defaultName=String(rootSec.name||'Sektions-Paket').trim()||'Sektions-Paket';
+          const secIdSet=new Set([rootSec.id]);
+          const queue=[rootSec.id];
+          while(queue.length){
+            const cur=queue.shift();
+            (S.powerSections||[]).forEach(s=>{
+              if(s&&s.parentSectionId===cur&&!secIdSet.has(s.id)){
+                secIdSet.add(s.id);
+                queue.push(s.id);
+              }
+            });
+          }
+          sections=(S.powerSections||[]).filter(s=>s&&secIdSet.has(s.id)).map(s=>cleanSecForPowerExport(s,s.id===rootSec.id));
+          const matchedPowers=(S.powers||[]).filter(p=>p&&secIdSet.has(p.sectionId));
+          const pwIdSet=new Set(matchedPowers.map(p=>p.id));
+          powers=matchedPowers.map(p=>cleanPwForPowerExport(p,false));
+          augments=(S.augments||[]).filter(a=>a&&a.parentPowerId&&pwIdSet.has(a.parentPowerId)).map(a=>cleanPwForPowerExport(a,true));
+        }
+      }else if(mode==='item'){
+        const kind=opts.kind==='augment'?'augment':'power';
+        const itemId=String(opts.id||'').trim();
+        if(kind==='augment'){
+          const aug=(S.augments||[]).find(a=>a&&a.id===itemId);
+          if(aug){
+            defaultName=String(aug.name||'Augment-Paket').trim()||'Augment-Paket';
+            augments=[cleanPwForPowerExport(aug,true)];
+          }
+        }else{
+          const pw=(S.powers||[]).find(p=>p&&p.id===itemId);
+          if(pw){
+            defaultName=String(pw.name||'Kraft-Paket').trim()||'Kraft-Paket';
+            powers=[cleanPwForPowerExport(pw,false)];
+            augments=(S.augments||[]).filter(a=>a&&a.parentPowerId===pw.id).map(a=>cleanPwForPowerExport(a,true));
+          }
+        }
+      }else{
+        defaultName=String(S.profile?.name||'').trim()?`${String(S.profile.name).trim()} – Kräfte & Augmente`:'Scherbensturm Kräfte-Paket';
+        sections=(S.powerSections||[]).map(s=>cleanSecForPowerExport(s,false));
+        powers=(S.powers||[]).map(p=>cleanPwForPowerExport(p,false));
+        augments=(S.augments||[]).map(a=>cleanPwForPowerExport(a,true));
+      }
+      return {
+        schema:POWER_PACK_SCHEMA,
+        id:String(opts.packId||uid()),
+        name:String(opts.name||'').trim()||defaultName,
+        category:String(opts.category||'Allgemein').trim()||'Allgemein',
+        description:String(opts.description||''),
+        isBasisPack:Boolean(opts.isBasisPack),
+        updatedAt:stamp(),
+        sections,
+        powers,
+        augments
+      };
+    }
+    function downloadPowerPackJson(pack,filenameBase){
+      if(!pack||typeof pack!=='object') return false;
+      const rawBase=String(filenameBase||pack.name||'Scherbensturm_Kraeftepaket').trim()||'Scherbensturm_Kraeftepaket';
+      const safeBase=rawBase.replace(/\.json$/i,'').replace(/[^a-zA-Z0-9äöüÄÖÜß_-]+/g,'_').replace(/^_+|_+$/g,'')||'Scherbensturm_Kraeftepaket';
+      const url=URL.createObjectURL(new Blob([JSON.stringify(pack,null,2)],{type:'application/json'}));
+      const a=document.createElement('a');
+      a.href=url;
+      a.download=`${safeBase}.json`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(()=>URL.revokeObjectURL(url),1000);
+      return true;
+    }
+    function importPowerPackIntoSheet(rawPack,opts={}){
+      const summary={addedSec:0,addedPw:0,addedAug:0,updatedPw:0,skipped:0};
+      let src=rawPack;
+      if(typeof src==='string'){
+        try{src=JSON.parse(src);}catch(e){return summary;}
+      }
+      if(!src||typeof src!=='object') return summary;
+      const sourcePacks=[];
+      if(Array.isArray(src.packs)){
+        src.packs.forEach(p=>{
+          if(!p||typeof p!=='object') return;
+          sourcePacks.push({
+            name:String(p.name||src.name||'Kräfte-Paket').trim()||'Kräfte-Paket',
+            sections:Array.isArray(p.sections)?p.sections:(Array.isArray(p.powerSections)?p.powerSections:[]),
+            powers:Array.isArray(p.powers)?p.powers:[],
+            augments:Array.isArray(p.augments)?p.augments:[]
+          });
+        });
+      }else if(src.schema===POWER_PACK_SCHEMA||Array.isArray(src.sections)||Array.isArray(src.powerSections)||Array.isArray(src.powers)||Array.isArray(src.augments)){
+        sourcePacks.push({
+          name:String(src.name||src.profile?.name||'Kräfte-Paket').trim()||'Kräfte-Paket',
+          sections:Array.isArray(src.sections)?src.sections:(Array.isArray(src.powerSections)?src.powerSections:[]),
+          powers:Array.isArray(src.powers)?src.powers:[],
+          augments:Array.isArray(src.augments)?src.augments:[]
+        });
+      }
+      if(!sourcePacks.length) return summary;
+      const targetSectionId=(opts.targetSectionId&&S.powerSections.some(s=>s.id===opts.targetSectionId))?String(opts.targetSectionId):'';
+      const dedupeMode=['copy','skipExisting','updateExisting'].includes(opts.dedupeMode)?opts.dedupeMode:'copy';
+      const hasOnlySec=opts.onlySectionIds!==undefined&&opts.onlySectionIds!==null;
+      const hasOnlyPw=opts.onlyPowerIds!==undefined&&opts.onlyPowerIds!==null;
+      const hasOnlyAug=opts.onlyAugmentIds!==undefined&&opts.onlyAugmentIds!==null;
+      const hasPartialFilter=hasOnlySec||hasOnlyPw||hasOnlyAug;
+      const baseOnlySec=new Set(hasOnlySec?Array.from(opts.onlySectionIds).map(String):[]);
+      const baseOnlyPw=new Set(hasOnlyPw?Array.from(opts.onlyPowerIds).map(String):[]);
+      const baseOnlyAug=new Set(hasOnlyAug?Array.from(opts.onlyAugmentIds).map(String):[]);
+      const collectedArts=[], collectedSubs=[], packNames=[];
+      const trackMeta=it=>{
+        const art=String(it?.art||'').trim();
+        if(art&&art.toLowerCase()!=='sofortaktion') collectedArts.push(art);
+        if(Array.isArray(it?.subcats)) it.subcats.forEach(sc=>{const c=String(sc||'').trim();if(c)collectedSubs.push(c);});
+      };
+      const findExistingPower=rawPw=>{
+        const tid=String(rawPw?.templateId||'').trim();
+        if(tid){
+          const byTid=S.powers.find(p=>p&&String(p.templateId||'').trim()===tid);
+          if(byTid) return byTid;
+        }
+        const nm=normPackMatchName(rawPw?.name);
+        if(nm){
+          const byNm=S.powers.find(p=>p&&normPackMatchName(p.name)===nm);
+          if(byNm) return byNm;
+        }
+        return null;
+      };
+      const findExistingAugment=(rawAug,mappedParentId)=>{
+        const tid=String(rawAug?.templateId||'').trim();
+        if(tid){
+          const byTid=S.augments.find(a=>a&&String(a.templateId||'').trim()===tid);
+          if(byTid) return byTid;
+        }
+        const nm=normPackMatchName(rawAug?.name);
+        if(nm){
+          if(mappedParentId){
+            const samePar=S.augments.find(a=>a&&a.parentPowerId===mappedParentId&&normPackMatchName(a.name)===nm);
+            if(samePar) return samePar;
+          }
+          const byNm=S.augments.find(a=>a&&normPackMatchName(a.name)===nm);
+          if(byNm) return byNm;
+        }
+        return null;
+      };
+
+      sourcePacks.forEach(pk=>{
+        if(pk.name) packNames.push(pk.name);
+        let incSecs=(pk.sections||[]).filter(s=>s&&typeof s==='object');
+        let incPws=(pk.powers||[]).filter(p=>p&&typeof p==='object');
+        let incAugs=(pk.augments||[]).filter(a=>a&&typeof a==='object');
+
+        if(hasPartialFilter){
+          const secSet=new Set(baseOnlySec);
+          const pwSet=new Set(baseOnlyPw);
+          const augSet=new Set(baseOnlyAug);
+          if(hasOnlySec&&!hasOnlyPw){
+            let grew=true;
+            while(grew){
+              grew=false;
+              incSecs.forEach(s=>{
+                const sid=String(s.id||''), pid=String(s.parentSectionId||'');
+                if(pid&&secSet.has(pid)&&sid&&!secSet.has(sid)){secSet.add(sid);grew=true;}
+              });
+            }
+            incPws.forEach(p=>{
+              const pid=String(p.id||''), sid=String(p.sectionId||'');
+              if(sid&&secSet.has(sid)&&pid) pwSet.add(pid);
+            });
+          }
+          incAugs.forEach(a=>{
+            const aid=String(a.id||''), ppid=String(a.parentPowerId||'');
+            if(ppid&&pwSet.has(ppid)&&aid) augSet.add(aid);
+          });
+          incSecs=incSecs.filter(s=>secSet.has(String(s.id||'')));
+          incPws=incPws.filter(p=>pwSet.has(String(p.id||'')));
+          incAugs=incAugs.filter(a=>augSet.has(String(a.id||'')));
+        }
+
+        const secIdMap=new Map();
+        const pwIdMap=new Map();
+        const newSecEntries=[];
+        const importedSecOldIds=new Set(incSecs.map(s=>String(s.id||'')).filter(Boolean));
+
+        incSecs.forEach(rawSec=>{
+          const oldId=String(rawSec.id||'');
+          const oldParentId=String(rawSec.parentSectionId||'');
+          const resolvedParent=(oldParentId&&secIdMap.has(oldParentId))?secIdMap.get(oldParentId):((oldParentId&&importedSecOldIds.has(oldParentId))?'':targetSectionId);
+          const nm=normPackMatchName(rawSec.name);
+          let reused=null;
+          if((dedupeMode==='skipExisting'||dedupeMode==='updateExisting')&&nm){
+            reused=S.powerSections.find(s=>s&&normPackMatchName(s.name)===nm&&String(s.parentSectionId||'')===resolvedParent)
+              ||S.powerSections.find(s=>s&&normPackMatchName(s.name)===nm)
+              ||null;
+          }
+          if(reused){
+            if(oldId) secIdMap.set(oldId,reused.id);
+          }else{
+            const newId=uid();
+            const fa=String(rawSec.filterArt||'').trim();
+            const secObj={
+              id:newId,
+              name:String(rawSec.name||'Sektion'),
+              color:isHex(rawSec.color)?rawSec.color:'',
+              bgColor:isHex(rawSec.bgColor)?rawSec.bgColor:'',
+              collapsed:Boolean(rawSec.collapsed),
+              filterArt:fa.toLowerCase()==='sofortaktion'?'':fa,
+              parentSectionId:resolvedParent
+            };
+            S.powerSections.push(secObj);
+            if(oldId) secIdMap.set(oldId,newId);
+            newSecEntries.push({secObj,oldParentId});
+            summary.addedSec++;
+          }
+        });
+
+        newSecEntries.forEach(({secObj,oldParentId})=>{
+          if(oldParentId&&secIdMap.has(oldParentId)){
+            secObj.parentSectionId=secIdMap.get(oldParentId);
+          }else{
+            secObj.parentSectionId=targetSectionId;
+          }
+        });
+
+        incPws.forEach(rawPw=>{
+          const oldId=String(rawPw.id||'');
+          const oldSecId=String(rawPw.sectionId||'');
+          const mappedSecId=(oldSecId&&secIdMap.has(oldSecId))?secIdMap.get(oldSecId):targetSectionId;
+          if(dedupeMode==='skipExisting'||dedupeMode==='updateExisting'){
+            const existing=findExistingPower(rawPw);
+            if(existing){
+              if(oldId) pwIdMap.set(oldId,existing.id);
+              if(dedupeMode==='skipExisting'){
+                summary.skipped++;
+                return;
+              }
+              const norm=normPwEntry({...clone(rawPw),id:existing.id,sectionId:mappedSecId||existing.sectionId||'',showManual:false},false);
+              norm.templateId=norm.templateId||existing.templateId||'';
+              norm.collapsed=existing.collapsed;
+              Object.assign(existing,norm);
+              trackMeta(existing);
+              summary.updatedPw++;
+              return;
+            }
+          }
+          const newId=uid();
+          if(oldId) pwIdMap.set(oldId,newId);
+          const norm=normPwEntry({...clone(rawPw),id:newId,sectionId:mappedSecId,showManual:false},false);
+          S.powers.push(norm);
+          trackMeta(norm);
+          summary.addedPw++;
+        });
+
+        incAugs.forEach(rawAug=>{
+          const oldParentId=String(rawAug.parentPowerId||'');
+          let mappedParentId=(oldParentId&&pwIdMap.has(oldParentId))?pwIdMap.get(oldParentId):'';
+          if(dedupeMode==='skipExisting'||dedupeMode==='updateExisting'){
+            const existing=findExistingAugment(rawAug,mappedParentId);
+            if(existing){
+              if(dedupeMode==='skipExisting'){
+                summary.skipped++;
+                return;
+              }
+              const finalParentId=existing.parentPowerId||((mappedParentId&&getLinkedAugs(mappedParentId).length<3)?mappedParentId:'');
+              const norm=normPwEntry({...clone(rawAug),id:existing.id,parentPowerId:finalParentId,sectionId:'',showManual:false},true);
+              norm.templateId=norm.templateId||existing.templateId||'';
+              norm.collapsed=existing.collapsed;
+              Object.assign(existing,norm);
+              trackMeta(existing);
+              summary.updatedPw++;
+              return;
+            }
+          }
+          if(mappedParentId&&getLinkedAugs(mappedParentId).length>=3) mappedParentId='';
+          const newId=uid();
+          const norm=normPwEntry({...clone(rawAug),id:newId,parentPowerId:mappedParentId,sectionId:'',showManual:false},true);
+          S.augments.push(norm);
+          trackMeta(norm);
+          summary.addedAug++;
+        });
+      });
+
+      sanitizeSecHierarchy(S.powerSections);
+      if(collectedArts.length) S.artList=sortAlpha([...S.artList,...collectedArts]);
+      if(collectedSubs.length) S.subcatList=sortAlpha([...S.subcatList,...collectedSubs]);
+      invalidateModsCache();
+      if(summary.addedSec||summary.addedPw||summary.addedAug||summary.updatedPw){
+        const lbl=packNames.length===1?packNames[0]:`${packNames.length} Pakete`;
+        const parts=[];
+        if(summary.addedSec) parts.push(`+${summary.addedSec} ${summary.addedSec===1?'Sektion':'Sektionen'}`);
+        if(summary.addedPw) parts.push(`+${summary.addedPw} ${summary.addedPw===1?'Kraft':'Kräfte'}`);
+        if(summary.addedAug) parts.push(`+${summary.addedAug} ${summary.addedAug===1?'Augment':'Augmente'}`);
+        if(summary.updatedPw) parts.push(`${summary.updatedPw} aktualisiert`);
+        if(summary.skipped) parts.push(`${summary.skipped} übersprungen`);
+        logChron(`Kräfte-Paket importiert ("${lbl}"): ${parts.join(', ')}.`);
+      }
+      save();
+      renderHeader();
+      renderMain();
+      syncDiceFromSheet();
+      if(D.open) renderDice();
+      return summary;
     }
 
     function mergeLoaded(raw){
@@ -1946,28 +2289,6 @@
         ];
       }
       if(!S.campaignNotes.some(n=>n.id===S.activeCampNoteId)) S.activeCampNoteId=S.campaignNotes[0].id;
-      const basisSecMap={};
-      (def.powerSections||[]).forEach(dSec=>{
-        const dNameLow=String(dSec.name||'').trim().toLowerCase();
-        let exSec=S.powerSections.find(s=>s.id===dSec.id||(dNameLow&&String(s.name||'').trim().toLowerCase()===dNameLow));
-        if(!exSec){
-          exSec={id:dSec.id||uid(),name:String(dSec.name||'Basisaktionen (Immer verfügbar)'),color:isHex(dSec.color)?dSec.color:'',bgColor:isHex(dSec.bgColor)?dSec.bgColor:'',collapsed:Boolean(dSec.collapsed),filterArt:String(dSec.filterArt||''),parentSectionId:String(dSec.parentSectionId||'')};
-          S.powerSections.push(exSec);
-        }
-        basisSecMap[dSec.id]=exSec.id;
-      });
-      sanitizeSecHierarchy(S.powerSections);
-      (def.powers||[]).forEach(dPw=>{
-        const isBasis=dPw.tier==='basisaktion'||(!dPw.manualCost&&toInt(dPw.sp,0)===0&&toInt(dPw.msp,0)===0);
-        if(!isBasis) return;
-        const dNameLow=String(dPw.name||'').trim().toLowerCase();
-        const exists=S.powers.some(p=>p.id===dPw.id||(dNameLow&&String(p.name||'').trim().toLowerCase()===dNameLow));
-        if(!exists){
-          const targetSecId=dPw.sectionId?(basisSecMap[dPw.sectionId]||dPw.sectionId):'';
-          const secValid=targetSecId&&S.powerSections.some(s=>s.id===targetSecId)?targetSecId:'';
-          S.powers.push(normPwEntry({...clone(dPw),sectionId:secValid},false));
-        }
-      });
     }
 
     const getCloudEndpoint=()=>{const base=String(CLOUD.serverUrl||'').trim().replace(/\/+$/,'');return `${base}/.netlify/functions/sheets`;};
@@ -2311,7 +2632,7 @@
         if(!CLOUD.registry.charCampaigns||typeof CLOUD.registry.charCampaigns!=='object') CLOUD.registry.charCampaigns={};
         if(!Array.isArray(CLOUD.registry.deletedCharIds)) CLOUD.registry.deletedCharIds=[];
         const delSet=new Set(CLOUD.registry.deletedCharIds);
-        CLOUD.list=(Array.isArray(data)?data:[]).filter(ch=>ch&&ch.id!==REGISTRY_ID&&ch.name!=='__REGISTRY__'&&!delSet.has(ch.id));
+        CLOUD.list=(Array.isArray(data)?data:[]).filter(ch=>ch&&ch.id!==REGISTRY_ID&&ch.name!=='__REGISTRY__'&&ch.id!==LIBRARY_ID&&ch.name!=='__POWER_LIBRARY__'&&!delSet.has(ch.id));
         CLOUD.list.forEach(ch=>{
           if(ch.owner&&CLOUD.registry.claims[ch.id]===undefined) CLOUD.registry.claims[ch.id]=ch.owner;
           if(CLOUD.registry.charCampaigns[ch.id]===undefined){
@@ -2452,6 +2773,7 @@
       save(false);
       renderAll(true);
       await pushToCloud(false);
+      fetchAndSyncBasisPowers('skipExisting',{silent:true}).catch(()=>{});
     }
     async function updateCloudCharacterMeta(id,mutatorFn,successMsg){
       if(!CLOUD.registry.publicNotes||typeof CLOUD.registry.publicNotes!=='object') CLOUD.registry.publicNotes={};
@@ -2530,6 +2852,287 @@
         toast('⚠️ Löschen fehlgeschlagen.');
       }
     }
+    function normalizeLibraryPack(raw,origin='repo'){
+      if(!raw||typeof raw!=='object') return null;
+      const sections=Array.isArray(raw.sections)?raw.sections:(Array.isArray(raw.powerSections)?raw.powerSections:[]);
+      const powers=Array.isArray(raw.powers)?raw.powers:[];
+      const augments=Array.isArray(raw.augments)?raw.augments:[];
+      const name=String(raw.name||raw.title||'Unbenanntes Paket').trim()||'Unbenanntes Paket';
+      const rawId=String(raw.id||'').trim();
+      const id=rawId||('pack_'+simpleHash(`${origin}_${name}_${sections.length}_${powers.length}_${augments.length}`));
+      return {
+        schema:String(raw.schema||POWER_PACK_SCHEMA),
+        id,
+        name,
+        category:String(raw.category||'Allgemein').trim()||'Allgemein',
+        description:String(raw.description||''),
+        isBasisPack:Boolean(raw.isBasisPack||id.toLowerCase()==='basisaktionen'),
+        updatedAt:String(raw.updatedAt||''),
+        sections,
+        powers,
+        augments,
+        _origin:origin==='cloud'?'cloud':'repo'
+      };
+    }
+    function stripLibraryPackMeta(pack){
+      if(!pack||typeof pack!=='object') return pack;
+      const copy=clone(pack);
+      delete copy._origin;
+      return copy;
+    }
+    function extractLibraryPacks(data,origin='repo'){
+      if(!data||typeof data!=='object') return [];
+      let rawList=[];
+      if(Array.isArray(data)){
+        rawList=data;
+      }else if(Array.isArray(data.packs)){
+        rawList=data.packs;
+      }else if(Array.isArray(data.library?.packs)){
+        rawList=data.library.packs;
+      }else if(origin==='repo'&&(data.schema===POWER_PACK_SCHEMA||Array.isArray(data.sections)||Array.isArray(data.powerSections)||Array.isArray(data.powers)||Array.isArray(data.augments))){
+        rawList=[data];
+      }
+      return rawList.map(p=>normalizeLibraryPack(p,origin)).filter(Boolean);
+    }
+    function savePowerLibraryCache(){
+      try{
+        localStorage.setItem(PWLIB_CACHE_KEY,JSON.stringify({
+          repoPacks:PWLIB.repoPacks||[],
+          cloudPacks:PWLIB.cloudPacks||[],
+          lastLoadedTs:PWLIB.lastLoadedTs||stamp()
+        }));
+      }catch(e){}
+    }
+    function loadPowerLibraryCache(){
+      try{
+        const raw=localStorage.getItem(PWLIB_CACHE_KEY);
+        if(!raw) return null;
+        const parsed=JSON.parse(raw);
+        if(!parsed||typeof parsed!=='object') return null;
+        return {
+          repoPacks:Array.isArray(parsed.repoPacks)?parsed.repoPacks.map(p=>normalizeLibraryPack(p,'repo')).filter(Boolean):[],
+          cloudPacks:Array.isArray(parsed.cloudPacks)?parsed.cloudPacks.map(p=>normalizeLibraryPack(p,'cloud')).filter(Boolean):[],
+          lastLoadedTs:String(parsed.lastLoadedTs||'')
+        };
+      }catch(e){return null;}
+    }
+    function getAllLibraryPacks(){
+      const merged=new Map();
+      (PWLIB.repoPacks||[]).forEach(p=>{
+        const norm=normalizeLibraryPack(p,'repo');
+        if(norm) merged.set(norm.id,norm);
+      });
+      (PWLIB.cloudPacks||[]).forEach(p=>{
+        const norm=normalizeLibraryPack(p,'cloud');
+        if(norm) merged.set(norm.id,norm);
+      });
+      return [...merged.values()];
+    }
+    function canPublishPowerLibrary(){
+      if(CLOUD.isAdmin) return true;
+      const u=String(CLOUD.currentUser||'').trim().toLowerCase();
+      if(!u) return false;
+      if(isGlobalGM(u)) return true;
+      return getCampaigns().some(c=>c&&c.id!=='default'&&Array.isArray(c.gmUsers)&&c.gmUsers.some(x=>String(x||'').trim().toLowerCase()===u));
+    }
+    async function fetchPowerLibrary(force=false){
+      if(PWLIB.loaded&&!force) return getAllLibraryPacks();
+      if(pwLibFetchPromise&&!force) return pwLibFetchPromise;
+      const run=(async()=>{
+        PWLIB.loading=true;
+        PWLIB.error='';
+        if(UI.modal==='powerLibrary') renderModal();
+        try{
+          const repoReq=fetch(`${REPO_LIBRARY_URL}?t=${Date.now()}`,{headers:{'Accept':'application/json'}}).then(async res=>{
+            if(res.status===404) return [];
+            if(!res.ok) throw new Error(`Repo HTTP ${res.status}`);
+            const data=await res.json();
+            return extractLibraryPacks(data,'repo');
+          });
+          const cloudReq=fetch(`${getCloudEndpoint()}?id=${encodeURIComponent(LIBRARY_ID)}`,{headers:{'Accept':'application/json'}}).then(async res=>{
+            if(res.status===404) return [];
+            if(!res.ok) throw new Error(`Cloud HTTP ${res.status}`);
+            const data=await res.json();
+            if(data&&data.error&&/not\s*found|nicht\s*gefunden/i.test(String(data.error))) return [];
+            return extractLibraryPacks(data,'cloud');
+          });
+          const [repoRes,cloudRes]=await Promise.allSettled([repoReq,cloudReq]);
+          const repoOk=repoRes.status==='fulfilled';
+          const cloudOk=cloudRes.status==='fulfilled';
+          const cache=(!repoOk||!cloudOk)?loadPowerLibraryCache():null;
+          if(repoOk){
+            PWLIB.repoPacks=repoRes.value;
+          }else if(cache&&cache.repoPacks.length&&!PWLIB.repoPacks.length){
+            PWLIB.repoPacks=cache.repoPacks;
+          }
+          if(cloudOk){
+            PWLIB.cloudPacks=cloudRes.value;
+          }else if(cache&&cache.cloudPacks.length&&!PWLIB.cloudPacks.length){
+            PWLIB.cloudPacks=cache.cloudPacks;
+          }
+          if(repoOk||cloudOk){
+            PWLIB.loaded=true;
+            PWLIB.lastLoadedTs=stamp();
+            PWLIB.error='';
+            savePowerLibraryCache();
+          }else if(cache&&(cache.repoPacks.length||cache.cloudPacks.length)){
+            PWLIB.repoPacks=cache.repoPacks;
+            PWLIB.cloudPacks=cache.cloudPacks;
+            PWLIB.loaded=true;
+            PWLIB.lastLoadedTs=cache.lastLoadedTs||PWLIB.lastLoadedTs;
+            PWLIB.error='Offline-Modus: Lokaler Bibliotheks-Cache wird angezeigt.';
+          }else{
+            PWLIB.loaded=false;
+            PWLIB.error='Externe Kräfte-Bibliothek derzeit nicht erreichbar (weder Repo noch Cloud).';
+          }
+          return getAllLibraryPacks();
+        }finally{
+          PWLIB.loading=false;
+          if(pwLibFetchPromise===run) pwLibFetchPromise=null;
+          if(UI.modal==='powerLibrary') renderModal();
+        }
+      })();
+      pwLibFetchPromise=run;
+      return run;
+    }
+    async function publishPackToCloudLibrary(pack){
+      if(!canPublishPowerLibrary()){
+        toast('🔒 Nur Admin oder Spielleiter können Pakete in der Server-Bibliothek veröffentlichen.');
+        return false;
+      }
+      if(!pack||typeof pack!=='object'){
+        toast('⚠️ Ungültiges Kräfte-Paket zum Veröffentlichen.');
+        return false;
+      }
+      PWLIB.saving=true;
+      PWLIB.error='';
+      if(UI.modal==='powerLibrary') renderModal();
+      try{
+        let currentPacks=[];
+        const getRes=await fetch(`${getCloudEndpoint()}?id=${encodeURIComponent(LIBRARY_ID)}`,{headers:{'Accept':'application/json'}});
+        if(getRes.ok){
+          const rem=await getRes.json().catch(()=>null);
+          if(rem&&!rem.error) currentPacks=extractLibraryPacks(rem,'cloud').map(stripLibraryPackMeta);
+        }else if(getRes.status!==404){
+          throw new Error(`HTTP ${getRes.status}`);
+        }
+        const rawCopy=clone(pack);
+        rawCopy.id=String(rawCopy.id||'').trim()||uid();
+        rawCopy.updatedAt=stamp();
+        const normPack=normalizeLibraryPack(rawCopy,'cloud');
+        const cleanPack=stripLibraryPackMeta(normPack);
+        const idx=currentPacks.findIndex(p=>p&&p.id===cleanPack.id);
+        const wasUpdate=idx>=0;
+        if(wasUpdate) currentPacks[idx]=cleanPack;
+        else currentPacks.push(cleanPack);
+        const payload={
+          charId:LIBRARY_ID,
+          profile:{name:'__POWER_LIBRARY__'},
+          packs:currentPacks,
+          _summary:{updatedAt:stamp()}
+        };
+        const postRes=await fetch(getCloudEndpoint(),{
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body:JSON.stringify(payload)
+        });
+        const postData=await postRes.json().catch(()=>({}));
+        if(!postRes.ok||postData.error) throw new Error(postData.error||`HTTP ${postRes.status}`);
+        PWLIB.cloudPacks=currentPacks.map(p=>normalizeLibraryPack(p,'cloud')).filter(Boolean);
+        PWLIB.loaded=true;
+        PWLIB.lastLoadedTs=stamp();
+        PWLIB.error='';
+        savePowerLibraryCache();
+        toast(`☁️ Paket „${cleanPack.name}“ in der Server-Bibliothek ${wasUpdate?'aktualisiert':'veröffentlicht'}!`);
+        return true;
+      }catch(err){
+        PWLIB.error=String(err?.message||'Veröffentlichung fehlgeschlagen.');
+        toast(`⚠️ Veröffentlichung fehlgeschlagen: ${PWLIB.error}`);
+        return false;
+      }finally{
+        PWLIB.saving=false;
+        if(UI.modal==='powerLibrary') renderModal();
+      }
+    }
+    async function deletePackFromCloudLibrary(packId){
+      if(!CLOUD.isAdmin){
+        toast('🔒 Nur der Admin kann Pakete aus der Server-Bibliothek entfernen.');
+        return false;
+      }
+      const pid=String(packId||'').trim();
+      if(!pid) return false;
+      PWLIB.saving=true;
+      PWLIB.error='';
+      if(UI.modal==='powerLibrary') renderModal();
+      try{
+        let currentPacks=[];
+        const getRes=await fetch(`${getCloudEndpoint()}?id=${encodeURIComponent(LIBRARY_ID)}`,{headers:{'Accept':'application/json'}});
+        if(getRes.ok){
+          const rem=await getRes.json().catch(()=>null);
+          if(rem&&!rem.error) currentPacks=extractLibraryPacks(rem,'cloud').map(stripLibraryPackMeta);
+        }else if(getRes.status!==404){
+          throw new Error(`HTTP ${getRes.status}`);
+        }
+        const removed=currentPacks.find(p=>p&&p.id===pid);
+        const nextPacks=currentPacks.filter(p=>p&&p.id!==pid);
+        const payload={
+          charId:LIBRARY_ID,
+          profile:{name:'__POWER_LIBRARY__'},
+          packs:nextPacks,
+          _summary:{updatedAt:stamp()}
+        };
+        const postRes=await fetch(getCloudEndpoint(),{
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body:JSON.stringify(payload)
+        });
+        const postData=await postRes.json().catch(()=>({}));
+        if(!postRes.ok||postData.error) throw new Error(postData.error||`HTTP ${postRes.status}`);
+        PWLIB.cloudPacks=nextPacks.map(p=>normalizeLibraryPack(p,'cloud')).filter(Boolean);
+        if(PWLIB.selectedPackId===pid) PWLIB.selectedPackId='';
+        PWLIB.lastLoadedTs=stamp();
+        PWLIB.error='';
+        savePowerLibraryCache();
+        toast(`🗑️ Paket „${removed?.name||pid}“ aus der Server-Bibliothek entfernt.`);
+        return true;
+      }catch(err){
+        PWLIB.error=String(err?.message||'Entfernen fehlgeschlagen.');
+        toast(`⚠️ Löschen fehlgeschlagen: ${PWLIB.error}`);
+        return false;
+      }finally{
+        PWLIB.saving=false;
+        if(UI.modal==='powerLibrary') renderModal();
+      }
+    }
+    async function fetchAndSyncBasisPowers(mode='skipExisting',opts={}){
+      const silent=Boolean(opts&&opts.silent);
+      const targetCharId=S.charId;
+      try{
+        const packs=await fetchPowerLibrary(!silent);
+        const isBasis=p=>Boolean(p&&(p.isBasisPack===true||String(p.id||'').trim().toLowerCase()==='basisaktionen'));
+        const basisPack=packs.find(p=>p._origin==='cloud'&&isBasis(p))||packs.find(isBasis)||null;
+        if(!basisPack){
+          if(!silent) toast('ℹ️ Auf dem Server wurde noch kein Basisaktionen-Paket gefunden.');
+          return null;
+        }
+        if(silent&&(CLOUD.viewingRemote||S.charId!==targetCharId)) return null;
+        const res=importPowerPackIntoSheet(basisPack,{dedupeMode:mode});
+        const parts=[];
+        if(res.addedPw) parts.push(`${res.addedPw} ergänzt`);
+        if(res.updatedPw) parts.push(`${res.updatedPw} aktualisiert`);
+        if(res.addedAug) parts.push(`+${res.addedAug} ${res.addedAug===1?'Augment':'Augmente'}`);
+        if(parts.length){
+          toast(`✅ Basisaktionen synchronisiert: ${parts.join(', ')}${res.skipped?` (${res.skipped} unverändert)`:''}.`);
+        }else if(!silent){
+          if(res.skipped) toast(`✅ Alle ${res.skipped} Basisaktionen sind bereits aktuell.`);
+          else toast('ℹ️ Das Basisaktionen-Paket enthielt keine neuen Einträge.');
+        }
+        return res;
+      }catch(e){
+        if(!silent) toast('⚠️ Basisaktionen konnten nicht vom Server geladen werden.');
+        return null;
+      }
+    }
     let _charTabsCache=null;
     function isValidTab(t){return Boolean(t&&TABS.some(x=>x.id===t));}
     function getCharTabsMap(){
@@ -2579,7 +3182,7 @@
         }
       }catch(e){toast('Speicherlimit erreicht – bitte kleinere Bilder nutzen oder JSON exportieren.');}
     }
-    function load(){try{let r=localStorage.getItem(STORE_KEY);if(!r){for(const k of OLD_KEYS){r=localStorage.getItem(k);if(r)break;}}if(r){const parsed=JSON.parse(r);mergeLoaded(parsed);S.activeTab=getSavedTabForChar(S.charId,parsed.activeTab);}else{S.activeTab=getSavedTabForChar(S.charId,S.activeTab);}}catch(e){S=defaultState();}}
+    function load(){try{let r=localStorage.getItem(STORE_KEY);if(!r){for(const k of OLD_KEYS){r=localStorage.getItem(k);if(r)break;}}if(r){const parsed=JSON.parse(r);mergeLoaded(parsed);S.activeTab=getSavedTabForChar(S.charId,parsed.activeTab);return true;}else{S=defaultState();S.activeTab=getSavedTabForChar(S.charId,S.activeTab);return false;}}catch(e){S=defaultState();return false;}}
 
     const getAttrCol=k=>{const a=ATTRS.find(x=>x.k===k);return(a&&S.attrColors[a.g])||'#6aa3d8';};
     const getSecCol=k=>{if(String(k||'').startsWith('ex_')){const ex=(S.extraSecList||[]).find(x=>'ex_'+x.id===k);return ex?.color||'#34d399';}return k==='cres'?(S.customRes.color||'#c084fc'):(S.secColors[k]||DEF_SEC_COLS[k]);};
@@ -3362,6 +3965,7 @@
         ${it.collapsed?`<span class="pill cursor-default text-[11px] py-0.5 px-2 tabular">${c.sp} SP${c.msp?` + ${c.msp} MsP`:''}</span>${canSpendPw?`<button type="button" data-action="spend-pw" data-kind="${kind}" data-id="${it.id}" class="btn btn-pri py-0.5 px-2 text-[11px]">⚡ ${hasUseCost?esc(costSummary):'Einsetzen'}</button>`:''}`:''}
         ${!isAug&&!it.collapsed?secOpts:''}
         ${isAug&&!it.collapsed?`<select data-ag-link="${it.id}" data-tip="Einer Kraft zuordnen (max. 3 Slots)" class="inp py-1 px-2 text-xs font-bold max-w-full sm:max-w-[200px]">${pOpts}</select>`:''}
+        ${!it.collapsed?`<button type="button" data-action="export-pw-item" data-kind="${kind}" data-id="${it.id}" data-tip="Diese Kraft (inkl. Augmente) / dieses Augment als .json exportieren" class="btn py-1 px-2 text-xs">📤</button>`:''}
         ${listLen>1?`<button type="button" data-action="${isAug?'move-aug':'move-pw'}" data-id="${it.id}" data-dir="-1" ${idx===0?'disabled':''} class="btn py-1 px-2 text-xs">▲${!isAug&&!it.collapsed?' Nach oben':''}</button><button type="button" data-action="${isAug?'move-aug':'move-pw'}" data-id="${it.id}" data-dir="1" ${idx===listLen-1?'disabled':''} class="btn py-1 px-2 text-xs">▼${!isAug&&!it.collapsed?' Nach unten':''}</button>`:''}
         ${renderDelConfirm(kind,it.id,it.collapsed)}
       </div>`;
@@ -3525,6 +4129,7 @@
               :`<button type="button" data-action="ask-sec-pull" data-id="${sec.id}" data-tip="Zweistufige Sicherheitsabfrage (1/2): Zieht nach Bestätigung alle Kräfte mit „${esc(sec.filterArt)}“ (inkl. ihrer gebundenen Augmente) in diese Sektion und sortiert sie alphabetisch" class="btn bg-acc-soft bdr-acc text-acc py-1 px-2.5 text-xs">📥 Alle „${esc(sec.filterArt)}“ sammeln &amp; A–Z</button>`
             ):''}
             ${allSecPowers.length>1?`<button type="button" data-action="sort-sec-az" data-id="${sec.id}" data-tip="Kräfte in dieser Sektion (und ihre Augmente darunter) alphabetisch sortieren" class="btn py-1 px-2 text-xs">⇅ A–Z</button>`:''}
+            <button type="button" data-action="export-pw-sec" data-id="${sec.id}" data-tip="Diese Sektion inkl. Untersektionen, Kräften &amp; Augmenten als .json exportieren" class="btn py-1 px-2 text-xs">📤</button>
             <button type="button" data-action="add-pw-section" data-parent="${sec.id}" data-tip="Untersektion in dieser Sektion erstellen" class="btn bg-acc-soft bdr-acc text-acc py-1 px-2 text-xs">+ Untersektion</button>
             <button type="button" data-action="add-power" data-sec="${sec.id}" class="btn btn-pri py-1 px-2.5 text-xs">+ Kraft</button>
             ${sibLen>1?`<button type="button" data-action="move-sec" data-id="${sec.id}" data-dir="-1" ${sIdx===0?'disabled':''} class="btn py-1 px-2 text-xs">▲</button><button type="button" data-action="move-sec" data-id="${sec.id}" data-dir="1" ${sIdx===sibLen-1?'disabled':''} class="btn py-1 px-2 text-xs">▼</button>`:''}
@@ -3584,7 +4189,7 @@
       </div>`:'';
       const rawRootSecs=S.powerSections.filter(s=>!s.parentSectionId||!S.powerSections.some(p=>p.id===s.parentSectionId));
       const rootSecs=fAct?rawRootSecs.filter(s=>secHasFilteredPowers(s.id)):rawRootSecs;
-      return `<section class="card space-y-3"><div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3"><div><h2 class="text-base sm:text-lg font-extrabold cursor-help" data-tip="Erstelle beliebige Sektionen (Ordner), ziehe Kräfte am Viereck ⠿ hinein oder sammle Kräfte nach Art.\nÜber 🎨 (Textfarbe) und 🪟 (Fensterfarbe) lassen sich Kräfte, Augmente und Sektionen frei einfärben.">Kräfte &amp; Augmente</h2><p class="text-xs t-mut">Aktuelle Kosten: <strong id="pwSummaryHdr" class="text-acc">${P.pwSp} SP${P.pwMsp?` + ${P.pwMsp} MsP`:''}</strong></p></div><div class="flex flex-wrap items-center gap-2"><button type="button" data-action="toggle-pw-filter" data-tip="Kräfte &amp; Augmente nach Kraft-Art, Lernkosten-Stufe oder Unterkategorie live filtern" class="btn py-1 px-2.5 text-xs ${(UI.pwFilterOpen||fAct)?'bdr-acc bg-acc-soft text-acc font-extrabold':''}">🔍 Filter${fAct?` (${fCnt})`:''} ${UI.pwFilterOpen?'▴':'▾'}</button>${fAct&&!UI.pwFilterOpen?`<button type="button" data-action="reset-pw-filter" data-tip="Aktiven Kräfte-Filter zurücksetzen" class="btn btn-err py-1 px-2 text-xs">✕</button>`:''}${hasAny?`<button type="button" data-action="collapse-all-pw" data-val="1" class="btn py-1 px-2.5 text-xs">▸ Alle einklappen</button><button type="button" data-action="collapse-all-pw" data-val="0" class="btn py-1 px-2.5 text-xs">▾ Alle ausklappen</button>`:''}<button type="button" data-action="add-pw-section" class="btn bg-acc-soft bdr-acc text-acc">+ Sektion</button><button type="button" data-action="add-power" class="btn btn-pri">+ Kraft</button><button type="button" data-action="add-augment" class="btn border-amber-400 text-amber-500">+ Freies Augment</button></div></div>${filterMenuHtml}${activeTagsHtml}</section>
+      return `<section class="card space-y-3"><div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3"><div><h2 class="text-base sm:text-lg font-extrabold cursor-help" data-tip="Erstelle beliebige Sektionen (Ordner), ziehe Kräfte am Viereck ⠿ hinein oder sammle Kräfte nach Art.\nÜber 🎨 (Textfarbe) und 🪟 (Fensterfarbe) lassen sich Kräfte, Augmente und Sektionen frei einfärben.">Kräfte &amp; Augmente</h2><p class="text-xs t-mut">Aktuelle Kosten: <strong id="pwSummaryHdr" class="text-acc">${P.pwSp} SP${P.pwMsp?` + ${P.pwMsp} MsP`:''}</strong></p></div><div class="flex flex-wrap items-center gap-2"><button type="button" data-action="toggle-pw-filter" data-tip="Kräfte &amp; Augmente nach Kraft-Art, Lernkosten-Stufe oder Unterkategorie live filtern" class="btn py-1 px-2.5 text-xs ${(UI.pwFilterOpen||fAct)?'bdr-acc bg-acc-soft text-acc font-extrabold':''}">🔍 Filter${fAct?` (${fCnt})`:''} ${UI.pwFilterOpen?'▴':'▾'}</button>${fAct&&!UI.pwFilterOpen?`<button type="button" data-action="reset-pw-filter" data-tip="Aktiven Kräfte-Filter zurücksetzen" class="btn btn-err py-1 px-2 text-xs">✕</button>`:''}${hasAny?`<button type="button" data-action="collapse-all-pw" data-val="1" class="btn py-1 px-2.5 text-xs">▸ Alle einklappen</button><button type="button" data-action="collapse-all-pw" data-val="0" class="btn py-1 px-2.5 text-xs">▾ Alle ausklappen</button>`:''}<button type="button" data-action="open-pw-library" data-tip="Server-Bibliothek durchsuchen, Basisaktionen abrufen oder lokale .json-Pakete importieren" class="btn bg-acc-soft bdr-acc text-acc">📚 Bibliothek / Import</button><button type="button" data-action="export-pw-all" data-tip="Alle Kräfte, Augmente &amp; Sektionen als .json-Paket herunterladen" class="btn">📤 Export</button><button type="button" data-action="add-pw-section" class="btn bg-acc-soft bdr-acc text-acc">+ Sektion</button><button type="button" data-action="add-power" class="btn btn-pri">+ Kraft</button><button type="button" data-action="add-augment" class="btn border-amber-400 text-amber-500">+ Freies Augment</button></div></div>${filterMenuHtml}${activeTagsHtml}</section>
       ${!hasAny?`<div class="card text-center py-8 text-xs t-mut">Noch keine Sektionen, Kräfte oder Augmente vorhanden.</div>`:''}
       ${fAct&&totalMatchedCnt===0?`<div class="card text-center py-8 space-y-2 text-xs t-mut"><div class="font-extrabold text-sm text-acc">Keine Kräfte oder Augmente mit Überschneidung zum gewählten Filter gefunden.</div><div>Passe die Filterauswahl oben an oder setze den Filter zurück.</div><div><button type="button" data-action="reset-pw-filter" class="btn btn-pri py-1 px-3 text-xs mt-1">↺ Filter zurücksetzen</button></div></div>`:''}
       ${rootSecs.length?`<div class="space-y-5">${rootSecs.map((sec,sIdx)=>renderPwSection(sec,sIdx,rootSecs.length,0)).join('')}</div>`:''}
@@ -5018,6 +5623,220 @@
     const openDualColorModal=(target,id,cmode,kind='')=>{UI.colTarget=target;UI.colPwKind=kind;UI.colPwId=id;UI.colMode=cmode==='bg'?'bg':'text';const it=getColTargetObj();if(!it)return;const cur=UI.colMode==='bg'?it.bgColor:it.color;UI.colDraft=isHex(cur)?cur:(UI.colMode==='bg'?'#1e293b':'#38bdf8');UI.modal='color';renderModal();};
     const modalShell=(title,sub,body,foot,maxW='max-w-2xl',extra='')=>`<div data-action="close-modal-bg" class="fixed inset-0 z-[70] flex items-center justify-center p-2 sm:p-5 bg-black/75 backdrop-blur-sm"><div class="card ${maxW} w-full max-h-[92dvh] overflow-y-auto flex flex-col p-0 shadow-2xl"><div class="sticky top-0 z-10 flex flex-wrap items-center justify-between gap-2 px-4 sm:px-5 py-3 sm:py-3.5 border-b bdr-line shrink-0" style="background:var(--surf2)"><div class="min-w-0 flex-1"><h2 class="text-base sm:text-lg font-extrabold">${title}</h2>${sub?`<p class="text-xs t-mut">${sub}</p>`:''}</div><div class="flex flex-wrap items-center gap-1.5 shrink-0">${extra}<button type="button" data-action="close-modal" aria-label="Schließen" class="btn py-1 px-2.5">✕</button></div></div><div class="p-4 sm:p-5 overflow-y-auto flex-1 min-h-0 space-y-4 text-xs sm:text-sm">${body}</div><div class="sticky bottom-0 z-10 px-4 sm:px-5 py-3 border-t bdr-line flex flex-wrap items-center justify-end gap-2 shrink-0" style="background:var(--surf2)">${foot}</div></div></div>`;
 
+    function formatPwLibImportToast(res,label=''){
+      if(!res) return '⚠️ Import fehlgeschlagen.';
+      const parts=[];
+      if(res.addedSec) parts.push(`+${res.addedSec} ${res.addedSec===1?'Sektion':'Sektionen'}`);
+      if(res.addedPw) parts.push(`+${res.addedPw} ${res.addedPw===1?'Kraft':'Kräfte'}`);
+      if(res.addedAug) parts.push(`+${res.addedAug} ${res.addedAug===1?'Augment':'Augmente'}`);
+      if(res.updatedPw) parts.push(`${res.updatedPw} aktualisiert`);
+      if(res.skipped) parts.push(`${res.skipped} übersprungen`);
+      const pfx=label?`📥 „${label}“: `:'📥 Import: ';
+      if(!parts.length) return `${pfx}Keine neuen Einträge gefunden.`;
+      return `${pfx}${parts.join(', ')}`;
+    }
+    function getPwSecOptionsFlat(){
+      const out=[], visited=new Set();
+      const walk=(parentId,depth)=>{
+        (S.powerSections||[]).filter(s=>s&&(s.parentSectionId||'')===parentId).forEach(s=>{
+          if(visited.has(s.id)) return;
+          visited.add(s.id);
+          out.push({id:s.id,name:String(s.name||'Sektion'),depth});
+          walk(s.id,depth+1);
+        });
+      };
+      walk('',0);
+      (S.powerSections||[]).forEach(s=>{if(s&&!visited.has(s.id))out.push({id:s.id,name:String(s.name||'Sektion'),depth:0});});
+      return out;
+    }
+    function renderPwLibImportOptsHtml(){
+      const flatSecs=getPwSecOptionsFlat();
+      return `<div class="subcard p-2.5 grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+        <div class="min-w-0">
+          <label class="block text-[10px] font-extrabold t-mut uppercase tracking-wider mb-1">Duplikat-Verhalten</label>
+          <select data-pwlib-sel="dedupeMode" class="inp w-full min-w-0 text-xs font-semibold">
+            <option value="skipExisting" ${PWLIB.dedupeMode==='skipExisting'?'selected':''}>Vorhandene überspringen</option>
+            <option value="copy" ${PWLIB.dedupeMode==='copy'?'selected':''}>Als Kopie einfügen</option>
+            <option value="updateExisting" ${PWLIB.dedupeMode==='updateExisting'?'selected':''}>Vorhandene aktualisieren</option>
+          </select>
+        </div>
+        <div class="min-w-0">
+          <label class="block text-[10px] font-extrabold t-mut uppercase tracking-wider mb-1">Ziel-Sektion (optional)</label>
+          <select data-pwlib-sel="targetSecId" class="inp w-full min-w-0 text-xs font-semibold">
+            <option value="" ${!PWLIB.targetSecId?'selected':''}>— Original-Struktur / Hauptebene —</option>
+            ${flatSecs.map(s=>`<option value="${esc(s.id)}" ${PWLIB.targetSecId===s.id?'selected':''}>${'↳ '.repeat(Math.min(3,s.depth))}📁 ${esc(s.name)}</option>`).join('')}
+          </select>
+        </div>
+      </div>`;
+    }
+    function renderPwLibPackListHtml(){
+      const allPacks=getAllLibraryPacks();
+      const q=String(PWLIB.search||'').trim().toLowerCase();
+      const fCat=String(PWLIB.filterCat||'').trim();
+      const fTier=String(PWLIB.filterTier||'').trim();
+      const itemTierKey=it=>PW_TIERS[it?.tier]?it.tier:'marginal';
+      const itemMatchesTier=it=>!fTier||itemTierKey(it)===fTier;
+      const itemMatchesQuery=it=>{
+        if(!q) return true;
+        const hay=[it?.name,it?.art,it?.req,...(Array.isArray(it?.subcats)?it.subcats:[]),stripHtml(it?.desc||''),stripHtml(it?.effects||'')].join(' ').toLowerCase();
+        return hay.includes(q);
+      };
+      const filteredPacks=allPacks.filter(pk=>{
+        if(fCat&&String(pk.category||'Allgemein')!==fCat) return false;
+        const pws=Array.isArray(pk.powers)?pk.powers:[];
+        const augs=Array.isArray(pk.augments)?pk.augments:[];
+        const secs=Array.isArray(pk.sections)?pk.sections:[];
+        if(fTier&&!pws.some(itemMatchesTier)&&!augs.some(itemMatchesTier)) return false;
+        if(q){
+          const metaHit=[pk.name,pk.category,pk.description].join(' ').toLowerCase().includes(q);
+          const secHit=secs.some(s=>String(s?.name||'').toLowerCase().includes(q));
+          const itHit=pws.some(itemMatchesQuery)||augs.some(itemMatchesQuery);
+          if(!metaHit&&!secHit&&!itHit) return false;
+        }
+        return true;
+      });
+      if(PWLIB.loading&&!allPacks.length){
+        return `<div class="subcard py-8 text-center text-xs t-mut">⏳ Lade Kräfte-Bibliothek vom Server...</div>`;
+      }
+      if(!filteredPacks.length){
+        return `<div class="subcard border-dashed py-7 text-center space-y-2 text-xs t-mut">
+          <div class="font-extrabold text-sm text-acc">${allPacks.length?'Keine Pakete für diesen Filter gefunden.':'Noch keine Pakete in der Server-Bibliothek gefunden.'}</div>
+          <div>${allPacks.length?'Passe Suchbegriff, Kategorie oder Stufe an.':'Klicke oben auf „🔄 Neu laden“ oder importiere eine lokale .json-Datei im zweiten Reiter.'}</div>
+        </div>`;
+      }
+      return filteredPacks.map(pk=>{
+        const secs=Array.isArray(pk.sections)?pk.sections:[];
+        const pws=Array.isArray(pk.powers)?pk.powers:[];
+        const augs=Array.isArray(pk.augments)?pk.augments:[];
+        const isSel=PWLIB.selectedPackId===pk.id;
+        const originBadge=pk._origin==='cloud'
+          ?`<span class="px-1.5 py-0.5 rounded text-[10px] font-black bg-indigo-500/20 text-indigo-300 border border-indigo-400/45 shrink-0">☁️ Cloud</span>`
+          :`<span class="px-1.5 py-0.5 rounded text-[10px] font-black bg-emerald-500/15 text-emerald-300 border border-emerald-400/40 shrink-0">📁 Repo</span>`;
+        let detailHtml='';
+        if(isSel){
+          const secIds=new Set(secs.map(s=>String(s.id||'')));
+          const pwIds=new Set(pws.map(p=>String(p.id||'')));
+          const selSecCnt=Object.keys(PWLIB.selSecIds||{}).filter(k=>PWLIB.selSecIds[k]&&secIds.has(k)).length;
+          const selPwCnt=Object.keys(PWLIB.selPwIds||{}).filter(k=>PWLIB.selPwIds[k]&&pwIds.has(k)).length;
+          const selAugCnt=Object.keys(PWLIB.selAugIds||{}).filter(k=>PWLIB.selAugIds[k]&&augs.some(a=>String(a.id||'')===k)).length;
+          const selTotal=selSecCnt+selPwCnt+selAugCnt;
+          const renderItemRow=(it,isAug,indent=false)=>{
+            if(fTier&&!itemMatchesTier(it)) return '';
+            const id=String(it.id||'');
+            const checked=Boolean(isAug?PWLIB.selAugIds?.[id]:PWLIB.selPwIds?.[id]);
+            const tInfo=PW_TIERS[itemTierKey(it)]||PW_TIERS.marginal;
+            const c=calcPwCost(it);
+            const uCostTxt=formatPwUseCosts(it);
+            const prevTxt=stripHtml(it.desc||it.effects||'').replace(/\s+/g,' ').trim();
+            return `<button type="button" data-action="pwlib-toggle-sel" data-kind="${isAug?'augment':'power'}" data-pack="${esc(pk.id)}" data-id="${esc(id)}" class="w-full text-left p-2 rounded-lg border transition-colors flex flex-wrap items-start justify-between gap-2 min-w-0 ${checked?'bdr-acc bg-acc-soft/25':'bdr-line bg-black/20 hover:border-sky-400/45'} ${indent?'ml-3 sm:ml-5 w-[calc(100%-0.75rem)] sm:w-[calc(100%-1.25rem)] border-amber-500/40':''}">
+              <div class="flex items-start gap-2 min-w-0 flex-1">
+                <span class="text-sm leading-none mt-0.5 shrink-0 ${checked?'text-acc':'t-mut'}">${checked?'☑':'☐'}</span>
+                <div class="min-w-0 flex-1">
+                  <div class="flex flex-wrap items-center gap-1.5 min-w-0">
+                    ${isAug?`<span class="px-1.5 py-0.2 rounded text-[10px] font-black bg-amber-500/20 text-amber-300 border border-amber-400/40 shrink-0">${indent?'↳ Augment':'Augment'}</span>`:''}
+                    <span class="font-extrabold text-xs break-words">${esc(it.name||(isAug?'Unbenanntes Augment':'Unbenannte Kraft'))}</span>
+                    ${it.art?`<span class="text-[10px] t-mut">• ${esc(it.art)}</span>`:''}
+                  </div>
+                  ${prevTxt?`<div class="text-[11px] t-mut truncate mt-0.5">${esc(prevTxt.slice(0,110))}${prevTxt.length>110?'…':''}</div>`:''}
+                </div>
+              </div>
+              <div class="flex flex-wrap items-center gap-1 shrink-0 tabular">
+                <span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-black/30 border bdr-line">${esc(tInfo.l)} (${c.sp} SP${c.msp?`+${c.msp}M`:''})</span>
+                ${uCostTxt?`<span class="px-1.5 py-0.5 rounded text-[10px] font-bold text-acc bg-acc-soft/30 border bdr-acc">⚡ ${esc(uCostTxt)}</span>`:''}
+              </div>
+            </button>`;
+          };
+          const renderPowerWithAugs=p=>{
+            const linked=augs.filter(a=>String(a.parentPowerId||'')===String(p.id||''));
+            const pRow=renderItemRow(p,false,false);
+            const aRows=linked.map(a=>renderItemRow(a,true,true)).filter(Boolean).join('');
+            if(!pRow&&!aRows) return '';
+            return `<div class="space-y-1.5">${pRow}${aRows}</div>`;
+          };
+          const visitedSec=new Set();
+          const renderPackSec=(sec,depth=0)=>{
+            const sid=String(sec.id||'');
+            if(!sid||visitedSec.has(sid)) return '';
+            visitedSec.add(sid);
+            const secPws=pws.filter(p=>String(p.sectionId||'')===sid);
+            const childSecs=secs.filter(s=>String(s.parentSectionId||'')===sid);
+            const pwHtml=secPws.map(renderPowerWithAugs).filter(Boolean).join('');
+            const childHtml=childSecs.map(cs=>renderPackSec(cs,depth+1)).filter(Boolean).join('');
+            if(fTier&&!pwHtml&&!childHtml) return '';
+            const secChecked=Boolean(PWLIB.selSecIds?.[sid]);
+            return `<div class="subcard p-2.5 space-y-2 border bdr-acc/60 ${depth>0?'bg-black/20':''} min-w-0">
+              <div class="flex flex-wrap items-center justify-between gap-2 min-w-0">
+                <button type="button" data-action="pwlib-toggle-sel" data-kind="section" data-pack="${esc(pk.id)}" data-id="${esc(sid)}" class="flex items-center gap-2 min-w-0 flex-1 text-left">
+                  <span class="text-sm leading-none shrink-0 ${secChecked?'text-acc':'t-mut'}">${secChecked?'☑':'☐'}</span>
+                  <span class="font-extrabold text-xs sm:text-sm truncate">${depth>0?'↳ ':''}📁 ${esc(sec.name||'Sektion')}</span>
+                  <span class="pill cursor-default text-[10px] py-0.5 px-1.5 tabular shrink-0">${secPws.length} ${secPws.length===1?'Kraft':'Kräfte'}</span>
+                </button>
+                <button type="button" data-action="pwlib-import-sec" data-pack="${esc(pk.id)}" data-sec="${esc(sid)}" data-tip="Diese Sektion inkl. Untersektionen, Kräften &amp; gebundenen Augmenten importieren" class="btn bg-acc-soft bdr-acc text-acc py-1 px-2.5 text-[11px] shrink-0">📥 Ganze Sektion</button>
+              </div>
+              ${pwHtml?`<div class="space-y-1.5">${pwHtml}</div>`:''}
+              ${childHtml?`<div class="pl-2.5 sm:pl-4 border-l-2 bdr-acc space-y-2 pt-1">${childHtml}</div>`:''}
+            </div>`;
+          };
+          const rootPackSecs=secs.filter(s=>!s.parentSectionId||!secIds.has(String(s.parentSectionId)));
+          const secsHtml=rootPackSecs.map(s=>renderPackSec(s,0)).filter(Boolean).join('');
+          const loosePws=pws.filter(p=>!p.sectionId||!secIds.has(String(p.sectionId)));
+          const loosePwsHtml=loosePws.map(renderPowerWithAugs).filter(Boolean).join('');
+          const looseAugs=augs.filter(a=>!a.parentPowerId||!pwIds.has(String(a.parentPowerId)));
+          const looseAugsHtml=looseAugs.map(a=>renderItemRow(a,true,false)).filter(Boolean).join('');
+          detailHtml=`<div class="pt-2.5 border-t bdr-line space-y-3 min-w-0">
+            ${renderPwLibImportOptsHtml()}
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <button type="button" data-action="pwlib-import-pack" data-id="${esc(pk.id)}" class="btn btn-pri py-1.5 px-3 text-xs">📥 Komplettes Paket importieren</button>
+              <button type="button" data-action="pwlib-import-selected" data-id="${esc(pk.id)}" ${selTotal===0?'disabled':''} class="btn btn-ok py-1.5 px-3 text-xs">📥 Auswahl importieren${selTotal?` (${selTotal})`:''}</button>
+            </div>
+            <div class="space-y-2.5 max-h-[380px] overflow-y-auto pr-1">
+              ${secsHtml}
+              ${loosePwsHtml?`<div class="space-y-1.5">${secs.length?`<div class="text-[11px] font-extrabold t-mut px-1">Kräfte ohne Sektion (${loosePws.length})</div>`:''}${loosePwsHtml}</div>`:''}
+              ${looseAugsHtml?`<div class="space-y-1.5"><div class="text-[11px] font-extrabold text-amber-400 px-1">Ungebundene Augmente (${looseAugs.length})</div>${looseAugsHtml}</div>`:''}
+              ${!secsHtml&&!loosePwsHtml&&!looseAugsHtml?`<div class="text-xs t-mut text-center py-4">Keine Einträge in diesem Paket für die gewählte Stufe.</div>`:''}
+            </div>
+          </div>`;
+        }
+        return `<div class="subcard p-3 space-y-2 min-w-0 transition-colors ${isSel?'border-2 bdr-acc bg-acc-soft/10':'hover:border-sky-400/45'}">
+          <div role="button" tabindex="0" data-action="pwlib-select-pack" data-id="${esc(pk.id)}" class="flex flex-wrap items-start justify-between gap-2 cursor-pointer select-none min-w-0">
+            <div class="flex items-start gap-2 min-w-0 flex-1">
+              <span class="btn w-6 h-6 p-0 text-xs font-black shrink-0 mt-0.5">${isSel?'▾':'▸'}</span>
+              <div class="min-w-0 flex-1">
+                <div class="flex flex-wrap items-center gap-1.5 min-w-0">
+                  <span class="font-black text-sm break-words">${esc(pk.name)}</span>
+                  ${originBadge}
+                  ${pk.isBasisPack?`<span class="px-1.5 py-0.5 rounded text-[10px] font-black bg-amber-500/20 text-amber-300 border border-amber-400/45 shrink-0">⭐ Basisaktionen</span>`:''}
+                  <span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-black/25 border bdr-line t-mut shrink-0">${esc(pk.category||'Allgemein')}</span>
+                </div>
+                ${pk.description?`<p class="text-[11px] t-mut mt-0.5 break-words">${esc(pk.description)}</p>`:''}
+              </div>
+            </div>
+            <div class="flex flex-wrap items-center gap-1.5 shrink-0 tabular">
+              <span class="pill cursor-default text-[10px] py-0.5 px-2">${secs.length} Sekt. • ${pws.length} Kräfte • ${augs.length} Augm.</span>
+              ${pk.updatedAt?`<span class="text-[10px] t-mut hidden sm:inline">${esc(pk.updatedAt)}</span>`:''}
+            </div>
+          </div>
+          ${detailHtml}
+        </div>`;
+      }).join('');
+    }
+    function buildAdminDraftPack(){
+      const srcVal=String(PWLIB.adminSrc||'all');
+      const isSec=srcVal.startsWith('sec:');
+      const secId=isSec?srcVal.slice(4):'';
+      const isBasis=Boolean(PWLIB.adminIsBasis);
+      const packOpts={
+        mode:isSec?'section':'all',
+        sectionId:secId,
+        name:String(PWLIB.adminName||'').trim(),
+        category:String(PWLIB.adminCat||'Allgemein').trim()||'Allgemein',
+        description:String(PWLIB.adminDesc||'').trim(),
+        isBasisPack:isBasis
+      };
+      if(isBasis) packOpts.packId='basisaktionen';
+      return buildPowerExportPack(packOpts);
+    }
+
     function renderModal(fromRenderAll=false){
       const m=$('modalMount');
       syncBodyScrollLock();
@@ -5198,6 +6017,149 @@
           <div class="subcard space-y-3"><div class="flex flex-wrap items-center justify-between gap-2"><h3 class="text-xs font-extrabold text-acc">4. HINTERGRUNDBILD (${esc(scopeLbl)})</h3><div class="flex flex-wrap gap-2"><button type="button" data-action="pick-bg" class="btn btn-pri">🖼 Bild wählen</button>${tgt.bg?`<button type="button" data-action="rm-bg" class="btn btn-err">Entfernen</button>`:''}</div></div>
           ${tgt.bg?`<div class="grid grid-cols-1 sm:grid-cols-12 gap-3 pt-2 border-t bdr-line items-center"><div class="sm:col-span-4"><img src="${tgt.bg}" class="w-full h-24 rounded-lg object-cover border bdr-line"/></div><div class="sm:col-span-8 space-y-2"><div><div class="flex justify-between text-xs font-bold"><span>Schleier</span><span id="bgOvLbl">${tgt.overlay}%</span></div><input id="rngOverlay" type="range" min="0" max="95" value="${tgt.overlay}" class="w-full"/></div><div><div class="flex justify-between text-xs font-bold"><span>Unschärfe</span><span id="bgBlurLbl">${tgt.blur||0} px</span></div><input id="rngBlur" type="range" min="0" max="20" value="${tgt.blur||0}" class="w-full"/></div></div></div>`:''}</div>`,
           `<button type="button" data-action="close-modal" class="btn btn-pri px-6">Fertig</button>`,'max-w-3xl');
+        return;
+      }
+      if(UI.modal==='powerLibrary'){
+        if(!CLOUD.isAdmin&&PWLIB.tab==='admin') PWLIB.tab='server';
+        const curTab=PWLIB.tab||'server';
+        const allPacks=getAllLibraryPacks();
+        const allCats=sortAlpha(allPacks.map(p=>p.category||'Allgemein'));
+        const modalTabs=`<div class="flex flex-wrap items-center gap-1.5 pb-2.5 border-b bdr-line">
+          <button type="button" data-action="pwlib-tab" data-tab="server" class="btn py-1.5 px-3 text-xs ${curTab==='server'?'btn-pri':''}">🌐 Server-Bibliothek <span class="px-1.5 rounded-full text-[10px] bg-black/20 tabular">${allPacks.length}</span></button>
+          <button type="button" data-action="pwlib-tab" data-tab="local" class="btn py-1.5 px-3 text-xs ${curTab==='local'?'btn-pri':''}">📁 Lokale .json-Datei</button>
+          ${CLOUD.isAdmin?`<button type="button" data-action="pwlib-tab" data-tab="admin" class="btn py-1.5 px-3 text-xs ${curTab==='admin'?'!border-amber-400 !bg-amber-500/20 text-amber-300 font-extrabold':'border-amber-400/40 text-amber-300'}">👑 Admin / Veröffentlichen</button>`:''}
+        </div>`;
+        let tabBody='';
+        if(curTab==='server'){
+          tabBody=`<div class="space-y-3 min-w-0">
+            <div class="subcard p-2.5 space-y-2.5 min-w-0">
+              <div class="flex flex-wrap items-center justify-between gap-2 min-w-0">
+                <div class="flex flex-wrap items-center gap-1.5">
+                  <button type="button" data-action="pwlib-reload" ${PWLIB.loading?'disabled':''} class="btn py-1 px-2.5 text-xs">${PWLIB.loading?'⏳ Lädt...':'🔄 Neu laden'}</button>
+                  ${PWLIB.lastLoadedTs?`<span class="text-[11px] t-mut tabular">Stand: ${esc(PWLIB.lastLoadedTs)}</span>`:''}
+                </div>
+                <div class="flex flex-wrap items-center gap-1.5">
+                  <span class="text-[11px] font-extrabold text-acc">🔄 Basisaktionen abrufen:</span>
+                  <button type="button" data-action="pwlib-sync-basis" data-mode="skipExisting" ${PWLIB.loading?'disabled':''} data-tip="Lädt das Basisaktionen-Paket vom Server und ergänzt fehlende Basisaktionen ohne deine bestehenden zu überschreiben" class="btn bg-acc-soft bdr-acc text-acc py-1 px-2 text-xs">Fehlende ergänzen</button>
+                  <button type="button" data-action="pwlib-sync-basis" data-mode="updateExisting" ${PWLIB.loading?'disabled':''} data-tip="Lädt das Basisaktionen-Paket vom Server und aktualisiert Texte &amp; Regeln vorhandener Basisaktionen" class="btn py-1 px-2 text-xs">Texte aktualisieren</button>
+                </div>
+              </div>
+              <div class="grid grid-cols-1 sm:grid-cols-12 gap-2">
+                <div class="sm:col-span-6 min-w-0">
+                  <input id="pwlibSearchInp" data-pwlib-inp="search" type="text" value="${esc(PWLIB.search)}" placeholder="🔍 Pakete, Sektionen, Kräfte oder Augmente suchen..." class="inp w-full min-w-0 text-xs"/>
+                </div>
+                <div class="sm:col-span-3 min-w-0">
+                  <select data-pwlib-sel="filterCat" class="inp w-full min-w-0 text-xs font-semibold">
+                    <option value="" ${!PWLIB.filterCat?'selected':''}>Alle Kategorien</option>
+                    ${allCats.map(c=>`<option value="${esc(c)}" ${PWLIB.filterCat===c?'selected':''}>${esc(c)}</option>`).join('')}
+                  </select>
+                </div>
+                <div class="sm:col-span-3 min-w-0">
+                  <select data-pwlib-sel="filterTier" class="inp w-full min-w-0 text-xs font-semibold">
+                    <option value="" ${!PWLIB.filterTier?'selected':''}>Alle Stufen</option>
+                    ${Object.entries(PW_TIERS).map(([k,t])=>`<option value="${k}" ${PWLIB.filterTier===k?'selected':''}>${esc(t.l)}</option>`).join('')}
+                  </select>
+                </div>
+              </div>
+            </div>
+            ${PWLIB.error?`<div class="p-2.5 rounded-xl border border-amber-500/50 bg-amber-500/10 text-amber-300 text-xs font-semibold">ℹ️ ${esc(PWLIB.error)}</div>`:''}
+            <div id="pwlibPackList" class="space-y-2.5 min-w-0">${renderPwLibPackListHtml()}</div>
+          </div>`;
+        }else if(curTab==='local'){
+          tabBody=`<div class="space-y-3.5 min-w-0">
+            ${renderPwLibImportOptsHtml()}
+            <div class="subcard p-4 space-y-3 border-2 border-dashed bdr-acc bg-acc-soft/15">
+              <div class="space-y-1">
+                <h3 class="text-sm font-extrabold text-acc">📥 Lokale .json-Datei importieren</h3>
+                <p class="text-xs t-mut">Importiere ein exportiertes Kräfte-Paket (<code>.json</code>), eine <code>powers-library.json</code> oder extrahiere direkt alle Kräfte, Augmente &amp; Sektionen aus einem anderen Scherbensturm-Charakterbogen – ohne deinen aktuellen Charakter zu überschreiben.</p>
+              </div>
+              <div class="flex flex-wrap items-center gap-2">
+                <button type="button" data-action="pwlib-pick-file" class="btn btn-pri py-2 px-4 text-xs">📁 .json-Datei auswählen &amp; importieren</button>
+              </div>
+            </div>
+            <div class="subcard p-4 space-y-3">
+              <div class="flex flex-wrap items-center justify-between gap-2">
+                <div class="space-y-0.5 min-w-0 flex-1">
+                  <h3 class="text-sm font-extrabold">📤 Eigene Kräfte als Paket (.json) exportieren</h3>
+                  <p class="text-xs t-mut">Exportiert alle Sektionen (inkl. Verschachtelung), Kräfte &amp; gebundenen Augmente dieses Bogens – perfekt zum Teilen oder für GitHub <code>data/powers-library.json</code>.</p>
+                </div>
+                <span class="pill cursor-default text-[11px] tabular shrink-0">${S.powerSections.length} Sekt. • ${S.powers.length} Kräfte • ${S.augments.length} Augm.</span>
+              </div>
+              <div class="flex flex-wrap items-center gap-2">
+                <button type="button" data-action="export-pw-all" class="btn btn-ok py-2 px-4 text-xs">📤 Alle eigenen Kräfte als Paket (.json) exportieren</button>
+              </div>
+            </div>
+          </div>`;
+        }else if(curTab==='admin'&&CLOUD.isAdmin){
+          const flatSecs=getPwSecOptionsFlat();
+          const cloudPacks=Array.isArray(PWLIB.cloudPacks)?PWLIB.cloudPacks:[];
+          tabBody=`<div class="space-y-4 min-w-0">
+            <div class="subcard p-3.5 space-y-3 border bdr-acc">
+              <div class="flex flex-wrap items-center justify-between gap-2 border-b bdr-line pb-2">
+                <div>
+                  <h3 class="text-sm font-extrabold text-amber-300">👑 Paket aus aktuellem Charakterbogen veröffentlichen</h3>
+                  <p class="text-[11px] t-mut">Stelle alle Kräfte oder eine einzelne Sektion (rekursiv) direkt in die Cloud-Bibliothek oder lade eine fertige <code>powers-library.json</code> für GitHub herunter.</p>
+                </div>
+              </div>
+              <div class="grid grid-cols-1 sm:grid-cols-12 gap-2.5 text-xs">
+                <div class="sm:col-span-6 min-w-0">
+                  <label class="block text-[10px] font-extrabold t-mut uppercase tracking-wider mb-1">Quelle aus diesem Bogen</label>
+                  <select data-pwlib-sel="adminSrc" class="inp w-full min-w-0 text-xs font-semibold">
+                    <option value="all" ${PWLIB.adminSrc==='all'?'selected':''}>Alle Kräfte, Augmente &amp; Sektionen (${S.powerSections.length} Sekt. / ${S.powers.length} Kräfte)</option>
+                    ${flatSecs.map(s=>`<option value="sec:${esc(s.id)}" ${PWLIB.adminSrc==='sec:'+s.id?'selected':''}>${'↳ '.repeat(Math.min(3,s.depth))}📁 Sektion: ${esc(s.name)} (rekursiv)</option>`).join('')}
+                  </select>
+                </div>
+                <div class="sm:col-span-6 min-w-0">
+                  <label class="block text-[10px] font-extrabold t-mut uppercase tracking-wider mb-1">Paketname</label>
+                  <input data-pwlib-inp="adminName" type="text" value="${esc(PWLIB.adminName)}" placeholder="z.B. Basisaktionen oder Kampfmanöver..." class="inp w-full min-w-0 text-xs font-bold"/>
+                </div>
+                <div class="sm:col-span-5 min-w-0">
+                  <label class="block text-[10px] font-extrabold t-mut uppercase tracking-wider mb-1">Kategorie</label>
+                  <input data-pwlib-inp="adminCat" list="pwlibCatHints" type="text" value="${esc(PWLIB.adminCat||'Allgemein')}" placeholder="z.B. Basisaktionen, Kampf, Magie..." class="inp w-full min-w-0 text-xs"/>
+                  <datalist id="pwlibCatHints"><option value="Allgemein"></option><option value="Basisaktionen"></option><option value="Kampf"></option><option value="Magie"></option><option value="Handwerk &amp; Wissen"></option><option value="Spezial"></option></datalist>
+                </div>
+                <div class="sm:col-span-7 min-w-0">
+                  <label class="block text-[10px] font-extrabold t-mut uppercase tracking-wider mb-1">Kurzbeschreibung (optional)</label>
+                  <input data-pwlib-inp="adminDesc" type="text" value="${esc(PWLIB.adminDesc)}" placeholder="Kurze Info zum Inhalt des Pakets..." class="inp w-full min-w-0 text-xs"/>
+                </div>
+              </div>
+              <label class="inline-flex items-center gap-2 text-xs font-bold cursor-pointer select-none">
+                <input data-pwlib-chk="adminIsBasis" type="checkbox" ${PWLIB.adminIsBasis?'checked':''} class="w-4 h-4 accent-amber-400"/>
+                <span>⭐ Als <strong>Basisaktionen-Paket</strong> markieren <span class="t-mut font-normal">(wird über „🔄 Basisaktionen abrufen“ synchronisiert)</span></span>
+              </label>
+              <div class="flex flex-wrap items-center gap-2 pt-1">
+                <button type="button" data-action="pwlib-publish-cloud" ${PWLIB.saving?'disabled':''} class="btn btn-pri py-1.5 px-3.5 text-xs">${PWLIB.saving?'⏳ Speichere...':'☁️ In Cloud-Bibliothek veröffentlichen'}</button>
+                <button type="button" data-action="pwlib-download-repo-json" class="btn btn-ok py-1.5 px-3.5 text-xs">📥 Als powers-library.json für GitHub herunterladen</button>
+              </div>
+            </div>
+            <div class="subcard p-3.5 space-y-2.5">
+              <div class="flex flex-wrap items-center justify-between gap-2">
+                <h3 class="text-sm font-extrabold">☁️ Bestehende Cloud-Pakete (${cloudPacks.length})</h3>
+                <button type="button" data-action="pwlib-reload" ${PWLIB.loading?'disabled':''} class="btn py-1 px-2 text-xs">🔄 Aktualisieren</button>
+              </div>
+              ${cloudPacks.length?`<div class="space-y-2 max-h-64 overflow-y-auto pr-1">${cloudPacks.map(pk=>{
+                const isDelAsk=PWLIB.confirmDelPackId===pk.id;
+                const sc=(pk.sections||[]).length, pc=(pk.powers||[]).length, ac=(pk.augments||[]).length;
+                return `<div class="p-2.5 rounded-lg border bdr-line bg-black/20 flex flex-wrap items-center justify-between gap-2 min-w-0 text-xs">
+                  <div class="min-w-0 flex-1">
+                    <div class="flex flex-wrap items-center gap-1.5 min-w-0">
+                      <span class="font-extrabold break-words">${esc(pk.name)}</span>
+                      ${pk.isBasisPack?`<span class="px-1.5 py-0.2 rounded text-[10px] font-black bg-amber-500/20 text-amber-300 border border-amber-400/40">⭐ Basis</span>`:''}
+                      <span class="text-[10px] t-mut">(${esc(pk.category||'Allgemein')})</span>
+                    </div>
+                    <div class="text-[11px] t-mut tabular">${sc} Sekt. • ${pc} Kräfte • ${ac} Augm.${pk.updatedAt?` • ${esc(pk.updatedAt)}`:''}</div>
+                  </div>
+                  <div class="flex items-center gap-1 shrink-0">
+                    ${isDelAsk
+                      ?`<button type="button" data-action="pwlib-del-cloud" data-id="${esc(pk.id)}" ${PWLIB.saving?'disabled':''} class="btn bg-rose-600 text-white border-rose-600 py-1 px-2 text-[11px] font-black">Löschen? (2/2)</button><button type="button" data-action="pwlib-cancel-del-cloud" class="btn py-1 px-2 text-[11px]">✕</button>`
+                      :`<button type="button" data-action="pwlib-del-cloud" data-id="${esc(pk.id)}" ${PWLIB.saving?'disabled':''} data-tip="Paket aus der Cloud-Bibliothek entfernen" class="btn btn-err py-1 px-2 text-xs">🗑️</button>`}
+                  </div>
+                </div>`;
+              }).join('')}</div>`:`<div class="text-xs t-mut text-center py-4">Derzeit sind noch keine Pakete in der Cloud-Bibliothek gespeichert.</div>`}
+            </div>
+          </div>`;
+        }
+        m.innerHTML=modalShell('📚 Kräfte-Bibliothek, Import &amp; Export','Pakete vom Server laden, lokale .json-Dateien importieren oder eigene Kräfte teilen.',`${modalTabs}${tabBody}`,`<button type="button" data-action="close-modal" class="btn btn-pri px-6">Schließen</button>`,'max-w-4xl');
         return;
       }
       if(UI.modal==='info'){
@@ -6791,16 +7753,18 @@
           initLiveDiceChannel(); renderAll(false); fetchLobbyList(true);
           toast('🏠 Charakterbogen geschlossen – du bist in der Lobby.');
           break;
-        case 'open-local-sheet':
+        case 'open-local-sheet': {
           CLOUD.viewingRemote=false; CLOUD.remoteCharId='';
-          load();
+          const hadLocal=load();
           if(CLOUD.currentUser&&!S.owner) S.owner=CLOUD.currentUser;
           if(!S.campaignId) S.campaignId=CLOUD.activeCampaignId||'default';
           UI.inLobby=false; UI.sheetLoaded=true; UI.modal=null;
           try{window.history.replaceState({},'',S.charId?`${window.location.pathname}?char=${encodeURIComponent(S.charId)}`:window.location.pathname);}catch(e){}
           renderAll();
           toast(`🛠️ Lokaler Charakterbogen „${S.profile.name||'Charakter'}“ geöffnet!`);
+          if(!hadLocal&&!S.powers.length&&!S.powerSections.length) fetchAndSyncBasisPowers('skipExisting',{silent:true}).catch(()=>{});
           break;
+        }
         case 'copy-char-link': {
           const id=el.dataset.id||'';
           const url=`${window.location.origin&&window.location.origin!=='null'?window.location.origin+window.location.pathname:''}?char=${encodeURIComponent(id)}`;
@@ -7145,15 +8109,172 @@
         case 'rm-bg': getEditStyleSlot().bg=''; if(UI.inLobby||S.appearance.editScope==='lobby')saveLobbyStyleLocal(); applyTheme(); renderModal(); save(); break;
         case 'export-json': {const nm=(S.profile.name||'Scherbensturm_Charakter').replace(/[^a-zA-Z0-9äöüÄÖÜß_-]/g,'_'),a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(S,null,2)],{type:'application/json'}));a.download=`${nm}_Stufe${S.progression.level}.json`;a.click();URL.revokeObjectURL(a.href);toast('Charakterbogen exportiert (.json)');break;}
         case 'import-json': $('fileImport').click(); break;
+        case 'open-pw-library': {
+          UI.modal='powerLibrary';
+          PWLIB.confirmDelPackId='';
+          if(!CLOUD.isAdmin&&PWLIB.tab==='admin') PWLIB.tab='server';
+          renderModal();
+          fetchPowerLibrary(false);
+          break;
+        }
+        case 'pwlib-tab': {
+          const nextTab=String(el.dataset.tab||'server');
+          PWLIB.tab=(nextTab==='admin'&&!CLOUD.isAdmin)?'server':nextTab;
+          PWLIB.confirmDelPackId='';
+          renderModal();
+          break;
+        }
+        case 'pwlib-reload': {
+          await fetchPowerLibrary(true);
+          toast(PWLIB.error?`⚠️ ${PWLIB.error}`:`🔄 Bibliothek aktualisiert (${getAllLibraryPacks().length} Pakete)`);
+          break;
+        }
+        case 'pwlib-sync-basis': {
+          const mode=el.dataset.mode==='updateExisting'?'updateExisting':'skipExisting';
+          await fetchAndSyncBasisPowers(mode);
+          if(UI.modal==='powerLibrary') renderModal();
+          break;
+        }
+        case 'pwlib-select-pack': {
+          const pid=String(el.dataset.id||'');
+          if(PWLIB.selectedPackId===pid){
+            PWLIB.selectedPackId='';
+          }else{
+            PWLIB.selectedPackId=pid;
+            PWLIB.selSecIds={}; PWLIB.selPwIds={}; PWLIB.selAugIds={};
+          }
+          renderModal();
+          break;
+        }
+        case 'pwlib-toggle-sel': {
+          const kind=el.dataset.kind||'', id=String(el.dataset.id||''), packId=String(el.dataset.pack||PWLIB.selectedPackId||'');
+          const pk=getAllLibraryPacks().find(p=>p.id===packId);
+          if(!pk||!id) break;
+          if(kind==='section'){
+            const next=!Boolean(PWLIB.selSecIds[id]);
+            const secs=Array.isArray(pk.sections)?pk.sections:[];
+            const pws=Array.isArray(pk.powers)?pk.powers:[];
+            const augs=Array.isArray(pk.augments)?pk.augments:[];
+            const secIdSet=new Set([id]), queue=[id];
+            while(queue.length){
+              const cur=queue.shift();
+              secs.forEach(s=>{if(s&&String(s.parentSectionId||'')===cur&&!secIdSet.has(String(s.id||''))){secIdSet.add(String(s.id));queue.push(String(s.id));}});
+            }
+            secIdSet.forEach(sid=>{if(next)PWLIB.selSecIds[sid]=true;else delete PWLIB.selSecIds[sid];});
+            const pwIdSet=new Set();
+            pws.forEach(p=>{if(p&&secIdSet.has(String(p.sectionId||''))){const pid=String(p.id||'');pwIdSet.add(pid);if(next)PWLIB.selPwIds[pid]=true;else delete PWLIB.selPwIds[pid];}});
+            augs.forEach(a=>{if(a&&pwIdSet.has(String(a.parentPowerId||''))){const aid=String(a.id||'');if(next)PWLIB.selAugIds[aid]=true;else delete PWLIB.selAugIds[aid];}});
+          }else if(kind==='power'){
+            const next=!Boolean(PWLIB.selPwIds[id]);
+            if(next) PWLIB.selPwIds[id]=true; else delete PWLIB.selPwIds[id];
+            (pk.augments||[]).forEach(a=>{if(a&&String(a.parentPowerId||'')===id){const aid=String(a.id||'');if(next)PWLIB.selAugIds[aid]=true;else delete PWLIB.selAugIds[aid];}});
+          }else if(kind==='augment'){
+            if(PWLIB.selAugIds[id]) delete PWLIB.selAugIds[id]; else PWLIB.selAugIds[id]=true;
+          }
+          renderModal();
+          break;
+        }
+        case 'pwlib-import-pack': {
+          const pid=String(el.dataset.id||PWLIB.selectedPackId||'');
+          const pk=getAllLibraryPacks().find(p=>p.id===pid);
+          if(!pk){toast('⚠️ Paket nicht gefunden.');break;}
+          const res=importPowerPackIntoSheet(pk,{targetSectionId:PWLIB.targetSecId,dedupeMode:PWLIB.dedupeMode});
+          toast(formatPwLibImportToast(res,pk.name));
+          break;
+        }
+        case 'pwlib-import-sec': {
+          const pid=String(el.dataset.pack||PWLIB.selectedPackId||''), secId=String(el.dataset.sec||'');
+          const pk=getAllLibraryPacks().find(p=>p.id===pid);
+          if(!pk||!secId){toast('⚠️ Sektion nicht gefunden.');break;}
+          const secObj=(pk.sections||[]).find(s=>String(s.id||'')===secId);
+          const res=importPowerPackIntoSheet(pk,{targetSectionId:PWLIB.targetSecId,dedupeMode:PWLIB.dedupeMode,onlySectionIds:[secId]});
+          toast(formatPwLibImportToast(res,secObj?.name||pk.name));
+          break;
+        }
+        case 'pwlib-import-selected': {
+          const pid=String(el.dataset.id||PWLIB.selectedPackId||'');
+          const pk=getAllLibraryPacks().find(p=>p.id===pid);
+          if(!pk){toast('⚠️ Paket nicht gefunden.');break;}
+          const onlySectionIds=Object.keys(PWLIB.selSecIds||{}).filter(k=>PWLIB.selSecIds[k]);
+          const onlyPowerIds=Object.keys(PWLIB.selPwIds||{}).filter(k=>PWLIB.selPwIds[k]);
+          const onlyAugmentIds=Object.keys(PWLIB.selAugIds||{}).filter(k=>PWLIB.selAugIds[k]);
+          if(!onlySectionIds.length&&!onlyPowerIds.length&&!onlyAugmentIds.length){toast('ℹ️ Bitte zuerst mindestens eine Sektion, Kraft oder ein Augment auswählen.');break;}
+          const res=importPowerPackIntoSheet(pk,{targetSectionId:PWLIB.targetSecId,dedupeMode:PWLIB.dedupeMode,onlySectionIds,onlyPowerIds,onlyAugmentIds});
+          toast(formatPwLibImportToast(res,`${pk.name} (Auswahl)`));
+          break;
+        }
+        case 'pwlib-publish-cloud': {
+          if(!CLOUD.isAdmin){toast('🔒 Nur der Admin kann hier Pakete veröffentlichen.');break;}
+          const pack=buildAdminDraftPack();
+          if(!pack.sections.length&&!pack.powers.length&&!pack.augments.length){toast('⚠️ Die gewählte Quelle enthält keine Sektionen, Kräfte oder Augmente.');break;}
+          await publishPackToCloudLibrary(pack);
+          break;
+        }
+        case 'pwlib-download-repo-json': {
+          if(!CLOUD.isAdmin){toast('🔒 Nur für Admins verfügbar.');break;}
+          const newPack=stripLibraryPackMeta(buildAdminDraftPack());
+          if(!newPack.sections.length&&!newPack.powers.length&&!newPack.augments.length){toast('⚠️ Die gewählte Quelle enthält keine Sektionen, Kräfte oder Augmente.');break;}
+          const existing=(PWLIB.repoPacks||[]).map(stripLibraryPackMeta);
+          const idx=existing.findIndex(p=>p&&(p.id===newPack.id||(newPack.isBasisPack&&p.isBasisPack)));
+          if(idx>=0) existing[idx]=newPack; else existing.push(newPack);
+          const repoPayload={schema:'scherbensturm_power_library_v1',updatedAt:stamp(),packs:existing};
+          downloadPowerPackJson(repoPayload,'powers-library');
+          toast(`📥 powers-library.json mit „${newPack.name}“ heruntergeladen!`);
+          break;
+        }
+        case 'pwlib-del-cloud': {
+          if(!CLOUD.isAdmin) break;
+          const pid=String(el.dataset.id||'');
+          if(!pid) break;
+          if(PWLIB.confirmDelPackId===pid){
+            PWLIB.confirmDelPackId='';
+            await deletePackFromCloudLibrary(pid);
+          }else{
+            PWLIB.confirmDelPackId=pid;
+            renderModal();
+          }
+          break;
+        }
+        case 'pwlib-cancel-del-cloud': PWLIB.confirmDelPackId=''; renderModal(); break;
+        case 'export-pw-all': {
+          const pack=buildPowerExportPack({mode:'all'});
+          if(!pack.sections.length&&!pack.powers.length&&!pack.augments.length){toast('ℹ️ Keine Kräfte, Augmente oder Sektionen zum Exportieren vorhanden.');break;}
+          downloadPowerPackJson(pack);
+          toast(`📤 Paket „${pack.name}“ (${pack.powers.length} Kräfte, ${pack.augments.length} Augm.) exportiert!`);
+          break;
+        }
+        case 'export-pw-sec': {
+          const secId=String(el.dataset.id||'');
+          const pack=buildPowerExportPack({mode:'section',sectionId:secId});
+          if(!pack.sections.length){toast('⚠️ Sektion nicht gefunden.');break;}
+          downloadPowerPackJson(pack);
+          toast(`📤 Sektion „${pack.name}“ (${pack.sections.length} Sekt., ${pack.powers.length} Kräfte, ${pack.augments.length} Augm.) exportiert!`);
+          break;
+        }
+        case 'export-pw-item': {
+          const kind=el.dataset.kind==='augment'?'augment':'power', id=String(el.dataset.id||'');
+          const pack=buildPowerExportPack({mode:'item',kind,id});
+          if(!pack.powers.length&&!pack.augments.length){toast('⚠️ Eintrag nicht gefunden.');break;}
+          downloadPowerPackJson(pack);
+          toast(`📤 ${kind==='augment'?'Augment':'Kraft'} „${pack.name}“ exportiert!`);
+          break;
+        }
+        case 'pwlib-pick-file': $('filePwImport')?.click(); break;
         case 'new-sheet-ask': UI.confirmNew=true; renderModal(); break;
         case 'new-sheet-no': UI.confirmNew=false; renderModal(); break;
-        case 'new-sheet-yes': CLOUD.viewingRemote=false; CLOUD.remoteCharId=''; S=defaultState(); UI.inLobby=false; UI.sheetLoaded=true; UI.modal=null; UI.confirmNew=false; renderAll(); toast('Neuer Charakterbogen geladen'); break;
+        case 'new-sheet-yes': CLOUD.viewingRemote=false; CLOUD.remoteCharId=''; S=defaultState(); UI.inLobby=false; UI.sheetLoaded=true; UI.modal=null; UI.confirmNew=false; renderAll(); toast('Neuer Charakterbogen geladen'); fetchAndSyncBasisPowers('skipExisting',{silent:true}).catch(()=>{}); break;
       }
     });
 
     document.addEventListener('focusin',e=>{if(e.target.dataset?.cres==='name') e.target.dataset.prevCres=cresName();if(e.target.dataset?.exsec?.endsWith(':name')){const id=e.target.dataset.exsec.split(':')[0],ex=(S.extraSecList||[]).find(x=>x.id===id);if(ex)e.target.dataset.prevExName=getExtraSecName(ex);}if(e.target.dataset?.sk?.endsWith(':name')){const id=e.target.dataset.sk.split(':')[0],sk=S.skills.find(x=>x.id===id);if(sk)e.target.dataset.prevSkName=String(sk.name||'').trim();}});
 
     document.addEventListener('input',e=>{
+      if(e.target?.dataset?.pwlibInp){
+        const f=e.target.dataset.pwlibInp;
+        PWLIB[f]=e.target.value;
+        if(f==='search'){const listEl=$('pwlibPackList');if(listEl)listEl.innerHTML=renderPwLibPackListHtml();}
+        return;
+      }
       if(e.target?.id==='inpNewCharName'){CLOUD.newCharName=e.target.value;return;}
       if(e.target?.id==='inpNewCharAncestry'){CLOUD.newCharAncestry=e.target.value;return;}
       if(e.target?.id==='inpNewCharConcept'){CLOUD.newCharConcept=e.target.value;return;}
@@ -7881,6 +9002,49 @@
           renderMain();save();toast('Aussehen-Bild importiert');
         });
         el.value='';return;
+      }
+      if(el.dataset.pwlibSel){
+        const f=el.dataset.pwlibSel;
+        PWLIB[f]=el.value;
+        if(f==='adminSrc'){
+          if(el.value.startsWith('sec:')){
+            const sObj=(S.powerSections||[]).find(s=>s.id===el.value.slice(4));
+            if(sObj&&!String(PWLIB.adminName||'').trim()) PWLIB.adminName=String(sObj.name||'').trim();
+          }
+        }
+        if(UI.modal==='powerLibrary') renderModal();
+        return;
+      }
+      if(el.dataset.pwlibChk==='adminIsBasis'){
+        PWLIB.adminIsBasis=Boolean(el.checked);
+        return;
+      }
+      if(el.id==='filePwImport'&&el.files[0]){
+        const file=el.files[0];
+        const r=new FileReader();
+        r.onload=ev=>{
+          try{
+            const parsed=JSON.parse(ev.target.result);
+            const valid=parsed&&typeof parsed==='object'&&(
+              parsed.schema===POWER_PACK_SCHEMA||
+              Array.isArray(parsed.packs)||
+              Array.isArray(parsed.sections)||
+              Array.isArray(parsed.powerSections)||
+              Array.isArray(parsed.powers)||
+              Array.isArray(parsed.augments)
+            );
+            if(!valid){toast('⚠️ Ungültige Datei: Keine Kräfte, Augmente oder Sektionen gefunden.');return;}
+            const res=importPowerPackIntoSheet(parsed,{targetSectionId:PWLIB.targetSecId,dedupeMode:PWLIB.dedupeMode});
+            const lbl=String(parsed.name||parsed.profile?.name||file.name.replace(/\.json$/i,'')).trim();
+            toast(formatPwLibImportToast(res,lbl));
+            if(UI.modal==='powerLibrary') renderModal();
+          }catch(err){
+            toast('⚠️ Ungültige JSON-Datei.');
+          }
+        };
+        r.readAsText(file);
+        el.value='';
+        return;
       }
       if(el.id==='fileImport'&&el.files[0]){const r=new FileReader();r.onload=ev=>{try{mergeLoaded(JSON.parse(ev.target.result)); UI.inLobby=false; UI.sheetLoaded=true; UI.modal=null; renderAll();toast('Charakterbogen importiert!');}catch(err){toast('Ungültige JSON-Datei.');}};r.readAsText(el.files[0]);el.value='';}
     });
@@ -8760,7 +9924,7 @@
       },120);
     });
 
-    load();
+    const hadLocalSheet=load();
     initLiveDiceChannel();
     const params=new URLSearchParams(window.location.search);
     const reqCharId=(params.get('char')||'').trim();
@@ -8775,6 +9939,7 @@
       UI.inLobby=false; UI.sheetLoaded=true; UI.modal=null;
       renderAll(false);
       fetchLobbyList(true);
+      if(!hadLocalSheet&&!S.powers.length&&!S.powerSections.length) fetchAndSyncBasisPowers('skipExisting',{silent:true}).catch(()=>{});
     }else{
       UI.inLobby=true; UI.sheetLoaded=false; UI.modal=null;
       renderAll(false);
