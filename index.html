@@ -57,11 +57,6 @@
     input[type="color"]{-webkit-appearance:none;appearance:none;border:none;padding:0;background:transparent;cursor:pointer}
     input[type="color"]::-webkit-color-swatch-wrapper{padding:0}input[type="color"]::-webkit-color-swatch{border:1px solid var(--bdr);border-radius:8px}
     input[type="range"]{accent-color:var(--acc)}::-webkit-scrollbar{width:6px;height:6px}::-webkit-scrollbar-thumb{background:rgba(148,163,184,.38);border-radius:99px}
-    .book-card{position:relative;background:linear-gradient(145deg,var(--surf),var(--surf2));border:1px solid color-mix(in srgb,var(--acc) 32%,var(--bdr));border-radius:1rem;box-shadow:0 12px 32px rgba(0,0,0,.24),inset 0 1px 0 rgba(255,255,255,.06)}
-    .book-spine{position:relative;padding-left:.85rem}
-    .book-spine::before{content:'';position:absolute;left:0;top:0;bottom:0;width:.75rem;background:linear-gradient(90deg,color-mix(in srgb,var(--acc) 28%,var(--surf2)),color-mix(in srgb,var(--acc2) 12%,transparent));border-right:3px double color-mix(in srgb,var(--acc) 48%,var(--bdr));border-radius:.95rem 0 0 .95rem;pointer-events:none;z-index:2}
-    .book-page-area{background:color-mix(in srgb,var(--surf2) 86%,var(--bg))!important;border:1px solid color-mix(in srgb,var(--acc) 26%,var(--bdr))!important;border-left:3px solid color-mix(in srgb,var(--acc) 45%,var(--bdr))!important;border-radius:.75rem!important;box-shadow:inset 0 2px 9px rgba(0,0,0,.18),inset 6px 0 12px rgba(0,0,0,.07)!important;padding:.85rem 1rem!important;line-height:1.65!important}
-    .book-page-area:focus{border-color:var(--acc)!important;box-shadow:inset 0 2px 9px rgba(0,0,0,.15),0 0 0 2px var(--accS)!important}
     .win-drag-hdr{cursor:move;user-select:none}
     .win-resize-h{position:absolute;right:2px;bottom:2px;width:18px;height:18px;cursor:nwse-resize;display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--accT);opacity:.75;z-index:20;user-select:none}
     .win-resize-w{position:absolute;left:0;top:0;bottom:0;width:6px;cursor:ew-resize;z-index:20}
@@ -4440,6 +4435,118 @@
             </div>
           `):''}
 
+          ${CLOUD.error?`<div class="subcard border-amber-500/45 bg-amber-500/10 space-y-2 text-xs">
+            <div class="font-extrabold text-amber-400">ℹ️ Hinweis zur Server-Verbindung</div>
+            <p class="t-mut">${esc(CLOUD.error)}</p>
+            <div class="pt-1 flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+              <span class="text-[11px] font-bold t-mut shrink-0">Netlify-URL (falls lokal geöffnet):</span>
+              <input id="inpCloudServerUrl" type="text" value="${esc(CLOUD.serverUrl)}" placeholder="https://dein-projektname.netlify.app (leer lassen, wenn direkt auf Netlify geöffnet)" class="inp flex-1 text-xs"/>
+              <button type="button" data-action="save-cloud-url" class="btn btn-pri py-1 px-3 text-xs shrink-0">Verbinden</button>
+            </div>
+          </div>`:''}
+
+          <!-- 3-Spalten-Charakter-Galerie ohne Höhenbegrenzung -->
+          ${CLOUD.loading?`<div class="subcard py-12 text-center text-sm t-mut">⏳ Lade Charakterbögen aus der Lobby...</div>`
+          :visibleList.length?`<div data-lobby-char-grid="1" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+            ${visibleList.map(ch=>{
+              const isOpenSheet=Boolean(UI.sheetLoaded&&ch.id===myId);
+              const isViewing=Boolean(CLOUD.viewingRemote&&CLOUD.remoteCharId===ch.id);
+              const isDelAsk=CLOUD.confirmDelCloudId===ch.id;
+              const owner=getCharOwner(ch.id);
+              const isMyClaim=Boolean(owner&&CLOUD.currentUser&&owner.toLowerCase()===CLOUD.currentUser.toLowerCase());
+              const charCampId=getCharCampaignId(ch.id);
+              const isCampGM = charCampId !== 'default' && canManageCampaign(charCampId);
+              const canManageThisChar = CLOUD.isAdmin || isMyClaim || isCampGM;
+              const campOptsList=CLOUD.isAdmin?allCampaigns:creatableCamps;
+              return `<div class="card p-3.5 sm:p-5 flex flex-col justify-between gap-4 hover:border-sky-400/60 transition-all min-w-0 ${isViewing?'border-sky-400 bg-sky-500/10':isMyClaim||isOpenSheet?'bdr-acc bg-acc-soft/30':''}">
+                <!-- Oben: Portrait, Name, Volk & Konzept, Badges -->
+                <div class="flex items-start gap-3 sm:gap-3.5 min-w-0">
+                  <div class="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl overflow-hidden border-2 bdr-acc bg-black/30 shrink-0 flex items-center justify-center shadow-md">
+                    ${ch.avatar?`<img src="${ch.avatar}" class="w-full h-full object-cover"/>`:`<span class="text-xs font-black text-acc text-center leading-tight">HELD</span>`}
+                  </div>
+                  <div class="min-w-0 flex-1 space-y-1">
+                    <div class="flex flex-wrap items-center gap-1.5 min-w-0">
+                      <span class="text-base sm:text-lg font-black truncate max-w-full">${esc(ch.name||'Unbenannt')}</span>
+                    </div>
+                    <div class="text-xs t-mut truncate">${esc(ch.ancestry||'Volk')} • ${esc(ch.concept||'Konzept')}</div>
+                    <div class="flex flex-wrap items-center gap-1.5 pt-0.5">
+                      <span class="px-2 py-0.5 rounded-md text-[11px] font-black bg-acc-soft text-acc border bdr-acc tabular">Stufe ${ch.level||1}</span>
+                      ${owner?`<span class="px-2 py-0.5 rounded-md text-[11px] font-black ${isMyClaim?'bg-emerald-500/25 text-emerald-300 border border-emerald-400/50':'bg-indigo-500/20 text-indigo-300 border border-indigo-400/40'}">👤 ${esc(owner)}</span>`:`<span class="px-2 py-0.5 rounded-md text-[11px] font-semibold bg-black/25 t-mut">⚪ Frei</span>`}
+                      ${isOpenSheet?`<span class="px-2 py-0.5 rounded-md text-[11px] font-black bg-emerald-500/25 text-emerald-300 border border-emerald-400/60">Geöffnet</span>`:''}
+                      ${isViewing&&!isOpenSheet?`<span class="px-2 py-0.5 rounded-md text-[11px] font-black bg-sky-500/25 text-sky-300 border border-sky-400/60">👁️ Offen</span>`:''}
+                    </div>
+                    ${ch.updatedAt?`<div class="text-[10px] t-mut opacity-75 tabular">Stand: ${esc(ch.updatedAt)}</div>`:''}
+                  </div>
+                </div>
+
+                <!-- Mitte: 5 übersichtliche Stat-Boxen -->
+                <div class="grid grid-cols-3 min-[420px]:grid-cols-5 gap-1.5 sm:gap-2 text-center text-xs tabular">
+                  <div class="subcard p-1.5 sm:p-2 border bdr-line bg-black/25 min-w-0">
+                    <span class="block text-[10px] font-extrabold text-rose-400">LP</span>
+                    <strong class="text-xs sm:text-sm font-black">${ch.lpCurrent??8}/${ch.lpMax??8}</strong>
+                  </div>
+                  <div class="subcard p-1.5 sm:p-2 border bdr-line bg-black/25 min-w-0">
+                    <span class="block text-[10px] font-extrabold text-indigo-400">mLP</span>
+                    <strong class="text-xs sm:text-sm font-black">${ch.mlpCurrent??8}/${ch.mlpMax??8}</strong>
+                  </div>
+                  <div class="subcard p-1.5 sm:p-2 border bdr-line bg-black/25 min-w-0">
+                    <span class="block text-[10px] font-extrabold text-yellow-300">AP</span>
+                    <strong class="text-xs sm:text-sm font-black">${ch.apCurrent??3}/${ch.apMax??3}</strong>
+                  </div>
+                  <div class="subcard p-1.5 sm:p-2 border bdr-line bg-black/25 min-w-0">
+                    <span class="block text-[10px] font-extrabold text-sky-400">mAP</span>
+                    <strong class="text-xs sm:text-sm font-black">${ch.mapCurrent??3}/${ch.mapMax??3}</strong>
+                  </div>
+                  <div class="subcard p-1.5 sm:p-2 border bdr-line bg-black/25 min-w-0">
+                    <span class="block text-[10px] font-extrabold text-amber-400">Ini</span>
+                    <strong class="text-xs sm:text-sm font-black">${(ch.ini??0)>=0?'+'+(ch.ini??0):(ch.ini??0)}</strong>
+                  </div>
+                </div>
+
+                <!-- Kampagnen-Zuordnungs-Zeile (für Admin oder Besitzer isMyClaim) -->
+                ${(canManageThisChar)?`<div class="space-y-1.5 p-2.5 rounded-xl bg-black/25 border bdr-line text-xs">
+                  <div class="flex flex-wrap sm:flex-nowrap items-center justify-between gap-1.5 sm:gap-2">
+                    <span class="font-extrabold t-mut shrink-0">🗺️ Kampagne:</span>
+                    <select data-admin-camp-char="${esc(ch.id)}" class="inp !py-1 !px-2 text-xs font-bold flex-1 min-w-0 w-full sm:w-auto">
+                      ${campOptsList.map(c=>`<option value="${esc(c.id)}" ${charCampId===c.id?'selected':''}>${c.id==='default'?'🌐 Ohne Kampagne / Allgemein':`📁 ${esc(c.name||'Kampagne')}`}</option>`).join('')}
+                    </select>
+                  </div>
+                  ${CLOUD.isAdmin?`<div class="flex flex-wrap sm:flex-nowrap items-center justify-between gap-1.5 sm:gap-2 pt-1.5 border-t border-white/10">
+                    <span class="font-extrabold text-amber-300 shrink-0">👑 Besitzer:</span>
+                    <select data-admin-assign="${esc(ch.id)}" class="inp !py-1 !px-2 text-xs font-bold flex-1 min-w-0 w-full sm:w-auto">
+                      <option value="" ${!owner?'selected':''}>— Frei (Unbeansprucht) —</option>
+                      ${[...new Set([...knownUsers,...(owner?[owner]:[])])].map(u=>`<option value="${esc(u)}" ${owner===u?'selected':''}>👤 ${esc(u)}</option>`).join('')}
+                    </select>
+                  </div>`:''}
+                </div>`:''}
+
+                <!-- Unten: Große, klar getrennte Aktionsbuttons -->
+                <div class="space-y-2 pt-1 border-t bdr-line">
+                  <div class="flex flex-wrap items-center gap-2">
+                    <button type="button" data-action="cloud-view-char" data-id="${esc(ch.id)}" class="btn min-h-[40px] py-2 px-3 text-xs font-extrabold flex-1 min-w-[115px]">👁️ Ansehen</button>
+                    <button type="button" data-action="cloud-edit-char" data-id="${esc(ch.id)}" class="btn btn-pri min-h-[40px] py-2 px-3 text-xs font-black flex-1 min-w-[125px]">✏️ Bogen öffnen</button>
+                    <button type="button" data-action="copy-char-link" data-id="${esc(ch.id)}" data-tip="Direktlink zu diesem Charakterbogen kopieren (?char=${esc(ch.id)})" class="btn min-h-[40px] min-w-[40px] py-2 px-2.5 text-xs shrink-0">🔗</button>
+                  </div>
+                  <div class="flex flex-wrap items-center justify-between gap-1.5">
+                    <div class="flex flex-wrap items-center gap-1.5">
+                      ${CLOUD.currentUser&&!owner?`<button type="button" data-action="claim-char" data-id="${esc(ch.id)}" data-tip="Diesen Charakter deinem Account (${esc(CLOUD.currentUser)}) zuordnen" class="btn min-h-[36px] py-1.5 px-2.5 text-[11px] border-indigo-400/50 text-indigo-300">🙋‍♂️ Beanspruchen</button>`:''}
+                      ${isMyClaim&&!CLOUD.isAdmin?`<button type="button" data-action="unclaim-char" data-id="${esc(ch.id)}" data-tip="Zuordnung zu deinem Account aufheben" class="btn min-h-[36px] py-1.5 px-2.5 text-[11px] opacity-80">🔓 Freigeben</button>`:''}
+                    </div>
+                    <div class="flex flex-wrap items-center gap-1.5">
+                      ${isCampGM || (CLOUD.isAdmin && charCampId !== 'default') ? `<button type="button" data-action="kick-char-camp" data-id="${esc(ch.id)}" data-tip="Wirft diesen Charakter aus der Kampagne zurück in „Ohne Kampagne / Allgemein“" class="btn btn-err min-h-[36px] py-1.5 px-2.5 text-[11px] font-bold">🚪 Aus Kampagne werfen</button>` : ''}${canManageThisChar ? `<button type="button" data-action="dup-char-sheet" data-id="${esc(ch.id)}" data-tip="Erstellt eine eigenständige Kopie dieses Charakterbogens (ein Bogen kann immer nur in einer Kampagne gleichzeitig sein)" class="btn min-h-[36px] py-1.5 px-2.5 text-[11px]">📋 Kopie</button>` : ''}${(canManageThisChar)?(isDelAsk?`<div class="inline-flex items-center gap-1"><button type="button" data-action="cloud-del-yes" data-id="${esc(ch.id)}" class="btn bg-rose-600 text-white border-rose-600 min-h-[36px] py-1.5 px-2.5 text-[11px] font-black">Löschen? (2/2)</button><button type="button" data-action="cloud-del-no" class="btn min-h-[36px] py-1.5 px-2 text-[11px]">✕</button></div>`:`<button type="button" data-action="cloud-del-ask" data-id="${esc(ch.id)}" data-tip="Charakter aus der Lobby löschen" class="btn btn-err min-h-[36px] min-w-[36px] py-1.5 px-2.5 text-xs">🗑️</button>`):''}
+                    </div>
+                  </div>
+                </div>
+              </div>`;
+            }).join('')}
+          </div>`
+          :`<div class="subcard border-dashed py-12 px-4 text-center space-y-3">
+            <div class="text-sm sm:text-base font-extrabold t-mut">${CLOUD.filterMine?'Du hast in dieser Kampagne noch keinen eigenen Charakterbogen.':'In dieser Kampagne liegen aktuell noch keine Charakterbögen.'}</div>
+            ${CLOUD.currentUser
+              ?`<div><button type="button" data-action="lobby-new-sheet" class="btn btn-ok py-2.5 px-5 text-xs sm:text-sm font-black shadow-lg">✨ + Charakter in dieser Kampagne erstellen</button></div>`
+              :`<div class="text-xs t-mut">Melde dich oben in der Willkommens-Zentrale an, um einen neuen Charakterbogen zu erstellen.</div>`}
+          </div>`}
+
           ${canReadPublicNotes?`
             <div class="subcard p-3 sm:p-4 space-y-3.5 border-2 bdr-acc bg-acc-soft/20">
               <div class="flex flex-wrap items-center justify-between gap-2 ${CLOUD.publicNotesOpen?'border-b bdr-line pb-2.5':''}">
@@ -4567,118 +4674,6 @@
               `:`<div class="subcard border-dashed py-6 text-center text-xs t-mut">In dieser Kampagne befinden sich noch keine Charaktere. Sobald Charaktere zugeordnet sind, werden deren „🌐 Öffentlich“-Kampagnennotizen hier als gemeinsames Dokument zusammengeführt.</div>`):''}
             </div>
           `:''}
-
-          ${CLOUD.error?`<div class="subcard border-amber-500/45 bg-amber-500/10 space-y-2 text-xs">
-            <div class="font-extrabold text-amber-400">ℹ️ Hinweis zur Server-Verbindung</div>
-            <p class="t-mut">${esc(CLOUD.error)}</p>
-            <div class="pt-1 flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-              <span class="text-[11px] font-bold t-mut shrink-0">Netlify-URL (falls lokal geöffnet):</span>
-              <input id="inpCloudServerUrl" type="text" value="${esc(CLOUD.serverUrl)}" placeholder="https://dein-projektname.netlify.app (leer lassen, wenn direkt auf Netlify geöffnet)" class="inp flex-1 text-xs"/>
-              <button type="button" data-action="save-cloud-url" class="btn btn-pri py-1 px-3 text-xs shrink-0">Verbinden</button>
-            </div>
-          </div>`:''}
-
-          <!-- 3-Spalten-Charakter-Galerie ohne Höhenbegrenzung -->
-          ${CLOUD.loading?`<div class="subcard py-12 text-center text-sm t-mut">⏳ Lade Charakterbögen aus der Lobby...</div>`
-          :visibleList.length?`<div data-lobby-char-grid="1" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
-            ${visibleList.map(ch=>{
-              const isOpenSheet=Boolean(UI.sheetLoaded&&ch.id===myId);
-              const isViewing=Boolean(CLOUD.viewingRemote&&CLOUD.remoteCharId===ch.id);
-              const isDelAsk=CLOUD.confirmDelCloudId===ch.id;
-              const owner=getCharOwner(ch.id);
-              const isMyClaim=Boolean(owner&&CLOUD.currentUser&&owner.toLowerCase()===CLOUD.currentUser.toLowerCase());
-              const charCampId=getCharCampaignId(ch.id);
-              const isCampGM = charCampId !== 'default' && canManageCampaign(charCampId);
-              const canManageThisChar = CLOUD.isAdmin || isMyClaim || isCampGM;
-              const campOptsList=CLOUD.isAdmin?allCampaigns:creatableCamps;
-              return `<div class="card p-3.5 sm:p-5 flex flex-col justify-between gap-4 hover:border-sky-400/60 transition-all min-w-0 ${isViewing?'border-sky-400 bg-sky-500/10':isMyClaim||isOpenSheet?'bdr-acc bg-acc-soft/30':''}">
-                <!-- Oben: Portrait, Name, Volk & Konzept, Badges -->
-                <div class="flex items-start gap-3 sm:gap-3.5 min-w-0">
-                  <div class="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl overflow-hidden border-2 bdr-acc bg-black/30 shrink-0 flex items-center justify-center shadow-md">
-                    ${ch.avatar?`<img src="${ch.avatar}" class="w-full h-full object-cover"/>`:`<span class="text-xs font-black text-acc text-center leading-tight">HELD</span>`}
-                  </div>
-                  <div class="min-w-0 flex-1 space-y-1">
-                    <div class="flex flex-wrap items-center gap-1.5 min-w-0">
-                      <span class="text-base sm:text-lg font-black truncate max-w-full">${esc(ch.name||'Unbenannt')}</span>
-                    </div>
-                    <div class="text-xs t-mut truncate">${esc(ch.ancestry||'Volk')} • ${esc(ch.concept||'Konzept')}</div>
-                    <div class="flex flex-wrap items-center gap-1.5 pt-0.5">
-                      <span class="px-2 py-0.5 rounded-md text-[11px] font-black bg-acc-soft text-acc border bdr-acc tabular">Stufe ${ch.level||1}</span>
-                      ${owner?`<span class="px-2 py-0.5 rounded-md text-[11px] font-black ${isMyClaim?'bg-emerald-500/25 text-emerald-300 border border-emerald-400/50':'bg-indigo-500/20 text-indigo-300 border border-indigo-400/40'}">👤 ${esc(owner)}</span>`:`<span class="px-2 py-0.5 rounded-md text-[11px] font-semibold bg-black/25 t-mut">⚪ Frei</span>`}
-                      ${isOpenSheet?`<span class="px-2 py-0.5 rounded-md text-[11px] font-black bg-emerald-500/25 text-emerald-300 border border-emerald-400/60">Geöffnet</span>`:''}
-                      ${isViewing&&!isOpenSheet?`<span class="px-2 py-0.5 rounded-md text-[11px] font-black bg-sky-500/25 text-sky-300 border border-sky-400/60">👁️ Offen</span>`:''}
-                    </div>
-                    ${ch.updatedAt?`<div class="text-[10px] t-mut opacity-75 tabular">Stand: ${esc(ch.updatedAt)}</div>`:''}
-                  </div>
-                </div>
-
-                <!-- Mitte: 5 übersichtliche Stat-Boxen -->
-                <div class="grid grid-cols-3 min-[420px]:grid-cols-5 gap-1.5 sm:gap-2 text-center text-xs tabular">
-                  <div class="subcard p-1.5 sm:p-2 border bdr-line bg-black/25 min-w-0">
-                    <span class="block text-[10px] font-extrabold text-rose-400">LP</span>
-                    <strong class="text-xs sm:text-sm font-black">${ch.lpCurrent??8}/${ch.lpMax??8}</strong>
-                  </div>
-                  <div class="subcard p-1.5 sm:p-2 border bdr-line bg-black/25 min-w-0">
-                    <span class="block text-[10px] font-extrabold text-indigo-400">mLP</span>
-                    <strong class="text-xs sm:text-sm font-black">${ch.mlpCurrent??8}/${ch.mlpMax??8}</strong>
-                  </div>
-                  <div class="subcard p-1.5 sm:p-2 border bdr-line bg-black/25 min-w-0">
-                    <span class="block text-[10px] font-extrabold text-yellow-300">AP</span>
-                    <strong class="text-xs sm:text-sm font-black">${ch.apCurrent??3}/${ch.apMax??3}</strong>
-                  </div>
-                  <div class="subcard p-1.5 sm:p-2 border bdr-line bg-black/25 min-w-0">
-                    <span class="block text-[10px] font-extrabold text-sky-400">mAP</span>
-                    <strong class="text-xs sm:text-sm font-black">${ch.mapCurrent??3}/${ch.mapMax??3}</strong>
-                  </div>
-                  <div class="subcard p-1.5 sm:p-2 border bdr-line bg-black/25 min-w-0">
-                    <span class="block text-[10px] font-extrabold text-amber-400">Ini</span>
-                    <strong class="text-xs sm:text-sm font-black">${(ch.ini??0)>=0?'+'+(ch.ini??0):(ch.ini??0)}</strong>
-                  </div>
-                </div>
-
-                <!-- Kampagnen-Zuordnungs-Zeile (für Admin oder Besitzer isMyClaim) -->
-                ${(canManageThisChar)?`<div class="space-y-1.5 p-2.5 rounded-xl bg-black/25 border bdr-line text-xs">
-                  <div class="flex flex-wrap sm:flex-nowrap items-center justify-between gap-1.5 sm:gap-2">
-                    <span class="font-extrabold t-mut shrink-0">🗺️ Kampagne:</span>
-                    <select data-admin-camp-char="${esc(ch.id)}" class="inp !py-1 !px-2 text-xs font-bold flex-1 min-w-0 w-full sm:w-auto">
-                      ${campOptsList.map(c=>`<option value="${esc(c.id)}" ${charCampId===c.id?'selected':''}>${c.id==='default'?'🌐 Ohne Kampagne / Allgemein':`📁 ${esc(c.name||'Kampagne')}`}</option>`).join('')}
-                    </select>
-                  </div>
-                  ${CLOUD.isAdmin?`<div class="flex flex-wrap sm:flex-nowrap items-center justify-between gap-1.5 sm:gap-2 pt-1.5 border-t border-white/10">
-                    <span class="font-extrabold text-amber-300 shrink-0">👑 Besitzer:</span>
-                    <select data-admin-assign="${esc(ch.id)}" class="inp !py-1 !px-2 text-xs font-bold flex-1 min-w-0 w-full sm:w-auto">
-                      <option value="" ${!owner?'selected':''}>— Frei (Unbeansprucht) —</option>
-                      ${[...new Set([...knownUsers,...(owner?[owner]:[])])].map(u=>`<option value="${esc(u)}" ${owner===u?'selected':''}>👤 ${esc(u)}</option>`).join('')}
-                    </select>
-                  </div>`:''}
-                </div>`:''}
-
-                <!-- Unten: Große, klar getrennte Aktionsbuttons -->
-                <div class="space-y-2 pt-1 border-t bdr-line">
-                  <div class="flex flex-wrap items-center gap-2">
-                    <button type="button" data-action="cloud-view-char" data-id="${esc(ch.id)}" class="btn min-h-[40px] py-2 px-3 text-xs font-extrabold flex-1 min-w-[115px]">👁️ Ansehen</button>
-                    <button type="button" data-action="cloud-edit-char" data-id="${esc(ch.id)}" class="btn btn-pri min-h-[40px] py-2 px-3 text-xs font-black flex-1 min-w-[125px]">✏️ Bogen öffnen</button>
-                    <button type="button" data-action="copy-char-link" data-id="${esc(ch.id)}" data-tip="Direktlink zu diesem Charakterbogen kopieren (?char=${esc(ch.id)})" class="btn min-h-[40px] min-w-[40px] py-2 px-2.5 text-xs shrink-0">🔗</button>
-                  </div>
-                  <div class="flex flex-wrap items-center justify-between gap-1.5">
-                    <div class="flex flex-wrap items-center gap-1.5">
-                      ${CLOUD.currentUser&&!owner?`<button type="button" data-action="claim-char" data-id="${esc(ch.id)}" data-tip="Diesen Charakter deinem Account (${esc(CLOUD.currentUser)}) zuordnen" class="btn min-h-[36px] py-1.5 px-2.5 text-[11px] border-indigo-400/50 text-indigo-300">🙋‍♂️ Beanspruchen</button>`:''}
-                      ${isMyClaim&&!CLOUD.isAdmin?`<button type="button" data-action="unclaim-char" data-id="${esc(ch.id)}" data-tip="Zuordnung zu deinem Account aufheben" class="btn min-h-[36px] py-1.5 px-2.5 text-[11px] opacity-80">🔓 Freigeben</button>`:''}
-                    </div>
-                    <div class="flex flex-wrap items-center gap-1.5">
-                      ${isCampGM || (CLOUD.isAdmin && charCampId !== 'default') ? `<button type="button" data-action="kick-char-camp" data-id="${esc(ch.id)}" data-tip="Wirft diesen Charakter aus der Kampagne zurück in „Ohne Kampagne / Allgemein“" class="btn btn-err min-h-[36px] py-1.5 px-2.5 text-[11px] font-bold">🚪 Aus Kampagne werfen</button>` : ''}${canManageThisChar ? `<button type="button" data-action="dup-char-sheet" data-id="${esc(ch.id)}" data-tip="Erstellt eine eigenständige Kopie dieses Charakterbogens (ein Bogen kann immer nur in einer Kampagne gleichzeitig sein)" class="btn min-h-[36px] py-1.5 px-2.5 text-[11px]">📋 Kopie</button>` : ''}${(canManageThisChar)?(isDelAsk?`<div class="inline-flex items-center gap-1"><button type="button" data-action="cloud-del-yes" data-id="${esc(ch.id)}" class="btn bg-rose-600 text-white border-rose-600 min-h-[36px] py-1.5 px-2.5 text-[11px] font-black">Löschen? (2/2)</button><button type="button" data-action="cloud-del-no" class="btn min-h-[36px] py-1.5 px-2 text-[11px]">✕</button></div>`:`<button type="button" data-action="cloud-del-ask" data-id="${esc(ch.id)}" data-tip="Charakter aus der Lobby löschen" class="btn btn-err min-h-[36px] min-w-[36px] py-1.5 px-2.5 text-xs">🗑️</button>`):''}
-                    </div>
-                  </div>
-                </div>
-              </div>`;
-            }).join('')}
-          </div>`
-          :`<div class="subcard border-dashed py-12 px-4 text-center space-y-3">
-            <div class="text-sm sm:text-base font-extrabold t-mut">${CLOUD.filterMine?'Du hast in dieser Kampagne noch keinen eigenen Charakterbogen.':'In dieser Kampagne liegen aktuell noch keine Charakterbögen.'}</div>
-            ${CLOUD.currentUser
-              ?`<div><button type="button" data-action="lobby-new-sheet" class="btn btn-ok py-2.5 px-5 text-xs sm:text-sm font-black shadow-lg">✨ + Charakter in dieser Kampagne erstellen</button></div>`
-              :`<div class="text-xs t-mut">Melde dich oben in der Willkommens-Zentrale an, um einen neuen Charakterbogen zu erstellen.</div>`}
-          </div>`}
         </section>
 
         <!-- Sektion 3: Live-Würfel-Bereich am Ende der Lobby -->
@@ -4870,6 +4865,7 @@
       if(!mount) return;
       if(!CN.open){
         applyWinFrame('cnotes',mount,bd,'w-[500px] xl:w-[540px]');
+        mount.innerHTML='';
         return;
       }
       ensureCampNotesStructure();
@@ -4891,73 +4887,73 @@
       const privCount=S.campaignNotes.length-pubCount;
       const xl=window.innerWidth>=1280;
 
-      mount.innerHTML=`<div class="book-card p-0 md:p-4 rounded-none md:rounded-2xl min-h-full md:min-h-0 space-y-3 relative">
-        ${renderWinResizeHandles('cnotes')}
-        <div data-win-drag="cnotes" class="sticky top-0 z-10 win-drag-hdr flex items-center justify-between gap-2 px-3.5 py-2.5 md:px-0 md:pt-0 md:pb-2.5 border-b bdr-line bg-[var(--surf2)] md:bg-transparent">
-          <div class="flex items-center gap-2 min-w-0 flex-1">
-            <span class="text-lg leading-none shrink-0">📖</span>
-            <div class="min-w-0 flex-1">
-              <h3 class="text-sm sm:text-base font-black text-acc truncate">Kampagnennotizen &amp; Chronik-Buch</h3>
-              <div class="text-[11px] t-mut flex flex-wrap items-center gap-1.5">
-                <span class="truncate max-w-full">📁 ${esc(campObj?.name||'Ohne Kampagne / Allgemein')}</span>
-                <span>•</span>
-                <span class="text-emerald-400 font-bold">🌐 ${pubCount} öffentlich</span>
-                <span>•</span>
-                <span>🔒 ${privCount} privat</span>
-              </div>
+      mount.innerHTML=`<div class="card p-0 rounded-none md:rounded-2xl min-h-full md:min-h-0 md:overflow-hidden shadow-2xl relative">
+        <div data-win-drag="cnotes" class="sticky top-0 z-10 flex flex-wrap items-center justify-between gap-2 px-3 sm:px-4 py-2.5 sm:py-3 border-b bdr-line win-drag-hdr" style="background:var(--surf2)">
+          <div class="min-w-0 flex-1">
+            <h2 class="text-sm font-extrabold truncate">📝 Kampagnennotizen</h2>
+            <div class="text-[11px] t-mut flex flex-wrap items-center gap-x-1.5 gap-y-0.5 min-w-0">
+              <span class="text-acc font-bold truncate max-w-full">📁 ${esc(campObj?.name||'Ohne Kampagne / Allgemein')}</span>
+              <span>•</span>
+              <span class="text-emerald-400 font-bold">🌐 ${pubCount} öffentlich</span>
+              <span>•</span>
+              <span>🔒 ${privCount} privat</span>
             </div>
           </div>
-          <div class="flex items-center gap-1 shrink-0">
+          <div class="flex flex-wrap items-center justify-end gap-1.5 shrink-0">
             ${renderWinCtrlBtns('cnotes')}
-            ${xl&&!UI.inLobby&&!CN.floating?`<button type="button" data-action="dock-cnotes" data-tip="Zwischen angedockter Seitenleiste und Overlay umschalten" class="hidden xl:inline-flex btn py-1 px-2 text-xs ${CN.docked?'btn-pri':''}">📌 ${CN.docked?'Angedockt':'Andocken'}</button>`:''}
+            ${xl&&!UI.inLobby?`<button type="button" data-action="dock-cnotes" data-tip="Zwischen angedockter Seitenleiste und Overlay umschalten" class="hidden xl:inline-flex btn py-1 px-2 text-xs ${CN.docked?'btn-pri':''}">${CN.docked?'🗗 Overlay':'📌 Andocken'}</button>`:''}
             <button type="button" data-action="close-cnotes" aria-label="Schließen" class="btn btn-err w-9 h-9 md:w-auto md:h-auto md:py-1 md:px-2 text-sm md:text-xs font-black shrink-0">✕</button>
           </div>
         </div>
 
-        <div class="book-spine space-y-3 px-3 pb-6 md:px-0 md:pb-0">
-          <div class="flex flex-wrap items-center justify-between gap-1.5">
-            <div class="flex flex-wrap items-center gap-1.5 w-full md:w-auto">
-              <button type="button" data-action="toggle-cn-toc" class="btn w-full md:w-auto py-1.5 md:py-1 px-2.5 text-xs font-extrabold ${CN.tocOpen?'btn-pri':'bdr-acc bg-acc-soft text-acc'}">📑 Inhaltsverzeichnis (${S.campNoteFolders.length} Ordner • ${orderedPages.length} S.) ${CN.tocOpen?'▴':'▾'}</button>
-              ${canEdit?`<button type="button" data-action="add-cn-page" data-pub="0" data-folder="${activeFolder&&!activeFolder.isPublic?esc(activeFolder.id):'cf_private'}" data-tip="Neue private Notizseite anlegen" class="btn py-1 px-2 text-xs font-bold">+ 🔒 Privat</button>
-              <button type="button" data-action="add-cn-page" data-pub="1" data-folder="${activeFolder&&activeFolder.isPublic?esc(activeFolder.id):'cf_public'}" data-tip="Neue öffentliche Notizseite anlegen (wird mit der Kampagne in der Lobby geteilt)" class="btn btn-ok py-1 px-2 text-xs font-bold">+ 🌐 Öffentlich</button>
-              <button type="button" data-action="toggle-cn-newfolder" data-tip="Neuen Ordner / neues Kapitel anlegen" class="btn py-1 px-2 text-xs bdr-acc bg-acc-soft text-acc">+ 📁 Ordner</button>`:''}
-            </div>
-            <div class="flex items-center gap-1 tabular">
-              <button type="button" data-action="prev-cn-page" ${curIdx<=0?'disabled':''} data-tip="Vorherige Seite" class="btn py-1 px-2 text-xs font-black">◀</button>
-              <span class="px-2 py-0.5 rounded bg-black/25 border bdr-line text-[11px] font-extrabold">${curIdx+1} / ${orderedPages.length}</span>
-              <button type="button" data-action="next-cn-page" ${curIdx>=orderedPages.length-1?'disabled':''} data-tip="Nächste Seite" class="btn py-1 px-2 text-xs font-black">▶</button>
+        <div class="p-3.5 sm:p-4 space-y-3.5 md:max-h-[calc(100vh-5rem)] xl:max-h-[calc(100vh-9.5rem)] md:overflow-y-auto">
+          <div class="subcard p-2.5 space-y-2 min-w-0">
+            <div class="flex flex-wrap items-center justify-between gap-2 min-w-0">
+              <div class="flex flex-wrap items-center gap-1.5 min-w-0 flex-1">
+                <button type="button" data-action="toggle-cn-toc" class="btn w-full sm:w-auto py-1.5 sm:py-1 px-2.5 text-xs font-extrabold ${CN.tocOpen?'btn-pri':'bdr-acc bg-acc-soft text-acc'}">📑 Inhaltsverzeichnis (${S.campNoteFolders.length} Ordner • ${orderedPages.length} S.) ${CN.tocOpen?'▴':'▾'}</button>
+                ${canEdit?`<button type="button" data-action="add-cn-page" data-pub="0" data-folder="${activeFolder&&!activeFolder.isPublic?esc(activeFolder.id):'cf_private'}" data-tip="Neue private Notizseite anlegen" class="btn py-1 px-2 text-xs font-bold">+ 🔒 Privat</button>
+                <button type="button" data-action="add-cn-page" data-pub="1" data-folder="${activeFolder&&activeFolder.isPublic?esc(activeFolder.id):'cf_public'}" data-tip="Neue öffentliche Notizseite anlegen (wird mit der Kampagne in der Lobby geteilt)" class="btn btn-ok py-1 px-2 text-xs font-bold">+ 🌐 Öffentlich</button>
+                <button type="button" data-action="toggle-cn-newfolder" data-tip="Neuen Ordner / neues Kapitel anlegen" class="btn py-1 px-2 text-xs bdr-acc bg-acc-soft text-acc">+ 📁 Ordner</button>`:''}
+              </div>
+              <div class="flex items-center gap-1 tabular shrink-0">
+                <button type="button" data-action="prev-cn-page" ${curIdx<=0?'disabled':''} data-tip="Vorherige Seite" class="btn py-1 px-2 text-xs font-black">◀</button>
+                <span class="px-2 py-0.5 rounded bg-black/25 border bdr-line text-[11px] font-extrabold">${curIdx+1} / ${orderedPages.length}</span>
+                <button type="button" data-action="next-cn-page" ${curIdx>=orderedPages.length-1?'disabled':''} data-tip="Nächste Seite" class="btn py-1 px-2 text-xs font-black">▶</button>
+              </div>
             </div>
           </div>
 
-          ${CN.newFolderOpen&&canEdit?`<div class="subcard p-2.5 border bdr-acc bg-acc-soft/20 flex flex-wrap items-center gap-2 text-xs">
-            <span class="font-extrabold text-acc">📁 Neuer Ordner / Kapitel:</span>
-            <input id="inpNewCnFolderName" type="text" value="${esc(CN.newFolderName||'')}" placeholder="z.B. Kapitel 1: Sturm über Vhendris..." class="inp flex-1 min-w-[150px] py-1 px-2 text-xs font-bold"/>
-            <button type="button" data-action="toggle-cn-newfolder-pub" class="btn py-1 px-2 text-xs font-extrabold ${CN.newFolderPublic?'!border-emerald-500/60 !bg-emerald-500/20 text-emerald-300':'bdr-line'}">${CN.newFolderPublic?'🌐 Öffentlicher Ordner':'🔒 Privater Ordner'}</button>
-            <button type="button" data-action="create-cn-folder" class="btn btn-ok py-1 px-2.5 text-xs font-black">✓ Anlegen</button>
-            <button type="button" data-action="toggle-cn-newfolder" class="btn py-1 px-2 text-xs">✕</button>
+          ${CN.newFolderOpen&&canEdit?`<div class="subcard p-2.5 border bdr-acc bg-acc-soft/20 flex flex-wrap items-center gap-2 text-xs min-w-0">
+            <span class="font-extrabold text-acc shrink-0">📁 Neuer Ordner / Kapitel:</span>
+            <input id="inpNewCnFolderName" type="text" value="${esc(CN.newFolderName||'')}" placeholder="z.B. Kapitel 1: Sturm über Vhendris..." class="inp flex-1 min-w-[140px] py-1 px-2 text-xs font-bold"/>
+            <div class="flex flex-wrap items-center gap-1.5 shrink-0">
+              <button type="button" data-action="toggle-cn-newfolder-pub" class="btn py-1 px-2 text-xs font-extrabold ${CN.newFolderPublic?'!border-emerald-500/60 !bg-emerald-500/20 text-emerald-300':'bdr-line'}">${CN.newFolderPublic?'🌐 Öffentlicher Ordner':'🔒 Privater Ordner'}</button>
+              <button type="button" data-action="create-cn-folder" class="btn btn-ok py-1 px-2.5 text-xs font-black">✓ Anlegen</button>
+              <button type="button" data-action="toggle-cn-newfolder" class="btn py-1 px-2 text-xs">✕</button>
+            </div>
           </div>`:''}
 
-          ${CN.tocOpen?`<div class="w-full subcard p-2.5 space-y-2.5 border bdr-acc bg-black/25 max-h-[45dvh] md:max-h-80 overflow-y-auto">
-            <div class="flex flex-wrap items-center justify-between gap-1 text-[11px] t-mut px-1">
-              <span class="font-extrabold text-acc uppercase tracking-wider">📖 Ordner &amp; Kapitel (Drag &amp; Drop ⠿ oder ▲/▼)</span>
+          ${CN.tocOpen?`<div class="w-full subcard p-2.5 space-y-2.5 border bdr-acc bg-black/20 max-h-[42dvh] md:max-h-72 overflow-y-auto min-w-0">
+            <div class="flex flex-wrap items-center justify-between gap-1.5 text-[11px] t-mut px-1 min-w-0">
+              <span class="font-extrabold text-acc uppercase tracking-wider">📁 Ordner &amp; Kapitel (Drag &amp; Drop ⠿ oder ▲/▼)</span>
               <span>Seiten frei zwischen Ordnern verschiebbar</span>
             </div>
             ${S.campNoteFolders.map((folder,fIdx)=>{
               const fPages=S.campaignNotes.filter(n=>n.folderId===folder.id);
               const isPubFolder=Boolean(folder.isPublic);
               const fBdr=isPubFolder?'border-emerald-500/40 bg-emerald-500/5':'bdr-line bg-black/20';
-              return `<div data-drop-cnfolder="${esc(folder.id)}" class="rounded-xl border ${fBdr} p-2 space-y-1.5 transition-colors">
-                <div class="flex flex-wrap items-center justify-between gap-1.5">
-                  <div class="flex items-center gap-1.5 flex-1 min-w-0 sm:min-w-[160px]">
+              return `<div data-drop-cnfolder="${esc(folder.id)}" class="rounded-xl border ${fBdr} p-2 space-y-1.5 transition-colors min-w-0">
+                <div class="flex flex-wrap items-center justify-between gap-1.5 min-w-0">
+                  <div class="flex items-center gap-1.5 flex-1 min-w-0 sm:min-w-[150px]">
                     <button type="button" data-action="toggle-cnfolder-collapse" data-fid="${esc(folder.id)}" class="btn w-6 h-6 p-0 text-[10px] font-black shrink-0">${folder.collapsed?'▸':'▾'}</button>
                     ${canEdit?`<span draggable="true" data-drag-cnfolder="${esc(folder.id)}" title="Ordner ziehen zum Umsortieren" class="px-1.5 py-0.5 rounded bg-black/30 border bdr-line text-[10px] font-black cursor-grab select-none shrink-0">⠿</span>`:''}
                     <span class="px-1.5 py-0.5 rounded text-[10px] font-black shrink-0 ${isPubFolder?'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40':'bg-slate-500/20 text-slate-300 border border-slate-500/40'}">${isPubFolder?'🌐 Öffentlich':'🔒 Privat'}</span>
                     ${!folder.isSystem&&canEdit
                       ?`<input data-cnfolder-name="${esc(folder.id)}" type="text" value="${esc(folder.name)}" class="inp-line text-xs font-extrabold flex-1 min-w-0 sm:min-w-[100px]"/>`
                       :`<span class="text-xs font-extrabold truncate ${isPubFolder?'text-emerald-300':'text-acc'}">${esc(folder.name)}</span>`}
-                    <span class="text-[10px] t-mut tabular">(${fPages.length})</span>
+                    <span class="text-[10px] t-mut tabular shrink-0">(${fPages.length})</span>
                   </div>
-                  <div class="flex items-center gap-1 shrink-0">
+                  <div class="flex flex-wrap items-center gap-1 shrink-0">
                     ${canEdit?`<button type="button" data-action="add-cn-page" data-pub="${isPubFolder?'1':'0'}" data-folder="${esc(folder.id)}" data-tip="Neue Seite in diesem Ordner erstellen" class="btn py-0.5 px-1.5 text-[10px] font-black">+ Seite</button>`:''}
                     ${canEdit&&!folder.isSystem?`<button type="button" data-action="toggle-cnfolder-pub" data-fid="${esc(folder.id)}" data-tip="Ordner samt enthaltenen Seiten zwischen Öffentlich &amp; Privat umschalten" class="btn py-0.5 px-1.5 text-[10px]">${isPubFolder?'→ 🔒':'→ 🌐'}</button>`:''}
                     ${canEdit&&S.campNoteFolders.length>1?`<button type="button" data-action="move-cnfolder" data-fid="${esc(folder.id)}" data-dir="-1" ${fIdx===0?'disabled':''} class="btn py-0.5 px-1 text-[10px]">▲</button><button type="button" data-action="move-cnfolder" data-fid="${esc(folder.id)}" data-dir="1" ${fIdx===S.campNoteFolders.length-1?'disabled':''} class="btn py-0.5 px-1 text-[10px]">▼</button>`:''}
@@ -4966,14 +4962,14 @@
                       :`<button type="button" data-action="ask-del-cnfolder" data-fid="${esc(folder.id)}" data-tip="Ordner entfernen (Seiten wandern in den Standard-Ordner)" class="btn btn-err py-0.5 px-1.5 text-[10px]">🗑️</button>`):''}
                   </div>
                 </div>
-                ${!folder.collapsed?`<div class="space-y-1 pl-2 border-l border-white/10">
+                ${!folder.collapsed?`<div class="space-y-1 pl-2 border-l border-white/10 min-w-0">
                   ${fPages.length?fPages.map((pg,pIdx)=>{
                     const isAct=pg.id===activePage?.id;
-                    return `<div data-drop-cnpage="${esc(pg.id)}" data-drop-cnfolder="${esc(folder.id)}" class="flex items-center justify-between gap-1.5 px-2 py-1 rounded-lg border text-xs transition-all ${isAct?'bdr-acc bg-acc-soft text-acc font-extrabold':'bdr-line bg-black/25 hover:border-sky-400/50'}">
+                    return `<div data-drop-cnpage="${esc(pg.id)}" data-drop-cnfolder="${esc(folder.id)}" class="flex flex-wrap items-center justify-between gap-1.5 px-2 py-1 rounded-lg border text-xs transition-all min-w-0 ${isAct?'bdr-acc bg-acc-soft text-acc font-extrabold':'bdr-line bg-black/25 hover:border-sky-400/50'}">
                       <div class="flex items-center gap-1.5 min-w-0 flex-1">
                         ${canEdit?`<span draggable="true" data-drag-cnpage="${esc(pg.id)}" title="Seite ziehen zum Sortieren oder in anderen Ordner legen" class="px-1.5 py-0.5 rounded bg-black/30 border bdr-line text-[10px] font-black cursor-grab select-none shrink-0">⠿</span>`:''}
                         <button type="button" data-action="sel-cn-page" data-id="${esc(pg.id)}" class="text-left truncate flex-1 min-w-0 flex items-center gap-1.5">
-                          <span>${pg.isPublic?'🌐':'🔒'}</span>
+                          <span class="shrink-0">${pg.isPublic?'🌐':'🔒'}</span>
                           <span class="truncate">${esc(pg.title||'Unbenannte Seite')}</span>
                         </button>
                       </div>
@@ -4988,32 +4984,31 @@
             }).join('')}
           </div>`:''}
 
-          ${activePage?`<div class="space-y-2.5 rtf-wrap">
-            <div class="subcard p-2.5 space-y-2 border ${activePage.isPublic?'border-emerald-500/45 bg-emerald-500/5':'bdr-line'}">
-              <div class="flex flex-wrap items-center justify-between gap-2">
-                <div class="flex items-center gap-1.5 flex-1 min-w-0 w-full sm:w-auto sm:min-w-[180px]">
-                  <span class="text-sm shrink-0">${activePage.isPublic?'🌐':'🔒'}</span>
-                  <input id="inpCnTitle" data-cn-title="${esc(activePage.id)}" type="text" value="${esc(activePage.title)}" ${!canEdit?'disabled':''} placeholder="Seitentitel..." class="inp-line flex-1 min-w-0 text-sm sm:text-base font-black"/>
-                </div>
-                <div class="flex flex-wrap items-center gap-1.5 w-full sm:w-auto">
-                  ${canEdit?`<select data-cn-folder-sel="${esc(activePage.id)}" data-tip="Seite in einen anderen Ordner / ein anderes Kapitel verschieben" class="inp py-1 px-2 text-[11px] font-bold w-full sm:w-auto sm:max-w-[175px]">
-                    ${S.campNoteFolders.map(f=>`<option value="${esc(f.id)}" ${activePage.folderId===f.id?'selected':''}>${f.isPublic?'🌐':'🔒'} ${esc(f.name)}</option>`).join('')}
-                  </select>
-                  <button type="button" data-action="toggle-cn-public" data-id="${esc(activePage.id)}" data-tip="Wechselt die Seite zwischen dem Öffentlichen Ordner und dem Privaten Ordner" class="btn py-1 px-2.5 text-[11px] font-extrabold ${activePage.isPublic?'!border-emerald-500/60 !bg-emerald-500/20 text-emerald-300':'bdr-line opacity-85'}">${activePage.isPublic?'🌐 Öffentlich (In Lobby geteilt)':'🔒 Privat (Nur für dich)'}</button>`:''}
-                  ${canEdit&&S.campaignNotes.length>1?(CN.confirmDelId===activePage.id
-                    ?`<button type="button" data-action="confirm-del-cnpage" data-id="${esc(activePage.id)}" class="btn bg-rose-600 text-white py-1 px-2 text-[11px] font-black">Seite löschen? (2/2)</button><button type="button" data-action="cancel-del-cnpage" class="btn py-1 px-1.5 text-[11px]">✕</button>`
-                    :`<button type="button" data-action="ask-del-cnpage" data-id="${esc(activePage.id)}" data-tip="Diese Notizseite löschen" class="btn btn-err py-1 px-2 text-xs">🗑️</button>`):''}
-                </div>
+          ${activePage?`<div class="subcard p-2.5 sm:p-3 space-y-2.5 rtf-wrap border min-w-0 ${activePage.isPublic?'border-emerald-500/45 bg-emerald-500/5':'bdr-line'}">
+            <div class="flex flex-wrap items-center justify-between gap-2 min-w-0">
+              <div class="flex items-center gap-1.5 flex-1 min-w-0 w-full sm:w-auto sm:min-w-[160px]">
+                <span class="text-sm shrink-0">${activePage.isPublic?'🌐':'🔒'}</span>
+                <input id="inpCnTitle" data-cn-title="${esc(activePage.id)}" type="text" value="${esc(activePage.title)}" ${!canEdit?'disabled':''} placeholder="Seitentitel..." class="inp-line flex-1 min-w-0 text-sm sm:text-base font-black"/>
               </div>
-              ${activePage.isPublic&&!hasCamp?`<div class="text-[11px] text-amber-300 bg-amber-500/10 border border-amber-400/30 rounded-lg px-2.5 py-1">ℹ️ Diese Seite liegt im Ordner <strong>🌐 Öffentliche Notizen</strong>. Sobald dein Charakter in der Lobby einer Kampagne zugeordnet ist, erscheint sie dort automatisch im gemeinsamen Kampagnenbuch.</div>`:''}
-              <div class="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-white/10">
-                ${canEdit?renderRtfToolbarHtml(true):'<span class="text-[11px] t-mut">Ansichtsmodus</span>'}
-                <span data-cn-ts="${esc(activePage.id)}" class="text-[10px] t-mut tabular">${activePage.updatedAt?`Zuletzt geändert: ${esc(activePage.updatedAt)}`:'Noch nicht geändert'}</span>
+              <div class="flex flex-wrap items-center gap-1.5 min-w-0 w-full sm:w-auto">
+                ${canEdit?`<select data-cn-folder-sel="${esc(activePage.id)}" data-tip="Seite in einen anderen Ordner / ein anderes Kapitel verschieben" class="inp py-1 px-2 text-[11px] font-bold w-full sm:w-auto sm:max-w-[175px] min-w-0">
+                  ${S.campNoteFolders.map(f=>`<option value="${esc(f.id)}" ${activePage.folderId===f.id?'selected':''}>${f.isPublic?'🌐':'🔒'} ${esc(f.name)}</option>`).join('')}
+                </select>
+                <button type="button" data-action="toggle-cn-public" data-id="${esc(activePage.id)}" data-tip="Wechselt die Seite zwischen dem Öffentlichen Ordner und dem Privaten Ordner" class="btn py-1 px-2.5 text-[11px] font-extrabold ${activePage.isPublic?'!border-emerald-500/60 !bg-emerald-500/20 text-emerald-300':'bdr-line opacity-85'}">${activePage.isPublic?'🌐 Öffentlich (In Lobby geteilt)':'🔒 Privat (Nur für dich)'}</button>`:''}
+                ${canEdit&&S.campaignNotes.length>1?(CN.confirmDelId===activePage.id
+                  ?`<button type="button" data-action="confirm-del-cnpage" data-id="${esc(activePage.id)}" class="btn bg-rose-600 text-white py-1 px-2 text-[11px] font-black">Seite löschen? (2/2)</button><button type="button" data-action="cancel-del-cnpage" class="btn py-1 px-1.5 text-[11px]">✕</button>`
+                  :`<button type="button" data-action="ask-del-cnpage" data-id="${esc(activePage.id)}" data-tip="Diese Notizseite löschen" class="btn btn-err py-1 px-2 text-xs">🗑️</button>`):''}
               </div>
             </div>
-            <div contenteditable="${canEdit?'true':'false'}" id="cnEditorBox" data-cn-content="${esc(activePage.id)}" data-ph="Schreibe hier deine Notizen für „${esc(activePage.title||'diese Seite')}“..." class="inp w-full min-h-[280px] sm:min-h-[340px] resize-y text-xs sm:text-sm rtf-box book-page-area">${toRtfHtml(activePage.content)}</div>
+            ${activePage.isPublic&&!hasCamp?`<div class="text-[11px] text-amber-300 bg-amber-500/10 border border-amber-400/30 rounded-lg px-2.5 py-1.5">ℹ️ Diese Seite liegt im Ordner <strong>🌐 Öffentliche Notizen</strong>. Sobald dein Charakter in der Lobby einer Kampagne zugeordnet ist, erscheint sie dort automatisch im gemeinsamen Kampagnenbuch.</div>`:''}
+            <div class="flex flex-wrap items-center justify-between gap-2 pt-1.5 border-t bdr-line min-w-0">
+              ${canEdit?renderRtfToolbarHtml(true):'<span class="text-[11px] t-mut">Ansichtsmodus</span>'}
+              <span data-cn-ts="${esc(activePage.id)}" class="text-[10px] t-mut tabular">${activePage.updatedAt?`Zuletzt geändert: ${esc(activePage.updatedAt)}`:'Noch nicht geändert'}</span>
+            </div>
+            <div contenteditable="${canEdit?'true':'false'}" id="cnEditorBox" data-cn-content="${esc(activePage.id)}" data-ph="Schreibe hier deine Notizen für „${esc(activePage.title||'diese Seite')}“..." class="inp w-full min-h-[280px] sm:min-h-[340px] p-3 leading-relaxed resize-y text-xs sm:text-sm rtf-box">${toRtfHtml(activePage.content)}</div>
           </div>`:''}
         </div>
+        ${renderWinResizeHandles('cnotes')}
       </div>`;
     }
     const renderCNotes=renderCampNotes;
