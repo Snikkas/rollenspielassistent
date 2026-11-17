@@ -408,7 +408,7 @@
       };
     }
 
-    const DICE_DEF={open:false,docked:false,floating:false,x:null,y:null,w:0,h:0,z:50,label:'Freie Probe',skillId:null,attrKey:null,weaponId:null,wRollCat:'Normaler Test',cMode:'direct',cDirect:0,cAttr:0,cSkill:'0',cCustom:25,dMode:'direct',dDirect:40,dAttr:30,dSkill:'10',dCustom:25,adv:0,dis:0,advAdj:0,disAdj:0,cnt:1,crit:'1',critOff:0,critMode:'range',sitActive:{},blockFollowAtk:40};
+    const DICE_DEF={open:false,docked:false,floating:false,x:null,y:null,w:0,h:0,z:50,label:'Freie Probe',skillId:null,attrKey:null,weaponId:null,wRollCat:'Normaler Test',cMode:'direct',cDirect:0,cAttr:0,cSkill:'0',cCustom:25,dMode:'direct',dDirect:40,dAttr:30,dSkill:'10',dCustom:25,adv:0,dis:0,advAdj:0,disAdj:0,cnt:1,crit:'1',critOff:0,critMode:'range',sitActive:{},blockFollowAtk:40,customCnt:1,customSides:20,customMod:0,customOpen:false,_lobbyNeutral:false,secretMode:false};
     const CNOTES_DEF={open:false,docked:false,floating:false,x:null,y:null,w:0,h:0,z:50,tocOpen:true,confirmDelId:null,confirmDelFolderId:null,newFolderOpen:false,newFolderName:'',newFolderPublic:false};
     const LIVEDICE_DEF={open:false,docked:false,floating:false,x:null,y:null,w:0,h:0,z:50};
     let S=defaultState(), D={...DICE_DEF}, CN={...CNOTES_DEF}, LD={...LIVEDICE_DEF}, diceLogs=[], toastTimer=null, dragPwId=null, dragAugId=null, dragSecId=null, dragSkSecId=null, dragSkId=null, dragChrPw=null, dragChrSec=null, dragEqSec=null, dragEqItem=null, dragCampId=null, dragCnPageId=null, dragCnFolderId=null, dragToken='';
@@ -422,7 +422,9 @@
       if(!st.open){mount.className='hidden';mount.style.cssText='';if(bd)bd.classList.add('hidden');syncBodyScrollLock();return;}
       if(isMobileLayout()){
         if(bd) bd.classList.add('hidden');
-        mount.className='fixed inset-0 z-50 w-full h-[100dvh] max-h-[100dvh] overflow-y-auto rounded-none';
+        mount.className=k==='livedice'
+          ?'fixed inset-0 z-50 w-full h-[100dvh] max-h-[100dvh] overflow-hidden flex flex-col rounded-none'
+          :'fixed inset-0 z-50 w-full h-[100dvh] max-h-[100dvh] overflow-y-auto rounded-none';
         mount.style.cssText='';
         syncBodyScrollLock();
         return;
@@ -431,7 +433,9 @@
       const isDock=Boolean(st.docked&&canDock&&!UI.inLobby&&!st.floating);
       if(bd) bd.classList.toggle('hidden', isDock || Boolean(st.floating));
       if(isDock){
-        mount.className='w-full '+defWClass+' shrink-0 xl:sticky xl:top-24 z-30 max-h-[calc(100vh-7rem)] overflow-y-auto relative';
+        mount.className=k==='livedice'
+          ?'w-full '+defWClass+' shrink-0 xl:sticky xl:top-24 z-30 h-[calc(100vh-7rem)] max-h-[calc(100vh-7rem)] overflow-hidden flex flex-col relative'
+          :'w-full '+defWClass+' shrink-0 xl:sticky xl:top-24 z-30 max-h-[calc(100vh-7rem)] overflow-y-auto relative';
         mount.style.cssText=st.w>280?`width:${Math.max(320,Math.min(window.innerWidth-48,st.w))}px;max-width:92vw;position:sticky`:'';
       }else if(st.floating){
         const maxW=Math.max(320,window.innerWidth-24);
@@ -445,12 +449,18 @@
         st.x=x; st.y=y;
         if(st.w>maxW) st.w=w;
         if(st.h>maxH) st.h=h;
-        mount.className='fixed z-50 overflow-y-auto shadow-2xl rounded-2xl';
-        mount.style.cssText=`position:fixed!important;left:${x}px;top:${y}px;width:${w}px;max-height:${h}px;z-index:${st.z||50};margin:0;right:auto;bottom:auto`;
+        const useFixedH=st.h>0||k==='livedice';
+        const hCss=useFixedH?`height:${h}px;max-height:${maxH}px;`:`max-height:${h}px;`;
+        mount.className=k==='livedice'
+          ?'fixed z-50 overflow-hidden flex flex-col shadow-2xl rounded-2xl'
+          :'fixed z-50 overflow-y-auto shadow-2xl rounded-2xl';
+        mount.style.cssText=`position:fixed!important;left:${x}px;top:${y}px;width:${w}px;${hCss}z-index:${st.z||50};margin:0;right:auto;bottom:auto`;
       }else{
         const defDrawerW=k==='cnotes'?500:k==='livedice'?440:450;
         const dw=Math.max(320,Math.min(window.innerWidth-32,st.w>280?st.w:defDrawerW));
-        mount.className='fixed z-50 right-4 sm:right-6 top-20 bottom-6 overflow-y-auto shadow-2xl rounded-2xl';
+        mount.className=k==='livedice'
+          ?'fixed z-50 right-4 sm:right-6 top-20 bottom-6 overflow-hidden flex flex-col shadow-2xl rounded-2xl'
+          :'fixed z-50 right-4 sm:right-6 top-20 bottom-6 overflow-y-auto shadow-2xl rounded-2xl';
         mount.style.cssText=`position:fixed!important;width:${dw}px;max-width:calc(100vw - 2rem);z-index:${st.z||50}`;
       }
       syncBodyScrollLock();
@@ -463,7 +473,7 @@
     function renderWinResizeHandles(k){return '<div data-win-resize-w="'+k+'" title="Breite ziehen" class="win-resize-w"></div><div data-win-resize="'+k+'" title="Größe ziehen" class="win-resize-h">◢</div>';}
     let dragMouseY=null, dragScrollRaf=null;
     const savedEffRanges={};
-    let UI={inLobby:true,sheetLoaded:false,modal:null,mobileHdrOpen:false,mobileLobbyMenuOpen:false,infoTab:'dice',listType:'art',ammoModalWeaponId:'',skSort:{col:'',asc:true},editSkNameId:null,imgTargetKind:'',imgTargetId:'',confirmNew:false,confirmLog:false,confirmDelId:null,confirmDelSecId:null,confirmSecPullId:null,confirmDelSkSecId:null,confirmSkSecPullId:null,confirmDelExSecId:null,confirmHzStep:1,openPwMenu:'',pwFilterOpen:false,pwFilterMode:'or',pwFilterTypes:[],pwFilterIncludeLinkedAugs:true,pwFilterArts:[],pwFilterActionSubs:[],pwFilterTags:[],pwFilterTiers:[],pwFilterSubs:[],statusIniPromptKey:'',lastRollHtml:'',lastBlockBaseHtml:'',lastBlockFollowRes:null,colTarget:'cres',colMode:'text',colPwKind:'power',colPwId:'',colDraft:'#c084fc',attrGroupSel:'ST_KO',savedOnce:true,palBuilderOpen:false,palDraft:{name:'',isLt:false,bg:'#020617',acc:'#0ea5e9',acc2:'#6366f1',txt:'#f1f5f9',mut:'#94a3b8',btnTxt:'#ffffff'}};
+    let UI={inLobby:true,sheetLoaded:false,modal:null,mobileHdrOpen:false,mobileLobbyMenuOpen:false,infoTab:'dice',listType:'art',ammoModalWeaponId:'',skSort:{col:'',asc:true},editSkNameId:null,imgTargetKind:'',imgTargetId:'',confirmNew:false,confirmLog:false,confirmDelId:null,confirmDelSecId:null,confirmSecPullId:null,confirmDelSkSecId:null,confirmSkSecPullId:null,confirmDelExSecId:null,confirmHzStep:1,openPwMenu:'',pwFilterOpen:false,pwFilterMode:'or',pwFilterTypes:[],pwFilterIncludeLinkedAugs:true,pwFilterArts:[],pwFilterActionSubs:[],pwFilterTags:[],pwFilterTiers:[],pwFilterSubs:[],statusIniPromptKey:'',lastRollHtml:'',lastBlockBaseHtml:'',lastBlockFollowRes:null,lastSecretRollId:'',secretRollsCollapsed:false,colTarget:'cres',colMode:'text',colPwKind:'power',colPwId:'',colDraft:'#c084fc',attrGroupSel:'ST_KO',savedOnce:true,palBuilderOpen:false,palDraft:{name:'',isLt:false,bg:'#020617',acc:'#0ea5e9',acc2:'#6366f1',txt:'#f1f5f9',mut:'#94a3b8',btnTxt:'#ffffff'}};
     const REGISTRY_ID='_lobby_meta_registry_', LIVE_TAB_ID=uid();
     const LIBRARY_ID='_power_library_';
     const REPO_LIBRARY_URL='./data/powers-library.json';
@@ -490,13 +500,15 @@
       }
       return list;
     }
-    let CLOUD={serverUrl:'',list:[],loading:false,syncing:false,error:'',lastSyncTs:'',viewingRemote:false,remoteCharId:'',confirmDelCloudId:null,confirmDelCampPageId:null,filterMine:false,currentUser:'',isAdmin:false,showAdminBar:false,userMgmtOpen:false,showPwChange:false,activeCampaignId:'default',campAction:'',newCharOpen:false,newCharName:'',newCharAncestry:'',newCharConcept:'',newCharCampId:'default',publicNotesOpen:true,activePublicPageKey:'',registryLoaded:false,diceFeed:[],diceConnected:false,diceToast:true,diceCollapsed:false,confirmClearDice:false,registry:{users:{},claims:{},charCampaigns:{},publicNotes:{},campaignSharedNotes:{},deletedCharIds:[],campaigns:[{id:'default',name:'Ohne Kampagne / Allgemein',allowedUsers:[],gmUsers:[],img:''}],gmUsers:[],lobbyLogo:'',adminHash:'',diceFeed:[],diceClearedAt:0,diceClearedByCamp:{}}}, cloudSyncTimer=null, liveDiceES=null, liveDiceBC=null, liveDiceTopicCur='', liveDicePollTimer=null, registryPushInFlight=0, lastRegistryPushMs=0;
+    let CLOUD={serverUrl:'',list:[],loading:false,syncing:false,error:'',lastSyncTs:'',viewingRemote:false,remoteCharId:'',confirmDelCloudId:null,confirmDelCampPageId:null,filterMine:false,currentUser:'',isAdmin:false,showAdminBar:false,userMgmtOpen:false,showPwChange:false,activeCampaignId:'default',campAction:'',newCharOpen:false,newCharName:'',newCharAncestry:'',newCharConcept:'',newCharCampId:'default',publicNotesOpen:true,activePublicPageKey:'',registryLoaded:false,diceFeed:[],secretRolls:[],diceConnected:false,diceToast:true,diceCollapsed:false,lobbyDiceH:340,galleryCollapsed:false,confirmClearDice:false,registry:{users:{},claims:{},charCampaigns:{},publicNotes:{},campaignSharedNotes:{},deletedCharIds:[],campaigns:[{id:'default',name:'Ohne Kampagne / Allgemein',allowedUsers:[],gmUsers:[],img:''}],gmUsers:[],lobbyLogo:'',adminHash:'',diceFeed:[],diceClearedAt:0,diceClearedByCamp:{}}}, cloudSyncTimer=null, liveDiceES=null, liveDiceBC=null, liveDiceTopicCur='', liveDicePollTimer=null, registryPushInFlight=0, lastRegistryPushMs=0;
     let PWLIB={loaded:false,loading:false,saving:false,error:'',repoPacks:[],cloudPacks:[],tab:'server',search:'',filterCat:'',filterTier:'',selectedPackId:'',selSecIds:{},selPwIds:{},selAugIds:{},targetSecId:'',dedupeMode:'skipExisting',lastLoadedTs:'',adminSrc:'all',adminName:'',adminCat:'Allgemein',adminDesc:'',adminIsBasis:false,confirmDelPackId:''}, pwLibFetchPromise=null;
     try{
       CLOUD.serverUrl=localStorage.getItem('scherbensturm_cloud_url')||'';
       CLOUD.currentUser=localStorage.getItem('scherbensturm_cloud_user')||'';
       CLOUD.isAdmin=localStorage.getItem('scherbensturm_cloud_admin')==='1';
       CLOUD.diceToast=localStorage.getItem('scherbensturm_dice_toast')!=='0';
+      CLOUD.lobbyDiceH=Math.max(180,Math.min(1200,toInt(localStorage.getItem('scherbensturm_lobby_dice_h'),340)));
+      CLOUD.galleryCollapsed=localStorage.getItem('scherbensturm_lobby_gallery_collapsed')==='1';
       CLOUD.activeCampaignId=localStorage.getItem('scherbensturm_active_campaign')||'default';
       const locReg=localStorage.getItem('scherbensturm_lobby_registry');
       if(locReg){
@@ -517,6 +529,8 @@
       const locDice=localStorage.getItem('scherbensturm_live_dice_feed');
       if(locDice) CLOUD.diceFeed=JSON.parse(locDice)||[];
       if(Array.isArray(CLOUD.registry.diceFeed)&&CLOUD.registry.diceFeed.length&&!CLOUD.diceFeed.length) CLOUD.diceFeed=CLOUD.registry.diceFeed;
+      const locSecret=localStorage.getItem('scherbensturm_admin_secret_rolls');
+      if(locSecret){const parsedSec=JSON.parse(locSecret);if(Array.isArray(parsedSec)) CLOUD.secretRolls=parsedSec.slice(0,30);}
     }catch(e){}
     function getCampaigns(){
       CLOUD.registry.campaigns=normalizeCampaigns(CLOUD.registry?.campaigns);
@@ -558,6 +572,8 @@
     const simpleHash=str=>{let h=2166136261;const s=String(str||'');for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619);}return (h>>>0).toString(36);};
     function saveRegistryLocal(){try{if(!Array.isArray(CLOUD.registry.deletedCharIds))CLOUD.registry.deletedCharIds=[];localStorage.setItem('scherbensturm_lobby_registry',JSON.stringify(CLOUD.registry));}catch(e){}}
     function saveDiceFeedLocal(){try{localStorage.setItem('scherbensturm_live_dice_feed',JSON.stringify((CLOUD.diceFeed||[]).slice(0,40)));}catch(e){}}
+    function saveSecretRollsLocal(){try{localStorage.setItem('scherbensturm_admin_secret_rolls',JSON.stringify((CLOUD.secretRolls||[]).slice(0,30)));}catch(e){}}
+    const isSecretRollActive = () => Boolean(CLOUD.isAdmin && D.secretMode);
     const getLiveDiceTopic=()=>{
       const base=String(CLOUD.serverUrl||window.location.origin||'scherbensturm_global').trim().replace(/\/+$/,'').toLowerCase();
       const key=(!base||base==='null'||base.startsWith('file:'))?'scherbensturm_global_net':base;
@@ -608,8 +624,9 @@
     function getCampaignFilteredDiceFeed(campId=getActiveLiveCampaignId()){
       return (CLOUD.diceFeed||[]).filter(entry=>getRollCampaignId(entry)===campId);
     }
-    function renderLobbyLiveDiceHtml(){
+    function renderLobbyLiveDiceHtml(inFloatingWin=false){
       const activeCampId=getActiveLiveCampaignId();
+      const lobbyH=Math.max(180,Math.min(1200,toInt(CLOUD.lobbyDiceH,340)));
       const activeCampObj=getCampaigns().find(c=>c.id===activeCampId);
       const feed=getCampaignFilteredDiceFeed(activeCampId);
       const statusBadge=CLOUD.diceConnected
@@ -617,11 +634,11 @@
         :`<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-sky-500/15 text-sky-300 border border-sky-400/40 inline-flex items-center gap-1">☁️ Cloud-Kanal bereit</span>`;
       const renderRollCard=(entry,idx)=>{
         const isFirst=idx===0;
-        const chMatch=(CLOUD.list||[]).find(c=>c.id===entry.charId);
-        const av=chMatch?.avatar||(entry.charId===S.charId?S.profile.avatar:'')||'';
+        const chMatch=entry.charId?(CLOUD.list||[]).find(c=>c.id===entry.charId):null;
+        const av=chMatch?.avatar||(entry.charId&&entry.charId===S.charId?S.profile.avatar:'')||'';
         const res=Array.isArray(entry.res)?entry.res:[];
         const anyCrit=res.some(x=>x.crit), anyOk=res.some(x=>x.ok);
-        const bdrCls=entry.isHz?'border-amber-400/60 bg-amber-500/10':anyCrit?(isFirst?'crit-glow border-amber-400 bg-amber-500/15':'border-amber-400/70 bg-amber-500/10'):anyOk?'border-emerald-500/50 bg-emerald-500/10':'border-rose-500/50 bg-rose-500/10';
+        const bdrCls=entry.isHz?'border-amber-400/60 bg-amber-500/10':entry.isCustomDice?'border-sky-400/60 bg-sky-500/10':anyCrit?(isFirst?'crit-glow border-amber-400 bg-amber-500/15':'border-amber-400/70 bg-amber-500/10'):anyOk?'border-emerald-500/50 bg-emerald-500/10':'border-rose-500/50 bg-rose-500/10';
         let resHtml='';
         if(entry.isHz){
           const r0=res[0]?.r??'-';
@@ -629,8 +646,29 @@
             <div class="flex flex-wrap items-center gap-2 min-w-0"><span class="text-xl sm:text-2xl font-black tabular text-amber-400">🎲 ${r0}</span><span class="text-xs font-extrabold text-amber-300 break-words">🎯 Trefferzone: ${esc(entry.hzZone||'Unbekannt')}</span></div>
             <span class="px-2.5 py-0.5 rounded-lg bg-amber-500 text-slate-950 font-black text-xs tabular shrink-0">W100 = ${r0}</span>
           </div>`;
+        }else if(entry.isCustomDice){
+          const cRolls=Array.isArray(entry.customRolls)?entry.customRolls:res.map(x=>x.r);
+          const cMod=toInt(entry.customMod,0);
+          const cSum=entry.customSum!==undefined?entry.customSum:cRolls.reduce((a,b)=>a+b,0);
+          const cTot=entry.customTotal!==undefined?entry.customTotal:(cSum+cMod);
+          const cForm=entry.customFormula||`${cRolls.length}W${entry.customSides||'?'}${cMod?fmtSign(cMod):''}`;
+          resHtml=`<div class="space-y-1.5 pt-1.5 border-t border-white/10 tabular">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <div class="flex flex-wrap items-center gap-2 min-w-0">
+                <span class="px-2.5 py-1 rounded-xl bg-black/35 border border-sky-400/40 text-lg sm:text-2xl font-black text-sky-300">🎲 = ${cTot}</span>
+                <div class="min-w-0">
+                  <div class="text-xs sm:text-sm font-black text-sky-300">${esc(cForm)}</div>
+                  <div class="text-[11px] t-mut">${cRolls.length}× W${entry.customSides||'?'}${cMod?` • Summe ${cSum} ${fmtSign(cMod)}`:''}</div>
+                </div>
+              </div>
+              <span class="px-2.5 py-1 rounded-lg bg-sky-600 text-white font-black text-xs sm:text-sm shadow shrink-0">${esc(cForm)} = ${cTot}</span>
+            </div>
+            ${(cRolls.length>1||cMod!==0)?`<div class="flex flex-wrap items-center gap-1">${cRolls.map((rv,i)=>`<span class="px-2 py-0.5 rounded-md border border-sky-400/35 bg-sky-500/15 text-sky-200 text-[11px] font-extrabold">${cRolls.length>1?`<span class="opacity-65 mr-0.5">#${i+1}:</span>`:''}${rv}</span>`).join('')}${cMod?`<span class="px-2 py-0.5 rounded-md border border-indigo-400/40 bg-indigo-500/20 text-indigo-200 text-[11px] font-black">Mod ${fmtSign(cMod)}</span>`:''}</div>`:''}
+          </div>`;
         }else if(res.length===1){
           const x=res[0];
+          const xMult=x.egMult||entry.egMult||1;
+          const xBaseEg=x.baseEg!==undefined?x.baseEg:(xMult>1?Math.round(x.eg/xMult):x.eg);
           const stTxt=x.crit?'★ KRITISCHER ERFOLG! ★':x.ok?'✓ ERFOLG':(x.r===100?'💀 PATZER (100)':'✕ MISSERFOLG');
           const stCol=x.crit?'text-amber-400':x.ok?'text-emerald-400':'text-rose-400';
           resHtml=`<div class="flex flex-wrap items-center justify-between gap-2 pt-1.5 border-t border-white/10 tabular">
@@ -638,22 +676,22 @@
               <span class="px-2.5 py-1 rounded-xl bg-black/35 border bdr-line text-lg sm:text-2xl font-black ${stCol}">🎲 ${x.r}${x.rollMod&&x.rawR!==undefined?`<span class="text-xs font-bold text-cyan-300 ml-1">(Wurf ${x.rawR}${fmtSign(x.rollMod)})</span>`:''}</span>
               <div class="min-w-0">
                 <div class="text-xs sm:text-sm font-black uppercase ${stCol}">${stTxt}</div>
-                <div class="text-[11px] t-mut">Schwelle ≤ <strong>${entry.th}</strong> (${entry.chance??Math.max(1,Math.min(99,entry.th))}%)</div>
+                <div class="text-[11px] t-mut">Schwelle ≤ <strong>${entry.th}</strong> (${entry.chance??Math.max(1,Math.min(99,entry.th))}%)${xMult>1?` • <strong class="text-amber-300">EG ×${xMult}</strong>`:''}</div>
               </div>
             </div>
             <div class="flex flex-wrap items-center gap-1.5">
               ${x.crit?`<span class="px-2.5 py-1 rounded-lg bg-amber-500 text-slate-950 font-black text-xs sm:text-sm shadow">★ KRIT</span>`:''}
-              <span class="px-3 py-1 rounded-lg text-white font-black text-xs sm:text-sm shadow ${x.ok?'bg-emerald-600':'bg-rose-600'}">${x.ok?'EG: '+x.eg:'MEG: '+x.meg}</span>
+              <span class="px-3 py-1 rounded-lg text-white font-black text-xs sm:text-sm shadow ${x.ok?'bg-emerald-600':'bg-rose-600'}">${x.ok?('EG: '+x.eg+(xMult>1?` (${xBaseEg} ×${xMult})`:'')):'MEG: '+x.meg}</span>
             </div>
           </div>`;
         }else if(res.length>1){
-          const w=res.filter(x=>x.ok).length, c=res.filter(x=>x.crit).length;
+          const w=res.filter(x=>x.ok).length, c=res.filter(x=>x.crit).length, eMult=entry.egMult||res[0]?.egMult||1;
           resHtml=`<div class="space-y-1.5 pt-1.5 border-t border-white/10 tabular">
             <div class="flex flex-wrap items-center justify-between gap-2 text-xs font-extrabold">
-              <span class="t-mut">${res.length}× W100 gegen Schwelle ≤ <strong>${entry.th}</strong> (${entry.chance??Math.max(1,Math.min(99,entry.th))}%)</span>
+              <span class="t-mut">${res.length}× W100 gegen Schwelle ≤ <strong>${entry.th}</strong> (${entry.chance??Math.max(1,Math.min(99,entry.th))}%)${eMult>1?` • <strong class="text-amber-300">EG ×${eMult}</strong>`:''}</span>
               <span class="${w>0?'text-emerald-400':'text-rose-400'}">${w}/${res.length} Erfolge${c?` • <strong class="text-amber-400">★ ${c} Krit</strong>`:''}</span>
             </div>
-            <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-1.5">${res.map((x,i)=>`<div class="px-2 py-1 rounded-lg border flex items-center justify-between gap-1 text-xs min-w-0 ${x.crit?'border-amber-400 bg-amber-500/20 text-amber-200':x.ok?'border-emerald-500/40 bg-emerald-500/15 text-emerald-200':'border-rose-500/40 bg-rose-500/15 text-rose-200'}"><span class="font-black truncate">#${i+1}: ${x.r}${x.rollMod&&x.rawR!==undefined?` (${x.rawR}${fmtSign(x.rollMod)})`:""}</span><span class="font-extrabold text-[11px] shrink-0">${x.crit?'★ ':''}${x.ok?'EG '+x.eg:'MEG '+x.meg}</span></div>`).join('')}</div>
+            <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-1.5">${res.map((x,i)=>{const xm=x.egMult||entry.egMult||1;return `<div class="px-2 py-1 rounded-lg border flex items-center justify-between gap-1 text-xs min-w-0 ${x.crit?'border-amber-400 bg-amber-500/20 text-amber-200':x.ok?'border-emerald-500/40 bg-emerald-500/15 text-emerald-200':'border-rose-500/40 bg-rose-500/15 text-rose-200'}"><span class="font-black truncate">#${i+1}: ${x.r}${x.rollMod&&x.rawR!==undefined?` (${x.rawR}${fmtSign(x.rollMod)})`:""}</span><span class="font-extrabold text-[11px] shrink-0">${x.crit?'★ ':''}${x.ok?('EG '+x.eg+(xm>1?` ×${xm}`:'')):'MEG '+x.meg}</span></div>`;}).join('')}</div>
           </div>`;
         }
         return `<div class="subcard p-2.5 sm:p-3 space-y-2 border-2 ${bdrCls} ${isFirst?' ring-1 ring-sky-400/30':''} min-w-0">
@@ -671,7 +709,8 @@
             </div>
             <span class="text-[11px] font-bold t-mut tabular shrink-0">${esc(entry.ts||'')}</span>
           </div>
-          ${!entry.isHz?`<div class="flex flex-wrap items-center gap-1.5 text-[11px] tabular bg-black/25 rounded-lg px-2.5 py-1.5 border bdr-line break-words">
+          ${entry.wasSecret?`<div class="inline-flex flex-wrap items-center gap-1 px-2 py-0.5 rounded-md border border-amber-400/60 bg-gradient-to-r from-amber-500/20 to-purple-500/20 text-amber-200 text-[10px] font-extrabold tabular">🕵️ Enthüllter Geheimwurf (gewürfelt: ${esc(entry.originalTs || entry.ts)}${entry.revealedAt ? ` • enthüllt: ${esc(entry.revealedAt)}` : ''})</div>`:''}
+          ${!entry.isHz && !entry.isCustomDice?`<div class="flex flex-wrap items-center gap-1.5 text-[11px] tabular bg-black/25 rounded-lg px-2.5 py-1.5 border bdr-line break-words">
             <span class="font-extrabold text-acc">Aufschlüsselung:</span>
             <span>Wert: <strong>${esc(entry.cBreak??entry.cv)}</strong></span>
             <span class="opacity-50">•</span>
@@ -684,8 +723,24 @@
           ${resHtml}
         </div>`;
       };
-      return `<div class="subcard p-2.5 sm:p-3 space-y-3 border-2 bdr-acc bg-acc-soft/20 min-w-0">
-        <div class="flex flex-wrap items-center justify-between gap-2 min-w-0 ${CLOUD.diceCollapsed?'':'border-b bdr-line pb-2'}">
+      const emptyText=`Noch keine Würfe in der Kampagne „${esc(activeCampObj?.name || 'Hauptkampagne')}“ im Live-Kanal. Klicke oben auf <strong>„⚡ Schnellwurf“</strong> oder öffne den <strong>„🎲 Würfelassistent“</strong> – jeder Wurf erscheint sofort in Echtzeit mit Krits, EG/MEG und kompletter Aufschlüsselung bei allen Spielern in der Lobby!`;
+      const bodyHtml=CLOUD.diceCollapsed?'':(inFloatingWin
+        ?(feed.length
+          ?`<div class="space-y-2.5 flex-1 min-h-0 overflow-y-auto pr-1">${feed.map((e,i)=>renderRollCard(e,i)).join('')}</div>`
+          :`<div class="subcard border-dashed py-6 px-4 text-center text-xs t-mut flex-1 min-h-0 overflow-y-auto flex items-center justify-center"><div>${emptyText}</div></div>`)
+        :`${feed.length
+          ?`<div data-lobby-dice-body="1" class="space-y-2.5 overflow-y-auto pr-1" style="height:${lobbyH}px">${feed.map((e,i)=>renderRollCard(e,i)).join('')}</div>`
+          :`<div data-lobby-dice-body="1" class="subcard border-dashed py-6 px-4 text-center text-xs t-mut overflow-y-auto flex items-center justify-center" style="height:${lobbyH}px"><div>${emptyText}</div></div>`}
+        <div data-lobby-dice-resize="1" title="Ziehen zum vertikalen Vergrößern oder Verkleinern (${lobbyH} px)" class="relative -mx-2.5 sm:-mx-3 -mb-2.5 sm:-mb-3 mt-1 px-3 py-1.5 border-t bdr-line bg-black/20 hover:bg-acc-soft/30 rounded-b-xl grid grid-cols-3 items-center cursor-ns-resize select-none transition-colors" style="touch-action:none">
+          <div class="flex items-center gap-1.5 text-[10px] font-bold t-mut tabular justify-self-start">
+            <span data-lobby-dice-h-lbl="1">${lobbyH} px</span>
+            ${lobbyH!==340?`<button type="button" data-action="reset-lobby-dice-h" data-tip="Höhe des Live-Würfelfensters auf Standard (340 px) zurücksetzen" class="btn py-0 px-1.5 text-[10px] font-black cursor-pointer">↺</button>`:''}
+          </div>
+          <span class="text-sm leading-none font-black text-acc/80 tracking-widest pointer-events-none justify-self-center">⋯</span>
+          <span class="text-[11px] leading-none font-black text-acc/80 pointer-events-none justify-self-end">◢</span>
+        </div>`);
+      return `<div class="subcard p-2.5 sm:p-3 border-2 bdr-acc bg-acc-soft/20 min-w-0 ${inFloatingWin?'flex-1 min-h-0 flex flex-col gap-3':'space-y-3'}">
+        <div class="shrink-0 flex flex-wrap items-center justify-between gap-2 min-w-0 ${CLOUD.diceCollapsed?'':'border-b bdr-line pb-2'}">
           <div class="flex flex-wrap items-center gap-1.5 sm:gap-2 min-w-0">
             <button type="button" data-action="toggle-lobby-dice-collapse" class="btn w-7 h-7 p-0 text-xs font-black">${CLOUD.diceCollapsed?'▸':'▾'}</button>
             <span class="text-xs sm:text-sm font-black text-acc uppercase tracking-wider">🎲 Live-Würfelfenster der Gruppe</span>
@@ -694,14 +749,14 @@
             <span class="pill cursor-default text-[10px] py-0.5 px-2 tabular">${feed.length} ${feed.length===1?'Wurf':'Würfe'}</span>
           </div>
           <div class="flex flex-wrap items-center gap-1.5">
-            <button type="button" data-action="lobby-quick-roll" data-tip="Wirft sofort mit den aktuellen Einstellungen im Würfelassistenten (${esc(D.label)} • Schwelle ${calcThreshold().th})" class="btn btn-ok py-1 px-2.5 text-xs font-black">⚡ Schnellwurf (${D.cnt}× W100)</button>
+            <button type="button" data-action="lobby-quick-roll" data-tip="Wirft sofort mit den aktuellen Einstellungen im Würfelassistenten (${esc(D.label)} • Schwelle ${calcThreshold().th})" class="btn ${isSecretRollActive()?'bg-amber-500 text-slate-950 border-amber-300':'btn-ok'} py-1 px-2.5 text-xs font-black">${isSecretRollActive()?'🕵️ Geheimer ':'⚡ '}Schnellwurf (${D.cnt}× W100)</button>
             <button type="button" data-action="lobby-open-dice" data-tip="Öffnet den W100-Würfelassistenten direkt über der Lobby" class="btn btn-pri py-1 px-2.5 text-xs font-extrabold">🎲 Würfelassistent</button>
             <button type="button" data-action="toggle-dice-toast" data-tip="Toast-Einblendung bei eingehenden Live-Würfen anderer Spieler ein-/ausschalten" class="btn py-1 px-2 text-[11px] ${CLOUD.diceToast?'bdr-acc text-acc':'opacity-70'}">${CLOUD.diceToast?'🔔 Live-Popup An':'🔕 Popup Aus'}</button>
             <button type="button" data-action="lobby-sync-dice" data-tip="Würfel-Feed jetzt mit dem Server abgleichen" class="btn py-1 px-2 text-[11px]">🔄</button>
             ${(feed.length&&canClearLiveDice(activeCampId))?(CLOUD.confirmClearDice?`<span class="inline-flex items-center gap-1"><button type="button" data-action="confirm-clear-lobby-dice" class="btn bg-rose-600 text-white border-rose-600 py-0.5 px-2 text-[10px] font-black">Alle löschen? (2/2)</button><button type="button" data-action="cancel-clear-lobby-dice" class="btn py-0.5 px-1.5 text-[10px]">✕</button></span>`:`<button type="button" data-action="ask-clear-lobby-dice" data-tip="Live-Würfellog für die Lobby leeren" class="btn btn-err py-1 px-2 text-[11px]">🗑️</button>`):''}
           </div>
         </div>
-        ${!CLOUD.diceCollapsed?(feed.length?`<div class="space-y-2.5 max-h-[340px] overflow-y-auto pr-1">${feed.map((e,i)=>renderRollCard(e,i)).join('')}</div>`:`<div class="subcard border-dashed py-6 text-center text-xs t-mut">Noch keine Würfe in der Kampagne „${esc(activeCampObj?.name || 'Hauptkampagne')}“ im Live-Kanal. Klicke oben auf <strong>„⚡ Schnellwurf“</strong> oder öffne den <strong>„🎲 Würfelassistent“</strong> – jeder Wurf erscheint sofort in Echtzeit mit Krits, EG/MEG und kompletter Aufschlüsselung bei allen Spielern in der Lobby!</div>`):''}
+        ${bodyHtml}
       </div>`;
     }
     function updateLiveDiceBadges(){
@@ -868,10 +923,11 @@
       updateLobbyLiveDiceDOM();
       if(isRealtimePush&&rawObj.senderTabId!==LIVE_TAB_ID&&CLOUD.diceToast&&getRollCampaignId(rawObj)===getActiveLiveCampaignId()){
         const r0=rawObj.res[0];
-        const sumTxt=rawObj.isHz?`W100 = ${r0?.r} (${rawObj.hzZone||'Zone'})`:rawObj.res.length===1
-          ?`${r0.r} (${r0.crit?'★ KRIT! ':''}${r0.ok?'EG '+r0.eg:'MEG '+r0.meg})`
+        const r0Mult=r0?.egMult||rawObj.egMult||1;
+        const sumTxt=rawObj.isHz?`W100 = ${r0?.r} (${rawObj.hzZone||'Zone'})`:rawObj.isCustomDice?`${rawObj.customFormula} = ${rawObj.customTotal}`:rawObj.res.length===1
+          ?`${r0.r} (${r0.crit?'★ KRIT! ':''}${r0.ok?('EG '+r0.eg+(r0Mult>1?` ×${r0Mult}`:'')):'MEG '+r0.meg})`
           :`${rawObj.res.filter(x=>x.ok).length}/${rawObj.res.length} Erfolge`;
-        toast(`🎲 Live-Wurf (${rawObj.charName||'Spieler'}): ${rawObj.label||'Probe'} → ${sumTxt}`);
+        toast(`${rawObj.wasSecret?'🕵️ Enthüllt – ':''}🎲 Live-Wurf (${rawObj.charName||'Spieler'}): ${rawObj.label||'Probe'} → ${sumTxt}`);
       }
     }
     function initLiveDiceChannel(){
@@ -922,12 +978,72 @@
         fetch(`https://ntfy.sh/${encodeURIComponent(topic)}`,{method:'POST',body:JSON.stringify(payload)}).catch(()=>{});
       }catch(e){}
     }
-    function publishLiveRoll(entry){
-      if(entry&&!entry.campaignId) entry.campaignId=getCharCampaignId(entry.charId||S.charId);
+    function publishLiveRoll(entry, forcePublic = false){
+      if(!entry) return;
+      if(!entry.campaignId) entry.campaignId=UI.inLobby?getActiveLiveCampaignId():getCharCampaignId(entry.charId||S.charId);
+      if(!forcePublic && isSecretRollActive()){
+        entry.isSecret=true;
+        entry.wasSecret=true;
+        entry.revealed=false;
+        entry.originalTs=entry.originalTs||entry.ts||stamp();
+        entry.originalTsMs=entry.originalTsMs||entry.tsMs||Date.now();
+        if(!Array.isArray(CLOUD.secretRolls)) CLOUD.secretRolls=[];
+        CLOUD.secretRolls.unshift(entry);
+        if(CLOUD.secretRolls.length>30) CLOUD.secretRolls.length=30;
+        saveSecretRollsLocal();
+        UI.lastSecretRollId=entry.id;
+        toast('🕵️ Geheimer Admin-Wurf gespeichert (nicht im Live-Feed).');
+        if(D.open) renderDice();
+        return;
+      }
+      if(!forcePublic) UI.lastSecretRollId='';
       mergeDiceFeeds([entry]);
       updateLobbyLiveDiceDOM();
       sendLiveBroadcast(entry);
       syncCloudRegistry(true);
+    }
+    function formatSecretRollSummary(r){
+      if(!r) return '';
+      if(r.isHz){
+        const r0=r.res?.[0]?.r??'-';
+        return `W100 = ${r0} • 🎯 ${r.hzZone||'Trefferzone'}`;
+      }
+      if(r.isCustomDice){
+        const cForm=r.customFormula||`${(r.customRolls||r.res||[]).length}W${r.customSides||'?'}${toInt(r.customMod,0)?fmtSign(toInt(r.customMod,0)):''}`;
+        const cTot=r.customTotal!==undefined?r.customTotal:((r.customRolls||[]).reduce((a,b)=>a+b,0)+toInt(r.customMod,0));
+        return `${cForm} = ${cTot}`;
+      }
+      const res=Array.isArray(r.res)?r.res:[];
+      if(res.length===1){
+        const x=res[0], xm=x.egMult||r.egMult||1, xb=x.baseEg!==undefined?x.baseEg:(xm>1?Math.round(x.eg/xm):x.eg);
+        return `W100: ${x.r} [≤${r.th}] → ${x.crit?'★ KRIT ':''}${x.ok?('EG '+x.eg+(xm>1?` (${xb} ×${xm})`:'')):'MEG '+x.meg}`;
+      }
+      if(res.length>1){
+        const w=res.filter(x=>x.ok).length, c=res.filter(x=>x.crit).length, em=r.egMult||res[0]?.egMult||1;
+        return `${res.length}× W100 [≤${r.th}] → ${w}/${res.length} Erfolge${c?` • ★${c}`:''}${em>1?` • EG ×${em}`:''}`;
+      }
+      return '';
+    }
+    function revealSecretRoll(rollId){
+      if(!CLOUD.isAdmin) return;
+      const item=(CLOUD.secretRolls||[]).find(x=>x&&x.id===rollId);
+      if(!item){toast('ℹ️ Geheimwurf nicht gefunden.');return;}
+      if(item.revealed){toast('ℹ️ Dieser Geheimwurf wurde bereits enthüllt.');return;}
+      const revealEntry=clone(item);
+      revealEntry.wasSecret=true;
+      revealEntry.isSecret=false;
+      revealEntry.revealed=true;
+      revealEntry.revealedAt=stamp();
+      revealEntry.originalTs=item.originalTs||item.ts||stamp();
+      revealEntry.ts=item.originalTs||item.ts;
+      revealEntry.tsMs=Date.now();
+      revealEntry.campaignId=item.campaignId||getActiveLiveCampaignId();
+      publishLiveRoll(revealEntry, true);
+      item.revealed=true;
+      item.revealedAt=revealEntry.revealedAt;
+      saveSecretRollsLocal();
+      if(D.open) renderDice();
+      toast('👁️ Geheimwurf im Live-Feed enthüllt!');
     }
     let liveNoteSyncTimer = null;
     function publishLiveCampNote(noteMsg){
@@ -1729,11 +1845,11 @@
       }
       if(key==='lpRegen'){
         const auto=getLpRegenAuto(M),tot=getLpRegen(M),ovr=hasLpRegenOvr(),sl=fmtSrcLines(M,'lpRegen');
-        return `LP-Regenerationsrate: ${tot} (Erholsame Rast 4×: +${tot*4} LP)\n• Basiswert: ${LP_REGEN_BASE}${sl?`\n${sl}`:''}${ovr?`\n• Manueller Overwrite aktiv (Automatisch: ${auto})`:''}`;
+        return `LP-Regenerationsrate: ${tot} (Erholsame Rast 2×: +${tot*2} LP)\n• Basiswert: ${LP_REGEN_BASE}${sl?`\n${sl}`:''}${ovr?`\n• Manueller Overwrite aktiv (Automatisch: ${auto})`:''}`;
       }
       if(key==='mlpRegen'){
         const auto=getMlpRegenAuto(M),tot=getMlpRegen(M),ovr=hasMlpRegenOvr(),sl=fmtSrcLines(M,'mlpRegen');
-        return `mLP-Regenerationsrate: ${tot} (Erholsame Rast 4×: +${tot*4} mLP)\n• Basiswert: ${MLP_REGEN_BASE}${sl?`\n${sl}`:''}${ovr?`\n• Manueller Overwrite aktiv (Automatisch: ${auto})`:''}`;
+        return `mLP-Regenerationsrate: ${tot} (Erholsame Rast 2×: +${tot*2} mLP)\n• Basiswert: ${MLP_REGEN_BASE}${sl?`\n${sl}`:''}${ovr?`\n• Manueller Overwrite aktiv (Automatisch: ${auto})`:''}`;
       }
       if(key==='ini'){
         const wa=getAttrTot('WA',M),inV=getAttrTot('IN',M),base=wa-inV,mod=toInt(S.secondary.iniMod),tot=getIniTot(M),sl=fmtSrcLines(M,'ini');
@@ -2842,7 +2958,7 @@
         if(asViewOnly){
           CLOUD.viewingRemote=true; CLOUD.remoteCharId=id;
           mergeLoaded(data);
-          UI.inLobby=false; UI.sheetLoaded=true; UI.modal=null; renderAll(false);
+          UI.inLobby=false; UI.sheetLoaded=true; UI.modal=null; exitLobbyNeutralDice(); renderAll(false);
           toast(`👁️ 👄 👁️ Ansichtsmodus: „${S.profile.name||'Charakter'}“ geladen`);
         }else{
           if(owner&&!allowedToEdit){
@@ -2854,7 +2970,7 @@
           S.activeTab=getSavedTabForChar(S.charId,data.activeTab);
           saveLastActiveTab(S.charId,S.activeTab);
           if(owner&&!S.owner) S.owner=owner;
-          UI.inLobby=false; UI.sheetLoaded=true; UI.modal=null; renderAll(true);
+          UI.inLobby=false; UI.sheetLoaded=true; UI.modal=null; exitLobbyNeutralDice(); renderAll(true);
           toast(`✏️ „${S.profile.name||'Charakter'}“ zum Bearbeiten geladen!`);
         }
       }catch(err){
@@ -2882,7 +2998,7 @@
       CLOUD.registry.charCampaigns[S.charId]=targetCampId;
       CLOUD.newCharOpen=false; CLOUD.newCharName=''; CLOUD.newCharAncestry=''; CLOUD.newCharConcept='';
       setActiveCampaign(targetCampId);
-      UI.inLobby=false; UI.sheetLoaded=true; UI.modal=null;
+      UI.inLobby=false; UI.sheetLoaded=true; UI.modal=null; exitLobbyNeutralDice();
       save(false);
       renderAll(true);
       await pushToCloud(false);
@@ -3342,22 +3458,22 @@
       const M=calcActiveMods(), apMax=getApMax(M), mapMax=getMapMax(M);
       S.secondary.apCurrent=apMax;
       S.secondary.mapCurrent=mapMax;
-      logChron(`🔥 Einfache Rast: AP (${apMax}/${apMax}) und mAP (${mapMax}/${mapMax}) wiederhergestellt.`);
+      logChron(`🔥 Pause: AP (${apMax}/${apMax}) und mAP (${mapMax}/${mapMax}) wiederhergestellt.`);
       save(); renderHeader(); renderMain();
-      toast(`🔥 Einfache Rast: AP (${apMax}) & mAP (${mapMax}) wiederhergestellt!`);
+      toast(`🔥 Pause: AP (${apMax}) & mAP (${mapMax}) wiederhergestellt!`);
     }
     function performFullRest(){
       const M=calcActiveMods(), lpReg=getLpRegen(M), mlpReg=getMlpRegen(M);
-      const lpHeal=lpReg*4, mlpHeal=mlpReg*4;
+      const lpHeal=lpReg*2, mlpHeal=mlpReg*2;
       const lpMax=getLpMax(M), mlpMax=getMlpMax(M), apMax=getApMax(M), mapMax=getMapMax(M);
       const oldLp=toInt(S.secondary.lpCurrent,lpMax), oldMlp=toInt(S.secondary.mlpCurrent,mlpMax);
       S.secondary.lpCurrent=oldLp<lpMax?Math.min(lpMax,oldLp+lpHeal):oldLp;
       S.secondary.mlpCurrent=oldMlp<mlpMax?Math.min(mlpMax,oldMlp+mlpHeal):oldMlp;
       S.secondary.apCurrent=apMax;
       S.secondary.mapCurrent=mapMax;
-      logChron(`🌙 Erholsame Rast: +${lpHeal} LP (4×${lpReg} → ${S.secondary.lpCurrent}/${lpMax}), +${mlpHeal} mLP (4×${mlpReg} → ${S.secondary.mlpCurrent}/${mlpMax}) sowie AP & mAP wiederhergestellt.`);
+      logChron(`🌙 Erholsame Rast: +${lpHeal} LP (2×${lpReg} → ${S.secondary.lpCurrent}/${lpMax}), +${mlpHeal} mLP (2×${mlpReg} → ${S.secondary.mlpCurrent}/${mlpMax}) sowie AP & mAP wiederhergestellt.`);
       save(); renderHeader(); renderMain();
-      toast(`🌙 Erholsame Rast: +${lpHeal} LP & +${mlpHeal} mLP (4× Reg.) wiederhergestellt!`);
+      toast(`🌙 Erholsame Rast: +${lpHeal} LP & +${mlpHeal} mLP (2× Reg.) wiederhergestellt!`);
     }
     const getIniBase=()=>getAttrBase('WA')-getAttrBase('IN')+toInt(S.secondary.iniMod);
     const getIniTot=(M=calcActiveMods())=>getAttrTot('WA',M)-getAttrTot('IN',M)+toInt(S.secondary.iniMod)+M.ini;
@@ -3473,7 +3589,30 @@
       if(T?.disAdj) parts.push(`${fmtSign(T.disAdj)}N (Manuell)`);
       return parts;
     }
-    function applyDiceAutoAdvDis(resetManual=false,M=calcActiveMods()){
+    const isLobbyNeutralDice=()=>Boolean(UI.inLobby);
+    function resetDiceToLobbyNeutral(){
+      D.weaponId=null; D.skillId=null; D.attrKey=null; D.wRollCat='Normaler Test'; D.sitActive={}; D.critOff=0; D.advAdj=0; D.disAdj=0; D.adv=0; D.dis=0;
+      D.label='Freie Probe (Lobby)';
+      D.cMode='direct'; D.cDirect=50; D.cAttr=50; D.cSkill='0';
+      D.dMode='direct'; D.dDirect=40;
+      D._lobbyNeutral=true;
+    }
+    function exitLobbyNeutralDice(){
+      D._lobbyNeutral=false;
+      if(D.label==='Freie Probe (Lobby)') D.label='Freie Probe';
+    }
+    function ensureLobbyNeutralDiceOnOpen(){
+      if(isLobbyNeutralDice()&&(!D._lobbyNeutral||D.weaponId||D.skillId||D.attrKey)){
+        resetDiceToLobbyNeutral();
+      }
+    }
+    function applyDiceAutoAdvDis(resetManual=false,M=isLobbyNeutralDice()?{testTh:0}:calcActiveMods()){
+      if(isLobbyNeutralDice()){
+        if(resetManual){D.advAdj=0;D.disAdj=0;}
+        D.adv=Math.max(0,toInt(D.advAdj,0));
+        D.dis=Math.max(0,toInt(D.disAdj,0));
+        return {autoAdv:0,autoDis:0,rawAutoAdv:0,rawAutoDis:0,src:[],autoCrit:0,critSrc:[],autoRollMod:0,rollModSrc:[],sitOptions:[]};
+      }
       if(resetManual){D.advAdj=0;D.disAdj=0;}
       const normCat=D.wRollCat==='Parade'?'Parieren':D.wRollCat;
       const effCat=['Normaler Test','Trefferwurf','Parieren','Blocken','Ausweichen'].includes(normCat)?normCat:(D.weaponId?'Trefferwurf':'Normaler Test');
@@ -3483,16 +3622,18 @@
       D.dis=Math.max(0,r.autoDis+toInt(D.disAdj,0));
       return r;
     }
-    function calcRollAdvDis(M=calcActiveMods()){
+    function calcRollAdvDis(M=isLobbyNeutralDice()?{testTh:0}:calcActiveMods()){
       const r=applyDiceAutoAdvDis(false,M);
       return {...r,effAdv:D.adv,effDis:D.dis};
     }
+    const calcEgMultiplier = th => th > 100 ? Math.floor(th / 100) + 1 : 1;
     function calcThreshold(){
-      const M=calcActiveMods(),ad=calcRollAdvDis(M),cv=getEffC(),dv=getEffD(),rawNet=D.adv-D.dis,net=Math.max(-5,Math.min(5,rawNet));
-      const bonus=(net===0?0:Math.sign(net)*(10+(Math.abs(net)-1)*5))+M.testTh, th=cv+50-dv+bonus;
+      const isNeutral=isLobbyNeutralDice();
+      const M=isNeutral?{testTh:0}:calcActiveMods(),ad=calcRollAdvDis(M),cv=getEffC(),dv=getEffD(),rawNet=D.adv-D.dis,net=Math.max(-5,Math.min(5,rawNet));
+      const bonus=(net===0?0:Math.sign(net)*(10+(Math.abs(net)-1)*5))+(M.testTh||0), th=cv+50-dv+bonus;
       const effCritIdx=Math.max(0,Math.min(CRIT_SEQ.length-1,(ad.autoCrit||0)+toInt(D.critOff,0))), effCrit=CRIT_SEQ[effCritIdx];
       D.crit=effCrit;
-      return {cv,dv,effAdv:D.adv,effDis:D.dis,autoAdv:ad.autoAdv,autoDis:ad.autoDis,advAdj:toInt(D.advAdj,0),disAdj:toInt(D.disAdj,0),advSrc:ad.src,sitOptions:ad.sitOptions||[],autoCrit:ad.autoCrit||0,critSrc:ad.critSrc||[],rollMod:ad.autoRollMod||0,rollModSrc:ad.rollModSrc||[],effCrit,effCritIdx,rawNet,net,bonus,th,effTh:M.testTh,chance:Math.max(1,Math.min(99,th))};
+      return {cv,dv,effAdv:D.adv,effDis:D.dis,autoAdv:ad.autoAdv,autoDis:ad.autoDis,advAdj:toInt(D.advAdj,0),disAdj:toInt(D.disAdj,0),advSrc:ad.src,sitOptions:ad.sitOptions||[],autoCrit:ad.autoCrit||0,critSrc:ad.critSrc||[],rollMod:ad.autoRollMod||0,rollModSrc:ad.rollModSrc||[],effCrit,effCritIdx,rawNet,net,bonus,th,egMult:calcEgMultiplier(th),effTh:M.testTh||0,chance:Math.max(1,Math.min(99,th))};
     }
     function getWeaponRollMeta(w,M=calcActiveMods()){
       const hasMassiv=isWeaponMassiv(w);
@@ -3524,6 +3665,7 @@
       renderHeader(); renderDice();
     }
     function syncDiceFromSheet(){
+      if(isLobbyNeutralDice()){applyDiceAutoAdvDis(false);return;}
       if(D.wRollCat==='Parade') D.wRollCat='Parieren';
       if(!['Normaler Test','Trefferwurf','Parieren','Blocken','Ausweichen'].includes(D.wRollCat)){
         D.wRollCat=D.weaponId?'Trefferwurf':'Normaler Test';
@@ -3618,8 +3760,8 @@
     function buildHdrPillsHtml(P,M=calcActiveMods()){
       const apMax=getApMax(M), mapMax=getMapMax(M), lpReg=getLpRegen(M), mlpReg=getMlpRegen(M), lpMax=getLpMax(M), mlpMax=getMlpMax(M);
       const spTip=`Steigerungspunkte (aufgewendet / gesamt)\n• Basis (Stufe ${P.lvl}): ${P.baseSp} SP${P.bonusSp?`\n• Bonus-SP: ${fmtSign(P.bonusSp)} SP`:''}${P.spMod?`\n• SP-Mod (Effekte): ${fmtSign(P.spMod)} SP\n${P.spModSrc}`:''}\nNoch frei verfügbar: ${P.spRem} SP`;
-      const simpleRestTip=`🔥 Einfache Rast ausführen\nStellt AP (${apMax}) und mAP (${mapMax}) vollständig wieder her.`;
-      const fullRestTip=`🌙 Erholsame Rast ausführen\nStellt vierfache Regeneration wieder her:\n• +${lpReg*4} LP (4 × ${lpReg} LP-Reg., bis max. ${lpMax})\n• +${mlpReg*4} mLP (4 × ${mlpReg} mLP-Reg., bis max. ${mlpMax})\n• Stellt zudem AP (${apMax}) & mAP (${mapMax}) wieder her.`;
+      const simpleRestTip=`🔥 Pause ausführen\nStellt AP (${apMax}) und mAP (${mapMax}) vollständig wieder her.\nHinweis: Ausgebrannte Sekundärattribute (meistens wie AP und mAP) werden durch eine Pause NICHT regeneriert.`;
+      const fullRestTip=`🌙 Erholsame Rast ausführen\nStellt doppelte Regeneration wieder her:\n• +${lpReg*2} LP (2 × ${lpReg} LP-Reg., bis max. ${lpMax})\n• +${mlpReg*2} mLP (2 × ${mlpReg} mLP-Reg., bis max. ${mlpMax})\n• Stellt zudem AP (${apMax}), mAP (${mapMax}) sowie ausgebrannte Sekundärattribute wieder vollständig her.`;
       return `<div class="flex flex-col items-start xl:items-end gap-1.5">
         <div class="flex flex-wrap items-center gap-1.5">
           <button type="button" data-action="switch-tab" data-tab="chronicle" data-tip="Charakterstufe\nPro Stufe: +5 SP\nJede 10. Stufe: +1 MsP" class="pill">Stufe <span class="text-acc">${P.lvl}</span></button>
@@ -3629,7 +3771,7 @@
         </div>
         <div class="flex flex-wrap items-center gap-1.5">
           <button type="button" data-action="rest-simple" data-tip="${esc(simpleRestTip)}" class="pill hover:border-amber-400 text-xs py-1 px-2.5">
-            <span class="text-sm leading-none">🔥</span><span>Einfache Rast</span>
+            <span class="text-sm leading-none">🔥</span><span>Pause</span>
           </button>
           <button type="button" data-action="rest-full" data-tip="${esc(fullRestTip)}" class="pill hover:border-indigo-400 text-xs py-1 px-2.5">
             <span class="text-sm leading-none">🌙</span><span>Erholsame Rast</span>
@@ -3839,14 +3981,14 @@
         ${!S.statusCollapsed?`<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <div class="space-y-2.5">
             <div class="flex items-center justify-between px-1">
-              <span class="text-xs font-extrabold text-emerald-400 uppercase tracking-wider">✨ Positive Statuseffekte (Stärkungen)</span>
+              <span class="text-xs font-extrabold text-emerald-400 uppercase tracking-wider">✨ Positive Statuseffekte</span>
               <span class="text-[11px] t-mut">Vorteile &amp; Bonus-Werte</span>
             </div>
             ${posList.map(d=>renderStatusEffectCard(d)).join('')}
           </div>
           <div class="space-y-2.5">
             <div class="flex items-center justify-between px-1">
-              <span class="text-xs font-extrabold text-rose-400 uppercase tracking-wider">💀 Negative Statuseffekte (Schwächungen)</span>
+              <span class="text-xs font-extrabold text-rose-400 uppercase tracking-wider">💀 Negative Statuseffekte</span>
               <span class="text-[11px] t-mut">Nachteile &amp; Abzüge</span>
             </div>
             ${negList.map(d=>renderStatusEffectCard(d)).join('')}
@@ -3890,7 +4032,7 @@
             <button type="button" id="rst_mlpRegenOvr" data-action="reset-regen-ovr" data-key="mlp" data-tip="Manueller Overwrite aktiv – Klicken für Standardberechnung (${mlpRegAuto})" class="text-[10px] font-black text-amber-400 hover:underline ${mlpRegOvr?'':'hidden'}">(${mlpRegAuto})</button>
           </label>
         </div>
-        <span class="text-[10px] opacity-75 min-w-0 break-words">Erholsame Rast (4×): <strong id="val_lpReg4" style="color:${esc(getSecCol('lp'))}">+${lpReg*4} LP</strong> / <strong id="val_mlpReg4" style="color:${esc(getSecCol('mlp'))}">+${mlpReg*4} mLP</strong></span>
+        <span class="text-[10px] opacity-75 min-w-0 break-words">Erholsame Rast (2×): <strong id="val_lpReg4" style="color:${esc(getSecCol('lp'))}">+${lpReg*2} LP</strong> / <strong id="val_mlpReg4" style="color:${esc(getSecCol('mlp'))}">+${mlpReg*2} mLP</strong></span>
       </div></section>
       <section class="grid grid-cols-1 md:grid-cols-12 gap-4 tabular">
         ${pool('lp',SEC_META.lp,'(KO + ST) / 5','lpCurrent','lpMod','val_lpMax',getLpBase(),getLpMax(M))}
@@ -5185,14 +5327,19 @@
 
         <!-- Sektion 2: Großzügige Kampagnen-Reiter & Charakter-Galerie -->
         <section class="card p-3.5 sm:p-6 space-y-5">
-          <div class="flex flex-wrap items-center justify-between gap-3">
+          <div class="flex flex-wrap items-center justify-between gap-3 ${CLOUD.galleryCollapsed?'':'border-b bdr-line pb-2'}">
             <div class="flex items-center gap-3 min-w-0 flex-1">
-              ${(CLOUD.isAdmin||canManageCampaign(activeCampId))
+              <button type="button" data-action="toggle-lobby-gallery-collapse" data-tip="${CLOUD.galleryCollapsed?'Kampagnen &amp; Charakter-Galerie ausklappen':'Kampagnen &amp; Charakter-Galerie einklappen'}" class="btn w-7 h-7 p-0 text-xs font-black shrink-0">${CLOUD.galleryCollapsed?'▸':'▾'}</button>
+              ${!CLOUD.galleryCollapsed?((CLOUD.isAdmin||canManageCampaign(activeCampId))
                 ?`<button type="button" data-action="pick-camp-img" data-tip="Kampagnenbild ändern (Klicken zum Hochladen)" class="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl overflow-hidden border-2 bdr-acc bg-acc-soft flex items-center justify-center shadow-lg shrink-0 cursor-pointer hover:opacity-90 transition-opacity">${activeCamp?.img?`<img src="${activeCamp.img}" class="w-full h-full object-cover"/>`:`<span class="text-[10px] font-black text-acc text-center px-1.5 leading-tight">KAMPAGNEN-<br/>BILD +</span>`}</button>`
-                :(activeCamp?.img?`<div class="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl overflow-hidden border-2 bdr-acc bg-acc-soft flex items-center justify-center shadow-lg shrink-0"><img src="${activeCamp.img}" class="w-full h-full object-cover"/></div>`:'')}
+                :(activeCamp?.img?`<div class="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl overflow-hidden border-2 bdr-acc bg-acc-soft flex items-center justify-center shadow-lg shrink-0"><img src="${activeCamp.img}" class="w-full h-full object-cover"/></div>`:'')):''}
               <div class="min-w-0 flex-1">
-                <h2 class="text-base sm:text-lg font-black">🗺️ Kampagnen &amp; Charakter-Galerie</h2>
-                <p class="text-xs t-mut">Wähle oben eine Kampagne oder den öffentlichen Bereich („Ohne Kampagne / Allgemein“), um die zugehörigen Helden zu sehen.</p>
+                <div class="flex flex-wrap items-center gap-2 min-w-0">
+                  <h2 class="text-base sm:text-lg font-black">🗺️ Kampagnen &amp; Charakter-Galerie</h2>
+                  <span class="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-acc-soft text-acc border bdr-acc inline-flex items-center gap-1 shrink-0">${activeCampId==='default'?'🌐':'📁'} ${esc(activeCamp?.name||'Ohne Kampagne / Allgemein')}</span>
+                  <span class="pill cursor-default text-[10px] py-0.5 px-2 tabular shrink-0">${visibleList.length} ${visibleList.length===1?'Charakter':'Charaktere'}</span>
+                </div>
+                ${!CLOUD.galleryCollapsed?`<p class="text-xs t-mut">Wähle oben eine Kampagne oder den öffentlichen Bereich („Ohne Kampagne / Allgemein“), um die zugehörigen Helden zu sehen.</p>`:''}
               </div>
             </div>
             <div class="flex flex-wrap items-center gap-2 sm:ml-auto">
@@ -5205,6 +5352,7 @@
             </div>
           </div>
 
+          ${!CLOUD.galleryCollapsed?`
           ${CLOUD.isAdmin&&(CLOUD.campAction==='new'||CLOUD.campAction==='rename')?`<div class="subcard p-3 sm:p-3.5 flex flex-wrap items-center gap-2 border-amber-400/50 bg-amber-500/10">
             <span class="text-xs font-extrabold text-amber-300">${CLOUD.campAction==='new'?'➕ Neue Kampagne erstellen:':`✏️ „${esc(activeCamp?.name||'')}“ umbenennen:`}</span>
             <input id="inpCampaignName" type="text" value="${CLOUD.campAction==='rename'?esc(activeCamp?.name||''):''}" placeholder="Kampagnenname eingeben..." class="inp flex-1 min-w-0 w-full sm:w-auto sm:min-w-[200px] text-xs sm:text-sm font-bold"/>
@@ -5386,6 +5534,7 @@
               ?`<div><button type="button" data-action="lobby-new-sheet" class="btn btn-ok py-2.5 px-5 text-xs sm:text-sm font-black shadow-lg">✨ + Charakter in dieser Kampagne erstellen</button></div>`
               :`<div class="text-xs t-mut">Melde dich oben in der Willkommens-Zentrale an, um einen neuen Charakterbogen zu erstellen.</div>`}
           </div>`}
+          `:''}
 
           ${canReadPublicNotes?`
             <div class="subcard p-3 sm:p-4 space-y-3.5 border-2 bdr-acc bg-acc-soft/20">
@@ -5574,36 +5723,116 @@
       ${(T.sitOptions&&T.sitOptions.length)?`<div class="pt-1 border-t bdr-line space-y-1 min-w-0"><div class="text-[10px] font-extrabold t-mut uppercase tracking-wider">Situative Schalter (bei Bedarf anklicken)</div><div class="flex flex-wrap items-center gap-1.5 min-w-0">${T.sitOptions.map(so=>{const badge=so.reduceDis?`−${so.reduceDis} Nacht.`:so.adv?`+${so.adv} Vort.`:so.dis?`+${so.dis} Nacht.`:'±0';const tipTxt=so.items.map(i=>`${i.srcName}: ${i.label}`).join('\n')+(so.counterNote?`\nVerrechnung: ${so.counterNote}`:'');return `<button type="button" data-action="toggle-dice-sit" data-sit="${esc(so.sitKey)}" data-tip="${esc(tipTxt)}" class="btn py-1 px-2.5 text-[11px] font-bold tabular max-w-full ${so.active?(so.dis>0&&!so.adv?'bg-rose-600 text-white border-rose-500':'btn-ok'):'opacity-85 hover:opacity-100'}"><span>${so.active?'☑':'☐'}</span><span class="break-words">${esc(so.sitLabel)} (${badge})</span>${so.counterNote?`<span class="text-[10px] opacity-85">[${esc(so.counterNote)}]</span>`:''}</button>`;}).join('')}</div></div>`:''}
       <div class="text-center text-xs font-bold py-1 rounded-lg ${T.net>0?'bg-emerald-500/15 text-emerald-500':T.net<0?'bg-rose-500/15 text-rose-500':'bg-black/15 t-mut'}">${T.net>0?`${Math.abs(T.rawNet)} Netto-Vorteil (${fmtSign(netBonus)})`:T.net<0?`${Math.abs(T.rawNet)} Netto-Nachteil (${netBonus})`:'Ausgeglichen (±0)'}</div>`;
     }
-    const buildThresholdInnerHtml=T=>`<div class="text-[11px] font-semibold t-mut">Testschwelle (W100 ≤ Schwelle) • <span class="text-acc font-bold tabular">Chance: ${T.chance}%</span></div><div class="text-4xl font-black tabular my-0.5">${T.th}</div><div class="text-[11px] t-mut tabular">${T.cv} (Wert) + 50 − ${T.dv} (Schw.) ${T.bonus>=0?'+ '+T.bonus:'− '+Math.abs(T.bonus)}${T.effTh?` (inkl. ${fmtSign(T.effTh)} Effekt)`:''} = <strong>${T.th}</strong></div>${T.rollMod?`<div class="text-[11px] font-extrabold text-cyan-300 mt-1">⚡ Würfelergebnis-Modifikator: Geworfene Zahl ${fmtSign(T.rollMod)} (${esc((T.rollModSrc||[]).map(x=>x.tagLbl||x.srcName).join(', '))})</div>`:''}`;
+    const buildThresholdInnerHtml=T=>`<div class="text-[11px] font-semibold t-mut">Testschwelle (W100 ≤ Schwelle) • <span class="text-acc font-bold tabular">Chance: ${T.chance}%</span></div><div class="text-4xl font-black tabular my-0.5">${T.th}</div><div class="text-[11px] t-mut tabular">${T.cv} (Wert) + 50 − ${T.dv} (Schw.) ${T.bonus>=0?'+ '+T.bonus:'− '+Math.abs(T.bonus)}${T.effTh?` (inkl. ${fmtSign(T.effTh)} Effekt)`:''} = <strong>${T.th}</strong></div>${T.egMult>1?`<div class="mt-1.5 inline-flex items-center justify-center px-2.5 py-0.5 rounded-lg bg-amber-500/20 border border-amber-400/60 text-amber-300 text-[11px] font-black tabular">✨ Schwelle ${T.th}: EG ×${T.egMult} bei Erfolg (100 = Patzer)</div>`:''}${T.rollMod?`<div class="text-[11px] font-extrabold text-cyan-300 mt-1">⚡ Würfelergebnis-Modifikator: Geworfene Zahl ${fmtSign(T.rollMod)} (${esc((T.rollModSrc||[]).map(x=>x.tagLbl||x.srcName).join(', '))})</div>`:''}`;
 
     function renderDice(){
       const mount=$('diceMount'), p=mount, bd=$('diceBackdrop'), xl=window.innerWidth>=1280;
       if(!mount||!bd) return;
       applyWinFrame('dice', mount, bd, 'xl:w-[430px] 2xl:w-[470px]'); if(!D.open){mount.innerHTML='';return;}
+      const isNeutral=isLobbyNeutralDice(), secAct=isSecretRollActive();
       const T=calcThreshold(), ci=CRIT_SEQ.indexOf(D.crit), cs=getCSkVal(), ds=getDSkVal();
+      const adminToggleBarHtml=CLOUD.isAdmin?`<div class="subcard p-2.5 border-2 ${secAct?'border-amber-400 bg-gradient-to-r from-amber-500/20 via-purple-500/20 to-amber-500/20 shadow-lg ring-1 ring-purple-400/40':'bdr-line bg-black/20'} flex flex-wrap items-center justify-between gap-2">
+        <button type="button" data-action="toggle-dice-secret" data-tip="Schaltet zwischen öffentlichem Live-Feed und geheimen Admin-Würfen um" class="btn py-1.5 px-3 text-xs font-black ${secAct?'bg-amber-500 text-slate-950 border-amber-300 shadow':'bdr-acc bg-acc-soft text-acc'}">${secAct?'🕵️ GEHEIMER WURF (Privat)':'👁️ Öffentlich (Live-Feed)'}</button>
+        <span class="text-[11px] font-bold ${secAct?'text-amber-200':'t-mut'}">${secAct?'Geht nicht in den Live-Feed • später enthüllbar':'👑 Admin: Würfe gehen in den Live-Feed'}</span>
+      </div>`:'';
+      let secretBannerHtml='';
+      if(CLOUD.isAdmin && UI.lastSecretRollId){
+        const sr=(CLOUD.secretRolls||[]).find(x=>x&&x.id===UI.lastSecretRollId);
+        if(sr){
+          secretBannerHtml=!sr.revealed
+            ?`<div class="subcard p-2.5 border-2 border-amber-400 bg-gradient-to-r from-amber-500/20 via-purple-500/20 to-amber-500/20 space-y-2 shadow-lg">
+              <div class="flex flex-wrap items-center justify-between gap-2">
+                <span class="text-xs font-black text-amber-200">🕵️ GEHEIMER ADMIN-WURF (nur für dich sichtbar)</span>
+                <span class="text-[10px] font-bold text-purple-200 tabular">${esc(sr.originalTs||sr.ts||'')}</span>
+              </div>
+              <button type="button" data-action="reveal-secret-roll" data-id="${esc(sr.id)}" class="btn w-full py-1.5 px-3 text-xs font-black bg-amber-500 text-slate-950 border-amber-300 hover:brightness-110 shadow">👁️ Jetzt im Live-Feed enthüllen (Reveal)</button>
+            </div>`
+            :`<div class="subcard p-2.5 border-2 border-emerald-500/70 bg-emerald-500/15 text-emerald-300 text-xs font-extrabold flex items-center justify-between gap-2">
+              <span>✓ Dieser Geheimwurf wurde im Live-Feed enthüllt (${esc(sr.revealedAt||'')})</span>
+            </div>`;
+        }
+      }
+      const secretListArr=CLOUD.isAdmin?(CLOUD.secretRolls||[]):[];
+      const secretListHtml=secretListArr.length?`<div class="subcard p-2.5 border border-purple-400/45 bg-purple-500/10 space-y-2">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <button type="button" data-action="toggle-secret-list" class="flex items-center gap-1.5 text-left min-w-0 flex-1 cursor-pointer">
+            <span class="text-xs font-black text-amber-300 w-4 shrink-0">${UI.secretRollsCollapsed?'▸':'▾'}</span>
+            <span class="text-xs font-extrabold text-amber-200 truncate">🕵️ Geheime Admin-Würfe (${secretListArr.length})</span>
+          </button>
+          <button type="button" data-action="clear-secret-rolls" class="btn btn-err py-0.5 px-2 text-[10px] font-extrabold shrink-0">🗑️ Liste leeren</button>
+        </div>
+        ${!UI.secretRollsCollapsed?`<div class="space-y-1.5 max-h-56 overflow-y-auto pr-0.5">${secretListArr.map(r=>`<div class="subcard py-1.5 px-2.5 space-y-1 border ${r.revealed?'border-emerald-500/40 bg-emerald-500/10':'border-amber-400/40 bg-black/25'} min-w-0">
+          <div class="flex items-center justify-between gap-2 min-w-0">
+            <span class="text-xs font-extrabold truncate text-acc">${esc(r.label||'Freie Probe')}</span>
+            <span class="text-[10px] t-mut tabular shrink-0">${esc(r.originalTs||r.ts||'')}</span>
+          </div>
+          <div class="flex flex-wrap items-center justify-between gap-1.5 min-w-0">
+            <span class="text-[11px] font-bold tabular break-words min-w-0">${esc(formatSecretRollSummary(r))}</span>
+            ${!r.revealed
+              ?`<button type="button" data-action="reveal-secret-roll" data-id="${esc(r.id)}" class="btn py-0.5 px-2 text-[10px] font-black bg-amber-500 text-slate-950 border-amber-300 shrink-0">👁️ Enthüllen</button>`
+              :`<span class="px-2 py-0.5 rounded-md bg-emerald-500/20 border border-emerald-400/50 text-emerald-300 text-[10px] font-extrabold tabular shrink-0">✓ Enthüllt (${esc(r.revealedAt||'')})</span>`}
+          </div>
+        </div>`).join('')}</div>`:''}
+      </div>`:'';
       const skOpts=cur=>['0','10','15','20','30','custom'].map(v=>`<option value="${v}" ${cur===v?'selected':''}>${v==='custom'?'Eigener...':'+'+v}</option>`).join('');
+      const DIFF_PRESETS=[20,30,40,50,60,70,80];
       const vbox=(ttl,mAct,mode,dirF,aF,sF,cF,mId,mCol,sVal,aL,sL)=>{
         const wKey=dirF==='cDirect'?'c':'d';
         const isDiffChanged=wKey==='d'&&(getEffD()!==40||D.dMode!=='direct');
         const diffResetBtn=wKey==='d'?`<button type="button" id="btnResetDiceDiff" data-action="reset-dice-diff" data-tip="Nur Schwierigkeit auf Standardwert 40 zurücksetzen (Eigener Wert &amp; Vor-/Nachteile bleiben erhalten)" class="btn py-0.5 px-1.5 text-[10px] font-extrabold tabular transition-all ${isDiffChanged?'!border-amber-400 !bg-amber-500/25 text-amber-300 shadow-sm':'opacity-70 hover:opacity-100'}">↺ 40</button>`:'';
-        return `<div data-wheel-dice="${wKey}" data-tip="Tipp: Mausrad über diesem Bereich oder den Eingabefeldern drehen für ±1 (ohne Klicken)" class="subcard space-y-2"><div class="flex items-center justify-between gap-1"><div class="flex items-center gap-1.5 min-w-0"><span class="text-xs font-extrabold truncate">${ttl}</span>${diffResetBtn}</div><div class="inline-flex rounded-lg p-0.5 bg-black/20 border bdr-line text-[11px] shrink-0"><button type="button" data-action="${mAct}" data-mode="direct" class="px-2 py-0.5 rounded font-bold ${mode==='direct'?'bg-acc-soft text-acc':''}">Direkt</button><button type="button" data-action="${mAct}" data-mode="breakdown" class="px-2 py-0.5 rounded font-bold ${mode==='breakdown'?'bg-acc-soft text-acc':''}">Aufgeschl.</button></div></div>${mode==='direct'?`<input data-dice="${dirF}" type="text" inputmode="numeric" value="${D[dirF]}" class="inp w-full text-lg font-black tabular"/>`:`<div class="grid grid-cols-2 gap-1.5"><div><label class="block text-[10px] font-bold t-mut">${aL}</label><input data-dice="${aF}" type="text" inputmode="numeric" value="${D[aF]}" class="inp w-full font-bold tabular"/></div><div><label class="block text-[10px] font-bold t-mut">${sL}</label><select data-dice-sel="${sF}" class="inp w-full font-bold">${skOpts(D[sF])}</select></div></div>${D[sF]==='custom'?`<input data-dice="${cF}" type="text" inputmode="numeric" value="${D[cF]}" class="inp w-full text-xs font-bold"/>`:''}<div id="${mId}" class="text-xs font-extrabold ${mCol} text-right tabular">${D[aF]} + ${sVal} = ${toInt(D[aF])+sVal}</div>`}</div>`;
+        const diffPresetBar=wKey==='d'?`<div class="grid grid-cols-7 gap-1 pt-0.5" data-diff-presets="1">${DIFF_PRESETS.map(v=>{const active=D.dMode==='direct'&&toInt(D.dDirect)===v;return `<button type="button" data-action="dice-set-diff" data-val="${v}" data-tip="Schwierigkeit direkt auf ${v} setzen" class="btn py-0.5 px-0 text-[11px] tabular ${active?'btn-pri font-black':'opacity-85 hover:opacity-100'}">${v}</button>`;}).join('')}</div>`:'';
+        return `<div class="subcard space-y-2"><div class="flex items-center justify-between gap-1"><div class="flex items-center gap-1.5 min-w-0"><span class="text-xs font-extrabold truncate">${ttl}</span>${diffResetBtn}</div><div class="inline-flex rounded-lg p-0.5 bg-black/20 border bdr-line text-[11px] shrink-0"><button type="button" data-action="${mAct}" data-mode="direct" class="px-2 py-0.5 rounded font-bold ${mode==='direct'?'bg-acc-soft text-acc':''}">Direkt</button><button type="button" data-action="${mAct}" data-mode="breakdown" class="px-2 py-0.5 rounded font-bold ${mode==='breakdown'?'bg-acc-soft text-acc':''}">Aufgeschl.</button></div></div>${mode==='direct'?`<input data-dice="${dirF}" data-tip="Tipp: Feld anklicken und Mausrad drehen für ±1" type="text" inputmode="numeric" value="${D[dirF]}" class="inp w-full text-lg font-black tabular"/>`:`<div class="grid grid-cols-2 gap-1.5"><div><label class="block text-[10px] font-bold t-mut">${aL}</label><input data-dice="${aF}" data-tip="Tipp: Feld anklicken und Mausrad drehen für ±1" type="text" inputmode="numeric" value="${D[aF]}" class="inp w-full font-bold tabular"/></div><div><label class="block text-[10px] font-bold t-mut">${sL}</label><select data-dice-sel="${sF}" class="inp w-full font-bold">${skOpts(D[sF])}</select></div></div>${D[sF]==='custom'?`<input data-dice="${cF}" data-tip="Tipp: Feld anklicken und Mausrad drehen für ±1" type="text" inputmode="numeric" value="${D[cF]}" class="inp w-full text-xs font-bold"/>`:''}<div id="${mId}" class="text-xs font-extrabold ${mCol} text-right tabular">${D[aF]} + ${sVal} = ${toInt(D[aF])+sVal}</div>`}${diffPresetBar}</div>`;
       };
-      p.innerHTML=`<div class="card p-0 rounded-none md:rounded-2xl min-h-full md:min-h-0 md:overflow-hidden shadow-2xl relative"><div data-win-drag="dice" class="sticky top-0 z-10 flex items-center justify-between gap-2 px-3 sm:px-4 py-2.5 sm:py-3 border-b bdr-line win-drag-hdr" style="background:var(--surf2)"><div class="min-w-0 flex-1"><h2 class="text-sm font-extrabold truncate">🎲 W100 Würfelassistent</h2><p class="text-[11px] text-acc font-bold truncate">${esc(D.label)}</p></div><div class="flex items-center gap-1.5 shrink-0"><button type="button" data-action="toggle-livedice" data-tip="Live-Würfel-Fenster daneben ein-/ausblenden" class="btn py-1 px-2 text-xs ${LD.open?'btn-pri':''}">📡 Live</button>${renderWinCtrlBtns('dice')}${xl&&!UI.inLobby?`<button type="button" data-action="toggle-dock" class="hidden xl:inline-flex btn py-1 px-2 text-xs">${D.docked?'🗗 Overlay':'📌 Andocken'}</button>`:''}<button type="button" data-action="reset-dice" class="btn btn-err py-1 px-2 text-xs">Reset</button><button type="button" data-action="close-dice" aria-label="Schließen" class="btn btn-err w-9 h-9 md:w-auto md:h-auto md:py-1 md:px-2 text-sm md:text-xs font-black shrink-0">✕</button></div></div>
-      <div class="p-3.5 sm:p-4 space-y-3.5 md:max-h-[calc(100vh-5rem)] xl:max-h-[calc(100vh-9.5rem)] md:overflow-y-auto">
-        ${S.inspirationActive?`<div class="subcard p-2.5 border-2 border-amber-400 bg-amber-500/20 flex items-center justify-between gap-2 shadow-lg"><div class="flex items-center gap-2"><span class="text-base">✨</span><div><div class="text-xs font-black text-amber-300">✨ Inspiration aktiv (+1 Vorteil)</div><div class="text-[10px] text-amber-200/90">Automatisch +1 Vorteil verrechnet • setzt sich nach dem Wurf zurück</div></div></div><button type="button" data-action="cancel-inspiration" data-tip="Inspiration doch nicht für diesen Wurf nutzen (1 Stapel zurücklegen)" class="btn py-0.5 px-2 text-[10px] border-amber-400/60 text-amber-200 shrink-0">↺ Zurücklegen</button></div>`:''}
-        ${(()=>{const aw=D.weaponId?S.weapons.find(x=>x.id===D.weaponId):null,rawCat=D.wRollCat==='Parade'?'Parieren':D.wRollCat,curCat=['Normaler Test','Trefferwurf','Parieren','Blocken','Ausweichen'].includes(rawCat)?rawCat:(aw?'Trefferwurf':'Normaler Test'),modeIcon=c=>c==='Normaler Test'?'📋 ':c==='Trefferwurf'?'🎲 ':c==='Parieren'?'🛡️ ':c==='Blocken'?'🧱 ':'💨 ';if(aw){const wNm=esc(String(aw.name||'').trim()||(aw.wType==='ranged'?'Fernkampfwaffe':'Nahkampfwaffe'));return `<div class="subcard p-2.5 border bdr-acc bg-acc-soft/40 space-y-2"><div class="flex items-center justify-between gap-2"><div class="min-w-0"><div class="text-[10px] font-extrabold text-acc uppercase tracking-wider">${aw.wType==='ranged'?'🏹':'⚔️'} Aktiver Waffen-Kontext • Modus: ${curCat}</div><div class="text-xs font-black truncate">${wNm}</div></div><button type="button" data-action="clear-dice-weapon" data-tip="Waffen-Kontext lösen & auf Normaler Test wechseln" class="btn btn-err py-0.5 px-2 text-[11px] shrink-0">✕ Lösen</button></div><div class="flex flex-wrap items-center gap-1">${['Normaler Test','Trefferwurf','Parieren','Blocken','Ausweichen'].map(c=>`<button type="button" data-action="set-dice-wcat" data-wcat="${c}" class="btn py-0.5 px-2 text-[11px] font-extrabold ${curCat===c?'btn-pri':''}">${modeIcon(c)}${c}</button>`).join('')}</div></div>`;}return `<div class="subcard p-2.5 space-y-1.5"><div class="flex items-center justify-between gap-2"><div class="text-[10px] font-extrabold t-mut uppercase tracking-wider">🎯 Wurf-Modus (Strikte Isolation)</div>${curCat!=='Normaler Test'?`<button type="button" data-action="clear-dice-weapon" data-tip="Zurück auf Normaler Test" class="btn py-0.5 px-2 text-[10px]">↺ Normaler Test</button>`:''}</div><div class="flex flex-wrap items-center gap-1">${['Normaler Test','Trefferwurf','Parieren','Blocken','Ausweichen'].map(c=>`<button type="button" data-action="set-dice-wcat" data-wcat="${c}" class="btn py-0.5 px-2 text-[11px] font-extrabold ${curCat===c?'btn-pri':''}">${modeIcon(c)}${c}</button>`).join('')}</div></div>`;})()}
-        <div class="subcard p-2.5 space-y-1.5"><div class="text-[10px] font-extrabold t-mut">ATTRIBUT WÄHLEN</div><div class="grid grid-cols-4 sm:grid-cols-8 gap-1">${ATTRS.map(a=>`<button type="button" data-action="dice-pick-attr" data-attr="${a.k}" class="btn py-1 px-0.5 flex-col gap-0 ${D.attrKey===a.k?'btn-pri':''}"><span class="text-[10px]">${a.k}</span><span class="text-xs font-black tabular">${getAttrTot(a.k)}</span></button>`).join('')}</div></div>
+      p.innerHTML=`<div class="card p-0 rounded-none md:rounded-2xl min-h-full ${D.floating?'':'md:min-h-0 md:overflow-hidden'} shadow-2xl relative"><div data-win-drag="dice" class="sticky top-0 z-10 flex items-center justify-between gap-2 px-3 sm:px-4 py-2.5 sm:py-3 border-b bdr-line win-drag-hdr" style="background:var(--surf2)"><div class="min-w-0 flex-1"><h2 class="text-sm font-extrabold truncate">🎲 W100 Würfelassistent</h2><p class="text-[11px] text-acc font-bold truncate">${esc(D.label)}</p></div><div class="flex items-center gap-1.5 shrink-0"><button type="button" data-action="toggle-livedice" data-tip="Live-Würfel-Fenster daneben ein-/ausblenden" class="btn py-1 px-2 text-xs ${LD.open?'btn-pri':''}">📡 Live</button>${renderWinCtrlBtns('dice')}${xl&&!UI.inLobby?`<button type="button" data-action="toggle-dock" class="hidden xl:inline-flex btn py-1 px-2 text-xs">${D.docked?'🗗 Overlay':'📌 Andocken'}</button>`:''}<button type="button" data-action="reset-dice" class="btn btn-err py-1 px-2 text-xs">Reset</button><button type="button" data-action="close-dice" aria-label="Schließen" class="btn btn-err w-9 h-9 md:w-auto md:h-auto md:py-1 md:px-2 text-sm md:text-xs font-black shrink-0">✕</button></div></div>
+      <div class="p-3.5 sm:p-4 space-y-3.5 ${D.floating?'':'md:max-h-[calc(100vh-5rem)] xl:max-h-[calc(100vh-9.5rem)] md:overflow-y-auto'}">
+        ${adminToggleBarHtml}
+        ${isNeutral?`<div class="subcard py-2 px-3 border bdr-acc bg-acc-soft/30 text-xs font-extrabold text-acc flex items-center justify-between gap-2"><span>🏰 Lobby-Modus (Neutral • Absender: ${esc(CLOUD.currentUser || 'Gast')})</span></div>`:''}
+        ${(!isNeutral&&S.inspirationActive)?`<div class="subcard p-2.5 border-2 border-amber-400 bg-amber-500/20 flex items-center justify-between gap-2 shadow-lg"><div class="flex items-center gap-2"><span class="text-base">✨</span><div><div class="text-xs font-black text-amber-300">✨ Inspiration aktiv (+1 Vorteil)</div><div class="text-[10px] text-amber-200/90">Automatisch +1 Vorteil verrechnet • setzt sich nach dem Wurf zurück</div></div></div><button type="button" data-action="cancel-inspiration" data-tip="Inspiration doch nicht für diesen Wurf nutzen (1 Stapel zurücklegen)" class="btn py-0.5 px-2 text-[10px] border-amber-400/60 text-amber-200 shrink-0">↺ Zurücklegen</button></div>`:''}
+        ${isNeutral?'':(()=>{const aw=D.weaponId?S.weapons.find(x=>x.id===D.weaponId):null,rawCat=D.wRollCat==='Parade'?'Parieren':D.wRollCat,curCat=['Normaler Test','Trefferwurf','Parieren','Blocken','Ausweichen'].includes(rawCat)?rawCat:(aw?'Trefferwurf':'Normaler Test'),modeIcon=c=>c==='Normaler Test'?'📋 ':c==='Trefferwurf'?'🎲 ':c==='Parieren'?'🛡️ ':c==='Blocken'?'🧱 ':'💨 ';if(aw){const wNm=esc(String(aw.name||'').trim()||(aw.wType==='ranged'?'Fernkampfwaffe':'Nahkampfwaffe'));return `<div class="subcard p-2.5 border bdr-acc bg-acc-soft/40 space-y-2"><div class="flex items-center justify-between gap-2"><div class="min-w-0"><div class="text-[10px] font-extrabold text-acc uppercase tracking-wider">${aw.wType==='ranged'?'🏹':'⚔️'} Aktiver Waffen-Kontext • Modus: ${curCat}</div><div class="text-xs font-black truncate">${wNm}</div></div><button type="button" data-action="clear-dice-weapon" data-tip="Waffen-Kontext lösen & auf Normaler Test wechseln" class="btn btn-err py-0.5 px-2 text-[11px] shrink-0">✕ Lösen</button></div><div class="flex flex-wrap items-center gap-1">${['Normaler Test','Trefferwurf','Parieren','Blocken','Ausweichen'].map(c=>`<button type="button" data-action="set-dice-wcat" data-wcat="${c}" class="btn py-0.5 px-2 text-[11px] font-extrabold ${curCat===c?'btn-pri':''}">${modeIcon(c)}${c}</button>`).join('')}</div></div>`;}return `<div class="subcard p-2.5 space-y-1.5"><div class="flex items-center justify-between gap-2"><div class="text-[10px] font-extrabold t-mut uppercase tracking-wider">🎯 Wurf-Modus (Strikte Isolation)</div>${curCat!=='Normaler Test'?`<button type="button" data-action="clear-dice-weapon" data-tip="Zurück auf Normaler Test" class="btn py-0.5 px-2 text-[10px]">↺ Normaler Test</button>`:''}</div><div class="flex flex-wrap items-center gap-1">${['Normaler Test','Trefferwurf','Parieren','Blocken','Ausweichen'].map(c=>`<button type="button" data-action="set-dice-wcat" data-wcat="${c}" class="btn py-0.5 px-2 text-[11px] font-extrabold ${curCat===c?'btn-pri':''}">${modeIcon(c)}${c}</button>`).join('')}</div></div>`;})()}
+        <div class="subcard p-2.5 space-y-1.5"><div class="text-[10px] font-extrabold t-mut">${isNeutral?'STANDARD-ATTRIBUTE (NEUTRAL 50)':'ATTRIBUT WÄHLEN'}</div><div class="grid grid-cols-4 sm:grid-cols-8 gap-1">${ATTRS.map(a=>isNeutral?`<button type="button" data-action="dice-pick-lobby-attr" data-attr="${a.k}" class="btn py-1 px-0.5 flex-col gap-0 ${D.label===`Freie Probe: ${a.k} (50)`?'btn-pri':''}"><span class="text-[10px]">${a.k}</span><span class="text-xs font-black tabular">50</span></button>`:`<button type="button" data-action="dice-pick-attr" data-attr="${a.k}" class="btn py-1 px-0.5 flex-col gap-0 ${D.attrKey===a.k?'btn-pri':''}"><span class="text-[10px]">${a.k}</span><span class="text-xs font-black tabular">${getAttrTot(a.k)}</span></button>`).join('')}</div></div>
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">${vbox('Eigener Wert','c-mode',D.cMode,'cDirect','cAttr','cSkill','cCustom','diceCMath','text-acc',cs,'Attribut','Fertigkeit')}${vbox('Schwierigkeit','d-mode',D.dMode,'dDirect','dAttr','dSkill','dCustom','diceDMath','text-indigo-400',ds,'Gegner-Attr.','Gegner-Fert.')}</div>
         <div id="diceAdvDisBox" class="subcard space-y-2">${buildAdvDisInnerHtml(T)}</div>
         <div id="diceThBox" class="subcard text-center">${buildThresholdInnerHtml(T)}</div>
         <div class="dice-bar">
           <div><div class="subcard py-1.5 px-2 flex items-center justify-between gap-1 h-[44px]"><span class="text-[10px] font-extrabold t-mut">WÜRFE</span><div class="flex items-center gap-1"><button type="button" data-action="cnt-step" data-d="-1" ${D.cnt<=1?'disabled':''} class="btn w-6 h-6 p-0">−</button><select data-dice-sel="cnt" class="inp py-0.5 px-1 text-xs font-extrabold tabular">${[1,2,3,4,5,6,7,8,9,10].map(n=>`<option value="${n}" ${D.cnt===n?'selected':''}>${n}</option>`).join('')}</select><button type="button" data-action="cnt-step" data-d="1" ${D.cnt>=10?'disabled':''} class="btn w-6 h-6 p-0">+</button></div></div></div>
-          <div class="justify-self-center order-first sm:order-none w-full sm:w-auto"><button type="button" data-action="roll-d100" class="btn btn-pri w-full sm:w-auto min-w-[144px] h-[44px] text-sm font-black px-5">🎲 ${D.cnt===1?'Würfeln!':D.cnt+'× Würfeln!'}</button></div>
+          <div class="justify-self-center order-first sm:order-none w-full sm:w-auto"><button type="button" data-action="roll-d100" class="btn ${secAct?'bg-gradient-to-r from-amber-500 to-purple-600 text-white border-amber-300 ring-2 ring-amber-400/60 shadow-lg':'btn-pri'} w-full sm:w-auto min-w-[144px] h-[44px] text-sm font-black px-5">${secAct?'🕵️ ':'🎲 '}${D.cnt===1?(secAct?'Geheim würfeln!':'Würfeln!'):D.cnt+(secAct?'× Geheim!':'× Würfeln!')}</button></div>
           <div class="flex flex-col items-end"><div ${T.critSrc?.length?`data-tip="${esc('Automatischer Krit-Bonus:\n'+T.critSrc.map(c=>`• ${c.srcName}: +${c.val}`).join('\n'))}"`:''} class="subcard py-1.5 px-2 flex items-center justify-between gap-1 h-[44px] w-full sm:w-auto ${T.autoCrit?'border-amber-400 bg-amber-500/15 cursor-help':'border-amber-500/40'}"><span class="text-[10px] font-extrabold text-amber-500">KRIT.${T.autoCrit?` <span class="text-amber-300">(+${T.autoCrit})</span>`:''}</span><div class="flex items-center gap-1"><button type="button" data-action="crit-step" data-d="-1" ${ci<=0?'disabled':''} class="btn w-6 h-6 p-0">−</button><select data-dice-sel="crit" class="inp py-0.5 px-1 text-xs font-extrabold tabular text-amber-500">${CRIT_SEQ.map(c=>`<option value="${c}" ${D.crit===c?'selected':''}>${c}</option>`).join('')}</select><button type="button" data-action="crit-step" data-d="1" ${ci>=CRIT_SEQ.length-1?'disabled':''} class="btn w-6 h-6 p-0">+</button></div></div>${D.crit!=='1'?`<button type="button" data-action="crit-mode" class="mt-1 text-[10px] font-bold px-2 py-0.5 rounded bg-amber-500/15 text-amber-500">${D.critMode==='range'?`Modus: 1–${D.crit} ↻`:`Modus: nur ${D.crit} ↻`}${T.autoCrit?` • ⚡ Krit +${T.autoCrit}`:''}</button>`:''}</div>
         </div>
-        ${(D.wRollCat==='Trefferwurf')?`<div class="flex justify-center"><button type="button" data-action="roll-blocked-hit-20" data-tip="Behält deinen aktuellen Trefferwert bei, setzt die Schwierigkeit auf 20 und würfelt direkt die Erfolgsgrade (EG) für den Grundschaden gegen die Rüstung aus." class="btn w-full py-1.5 px-3 text-xs font-extrabold border-amber-400/60 bg-amber-500/15 text-amber-300 hover:bg-amber-500/25">🛡️ Wurde geblockt (Folgewurf vs. Schw. 20)</button></div>`:''}
+        ${(D.wRollCat==='Trefferwurf')?`<div class="flex justify-center"><button type="button" data-action="roll-blocked-hit-20" data-tip="Behält deinen aktuellen Trefferwert bei, setzt die Schwierigkeit auf 20 und würfelt direkt die Erfolgsgrade (EG) für den Grundschaden gegen die Rüstung aus." class="btn w-full py-1.5 px-3 text-xs font-extrabold border-amber-400/60 bg-amber-500/15 text-amber-300 hover:bg-amber-500/25">${secAct?'🕵️ ':''}🛡️ Wurde geblockt (Folgewurf vs. Schw. 20)</button></div>`:''}
+        ${(()=>{const cCnt=Math.max(1,Math.min(100,toInt(D.customCnt,1))), cSides=Math.max(1,toInt(D.customSides,20)), cMod=toInt(D.customMod,0), cForm=`${cCnt}W${cSides}${cMod?fmtSign(cMod):''}`;return `<div class="subcard p-2.5 space-y-2 border border-sky-400/35 bg-sky-500/5">
+          <div class="flex items-center justify-between gap-2">
+            <button type="button" data-action="toggle-dice-custom" class="flex items-center gap-1.5 text-left min-w-0 flex-1 cursor-pointer">
+              <span class="text-xs font-black text-sky-400 w-4 shrink-0">${D.customOpen?'▾':'▸'}</span>
+              <span class="text-xs font-extrabold text-sky-300 truncate">🎲 Freie Würfel (W-X)</span>
+            </button>
+            <span id="lblCustomFormulaPill" class="px-2 py-0.5 rounded-md bg-sky-500/15 border border-sky-400/40 text-sky-300 text-[11px] font-black tabular shrink-0">${esc(cForm)}</span>
+          </div>
+          ${D.customOpen?`<div class="space-y-2 pt-1.5 border-t bdr-line">
+            <div class="grid grid-cols-7 gap-1">${[4,6,8,10,12,20,100].map(sd=>`<button type="button" data-action="dice-custom-preset" data-sides="${sd}" class="btn py-1 px-0 text-[11px] tabular ${cSides===sd?'btn-pri font-black':'opacity-85 hover:opacity-100'}">W${sd}</button>`).join('')}</div>
+            <div class="grid grid-cols-12 gap-1.5 items-end tabular">
+              <div class="col-span-3">
+                <label class="block text-[10px] font-bold t-mut mb-0.5">Anzahl</label>
+                <input data-dice-custom="cnt" type="text" inputmode="numeric" value="${esc(D.customCnt)}" placeholder="1" class="inp w-full text-center font-black py-1 px-1"/>
+              </div>
+              <div class="col-span-5">
+                <label class="block text-[10px] font-bold t-mut mb-0.5">Würfel (W-X)</label>
+                <div class="flex items-center gap-1">
+                  <span class="text-sm font-black text-sky-400 shrink-0">W</span>
+                  <input data-dice-custom="sides" type="text" inputmode="numeric" value="${esc(D.customSides)}" placeholder="20" class="inp w-full text-center font-black py-1 px-1"/>
+                </div>
+              </div>
+              <div class="col-span-4">
+                <label class="block text-[10px] font-bold t-mut mb-0.5">Mod (±)</label>
+                <input data-dice-custom="mod" type="text" inputmode="numeric" value="${esc(D.customMod)}" placeholder="0" class="inp w-full text-center font-black py-1 px-1"/>
+              </div>
+            </div>
+            <button type="button" id="btnRollCustomDice" data-action="roll-custom-dice" class="btn w-full py-1.5 px-3 text-xs font-black ${secAct?'border-amber-400 bg-amber-500/20 text-amber-200 hover:bg-amber-500/30':'border-sky-400/60 bg-sky-500/20 text-sky-200 hover:bg-sky-500/30'}">${secAct?'🕵️ 🎲 ':'🎲 '}${esc(cForm)}${secAct?' geheim würfeln':' würfeln'}</button>
+          </div>`:''}
+        </div>`;})()}
+        ${secretBannerHtml}
         <div>${UI.lastRollHtml||`<div class="subcard border-dashed text-center text-xs t-mut py-3">Bereit zum Würfeln!</div>`}</div>
-        <div class="border-t bdr-line pt-2.5"><div class="flex justify-between mb-1.5"><span class="text-xs font-extrabold t-mut">Würfel-Log (${diceLogs.length})</span><button type="button" data-action="clear-dice-log" class="text-[11px] font-bold t-mut hover:text-rose-500">Leeren</button></div><div class="space-y-1 max-h-36 overflow-y-auto text-xs">${diceLogs.map(l=>`<div class="subcard py-1 px-2.5 space-y-0.5 min-w-0"><div class="flex justify-between gap-2 min-w-0"><span class="truncate"><strong>${esc(l.lbl)}</strong> [≤${l.th}]: ${l.sum}</span><span class="text-[10px] t-mut tabular shrink-0">${l.t}</span></div>${l.advSrc?`<div class="text-[10px] t-mut break-words">↳ ${esc(l.advSrc)}</div>`:''}</div>`).join('')}</div></div>
+        ${secretListHtml}
+        <div class="border-t bdr-line pt-2.5"><div class="flex justify-between mb-1.5"><span class="text-xs font-extrabold t-mut">Würfel-Log (${diceLogs.length})</span><button type="button" data-action="clear-dice-log" class="text-[11px] font-bold t-mut hover:text-rose-500">Leeren</button></div><div class="space-y-1 max-h-36 overflow-y-auto text-xs">${diceLogs.map(l=>`<div class="subcard py-1 px-2.5 space-y-0.5 min-w-0"><div class="flex justify-between gap-2 min-w-0"><span class="truncate"><strong>${esc(l.lbl)}</strong>${l.isCustomDice?`: ${esc(l.sum)}`:` [≤${l.th}]: ${l.sum}`}</span><span class="text-[10px] t-mut tabular shrink-0">${l.t}</span></div>${l.advSrc?`<div class="text-[10px] t-mut break-words">↳ ${esc(l.advSrc)}</div>`:''}</div>`).join('')}</div></div>
       </div>${renderWinResizeHandles('dice')}</div>`;
       if(LD.open) renderLiveDice();
     }
@@ -5616,7 +5845,7 @@
       const visCamps=CLOUD.isAdmin?allCamps:(CLOUD.currentUser?allCamps.filter(c=>isUserInCampaign(c,CLOUD.currentUser)):allCamps);
       const activeCampId=getActiveLiveCampaignId();
       const activeCampObj=allCamps.find(c=>c.id===activeCampId)||allCamps[0];
-      p.innerHTML=`<div class="card p-0 rounded-none md:rounded-2xl min-h-full md:min-h-0 md:overflow-hidden shadow-2xl relative"><div data-win-drag="livedice" class="sticky top-0 z-10 flex items-center justify-between gap-2 px-3 sm:px-4 py-2.5 sm:py-3 border-b bdr-line win-drag-hdr" style="background:var(--surf2)">
+      p.innerHTML=`<div class="card p-0 rounded-none md:rounded-2xl h-full flex flex-col min-h-0 overflow-hidden shadow-2xl relative"><div data-win-drag="livedice" class="shrink-0 z-10 flex items-center justify-between gap-2 px-3 sm:px-4 py-2.5 sm:py-3 border-b bdr-line win-drag-hdr" style="background:var(--surf2)">
         <div class="min-w-0 flex-1">
           <h2 class="text-sm font-extrabold truncate">📡 Live-Würfel der Gruppe</h2>
           <p class="text-[11px] text-acc font-bold truncate">📁 ${esc(activeCampObj?.name||'Hauptkampagne')}</p>
@@ -5627,15 +5856,15 @@
           <button type="button" data-action="close-livedice" aria-label="Schließen" class="btn btn-err w-9 h-9 md:w-auto md:h-auto md:py-1 md:px-2 text-sm md:text-xs font-black shrink-0">✕</button>
         </div>
       </div>
-      <div class="p-3 sm:p-3.5 space-y-3 md:max-h-[calc(100vh-5rem)] xl:max-h-[calc(100vh-9.5rem)] md:overflow-y-auto">
-        <div class="flex items-center gap-1.5 overflow-x-auto pb-1">
+      <div class="p-3 sm:p-3.5 flex-1 min-h-0 flex flex-col gap-3 overflow-hidden">
+        <div class="flex items-center gap-1.5 overflow-x-auto pb-1 shrink-0">
           ${visCamps.map(c=>{
             const isAct=c.id===activeCampId;
             const cCnt=getCampaignFilteredDiceFeed(c.id).length;
             return `<button type="button" data-action="select-campaign-tab" data-id="${esc(c.id)}" class="btn shrink-0 py-1 px-2.5 text-xs font-extrabold ${isAct?'btn-pri':'opacity-80 hover:opacity-100'}"><span>📁 ${esc(c.name||'Kampagne')}</span><span class="px-1.5 py-0.2 rounded-full text-[10px] bg-black/25 tabular">${cCnt}</span></button>`;
           }).join('')}
         </div>
-        ${renderLobbyLiveDiceHtml()}
+        ${renderLobbyLiveDiceHtml(true)}
       </div>${renderWinResizeHandles('livedice')}</div>`;
     }
 
@@ -5727,7 +5956,7 @@
       const privCount=S.campaignNotes.length-pubCount;
       const xl=window.innerWidth>=1280;
 
-      mount.innerHTML=`<div class="card p-0 rounded-none md:rounded-2xl min-h-full md:min-h-0 md:overflow-hidden shadow-2xl relative">
+      mount.innerHTML=`<div class="card p-0 rounded-none md:rounded-2xl min-h-full ${CN.floating?'':'md:min-h-0 md:overflow-hidden'} shadow-2xl relative">
         <div data-win-drag="cnotes" class="sticky top-0 z-10 flex flex-wrap items-center justify-between gap-2 px-3 sm:px-4 py-2.5 sm:py-3 border-b bdr-line win-drag-hdr" style="background:var(--surf2)">
           <div class="min-w-0 flex-1">
             <h2 class="text-sm font-extrabold truncate">📝 Kampagnennotizen</h2>
@@ -5746,7 +5975,7 @@
           </div>
         </div>
 
-        <div class="p-3.5 sm:p-4 space-y-3.5 md:max-h-[calc(100vh-5rem)] xl:max-h-[calc(100vh-9.5rem)] md:overflow-y-auto">
+        <div class="p-3.5 sm:p-4 space-y-3.5 ${CN.floating?'':'md:max-h-[calc(100vh-5rem)] xl:max-h-[calc(100vh-9.5rem)] md:overflow-y-auto'}">
           <div class="subcard p-2.5 space-y-2 min-w-0">
             <div class="flex flex-wrap items-center justify-between gap-2 min-w-0">
               <div class="flex flex-wrap items-center gap-1.5 min-w-0 flex-1">
@@ -6396,7 +6625,14 @@
             </div>
           </div>`;
         }
+        const prevScrolls=Array.from(m.querySelectorAll('.overflow-y-auto')).map(el=>el.scrollTop);
         m.innerHTML=modalShell('📚 Kräfte-Bibliothek, Import &amp; Export','Pakete vom Server laden, lokale .json-Dateien importieren oder eigene Kräfte teilen.',`${modalTabs}${tabBody}`,`<button type="button" data-action="close-modal" class="btn btn-pri px-6">Schließen</button>`,'max-w-4xl');
+        if(prevScrolls.length){
+          const nextScrollEls=m.querySelectorAll('.overflow-y-auto');
+          for(let i=0;i<Math.min(prevScrolls.length,nextScrollEls.length);i++){
+            nextScrollEls[i].scrollTop=prevScrolls[i];
+          }
+        }
         return;
       }
       if(UI.modal==='info'){
@@ -6705,30 +6941,31 @@
       return Math.floor(Math.random()*100)+1;
     }
     function renderBlockFollowUpBox(){
-      const atkVal=toInt(D.blockFollowAtk,getEffD()), dv=20, th2=atkVal+50-dv, ch2=Math.max(1,Math.min(99,th2)), fr=UI.lastBlockFollowRes;
+      const atkVal=toInt(D.blockFollowAtk,getEffD()), dv=20, th2=atkVal+50-dv, ch2=Math.max(1,Math.min(99,th2)), m2=calcEgMultiplier(th2), fr=UI.lastBlockFollowRes;
       let frHtml='';
       if(fr){
         const cls2=fr.crit?'crit-glow border-amber-400 bg-amber-500/15':fr.ok?'border-emerald-500/60 bg-emerald-500/10':'border-rose-500/60 bg-rose-500/10';
+        const frMult=fr.egMult||1, frBase=fr.baseEg!==undefined?fr.baseEg:(frMult>1?Math.round(fr.eg/frMult):fr.eg);
         frHtml=`<div class="subcard p-3 border-2 ${cls2} text-center space-y-1.5 mt-2 tabular">
-          <div class="text-[11px] font-bold t-mut">Folgewurf (Aggressor-Trefferwert ${fr.atkVal} vs. Schwierigkeit 20) • Schwelle ≤ ${fr.th} (${fr.chance}%)</div>
+          <div class="text-[11px] font-bold t-mut">Folgewurf (Aggressor-Trefferwert ${fr.atkVal} vs. Schwierigkeit 20) • Schwelle ≤ ${fr.th} (${fr.chance}%)${frMult>1?` • <strong class="text-amber-300">EG ×${frMult}</strong>`:''}</div>
           <div class="flex items-center justify-center gap-3">
             <span class="text-3xl font-black">${fr.r}</span>
-            <span class="px-3 py-1 rounded-lg text-white font-extrabold text-xs sm:text-sm ${fr.ok?'bg-emerald-600':'bg-rose-600'}">${fr.ok?`EG: ${fr.eg} (Grundschaden vs. Rüstung)`:`0 EG • Misserfolg (MEG: ${fr.meg})`}</span>
+            <span class="px-3 py-1 rounded-lg text-white font-extrabold text-xs sm:text-sm ${fr.ok?'bg-emerald-600':'bg-rose-600'}">${fr.ok?`EG: ${fr.eg}${frMult>1?` (${frBase} ×${frMult})`:''} (Grundschaden vs. Rüstung)`:`0 EG • ${fr.r===100?'Patzer (100)':'Misserfolg'} (MEG: ${fr.meg})`}</span>
           </div>
-          <div class="text-xs font-extrabold ${fr.crit?'text-amber-400':fr.ok?'text-emerald-400':'text-rose-400'}">${fr.ok?`${fr.crit?'★ Kritisch! ':''}Erzielte Erfolgsgrade für Grundschaden gegen Rüstung: ${fr.eg} EG`:'Kein Durchkommen – 0 EG Grundschaden gegen die Rüstung'}</div>
+          <div class="text-xs font-extrabold ${fr.crit?'text-amber-400':fr.ok?'text-emerald-400':'text-rose-400'}">${fr.ok?`${fr.crit?'★ Kritisch! ':''}Erzielte Erfolgsgrade für Grundschaden gegen Rüstung: ${fr.eg} EG${frMult>1?` (${frBase} ×${frMult})`:''}`:'Kein Durchkommen – 0 EG Grundschaden gegen die Rüstung'}</div>
         </div>`;
       }
       return `<div class="subcard mt-2 p-3 border-2 border-emerald-500/50 bg-emerald-500/10 space-y-2.5 text-left">
         <div class="text-xs font-extrabold text-emerald-400 flex items-center justify-between gap-2">
           <span>🛡️ Erfolgreich geblockt! → 2. Wurf (Grundschaden vs. Rüstung)</span>
-          <span id="blockFollowThInfo" class="text-[11px] font-bold text-acc tabular">Schw. 20 • Schwelle ≤ ${th2} (${ch2}%)</span>
+          <span id="blockFollowThInfo" class="text-[11px] font-bold text-acc tabular">Schw. 20 • Schwelle ≤ ${th2} (${ch2}%)${m2>1?` • EG ×${m2}`:''}</span>
         </div>
         <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
           <label class="flex items-center gap-1.5 text-xs font-bold t-mut shrink-0">
             <span>Aggressor-Trefferwert:</span>
             <input id="inpBlockFollowAtk" data-dice="blockFollowAtk" type="text" inputmode="numeric" value="${atkVal}" class="inp w-16 text-center font-black tabular py-1 px-1.5 text-xs"/>
           </label>
-          <button type="button" data-action="roll-block-followup" class="btn btn-ok flex-1 py-1.5 px-3 text-xs font-black">🛡️ Erfolgreich geblockt! → Folgewurf (Aggressor-Trefferwert gegen Schwierigkeit 20)</button>
+          <button type="button" data-action="roll-block-followup" class="btn ${isSecretRollActive()?'bg-amber-500 text-slate-950 border-amber-300':'btn-ok'} flex-1 py-1.5 px-3 text-xs font-black">${isSecretRollActive()?'🕵️ ':''}🛡️ Erfolgreich geblockt! → Folgewurf (Aggressor-Trefferwert gegen Schwierigkeit 20)</button>
         </div>
         ${frHtml}
       </div>`;
@@ -6736,21 +6973,22 @@
     function executeBlockFollowUpRoll(){
       const inp=$('inpBlockFollowAtk'), atkVal=toInt(inp?inp.value:D.blockFollowAtk,getEffD());
       D.blockFollowAtk=atkVal;
-      const dv=20, th=atkVal+50-dv, chance=Math.max(1,Math.min(99,th));
-      const r=rollW100(), ok=r===1?true:r===100?false:r<=th, crit=ok&&(r%10===1);
-      const eg=ok?Math.ceil(r/10):0, meg=!ok?Math.ceil((101-r)/10):0;
-      UI.lastBlockFollowRes={r,ok,crit,eg,meg,atkVal,dv,th,chance};
+      const dv=20, th=atkVal+50-dv, chance=Math.max(1,Math.min(99,th)), egMult=calcEgMultiplier(th);
+      const r=rollW100(), ok=r!==100&&(r===1||r<=th), crit=ok&&(r%10===1);
+      const baseEg=ok?Math.ceil(r/10):0, eg=ok?baseEg*egMult:0, meg=!ok?Math.ceil((101-r)/10):0;
+      UI.lastBlockFollowRes={r,ok,crit,baseEg,eg,egMult,meg,atkVal,dv,th,chance};
       UI.lastRollHtml=(UI.lastBlockBaseHtml||'')+renderBlockFollowUpBox();
       const lbl=`🛡️ Block-Folgewurf (Aggressor ${atkVal} vs. Schw. 20 → Grundschaden)`;
+      const isLobBlk=Boolean(UI.inLobby);
       publishLiveRoll({
         id:uid(),tsMs:Date.now(),ts:new Date().toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit',second:'2-digit'}),
-        senderTabId:LIVE_TAB_ID,charId:S.charId||'',charName:String(S.profile.name||'').trim()||'Unbenannter Held',
-        playerName:String(CLOUD.currentUser||S.owner||'').trim(),label:lbl,weaponId:D.weaponId||null,wRollCat:'Blocken',
-        th,chance,cv:atkVal,dv:20,adv:0,dis:0,net:0,bonus:0,effTh:0,
+        senderTabId:LIVE_TAB_ID,charId:isLobBlk?'':(S.charId||''),charName:isLobBlk?(CLOUD.currentUser?CLOUD.currentUser:'Gast'):(String(S.profile.name||'').trim()||'Unbenannter Held'),
+        playerName:isLobBlk?'':String(CLOUD.currentUser||S.owner||'').trim(),campaignId:isLobBlk?getActiveLiveCampaignId():getCharCampaignId(S.charId),label:lbl,weaponId:isLobBlk?null:(D.weaponId||null),wRollCat:'Blocken',
+        th,egMult,chance,cv:atkVal,dv:20,adv:0,dis:0,net:0,bonus:0,effTh:0,
         cBreak:`Aggressor-Trefferwert ${atkVal}`,dBreak:'20 (Block-Folgewurf)',advBreak:'±0',critLbl:'Endziffer 1',
-        formula:`${atkVal} (Aggressor) + 50 − 20 (Schw.) = ${th} (${chance}%)`,cnt:1,res:[{r,ok,crit,eg,meg}]
+        formula:`${atkVal} (Aggressor) + 50 − 20 (Schw.) = ${th} (${chance}%)`,cnt:1,res:[{r,ok,crit,baseEg,eg,egMult,meg}]
       });
-      diceLogs.unshift({t:new Date().toLocaleTimeString('de-DE'),lbl,th,sum:`${r}(${crit?'★':''}${ok?'EG'+eg:'MEG'+meg})`});
+      diceLogs.unshift({t:new Date().toLocaleTimeString('de-DE'),lbl,th,sum:`${r}(${crit?'★':''}${ok?('EG'+eg+(egMult>1?` (${baseEg} ×${egMult})`:'')):'MEG'+meg})`});
       if(diceLogs.length>40) diceLogs.length=40;
       renderDice();
     }
@@ -6758,10 +6996,10 @@
       const isAtkBlk20=Boolean(opts&&opts.isAttackerBlockFollowUp);
       const T=calcThreshold(), {th}=T, res=[];
       for(let i=0;i<D.cnt;i++){
-        const rawR=rollW100(), rollMod=toInt(T.rollMod,0), r=rollMod?Math.max(1,Math.min(100,rawR+rollMod)):rawR, ok=r===1?true:r===100?false:r<=T.th;
+        const rawR=rollW100(), rollMod=toInt(T.rollMod,0), r=rollMod?Math.max(1,Math.min(100,rawR+rollMod)):rawR, ok=r!==100&&(r===1||r<=T.th);
         let crit=false; if(ok){const ed=r%10,td=parseInt(D.crit,10),rk=x=>x===0?10:x;crit=(D.crit==='1'||D.critMode==='range')?rk(ed)<=rk(td):ed===td;}
-        const eg=ok?Math.ceil(r/10):0, meg=!ok?Math.ceil((101-r)/10):0;
-        res.push({r,rawR,rollMod,ok,crit,eg,meg});
+        const baseEg=ok?Math.ceil(r/10):0, eg=ok?baseEg*T.egMult:0, meg=!ok?Math.ceil((101-r)/10):0;
+        res.push({r,rawR,rollMod,ok,crit,baseEg,eg,egMult:T.egMult,meg});
       }
       const rollTitle=isAtkBlk20?`${D.label} • 🛡️ Geblockt (Folgewurf vs. Schw. 20)`:D.label;
       const advSrcParts=buildAdvSrcShortList(T);
@@ -6774,12 +7012,13 @@
       let baseHtml='';
       if(res.length===1){
         const x=res[0], cls=x.crit?'crit-glow border-amber-400 bg-amber-500/15':x.ok?'border-emerald-500/60 bg-emerald-500/10':'border-rose-500/60 bg-rose-500/10';
-        const blkBanner=isAtkBlk20?`<div class="mt-2.5 pt-2 border-t border-white/10 text-xs font-extrabold ${x.ok?'text-amber-300':'text-rose-400'}">${x.ok?`🛡️ Geblockter Treffer → Erzielte EG für Grundschaden gegen Rüstung: <span class="px-2 py-0.5 rounded bg-amber-500 text-slate-950 font-black">${x.eg} EG</span>`:`🛡️ Am Block gescheitert → 0 EG Grundschaden (MEG: ${x.meg})`}</div>`:'';
-        baseHtml=`<div class="subcard text-center p-4 border-2 ${cls}"><div class="text-[11px] font-bold t-mut">${esc(rollTitle)} • Schwelle ${th}</div><div class="text-5xl font-black tabular my-1">🎲 ${x.r}${x.rollMod&&x.rawR!==undefined?`<span class="text-xs font-bold text-cyan-300 ml-1">(Wurf ${x.rawR}${fmtSign(x.rollMod)})</span>`:''}</div><div class="text-xs font-black uppercase ${x.crit?'text-amber-500':x.ok?'text-emerald-500':'text-rose-500'}">${x.crit?'★ Kritischer Erfolg! ★':x.ok?'Erfolg':'Misserfolg'}</div><div class="mt-2"><span class="px-3.5 py-1 rounded-lg text-white font-extrabold text-sm tabular ${x.ok?'bg-emerald-600':'bg-rose-600'}">${x.ok?'EG: '+x.eg+(isAtkBlk20?' (Grundschaden)':''):'MEG: '+x.meg}</span></div>${advSrcRowHtml}${blkBanner}</div>`;
+        const xMult=x.egMult||T.egMult||1;
+        const blkBanner=isAtkBlk20?`<div class="mt-2.5 pt-2 border-t border-white/10 text-xs font-extrabold ${x.ok?'text-amber-300':'text-rose-400'}">${x.ok?`🛡️ Geblockter Treffer → Erzielte EG für Grundschaden gegen Rüstung: <span class="px-2 py-0.5 rounded bg-amber-500 text-slate-950 font-black">${x.eg} EG${xMult>1?` (${x.baseEg} ×${xMult})`:''}</span>`:`🛡️ Am Block gescheitert → 0 EG Grundschaden (MEG: ${x.meg})`}</div>`:'';
+        baseHtml=`<div class="subcard text-center p-4 border-2 ${cls}"><div class="text-[11px] font-bold t-mut">${esc(rollTitle)} • Schwelle ${th}${xMult>1?` • <span class="text-amber-300">EG ×${xMult}</span>`:''}</div><div class="text-5xl font-black tabular my-1">🎲 ${x.r}${x.rollMod&&x.rawR!==undefined?`<span class="text-xs font-bold text-cyan-300 ml-1">(Wurf ${x.rawR}${fmtSign(x.rollMod)})</span>`:''}</div><div class="text-xs font-black uppercase ${x.crit?'text-amber-500':x.ok?'text-emerald-500':'text-rose-500'}">${x.crit?'★ Kritischer Erfolg! ★':x.ok?'Erfolg':(x.r===100?'💀 Patzer (100)':'Misserfolg')}</div><div class="mt-2"><span class="px-3.5 py-1 rounded-lg text-white font-extrabold text-sm tabular ${x.ok?'bg-emerald-600':'bg-rose-600'}">${x.ok?('EG: '+x.eg+(xMult>1?` (${x.baseEg} ×${xMult})`:'')+(isAtkBlk20?' (Grundschaden)':'')):'MEG: '+x.meg}</span></div>${advSrcRowHtml}${blkBanner}</div>`;
       }else{
         const w=res.filter(x=>x.ok).length, c=res.filter(x=>x.crit).length;
         const multiSrcBox=advSrcParts.length?`<div class="subcard py-1.5 px-2.5 flex flex-wrap items-center gap-1 text-[10px] min-w-0 break-words"><span class="font-extrabold t-mut mr-0.5">Vor./Nacht.:</span>${advSrcChipsHtml}</div>`:'';
-        baseHtml=`<div class="space-y-1.5"><div class="subcard py-1.5 px-3 flex justify-between text-xs font-extrabold"><span>${D.cnt}× W100 (≤${th})${isAtkBlk20?' • 🛡️ Folgewurf vs. Schw. 20 (Grundschaden)':''}</span><span>${w}/${D.cnt} Erfolge${c?` • ★ ${c}`:''}</span></div><div class="grid grid-cols-2 gap-1.5">${res.map((x,i)=>`<div class="subcard p-2 flex justify-between items-center ${x.crit?'border-amber-400 bg-amber-500/15':x.ok?'border-emerald-500/50 bg-emerald-500/10':'border-rose-500/50 bg-rose-500/10'}"><span class="font-black tabular">#${i+1}: ${x.r}${x.rollMod&&x.rawR!==undefined?` (${x.rawR}${fmtSign(x.rollMod)})`:""}</span><span class="text-xs font-extrabold">${x.crit?'★ ':''}${x.ok?'EG '+x.eg+(isAtkBlk20?' (GS)':''):'MEG '+x.meg}</span></div>`).join('')}</div>${multiSrcBox}</div>`;
+        baseHtml=`<div class="space-y-1.5"><div class="subcard py-1.5 px-3 flex justify-between text-xs font-extrabold"><span>${D.cnt}× W100 (≤${th})${T.egMult>1?` • <span class="text-amber-300">EG ×${T.egMult}</span>`:''}${isAtkBlk20?' • 🛡️ Folgewurf vs. Schw. 20 (Grundschaden)':''}</span><span>${w}/${D.cnt} Erfolge${c?` • ★ ${c}`:''}</span></div><div class="grid grid-cols-2 gap-1.5">${res.map((x,i)=>{const xm=x.egMult||T.egMult||1;return `<div class="subcard p-2 flex justify-between items-center ${x.crit?'border-amber-400 bg-amber-500/15':x.ok?'border-emerald-500/50 bg-emerald-500/10':'border-rose-500/50 bg-rose-500/10'}"><span class="font-black tabular">#${i+1}: ${x.r}${x.rollMod&&x.rawR!==undefined?` (${x.rawR}${fmtSign(x.rollMod)})`:""}</span><span class="text-xs font-extrabold">${x.crit?'★ ':''}${x.ok?('EG '+x.eg+(xm>1?` ×${xm}`:'')+(isAtkBlk20?' (GS)':'')):'MEG '+x.meg}</span></div>`;}).join('')}</div>${multiSrcBox}</div>`;
       }
       if(D.wRollCat==='Blocken'&&res.some(x=>x.ok)){
         D.blockFollowAtk=getEffD();
@@ -6797,18 +7036,21 @@
       const advBreak=(T.effAdv||T.effDis||advSrcParts.length)?`${T.effAdv}V/${T.effDis}N (Netto ${fmtSign(T.rawNet)} → ${fmtSign(T.bonus-T.effTh)})${advSrcParts.length?` • ${advSrcParts.join(', ')}`:''}`:'±0';
       const critLbl=(D.crit==='1'?'Endziffer 1':(D.critMode==='range'?`Endziffer 1–${D.crit}`:`nur Endziffer ${D.crit}`))+(T.autoCrit?` [inkl. +${T.autoCrit} Krit-Bonus]`:'');
       const formula=`${T.cv} (Wert) + 50 − ${T.dv} (Schw.) ${T.bonus>=0?'+ '+T.bonus:'− '+Math.abs(T.bonus)}${T.effTh?` [inkl. ${fmtSign(T.effTh)} Effekt]`:''} = ${T.th} (${T.chance}%)`;
+      const isLobRoll=Boolean(UI.inLobby);
       publishLiveRoll({
         id:uid(),
         tsMs:Date.now(),
         ts:new Date().toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit',second:'2-digit'}),
         senderTabId:LIVE_TAB_ID,
-        charId:S.charId||'',
-        charName:String(S.profile.name||'').trim()||'Unbenannter Held',
-        playerName:String(CLOUD.currentUser||S.owner||'').trim(),
+        charId:isLobRoll?'':(S.charId||''),
+        charName:isLobRoll?(CLOUD.currentUser?CLOUD.currentUser:'Gast'):(String(S.profile.name||'').trim()||'Unbenannter Held'),
+        playerName:isLobRoll?'':String(CLOUD.currentUser||S.owner||'').trim(),
+        campaignId:isLobRoll?getActiveLiveCampaignId():getCharCampaignId(S.charId),
         label:rollTitle||'Freie Probe',
-        weaponId:D.weaponId||null,
+        weaponId:isLobRoll?null:(D.weaponId||null),
         wRollCat:D.wRollCat||null,
         th:T.th,
+        egMult:T.egMult,
         chance:T.chance,
         cv:T.cv,
         dv:T.dv,
@@ -6825,14 +7067,69 @@
         cnt:D.cnt,
         res
       });
-      diceLogs.unshift({t:new Date().toLocaleTimeString('de-DE'),lbl:rollTitle,th,sum:res.map(x=>`${x.r}(${x.crit?'★':''}${x.ok?'EG'+x.eg:'MEG'+x.meg})`).join(', '),advSrc:advSrcParts.join(', ')});
+      diceLogs.unshift({t:new Date().toLocaleTimeString('de-DE'),lbl:rollTitle,th,sum:res.map(x=>`${x.r}(${x.crit?'★':''}${x.ok?('EG'+x.eg+((x.egMult||T.egMult||1)>1?` (${x.baseEg} ×${x.egMult||T.egMult})`:'')):'MEG'+x.meg})`).join(', '),advSrc:advSrcParts.join(', ')});
       if(diceLogs.length>40) diceLogs.length=40;
-      if(S.inspirationActive){
+      if(!isLobbyNeutralDice()&&S.inspirationActive){
         S.inspirationActive=false;
         applyDiceAutoAdvDis(false);
         if(S.activeTab==='attributes') renderMain();
         save();
       }
+      renderDice();
+    }
+    function rollCustomDice(){
+      const cnt=Math.max(1,Math.min(100,toInt(D.customCnt,1)));
+      const sides=Math.max(1,toInt(D.customSides,20));
+      const mod=toInt(D.customMod,0);
+      D.customCnt=cnt; D.customSides=sides; D.customMod=mod;
+      const rolls=[];
+      let sum=0;
+      for(let i=0;i<cnt;i++){
+        const r=Math.floor(Math.random()*sides)+1;
+        rolls.push(r);
+        sum+=r;
+      }
+      const total=sum+mod;
+      const formula=`${cnt}W${sides}${mod?fmtSign(mod):''}`;
+      const chipsHtml=rolls.map((rv,i)=>`<span class="px-2 py-0.5 rounded-md border border-sky-400/40 bg-sky-500/15 text-sky-200 text-xs font-extrabold tabular">${cnt>1?`<span class="opacity-65 mr-0.5">#${i+1}:</span>`:''}${rv}</span>`).join('')+(mod?`<span class="px-2 py-0.5 rounded-md border border-indigo-400/40 bg-indigo-500/20 text-indigo-200 text-xs font-black tabular">Mod ${fmtSign(mod)}</span>`:'');
+      const customHtml=`<div class="subcard text-center p-4 border-2 border-sky-400/60 bg-sky-500/10 space-y-2 tabular">
+        <div class="text-[11px] font-bold text-sky-300">🎲 Freie Würfel • ${esc(formula)}</div>
+        <div class="text-5xl font-black text-sky-300 my-1">= ${total}</div>
+        ${(cnt>1||mod!==0)?`<div class="text-xs font-bold t-mut">Summe: ${sum}${mod?` ${fmtSign(mod)} = <strong class="text-sky-300">${total}</strong>`:''}</div>`:''}
+        <div class="flex flex-wrap items-center justify-center gap-1 pt-1.5 border-t border-white/10">${chipsHtml}</div>
+      </div>`;
+      UI.lastBlockBaseHtml=customHtml;
+      UI.lastBlockFollowRes=null;
+      UI.lastRollHtml=customHtml;
+      diceLogs.unshift({
+        t:new Date().toLocaleTimeString('de-DE'),
+        isCustomDice:true,
+        lbl:`🎲 ${formula}`,
+        sum:`${total}${(cnt>1||mod!==0)?` (${rolls.join(' + ')}${mod?' '+fmtSign(mod):''})`:''}`
+      });
+      if(diceLogs.length>40) diceLogs.length=40;
+      const isLobRoll=Boolean(UI.inLobby);
+      const entry={
+        id:uid(),
+        tsMs:Date.now(),
+        ts:new Date().toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit',second:'2-digit'}),
+        senderTabId:LIVE_TAB_ID,
+        charId:isLobRoll?'':(S.charId||''),
+        charName:isLobRoll?(CLOUD.currentUser||'Gast'):(String(S.profile.name||'').trim()||'Unbenannter Held'),
+        playerName:isLobRoll?'':String(CLOUD.currentUser||S.owner||'').trim(),
+        campaignId:isLobRoll?getActiveLiveCampaignId():getCharCampaignId(S.charId),
+        label:`Freie Würfel (${formula})`,
+        isCustomDice:true,
+        customFormula:formula,
+        customSides:sides,
+        customMod:mod,
+        customRolls:rolls,
+        customSum:sum,
+        customTotal:total,
+        cnt,
+        res:rolls.map(r=>({r,ok:true,crit:false,eg:0,meg:0}))
+      };
+      publishLiveRoll(entry);
       renderDice();
     }
 
@@ -7132,7 +7429,7 @@
         case 'reset-hz': UI.confirmHzStep=1; UI.modal='resetHz'; renderModal(); break;
         case 'confirm-reset-hz-1': UI.confirmHzStep=2; renderModal(); break;
         case 'confirm-reset-hz-2': S.hitZones=JSON.parse(JSON.stringify(DEF_HZ)); S.lastHzRoll=null; UI.modal=null; renderMain(); renderModal(); save(); toast('Standard-Trefferzonen wiederhergestellt'); break;
-        case 'roll-hz': {const r=rollW100();S.lastHzRoll=r;const hzHit=S.hitZones.find(z=>{const m=String(z.range||'').match(/\d+/g);return m&&r>=Math.min(+m[0],+(m[1]??m[0]))&&r<=Math.max(+m[0],+(m[1]??m[0]));});publishLiveRoll({id:uid(),tsMs:Date.now(),ts:new Date().toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit',second:'2-digit'}),senderTabId:LIVE_TAB_ID,charId:S.charId||'',charName:String(S.profile.name||'').trim()||'Unbenannter Held',playerName:String(CLOUD.currentUser||S.owner||'').trim(),label:'🎯 Trefferzonen-Wurf',isHz:true,hzZone:hzHit?`${hzHit.zone} (${hzHit.size||'normal'})`:'Keine Zone',th:100,chance:100,res:[{r,ok:true,crit:false,eg:0,meg:0}]});renderMain();save();toast(`Trefferzone W100 = ${r}${hzHit?` (${hzHit.zone})`:''}`);break;}
+        case 'roll-hz': {const r=rollW100();S.lastHzRoll=r;const hzHit=S.hitZones.find(z=>{const m=String(z.range||'').match(/\d+/g);return m&&r>=Math.min(+m[0],+(m[1]??m[0]))&&r<=Math.max(+m[0],+(m[1]??m[0]));});const isLobHz=Boolean(UI.inLobby);publishLiveRoll({id:uid(),tsMs:Date.now(),ts:new Date().toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit',second:'2-digit'}),senderTabId:LIVE_TAB_ID,charId:isLobHz?'':(S.charId||''),charName:isLobHz?(CLOUD.currentUser?CLOUD.currentUser:'Gast'):(String(S.profile.name||'').trim()||'Unbenannter Held'),playerName:isLobHz?'':String(CLOUD.currentUser||S.owner||'').trim(),campaignId:isLobHz?getActiveLiveCampaignId():getCharCampaignId(S.charId),label:'🎯 Trefferzonen-Wurf',isHz:true,hzZone:hzHit?`${hzHit.zone} (${hzHit.size||'normal'})`:'Keine Zone',th:100,chance:100,res:[{r,ok:true,crit:false,eg:0,meg:0}]});renderMain();save();if(!isSecretRollActive()) toast(`Trefferzone W100 = ${r}${hzHit?` (${hzHit.zone})`:''}`);break;}
         case 'roll-attr': {const k=el.dataset.attr,v=getAttrTot(k);D.weaponId=null;D.wRollCat='Normaler Test';D.skillId=null;D.attrKey=k;D.critOff=0;D.sitActive={};D.cMode='breakdown';D.cAttr=v;D.cSkill='0';D.cDirect=v;D.label=`Normaler Test: ${k} (${v})`;applyDiceAutoAdvDis(true);D.open=true;renderHeader();renderDice();break;}
         case 'toggle-sk-edit': {
           const sid=el.dataset.id;
@@ -7157,7 +7454,8 @@
         case 'set-dice-wcat': {const wc=el.dataset.wcat||'Normaler Test';D.wRollCat=wc;D.sitActive={};applyDiceAutoAdvDis(true);syncDiceFromSheet();renderDice();break;}
         case 'clear-dice-weapon': D.weaponId=null; D.wRollCat='Normaler Test'; D.critOff=0; D.sitActive={}; applyDiceAutoAdvDis(true); syncDiceFromSheet(); renderDice(); break;
         case 'toggle-dice-sit': {const sk=el.dataset.sit;if(sk){if(!D.sitActive)D.sitActive={};D.sitActive[sk]=!D.sitActive[sk];applyDiceAutoAdvDis(false);renderDice();}break;}
-        case 'dice-pick-attr': {const k=el.dataset.attr,av=getAttrTot(k);D.attrKey=k;if(D.weaponId){D.cMode='breakdown';syncDiceFromSheet();}else if(D.skillId){const sk=S.skills.find(x=>x.id===D.skillId);if(sk){const b=getSkBonus(sk);D.cMode='breakdown';D.cAttr=av;if(['0','10','15','20','30'].includes(String(b))){D.cSkill=String(b);}else{D.cSkill='custom';D.cCustom=b;}D.cDirect=av+b;D.label=`${sk.name} (${fmtSign(b)}) + ${k} (${av})`;applyDiceAutoAdvDis(false);}}else{D.cMode='breakdown';D.cAttr=av;D.cSkill='0';D.cDirect=av;D.label=`Attributsprobe: ${k} (${av})`;applyDiceAutoAdvDis(false);}renderDice();break;}
+        case 'dice-pick-lobby-attr': {const ak=el.dataset.attr||'ST';D.cAttr=50;D.cDirect=D.cMode==='breakdown'?50+getCSkVal():50;D.label='Freie Probe: '+ak+' (50)';D.attrKey=null;D.skillId=null;D.weaponId=null;applyDiceAutoAdvDis(false);renderDice();break;}
+        case 'dice-pick-attr': {if(isLobbyNeutralDice()){const ak=el.dataset.attr||'ST';D.cAttr=50;D.cDirect=D.cMode==='breakdown'?50+getCSkVal():50;D.label='Freie Probe: '+ak+' (50)';D.attrKey=null;D.skillId=null;D.weaponId=null;applyDiceAutoAdvDis(false);renderDice();break;}const k=el.dataset.attr,av=getAttrTot(k);D.attrKey=k;if(D.weaponId){D.cMode='breakdown';syncDiceFromSheet();}else if(D.skillId){const sk=S.skills.find(x=>x.id===D.skillId);if(sk){const b=getSkBonus(sk);D.cMode='breakdown';D.cAttr=av;if(['0','10','15','20','30'].includes(String(b))){D.cSkill=String(b);}else{D.cSkill='custom';D.cCustom=b;}D.cDirect=av+b;D.label=`${sk.name} (${fmtSign(b)}) + ${k} (${av})`;applyDiceAutoAdvDis(false);}}else{D.cMode='breakdown';D.cAttr=av;D.cSkill='0';D.cDirect=av;D.label=`Attributsprobe: ${k} (${av})`;applyDiceAutoAdvDis(false);}renderDice();break;}
         case 'set-sk-rank': {const sk=S.skills.find(x=>x.id===el.dataset.id),rk=+el.dataset.rank;if(sk){sk.rank=sk.rank===rk?rk-1:rk;if(!sk.manualCost){const auto=calcAutoSkCost(sk.category,sk.rank);sk.customSp=auto.sp;sk.customMsp=auto.msp;}logChron(`Fertigkeit "${sk.name}" → ${SK_RANKS[sk.rank].n}.`);syncDiceFromSheet();renderAll();}break;}
         case 'reset-sk-bon': {const sk=S.skills.find(x=>x.id===el.dataset.id);if(sk){sk.bonusOvr='';syncDiceFromSheet();renderMain();save();toast(`"${sk.name}": Bonus auf Grad-Standard (+${getSkAutoBonus(sk.rank)}) zurückgesetzt`);}break;}
         case 'gift-sk': {
@@ -7612,7 +7910,7 @@
         case 'clear-log-yes': S.chronicleLog=[]; UI.confirmLog=false; renderAll(); break;
         case 'toggle-mobile-hdr': UI.mobileHdrOpen=!UI.mobileHdrOpen; renderHeader(); break;
         case 'toggle-mobile-lobby-menu': UI.mobileLobbyMenuOpen=!UI.mobileLobbyMenuOpen; renderHeader(); break;
-        case 'toggle-dice': D.open=!D.open; renderHeader(); renderDice(); renderLiveDice(); break;
+        case 'toggle-dice': D.open=!D.open; if(D.open) ensureLobbyNeutralDiceOnOpen(); renderHeader(); renderDice(); renderLiveDice(); break;
         case 'close-dice': D.open=false; renderHeader(); renderDice(); renderLiveDice(); break;
         case 'dock-dice':
         case 'toggle-dock': D.docked=!D.docked; if(D.docked) D.floating=false; renderDice(); renderLiveDice(); break;
@@ -7620,7 +7918,7 @@
         case 'close-livedice': LD.open=false; renderHeader(); renderDice(); renderLiveDice(); break;
         case 'dock-livedice':
         case 'toggle-dock-livedice': LD.docked=!LD.docked; if(LD.docked) LD.floating=false; renderDice(); renderLiveDice(); break;
-        case 'reset-dice': D={...DICE_DEF,open:true,docked:D.docked}; UI.lastRollHtml=''; UI.lastBlockBaseHtml=''; UI.lastBlockFollowRes=null; renderDice(); break;
+        case 'reset-dice': D={...DICE_DEF,open:true,docked:D.docked}; if(isLobbyNeutralDice()) resetDiceToLobbyNeutral(); UI.lastRollHtml=''; UI.lastBlockBaseHtml=''; UI.lastBlockFollowRes=null; UI.lastSecretRollId=''; renderDice(); updateLobbyLiveDiceDOM(); break;
         case 'toggle-cnotes': CN.open=!CN.open; CN.confirmDelId=null; renderHeader(); renderCampNotes(); break;
         case 'close-cnotes': CN.open=false; CN.confirmDelId=null; renderHeader(); renderCampNotes(); break;
         case 'dock-cnotes':
@@ -8012,7 +8310,7 @@
             CN.open=true;
           };
           if(UI.sheetLoaded&&S.charId===cid&&!CLOUD.viewingRemote){
-            UI.inLobby=false; UI.sheetLoaded=true; UI.modal=null;
+            UI.inLobby=false; UI.sheetLoaded=true; UI.modal=null; exitLobbyNeutralDice();
             focusFirstPublic();
             renderAll(false);
           }else{
@@ -8021,7 +8319,7 @@
                 focusFirstPublic();
                 renderHeader(); renderCampNotes();
               }else if(S.charId===cid){
-                UI.inLobby=false; UI.sheetLoaded=true; UI.modal=null;
+                UI.inLobby=false; UI.sheetLoaded=true; UI.modal=null; exitLobbyNeutralDice();
                 focusFirstPublic();
                 renderAll(false);
               }
@@ -8034,6 +8332,7 @@
         case 'adv-step': {const r=applyDiceAutoAdvDis(false);D.advAdj=Math.max(-r.autoAdv,toInt(D.advAdj,0)+Number(el.dataset.d));applyDiceAutoAdvDis(false);renderDice();break;}
         case 'dis-step': {const r=applyDiceAutoAdvDis(false);D.disAdj=Math.max(-r.autoDis,toInt(D.disAdj,0)+Number(el.dataset.d));applyDiceAutoAdvDis(false);renderDice();break;}
         case 'reset-dice-diff': D.dMode='direct'; D.dDirect=40; D.dAttr=30; D.dSkill='10'; D.dCustom=25; renderDice(); break;
+        case 'dice-set-diff': D.dMode='direct'; D.dDirect=toInt(el.dataset.val,40); renderDice(); break;
         case 'reset-dice-advdis': D.advAdj=0; D.disAdj=0; applyDiceAutoAdvDis(true); renderDice(); break;
         case 'cnt-step': D.cnt=Math.max(1,Math.min(10,D.cnt+Number(el.dataset.d))); renderDice(); break;
         case 'crit-step': {const T=calcThreshold(),i=CRIT_SEQ.indexOf(T.effCrit),ni=Math.max(0,Math.min(CRIT_SEQ.length-1,i+Number(el.dataset.d)));D.critOff=ni-T.autoCrit;D.crit=CRIT_SEQ[ni];renderDice();break;}
@@ -8041,6 +8340,13 @@
         case 'roll-d100': executeDiceRoll(); break;
         case 'roll-block-followup': executeBlockFollowUpRoll(); break;
         case 'roll-blocked-hit-20': D.dMode='direct'; D.dDirect=20; executeDiceRoll({isAttackerBlockFollowUp:true}); break;
+        case 'toggle-dice-custom': D.customOpen=!D.customOpen; renderDice(); break;
+        case 'dice-custom-preset': D.customSides=Math.max(1,toInt(el.dataset.sides,20)); D.customOpen=true; renderDice(); break;
+        case 'roll-custom-dice': rollCustomDice(); break;
+        case 'toggle-dice-secret': if(!CLOUD.isAdmin) break; D.secretMode=!D.secretMode; if(UI.lastBlockBaseHtml&&UI.lastRollHtml&&UI.lastRollHtml.includes('roll-block-followup')) UI.lastRollHtml=UI.lastBlockBaseHtml+renderBlockFollowUpBox(); renderDice(); updateLobbyLiveDiceDOM(); toast(D.secretMode?'🕵️ Admin-Geheimwurf-Modus AKTIV (Privat)':'👁️ Öffentlicher Live-Feed-Modus aktiv'); break;
+        case 'reveal-secret-roll': revealSecretRoll(el.dataset.id); break;
+        case 'toggle-secret-list': UI.secretRollsCollapsed=!UI.secretRollsCollapsed; renderDice(); break;
+        case 'clear-secret-rolls': if(!CLOUD.isAdmin) break; CLOUD.secretRolls=[]; UI.lastSecretRollId=''; saveSecretRollsLocal(); renderDice(); toast('🗑️ Geheime Admin-Würfe geleert'); break;
         case 'clear-dice-log': diceLogs=[]; renderDice(); break;
         case 'pick-avatar': UI.modal='avatar'; renderModal(); break;
         case 'trigger-avatar-file': $('fileAvatar').click(); break;
@@ -8053,7 +8359,7 @@
           if(!CLOUD.viewingRemote&&UI.sheetLoaded&&S.cloudAutoSync&&(CLOUD.currentUser||CLOUD.isAdmin)) pushToCloud(true);
           UI.inLobby=true; UI.sheetLoaded=false; UI.modal=null; CLOUD.viewingRemote=false; CLOUD.remoteCharId='';
           CLOUD.confirmDelCloudId=null; CLOUD.confirmClearDice=false; CLOUD.campAction='';
-          D.open=false; CN.open=false;
+          D.open=false; CN.open=false; resetDiceToLobbyNeutral();
           try{window.history.replaceState({},'',`${window.location.pathname}?lobby=1`);}catch(e){}
           initLiveDiceChannel(); renderAll(false); fetchLobbyList(true);
           toast('🏠 Charakterbogen geschlossen – du bist in der Lobby.');
@@ -8063,7 +8369,7 @@
           load();
           if(CLOUD.currentUser&&!S.owner) S.owner=CLOUD.currentUser;
           if(!S.campaignId) S.campaignId=CLOUD.activeCampaignId||'default';
-          UI.inLobby=false; UI.sheetLoaded=true; UI.modal=null;
+          UI.inLobby=false; UI.sheetLoaded=true; UI.modal=null; exitLobbyNeutralDice();
           try{window.history.replaceState({},'',S.charId?`${window.location.pathname}?char=${encodeURIComponent(S.charId)}`:window.location.pathname);}catch(e){}
           renderAll();
           toast(`🛠️ Lokaler Charakterbogen „${S.profile.name||'Charakter'}“ geöffnet!`);
@@ -8191,8 +8497,10 @@
         case 'kick-char-camp': kickCharFromCampaign(el.dataset.id); break;
         case 'dup-char-sheet': duplicateCharacterSheet(el.dataset.id); break;
         case 'toggle-lobby-dice-collapse': CLOUD.diceCollapsed=!CLOUD.diceCollapsed; updateLobbyLiveDiceDOM(); break;
-        case 'lobby-open-dice': D.open=true; renderHeader(); renderDice(); break;
-        case 'lobby-quick-roll': syncDiceFromSheet(); executeDiceRoll(); break;
+        case 'reset-lobby-dice-h': CLOUD.lobbyDiceH=340; try{localStorage.setItem('scherbensturm_lobby_dice_h','340');}catch(e){} updateLobbyLiveDiceDOM(); break;
+        case 'toggle-lobby-gallery-collapse': CLOUD.galleryCollapsed=!CLOUD.galleryCollapsed; try{localStorage.setItem('scherbensturm_lobby_gallery_collapsed',CLOUD.galleryCollapsed?'1':'0');}catch(e){} renderMain(); break;
+        case 'lobby-open-dice': D.open=true; ensureLobbyNeutralDiceOnOpen(); renderHeader(); renderDice(); break;
+        case 'lobby-quick-roll': ensureLobbyNeutralDiceOnOpen(); syncDiceFromSheet(); executeDiceRoll(); break;
         case 'toggle-dice-toast': CLOUD.diceToast=!CLOUD.diceToast; try{localStorage.setItem('scherbensturm_dice_toast',CLOUD.diceToast?'1':'0');}catch(e){} updateLobbyLiveDiceDOM(); toast(CLOUD.diceToast?'🔔 Live-Wurf-Popups aktiviert':'🔕 Live-Wurf-Popups stummgeschaltet'); break;
         case 'lobby-sync-dice': initLiveDiceChannel(); syncCloudRegistry(false); toast('🔄 Live-Würfelfenster synchronisiert'); break;
         case 'ask-clear-lobby-dice': if(!canClearLiveDice()){toast('🔒 Nur der Admin oder ein Spielleiter dieser Kampagne kann den Live-Würfellog leeren.');return;} CLOUD.confirmClearDice=true; updateLobbyLiveDiceDOM(); break;
@@ -8267,11 +8575,11 @@
             CLOUD.registry.adminHash=simpleHash(pin);
             CLOUD.isAdmin=true;
             try{localStorage.setItem('scherbensturm_cloud_admin','1');}catch(e){}
-            syncCloudRegistry(true); renderModal(); toast('👑 Admin-Master-PIN gespeichert & Admin-Modus aktiviert!');
+            syncCloudRegistry(true); renderModal(); if(D.open) renderDice(); toast('👑 Admin-Master-PIN gespeichert & Admin-Modus aktiviert!');
           }else if(simpleHash(pin)===CLOUD.registry.adminHash){
             CLOUD.isAdmin=true;
             try{localStorage.setItem('scherbensturm_cloud_admin','1');}catch(e){}
-            renderModal(); toast('👑 Admin-Modus freigeschaltet!');
+            renderModal(); if(D.open) renderDice(); toast('👑 Admin-Modus freigeschaltet!');
           }else{
             toast('🔒 Falsche Admin-Master-PIN.');
           }
@@ -8285,7 +8593,7 @@
           syncCloudRegistry(true); renderModal(); toast('👑 Neue Admin-Master-PIN im Backend gespeichert!');
           break;
         }
-        case 'admin-logout': CLOUD.isAdmin=false; CLOUD.showAdminBar=false; CLOUD.userMgmtOpen=false; try{localStorage.removeItem('scherbensturm_cloud_admin');}catch(e){} renderHeader(); renderMain(); renderModal(); toast('🔒 Admin-Modus gesperrt'); break;
+        case 'admin-logout': CLOUD.isAdmin=false; CLOUD.showAdminBar=false; CLOUD.userMgmtOpen=false; D.secretMode=false; UI.lastSecretRollId=''; try{localStorage.removeItem('scherbensturm_cloud_admin');}catch(e){} renderHeader(); renderMain(); renderModal(); if(D.open) renderDice(); updateLobbyLiveDiceDOM(); toast('🔒 Admin-Modus gesperrt'); break;
         case 'admin-del-user': {
           if(!CLOUD.isAdmin) break;
           const u=el.dataset.user;
@@ -8352,14 +8660,14 @@
         case 'cloud-del-yes': deleteCloudCharacter(el.dataset.id); break;
         case 'cloud-reload-view': if(CLOUD.remoteCharId) loadCloudCharacter(CLOUD.remoteCharId,true); break;
         case 'cloud-adopt-copy': {
-          CLOUD.viewingRemote=false; CLOUD.remoteCharId=''; UI.inLobby=false; UI.sheetLoaded=true; UI.modal=null;
+          CLOUD.viewingRemote=false; CLOUD.remoteCharId=''; UI.inLobby=false; UI.sheetLoaded=true; UI.modal=null; exitLobbyNeutralDice();
           S.charId=uid(); S.cloudAutoSync=false;
           renderAll(true); toast('📥 Charakter als eigene lokale Kopie übernommen!');
           break;
         }
         case 'cloud-exit-view': {
           UI.inLobby=true; UI.sheetLoaded=false; UI.modal=null; CLOUD.viewingRemote=false; CLOUD.remoteCharId='';
-          D.open=false; CN.open=false;
+          D.open=false; CN.open=false; resetDiceToLobbyNeutral();
           try{window.history.replaceState({},'',`${window.location.pathname}?lobby=1`);}catch(e){}
           renderAll(false); fetchLobbyList(true);
           toast('🔙 Ansichtsmodus beendet – du bist in der Lobby.');
@@ -8566,7 +8874,7 @@
         case 'pwlib-pick-file': $('filePwImport')?.click(); break;
         case 'new-sheet-ask': UI.confirmNew=true; renderModal(); break;
         case 'new-sheet-no': UI.confirmNew=false; renderModal(); break;
-        case 'new-sheet-yes': CLOUD.viewingRemote=false; CLOUD.remoteCharId=''; S=defaultState(); UI.inLobby=false; UI.sheetLoaded=true; UI.modal=null; UI.confirmNew=false; renderAll(); toast('Neuer Charakterbogen geladen'); break;
+        case 'new-sheet-yes': CLOUD.viewingRemote=false; CLOUD.remoteCharId=''; S=defaultState(); UI.inLobby=false; UI.sheetLoaded=true; UI.modal=null; UI.confirmNew=false; exitLobbyNeutralDice(); renderAll(); toast('Neuer Charakterbogen geladen'); break;
       }
     });
 
@@ -8600,7 +8908,7 @@
         const rst=$(k==='lp'?'rst_lpRegenOvr':'rst_mlpRegenOvr');
         if(rst){rst.textContent=`(${auto})`;rst.classList.toggle('hidden',!hasOvr);}
         const r4=$(k==='lp'?'val_lpReg4':'val_mlpReg4');
-        if(r4) r4.textContent=`+${eff*4} ${k==='lp'?'LP':'mLP'}`;
+        if(r4) r4.textContent=`+${eff*2} ${k==='lp'?'LP':'mLP'}`;
         const tipEl=$(k==='lp'?'tip_lpRegen':'tip_mlpRegen');
         if(tipEl) tipEl.dataset.tip=buildSecTip(k==='lp'?'lpRegen':'mlpRegen',M);
         const hp=$('hdrPills'); if(hp) hp.innerHTML=buildHdrPillsHtml(calcProg());
@@ -9012,11 +9320,27 @@
       if(el.dataset.bioimgCap){const im=S.bioImages.find(x=>x.id===el.dataset.bioimgCap);if(im){im.caption=el.value;saveSoon();}return;}
       if(el.dataset.inv){const [id,f]=el.dataset.inv.split(':'),it=S.inventory.find(x=>x.id===id);if(it){it[f]=el.value;if(f==='qty')save();else saveSoon();}return;}
       if(el.dataset.bio){S.bio[el.dataset.bio]=val;saveSoon();return;}
+      if(el.dataset.diceCustom){
+        const k=el.dataset.diceCustom;
+        if(k==='cnt') D.customCnt=Math.max(1,Math.min(100,toInt(el.value,1)));
+        else if(k==='sides') D.customSides=Math.max(1,toInt(el.value,20));
+        else if(k==='mod') D.customMod=toInt(el.value,0);
+        const cForm=`${D.customCnt}W${D.customSides}${toInt(D.customMod)?fmtSign(toInt(D.customMod)):''}`;
+        const btn=$('btnRollCustomDice'); if(btn) btn.textContent=isSecretRollActive()?`🕵️ 🎲 ${cForm} geheim würfeln`:`🎲 ${cForm} würfeln`;
+        const pill=$('lblCustomFormulaPill'); if(pill) pill.textContent=cForm;
+        document.querySelectorAll('#diceMount [data-action="dice-custom-preset"]').forEach(b=>{
+          const act=D.customSides===toInt(b.dataset.sides,0);
+          b.classList.toggle('btn-pri',act);
+          b.classList.toggle('font-black',act);
+          b.classList.toggle('opacity-85',!act);
+        });
+        return;
+      }
       if(el.dataset.dice){
         D[el.dataset.dice]=toInt(el.value,0);
         if(el.dataset.dice==='blockFollowAtk'){
-          const th2=D.blockFollowAtk+30, ch2=Math.max(1,Math.min(99,th2)), info=$('blockFollowThInfo');
-          if(info) info.textContent=`Schw. 20 • Schwelle ≤ ${th2} (${ch2}%)`;
+          const th2=D.blockFollowAtk+30, ch2=Math.max(1,Math.min(99,th2)), m2=calcEgMultiplier(th2), info=$('blockFollowThInfo');
+          if(info) info.textContent=`Schw. 20 • Schwelle ≤ ${th2} (${ch2}%)${m2>1?` • EG ×${m2}`:''}`;
           if(UI.lastBlockBaseHtml) UI.lastRollHtml=UI.lastBlockBaseHtml+renderBlockFollowUpBox();
           return;
         }
@@ -9032,6 +9356,12 @@
           dRstBtn.classList.toggle('shadow-sm',isDiffChg);
           dRstBtn.classList.toggle('opacity-70',!isDiffChg);
         }
+        document.querySelectorAll('#diceMount [data-action="dice-set-diff"]').forEach(b=>{
+          const act=D.dMode==='direct'&&toInt(D.dDirect)===toInt(b.dataset.val,0);
+          b.classList.toggle('btn-pri',act);
+          b.classList.toggle('font-black',act);
+          b.classList.toggle('opacity-85',!act);
+        });
         syncLiveCalculations();return;
       }
       if(el.id==='rngOverlay'){const t=getEditStyleSlot();t.overlay=toInt(el.value,75);if(UI.inLobby||S.appearance.editScope==='lobby')saveLobbyStyleLocal();if($('bgOvLbl'))$('bgOvLbl').textContent=t.overlay+'%';applyTheme();save();return;}
@@ -9363,7 +9693,7 @@
         el.value='';
         return;
       }
-      if(el.id==='fileImport'&&el.files[0]){const r=new FileReader();r.onload=ev=>{try{mergeLoaded(JSON.parse(ev.target.result)); UI.inLobby=false; UI.sheetLoaded=true; UI.modal=null; renderAll();toast('Charakterbogen importiert!');}catch(err){toast('Ungültige JSON-Datei.');}};r.readAsText(el.files[0]);el.value='';}
+      if(el.id==='fileImport'&&el.files[0]){const r=new FileReader();r.onload=ev=>{try{mergeLoaded(JSON.parse(ev.target.result)); UI.inLobby=false; UI.sheetLoaded=true; UI.modal=null; exitLobbyNeutralDice(); renderAll();toast('Charakterbogen importiert!');}catch(err){toast('Ungültige JSON-Datei.');}};r.readAsText(el.files[0]);el.value='';}
     });
 
     document.addEventListener('submit',e=>{
@@ -9452,36 +9782,34 @@
       if(!D.open) return;
       const diceMount=$('diceMount');
       if(!diceMount||!diceMount.contains(ev.target)) return;
-      const inpEl=ev.target.closest?.('[data-dice]');
-      const boxEl=ev.target.closest?.('[data-wheel-dice]');
-      if(!inpEl&&!boxEl) return;
+      const inp=ev.target.closest?.('input[data-dice]');
+      if(!inp) return;
+      if(document.activeElement!==inp) return;
       if(!ev.deltaY) return;
       const step=ev.deltaY<0?1:-1;
+      const df=inp.dataset.dice;
       let targetField='';
-      if(inpEl){
-        const df=inpEl.dataset.dice;
-        if(df==='cAttr'||df==='dAttr'||df==='cCustom'||df==='dCustom'){
-          targetField=df;
-        }else if(df==='cDirect'){
-          targetField=D.cMode==='direct'?'cDirect':'cAttr';
-        }else if(df==='dDirect'){
-          targetField=D.dMode==='direct'?'dDirect':'dAttr';
-        }
-      }
-      if(!targetField&&boxEl){
-        const wk=boxEl.dataset.wheelDice;
-        if(wk==='c') targetField=D.cMode==='direct'?'cDirect':'cAttr';
-        else if(wk==='d') targetField=D.dMode==='direct'?'dDirect':'dAttr';
+      if(df==='cAttr'||df==='dAttr'||df==='cCustom'||df==='dCustom'||df==='blockFollowAtk'){
+        targetField=df;
+      }else if(df==='cDirect'){
+        targetField=D.cMode==='direct'?'cDirect':'cAttr';
+      }else if(df==='dDirect'){
+        targetField=D.dMode==='direct'?'dDirect':'dAttr';
       }
       if(!targetField) return;
       ev.preventDefault();
       D[targetField]=toInt(D[targetField],0)+step;
+      if(targetField==='blockFollowAtk'){
+        inp.value=D.blockFollowAtk;
+        const th2=D.blockFollowAtk+30, ch2=Math.max(1,Math.min(99,th2)), m2=calcEgMultiplier(th2), info=$('blockFollowThInfo');
+        if(info) info.textContent=`Schw. 20 • Schwelle ≤ ${th2} (${ch2}%)${m2>1?` • EG ×${m2}`:''}`;
+        return;
+      }
       if(targetField==='cDirect'||targetField==='cAttr'||targetField==='cCustom'){
         if(targetField==='cDirect') D.cAttr=D.cDirect;
         else D.cDirect=toInt(D.cAttr,0)+getCSkVal();
       }
-      const domInp=diceMount.querySelector(`input[data-dice="${targetField}"]`);
-      if(domInp) domInp.value=D[targetField];
+      inp.value=D[targetField];
       if($('diceCMath')) $('diceCMath').textContent=`${D.cAttr} + ${getCSkVal()} = ${toInt(D.cAttr)+getCSkVal()}`;
       if($('diceDMath')) $('diceDMath').textContent=`${D.dAttr} + ${getDSkVal()} = ${toInt(D.dAttr)+getDSkVal()}`;
       const dRstBtn=$('btnResetDiceDiff');
@@ -9493,6 +9821,12 @@
         dRstBtn.classList.toggle('shadow-sm',isDiffChg);
         dRstBtn.classList.toggle('opacity-70',!isDiffChg);
       }
+      diceMount.querySelectorAll('[data-action="dice-set-diff"]').forEach(b=>{
+        const act=D.dMode==='direct'&&toInt(D.dDirect)===toInt(b.dataset.val,0);
+        b.classList.toggle('btn-pri',act);
+        b.classList.toggle('font-black',act);
+        b.classList.toggle('opacity-85',!act);
+      });
       const dT=calcThreshold();
       if($('diceAdvDisBox')) $('diceAdvDisBox').innerHTML=buildAdvDisInnerHtml(dT);
       if($('diceThBox')) $('diceThBox').innerHTML=buildThresholdInnerHtml(dT);
@@ -10109,6 +10443,11 @@
     });
 
     document.addEventListener('keydown',e=>{
+      if(e.key==='Enter'&&e.target?.dataset?.diceCustom){
+        e.preventDefault();
+        rollCustomDice();
+        return;
+      }
       if(e.key==='Enter'&&e.target?.dataset?.newPwTagInp){
         e.preventDefault();
         const [kind,id]=e.target.dataset.newPwTagInp.split(':');
@@ -10386,15 +10725,18 @@
     const forceLobby=params.get('lobby')==='1';
     if(reqCharId){
       UI.inLobby=false; UI.sheetLoaded=true; UI.modal=null;
+      exitLobbyNeutralDice();
       renderAll(false);
       loadCloudCharacter(reqCharId,false,true);
       fetchLobbyList(true);
     }else if(forceSheet&&!forceLobby){
       UI.inLobby=false; UI.sheetLoaded=true; UI.modal=null;
+      exitLobbyNeutralDice();
       renderAll(false);
       fetchLobbyList(true);
     }else{
       UI.inLobby=true; UI.sheetLoaded=false; UI.modal=null;
+      resetDiceToLobbyNeutral();
       renderAll(false);
       fetchLobbyList(true);
     }
@@ -10404,8 +10746,21 @@
       livedice:{m:'liveDiceMount',b:'liveDiceBackdrop',c:'xl:w-[420px] 2xl:w-[460px]',r:()=>renderLiveDice()},
       dice:{m:'diceMount',b:'diceBackdrop',c:'xl:w-[430px] 2xl:w-[470px]',r:()=>renderDice()}
     };
-    let winAct=null;
+    let winAct=null, lobbyDiceResize=null;
     document.addEventListener('pointerdown',e=>{
+      const ldBar=e.target.closest('[data-lobby-dice-resize]');
+      if(ldBar){
+        if(e.target.closest('button')) return;
+        const box=ldBar.closest('#lobbyLiveDiceMount')?.querySelector('[data-lobby-dice-body]')||ldBar.parentElement?.querySelector('[data-lobby-dice-body]');
+        if(!box) return;
+        e.preventDefault();
+        const rect=box.getBoundingClientRect();
+        const startH=Math.max(180,Math.min(1200,Math.round(rect.height)||toInt(CLOUD.lobbyDiceH,340)));
+        const lbl=ldBar.querySelector('[data-lobby-dice-h-lbl]');
+        lobbyDiceResize={box,lbl,startClientY:e.clientY,startH,curH:startH};
+        try{ldBar.setPointerCapture?.(e.pointerId);}catch(err){}
+        return;
+      }
       if(isMobileLayout()) return;
       const rEl=e.target.closest('[data-win-resize],[data-win-resize-w]');
       if(rEl){
@@ -10414,7 +10769,9 @@
         e.preventDefault();
         const st=getWinState(k), rect=mount.getBoundingClientRect();
         st.z=Math.max(CN.z||50,D.z||50,LD.z||50)+1;
-        winAct={mode:onlyW?'rw':'rwh',k,cfg,mount,st,sx:e.clientX,sy:e.clientY,sw:rect.width,sh:rect.height,sl:rect.left};
+        mount.style.zIndex=String(st.z);
+        const startX=rect.left, startY=rect.top, startW=rect.width, startH=rect.height;
+        winAct={mode:onlyW?'rw':'rwh',k,cfg,mount,st,startClientX:e.clientX,startClientY:e.clientY,startX,startY,startW,startH};
         return;
       }
       const dEl=e.target.closest('[data-win-drag]');
@@ -10431,10 +10788,20 @@
         st.y=Math.max(8,Math.min(window.innerHeight-60,Math.round(rect.top)));
         st.floating=true; st.docked=false;
         applyWinFrame(k,mount,$(cfg.b),cfg.c);
+      }else{
+        mount.style.zIndex=String(st.z);
       }
-      winAct={mode:'drag',k,cfg,mount,st,ox:e.clientX-(st.x||rect.left),oy:e.clientY-(st.y||rect.top)};
+      winAct={mode:'drag',k,cfg,mount,st,ox:e.clientX-(st.x!==null?st.x:rect.left),oy:e.clientY-(st.y!==null?st.y:rect.top)};
     });
     document.addEventListener('pointermove',e=>{
+      if(lobbyDiceResize){
+        const dy=e.clientY-lobbyDiceResize.startClientY;
+        const nextH=Math.max(180,Math.min(1200,Math.round(lobbyDiceResize.startH+dy)));
+        lobbyDiceResize.curH=nextH;
+        lobbyDiceResize.box.style.height=nextH+'px';
+        if(lobbyDiceResize.lbl) lobbyDiceResize.lbl.textContent=nextH+' px';
+        return;
+      }
       if(!winAct) return;
       const {mode,mount,st}=winAct;
       if(mode==='drag'){
@@ -10442,21 +10809,46 @@
         st.y=Math.max(8,Math.min(window.innerHeight-60,Math.round(e.clientY-winAct.oy)));
         mount.style.left=st.x+'px'; mount.style.top=st.y+'px';
       }else if(mode==='rw'){
-        const dx=winAct.sx-e.clientX;
-        st.w=Math.max(320,Math.min(window.innerWidth-20,Math.round(winAct.sw+dx)));
-        mount.style.width=st.w+'px';
+        const dx=e.clientX-winAct.startClientX;
+        if(st.floating){
+          const rightEdge=winAct.startX+winAct.startW;
+          const newW=Math.max(320,Math.min(rightEdge-12,winAct.startW-dx));
+          const newX=rightEdge-newW;
+          st.w=Math.round(newW);
+          st.x=Math.round(newX);
+          mount.style.width=st.w+'px';
+          mount.style.left=st.x+'px';
+        }else{
+          st.w=Math.max(320,Math.min(window.innerWidth-20,Math.round(winAct.startW-dx)));
+          mount.style.width=st.w+'px';
+        }
       }else{
-        st.w=Math.max(320,Math.min(window.innerWidth-20,Math.round(winAct.sw+(e.clientX-winAct.sx))));
-        st.h=Math.max(280,Math.min(window.innerHeight-24,Math.round(winAct.sh+(e.clientY-winAct.sy))));
+        const maxW=st.floating?Math.max(320,window.innerWidth-winAct.startX-12):Math.max(320,window.innerWidth-20);
+        const maxH=Math.max(280,window.innerHeight-winAct.startY-12);
+        st.w=Math.max(320,Math.min(maxW,Math.round(winAct.startW+(e.clientX-winAct.startClientX))));
+        st.h=Math.max(280,Math.min(maxH,Math.round(winAct.startH+(e.clientY-winAct.startClientY))));
         mount.style.width=st.w+'px';
-        if(st.floating) mount.style.maxHeight=st.h+'px';
+        if(st.floating){
+          mount.style.height=st.h+'px';
+          mount.style.maxHeight=st.h+'px';
+        }
       }
     });
-    document.addEventListener('pointerup',()=>{
-      if(!winAct) return;
-      const fn=winAct.cfg?.r; winAct=null;
-      if(fn) fn();
-    });
+    const finishPointerOps=()=>{
+      if(lobbyDiceResize){
+        const finalH=Math.max(180,Math.min(1200,Math.round(lobbyDiceResize.curH)));
+        lobbyDiceResize=null;
+        CLOUD.lobbyDiceH=finalH;
+        try{localStorage.setItem('scherbensturm_lobby_dice_h',String(finalH));}catch(err){}
+        updateLobbyLiveDiceDOM();
+      }
+      if(winAct){
+        const fn=winAct.cfg?.r; winAct=null;
+        if(fn) fn();
+      }
+    };
+    document.addEventListener('pointerup',finishPointerOps);
+    document.addEventListener('pointercancel',finishPointerOps);
   })();
   </script>
 </body>
