@@ -85,6 +85,11 @@
       .rtf-wrap [data-rtf-toolbar]{display:none!important}
       .rtf-wrap.rtf-focused [data-rtf-toolbar]{display:inline-flex!important}
     }
+    .pw-dd-wrap{position:relative}
+    .pw-dd-menu{position:absolute;left:0;right:0;top:calc(100% + 4px);z-index:45;background:var(--surf2);border:1px solid var(--accB);border-radius:.65rem;padding:.3rem;box-shadow:0 12px 28px rgba(0,0,0,.45);display:flex;flex-direction:column;gap:.2rem;min-width:190px}
+    .pw-dd-item{display:flex;align-items:center;justify-content:space-between;gap:.4rem;width:100%;text-align:left;padding:.38rem .55rem;border-radius:.45rem;font-size:.76rem;font-weight:700;color:var(--txt);background:transparent;border:1px solid transparent;cursor:pointer}
+    .pw-dd-item:hover{background:var(--accS);border-color:var(--accB);color:var(--accT)}
+    .pw-dd-item.on{background:var(--accS);border-color:var(--accB);color:var(--accT);font-weight:800}
     @media (max-width:639px){
       [data-action="open-info"]{bottom:.75rem!important;left:.75rem!important;width:2.5rem!important;height:2.5rem!important;font-size:1.25rem!important}
     }
@@ -161,8 +166,25 @@
     ];
     const DEF_SEC_COLS={lp:'#f43f5e',ini:'#f59e0b',mlp:'#818cf8',ap:'#fde047',map:'#38bdf8'};
     const SEC_META={lp:'LP • Lebenspunkte',ini:'Ini • Initiative',mlp:'mLP • Mentale LP',ap:'AP • Ausdauerpunkte',map:'mAP • Mentale Ausdauerpunkte',cres:'Benutzerdefinierte Ressource'};
-    const DEF_ARTS=['Eigenschaft','Einsatz','Freiaktion','Grundaktion','Schnellaktion'];
-    const DEF_SUBS=['Abwehr','Angriff','Berührungsangriff','Bewegung','Kraftaktion','Reaktion','Unterstützung','Wurfmanipulation','Zauber'];
+    const DEF_MAIN_ARTS=['Freiaktion','Schnellaktion','Grundaktion','Einsatz'];
+    const DEF_ACTION_SUBS=['Kraftaktion','Reaktion','Sofortaktion'];
+    const DEF_PW_TAGS=['Abwehr','Angriff','Berührungsangriff','Bewegung','Eigenschaft','Unterstützung','Wurfmanipulation','Zauber'];
+    const PW_ACTION_TIPS={
+      'Freiaktion':'Du kannst während deines Zuges beliebig viele Freiaktionen einsetzen.',
+      'Schnellaktion':'Deine erste Schnellaktion pro Phase ist eine Freiaktion, alle weiteren deiner Schnellaktionen sind Grundaktionen.',
+      'Grundaktion':'Du kannst pro Phase nur eine Grundaktion einsetzen.',
+      'Einsatz':'Diese Aktion braucht so viel Zeit, dass sie üblicherweise nur außerhalb des Kampfes eingesetzt werden kann.',
+      'Eigenschaft':'Dies ist eine passive Befähigung.',
+      'Kraftaktion':'Diese Aktion kann nur innerhalb einer Flutphase eingesetzt werden. Tust du dies, so ist deine nächste Phase eine Ebbephase.',
+      'Reaktion':'Diese Aktion kann unter bestimmten Umständen außerhalb deines Zuges eingesetzt werden, um auf eine andere Aktion zu reagieren.',
+      'Sofortaktion':'Du kannst diese Aktion jederzeit - auch als Reaktion auf eine beliebige Aktion - einsetzen, solange du nicht handlungsunfähig bist.'
+    };
+    const findMainArt=name=>{const low=String(name||'').trim().toLowerCase();return DEF_MAIN_ARTS.find(a=>a.toLowerCase()===low)||'';};
+    const findActionSub=name=>{const low=String(name||'').trim().toLowerCase();return DEF_ACTION_SUBS.find(a=>a.toLowerCase()===low)||'';};
+    const getPwTermTip=term=>{const low=String(term||'').trim().toLowerCase();if(!low)return '';const hit=Object.entries(PW_ACTION_TIPS).find(([k])=>k.toLowerCase()===low);return hit?`${hit[0]}\n${hit[1]}`:'';};
+    const isReservedPwTerm=name=>{const low=String(name||'').trim().toLowerCase();return Boolean(low&&(DEF_MAIN_ARTS.some(a=>a.toLowerCase()===low)||DEF_ACTION_SUBS.some(a=>a.toLowerCase()===low)));};
+    const DEF_ARTS=[...DEF_MAIN_ARTS];
+    const DEF_SUBS=[...DEF_PW_TAGS];
     const DEF_USERES=['ap','map'];
     const TR_DEFS=[{i:0,b:5,sp:2,msp:0},{i:1,b:5,sp:2,msp:0},{i:2,b:5,sp:3,msp:0},{i:3,b:5,sp:3,msp:0},{i:4,b:10,sp:5,msp:1}];
     const SK_CATS={marginal:{l:'Marginal',s:[0,1,1,2,2]},fundamental:{l:'Fundamental',s:[0,2,2,3,3]},grandios:{l:'Grandios',s:[0,3,2,3,4]}};
@@ -308,8 +330,8 @@
         if(s.parentSectionId&&!canSetSecParent(secList,s.id,s.parentSectionId)) s.parentSectionId='';
       });
     };
-    const makePower=(secId='')=>({id:uid(),templateId:'',name:'',color:'',bgColor:'',sectionId:secId,collapsed:false,req:'',tier:'marginal',manualCost:false,sp:1,msp:0,showManual:false,art:'Grundaktion',artManual:false,subcats:[],useCosts:[{res:'ap',amt:1}],useAmt:1,useRes:'ap',desc:'',effects:'',rules:'',applyMods:true,bldAmt:'+1',bldStat:'LP-Max',bldMode:'stat',bldSkCnt:'1',bldSkKind:'adv',bldSkId:'',boxH:{desc:0,effects:0,rules:0}});
-    const makeAugment=(pid='')=>({...makePower(''),id:uid(),parentPowerId:pid,art:'Eigenschaft',useCosts:[],useAmt:0,useRes:''});
+    const makePower=(secId='')=>({id:uid(),templateId:'',name:'',color:'',bgColor:'',sectionId:secId,collapsed:false,req:'',tier:'marginal',manualCost:false,sp:1,msp:0,showManual:false,art:'Grundaktion',artManual:false,actionSubs:[],tags:[],subcats:[],useCosts:[{res:'ap',amt:1}],useAmt:1,useRes:'ap',desc:'',effects:'',rules:'',applyMods:true,bldAmt:'+1',bldStat:'LP-Max',bldMode:'stat',bldSkCnt:'1',bldSkKind:'adv',bldSkId:'',boxH:{desc:0,effects:0,rules:0}});
+    const makeAugment=(pid='')=>({...makePower(''),id:uid(),parentPowerId:pid,art:'',actionSubs:[],tags:['Eigenschaft'],subcats:[],useCosts:[],useAmt:0,useRes:''});
     function syncPwUseCostsLegacy(it){
       if(!it) return;
       if(!Array.isArray(it.useCosts)) it.useCosts=[];
@@ -365,7 +387,7 @@
         profile:{name:'',ancestry:'',concept:'',avatar:''},
         appearance:{dark:true,mode:'global',editScope:'attributes',global:makeStyleSlot(),lobby:makeStyleSlot(),tabs:tabStyles},
         attrColors:{...DEF_ATTR_COLS},secColors:{...DEF_SEC_COLS},
-        artList:[...DEF_ARTS],subcatList:[...DEF_SUBS],useResList:[...DEF_USERES],customStats:[],
+        artList:[...DEF_MAIN_ARTS],actionSubList:[...DEF_ACTION_SUBS],pwTagList:[...DEF_PW_TAGS],subcatList:[...DEF_PW_TAGS],useResList:[...DEF_USERES],customStats:[],
         weaponTagList:clone(DEF_WEAPON_TAGS),armorTagList:clone(DEF_ARMOR_TAGS),ammoTagList:[],
         attributes,secondary:{lpCurrent:8,lpMod:0,lpRegenOvr:'',iniMod:0,mlpCurrent:8,mlpMod:0,mlpRegenOvr:'',apCurrent:3,apMax:3,mapCurrent:3,mapMax:3},
         customRes:{name:'Benutzerdefiniert',current:3,max:3,color:'#c084fc'},extraSecList:[],
@@ -441,7 +463,7 @@
     function renderWinResizeHandles(k){return '<div data-win-resize-w="'+k+'" title="Breite ziehen" class="win-resize-w"></div><div data-win-resize="'+k+'" title="Größe ziehen" class="win-resize-h">◢</div>';}
     let dragMouseY=null, dragScrollRaf=null;
     const savedEffRanges={};
-    let UI={inLobby:true,sheetLoaded:false,modal:null,mobileHdrOpen:false,mobileLobbyMenuOpen:false,infoTab:'dice',listType:'art',ammoModalWeaponId:'',skSort:{col:'',asc:true},editSkNameId:null,imgTargetKind:'',imgTargetId:'',confirmNew:false,confirmLog:false,confirmDelId:null,confirmDelSecId:null,confirmSecPullId:null,confirmDelSkSecId:null,confirmSkSecPullId:null,confirmDelExSecId:null,confirmHzStep:1,pwFilterOpen:false,pwFilterMode:'or',pwFilterTypes:[],pwFilterIncludeLinkedAugs:true,pwFilterArts:[],pwFilterTiers:[],pwFilterSubs:[],statusIniPromptKey:'',lastRollHtml:'',lastBlockBaseHtml:'',lastBlockFollowRes:null,colTarget:'cres',colMode:'text',colPwKind:'power',colPwId:'',colDraft:'#c084fc',attrGroupSel:'ST_KO',savedOnce:true,palBuilderOpen:false,palDraft:{name:'',isLt:false,bg:'#020617',acc:'#0ea5e9',acc2:'#6366f1',txt:'#f1f5f9',mut:'#94a3b8',btnTxt:'#ffffff'}};
+    let UI={inLobby:true,sheetLoaded:false,modal:null,mobileHdrOpen:false,mobileLobbyMenuOpen:false,infoTab:'dice',listType:'art',ammoModalWeaponId:'',skSort:{col:'',asc:true},editSkNameId:null,imgTargetKind:'',imgTargetId:'',confirmNew:false,confirmLog:false,confirmDelId:null,confirmDelSecId:null,confirmSecPullId:null,confirmDelSkSecId:null,confirmSkSecPullId:null,confirmDelExSecId:null,confirmHzStep:1,openPwMenu:'',pwFilterOpen:false,pwFilterMode:'or',pwFilterTypes:[],pwFilterIncludeLinkedAugs:true,pwFilterArts:[],pwFilterActionSubs:[],pwFilterTags:[],pwFilterTiers:[],pwFilterSubs:[],statusIniPromptKey:'',lastRollHtml:'',lastBlockBaseHtml:'',lastBlockFollowRes:null,colTarget:'cres',colMode:'text',colPwKind:'power',colPwId:'',colDraft:'#c084fc',attrGroupSel:'ST_KO',savedOnce:true,palBuilderOpen:false,palDraft:{name:'',isLt:false,bg:'#020617',acc:'#0ea5e9',acc2:'#6366f1',txt:'#f1f5f9',mut:'#94a3b8',btnTxt:'#ffffff'}};
     const REGISTRY_ID='_lobby_meta_registry_', LIVE_TAB_ID=uid();
     const LIBRARY_ID='_power_library_';
     const REPO_LIBRARY_URL='./data/powers-library.json';
@@ -1815,20 +1837,61 @@
       const bldSkCnt=String(rawSkCntNum>=1?rawSkCntNum:1);
       const bldSkKind=raw?.bldSkKind==='dis'?'dis':'adv';
       const bldSkId=String(raw?.bldSkId||'');
-      return {...base,...(raw||{}),id:raw?.id||uid(),templateId:String(raw?.templateId||''),color:col,bgColor:bgCol,sectionId:String(raw?.sectionId||''),collapsed:Boolean(raw?.collapsed),tier,manualCost:manual,sp:manual?toInt(raw.sp,def.sp):def.sp,msp:manual?toInt(raw.msp,def.msp):def.msp,showManual:Boolean(raw?.showManual),art:(()=>{const a=String(raw?.art??raw?.kind??base.art).trim();return a.toLowerCase()==='sofortaktion'?'Freiaktion':a;})(),artManual:Boolean(raw?.artManual),subcats:Array.isArray(raw?.subcats)?raw.subcats.map(x=>String(x).trim()).filter(Boolean):[],useCosts,useAmt,useRes,desc:String(raw?.desc||''),effects:String(raw?.effects??raw?.extraEffects??''),rules:String(raw?.rules||''),applyMods,bldAmt:String(raw?.bldAmt||'+1'),bldStat:String(raw?.bldStat||'LP-Max'),bldMode,bldSkCnt,bldSkKind,bldSkId,boxH:bh};
+      const isLegacyFormat=raw?.actionSubs===undefined&&raw?.tags===undefined;
+      const hasNewArrays=Array.isArray(raw?.actionSubs)||Array.isArray(raw?.tags);
+      const actionSubSet=new Set();
+      const tags=[], tagSeen=new Set();
+      const pushActionSub=val=>{const m=findActionSub(val);if(m)actionSubSet.add(m);};
+      const pushTag=val=>{
+        const clean=String(val||'').trim();
+        if(!clean||isReservedPwTerm(clean)) return;
+        const low=clean.toLowerCase();
+        if(tagSeen.has(low)) return;
+        tagSeen.add(low);
+        const canon=DEF_PW_TAGS.find(t=>t.toLowerCase()===low)||clean;
+        tags.push(canon);
+      };
+      let art=String(raw?.art??raw?.kind??base.art).trim();
+      const mainArtMatch=findMainArt(art);
+      if(mainArtMatch){
+        art=mainArtMatch;
+      }else if(isLegacyFormat){
+        const artLow=art.toLowerCase();
+        const subFromArt=findActionSub(art);
+        if(artLow==='eigenschaft'){
+          art='';
+          pushTag('Eigenschaft');
+        }else if(subFromArt){
+          art='';
+          pushActionSub(subFromArt);
+        }
+      }
+      if(hasNewArrays){
+        if(Array.isArray(raw?.actionSubs)) raw.actionSubs.forEach(pushActionSub);
+        if(Array.isArray(raw?.tags)) raw.tags.forEach(pushTag);
+      }else if(Array.isArray(raw?.subcats)){
+        raw.subcats.forEach(sc=>{
+          const subM=findActionSub(sc);
+          if(subM) actionSubSet.add(subM);
+          else pushTag(sc);
+        });
+      }else if(isAug&&raw?.art===undefined&&raw?.kind===undefined){
+        base.tags.forEach(pushTag);
+      }
+      const actionSubs=DEF_ACTION_SUBS.filter(s=>actionSubSet.has(s));
+      return {...base,...(raw||{}),id:raw?.id||uid(),templateId:String(raw?.templateId||''),color:col,bgColor:bgCol,sectionId:String(raw?.sectionId||''),collapsed:Boolean(raw?.collapsed),tier,manualCost:manual,sp:manual?toInt(raw.sp,def.sp):def.sp,msp:manual?toInt(raw.msp,def.msp):def.msp,showManual:Boolean(raw?.showManual),art,artManual:Boolean(raw?.artManual),actionSubs,tags,subcats:[],useCosts,useAmt,useRes,desc:String(raw?.desc||''),effects:String(raw?.effects??raw?.extraEffects??''),rules:String(raw?.rules||''),applyMods,bldAmt:String(raw?.bldAmt||'+1'),bldStat:String(raw?.bldStat||'LP-Max'),bldMode,bldSkCnt,bldSkKind,bldSkId,boxH:bh};
     }
 
     const POWER_PACK_SCHEMA='scherbensturm_power_pack_v1';
     const normPackMatchName=s=>String(s||'').trim().toLowerCase().replace(/\s+/g,' ');
     function cleanSecForPowerExport(sec,forceRoot=false){
-      const fa=String(sec?.filterArt||'').trim();
       return {
         id:String(sec?.id||uid()),
         name:String(sec?.name||'Sektion'),
         color:isHex(sec?.color)?sec.color:'',
         bgColor:isHex(sec?.bgColor)?sec.bgColor:'',
         collapsed:Boolean(sec?.collapsed),
-        filterArt:fa.toLowerCase()==='sofortaktion'?'':fa,
+        filterArt:findMainArt(sec?.filterArt),
         parentSectionId:forceRoot?'':String(sec?.parentSectionId||'')
       };
     }
@@ -1850,7 +1913,8 @@
         showManual:false,
         art:String(n.art||''),
         artManual:Boolean(n.artManual),
-        subcats:Array.isArray(n.subcats)?[...n.subcats]:[],
+        actionSubs:Array.isArray(n.actionSubs)?[...n.actionSubs]:[],
+        tags:Array.isArray(n.tags)?[...n.tags]:[],
         useCosts:Array.isArray(n.useCosts)?clone(n.useCosts):[],
         useAmt:toInt(n.useAmt,0),
         useRes:String(n.useRes||''),
@@ -1980,11 +2044,9 @@
       const baseOnlySec=new Set(hasOnlySec?Array.from(opts.onlySectionIds).map(String):[]);
       const baseOnlyPw=new Set(hasOnlyPw?Array.from(opts.onlyPowerIds).map(String):[]);
       const baseOnlyAug=new Set(hasOnlyAug?Array.from(opts.onlyAugmentIds).map(String):[]);
-      const collectedArts=[], collectedSubs=[], packNames=[];
+      const collectedTags=[], packNames=[];
       const trackMeta=it=>{
-        const art=String(it?.art||'').trim();
-        if(art&&!['sofortaktion','kraftaktion','ritual'].includes(art.toLowerCase())) collectedArts.push(art);
-        if(Array.isArray(it?.subcats)) it.subcats.forEach(sc=>{const c=String(sc||'').trim();if(c)collectedSubs.push(c);});
+        if(Array.isArray(it?.tags)) it.tags.forEach(tg=>{const c=String(tg||'').trim();if(c&&!isReservedPwTerm(c))collectedTags.push(c);});
       };
       const findExistingPower=rawPw=>{
         const tid=String(rawPw?.templateId||'').trim();
@@ -2070,14 +2132,13 @@
             if(oldId) secIdMap.set(oldId,reused.id);
           }else{
             const newId=uid();
-            const fa=String(rawSec.filterArt||'').trim();
             const secObj={
               id:newId,
               name:String(rawSec.name||'Sektion'),
               color:isHex(rawSec.color)?rawSec.color:'',
               bgColor:isHex(rawSec.bgColor)?rawSec.bgColor:'',
               collapsed:Boolean(rawSec.collapsed),
-              filterArt:fa.toLowerCase()==='sofortaktion'?'':fa,
+              filterArt:findMainArt(rawSec.filterArt),
               parentSectionId:resolvedParent
             };
             S.powerSections.push(secObj);
@@ -2154,8 +2215,9 @@
       });
 
       sanitizeSecHierarchy(S.powerSections);
-      if(collectedArts.length) S.artList=sortAlpha([...S.artList,...collectedArts]);
-      if(collectedSubs.length) S.subcatList=sortAlpha([...S.subcatList,...collectedSubs]);
+      S.artList=[...DEF_MAIN_ARTS];
+      S.actionSubList=[...DEF_ACTION_SUBS];
+      if(collectedTags.length){S.pwTagList=sortAlpha([...(S.pwTagList||DEF_PW_TAGS),...collectedTags].filter(t=>!isReservedPwTerm(t)));S.subcatList=S.pwTagList;}
       invalidateModsCache();
       if(summary.addedSec||summary.addedPw||summary.addedAug||summary.updatedPw){
         const lbl=packNames.length===1?packNames[0]:`${packNames.length} Pakete`;
@@ -2185,8 +2247,11 @@
       S.extraSecList=Array.isArray(raw.extraSecList)?raw.extraSecList.filter(x=>x&&typeof x==='object').map((x,i)=>({id:x.id||uid(),name:String(x.name||`Ressource ${i+1}`),current:toInt(x.current,3),max:toInt(x.max,3),color:isHex(x.color)?x.color:(COL_PRESETS[(i+6)%COL_PRESETS.length]||'#34d399')})):[];
       S.attrColors={...DEF_ATTR_COLS}; if(raw.attrColors) Object.keys(DEF_ATTR_COLS).forEach(k=>{if(isHex(raw.attrColors[k]))S.attrColors[k]=raw.attrColors[k];});
       S.secColors={...DEF_SEC_COLS}; if(raw.secColors) Object.keys(DEF_SEC_COLS).forEach(k=>{if(isHex(raw.secColors[k]))S.secColors[k]=raw.secColors[k];});
-      S.artList=Array.isArray(raw.artList)&&raw.artList.length?sortAlpha(raw.artList.filter(a=>!['sofortaktion','kraftaktion','ritual'].includes(String(a||'').trim().toLowerCase()))):[...DEF_ARTS];if(!S.artList.length)S.artList=[...DEF_ARTS];
-      S.subcatList=Array.isArray(raw.subcatList)&&raw.subcatList.length?sortAlpha([...raw.subcatList,'Kraftaktion']):[...DEF_SUBS];
+      S.artList=[...DEF_MAIN_ARTS];
+      S.actionSubList=[...DEF_ACTION_SUBS];
+      const rawTagSrc=Array.isArray(raw.pwTagList)?raw.pwTagList:(Array.isArray(raw.subcatList)?raw.subcatList:[]);
+      S.pwTagList=sortAlpha([...DEF_PW_TAGS,...rawTagSrc].filter(t=>!isReservedPwTerm(t)));
+      S.subcatList=S.pwTagList;
       S.useResList=Array.isArray(raw.useResList)&&raw.useResList.length?[...new Set(raw.useResList.map(x=>String(x).trim()).filter(Boolean))]:[...DEF_USERES];
       S.customStats=Array.isArray(raw.customStats)?sortAlpha(raw.customStats):[];
       const mergeDefTags=(rawArr,defArr)=>{const b=Array.isArray(rawArr)?rawArr.filter(t=>t&&String(t.name||'').trim()):[];(defArr||[]).forEach(d=>{if(!b.some(t=>String(t.name).trim().toLowerCase()===d.name.toLowerCase()))b.push({...d});});return sortTagDefs(b);};
@@ -2233,13 +2298,15 @@
         const sectionId=sk.sectionId&&S.skillSections.some(s=>s.id===sk.sectionId)?String(sk.sectionId):'';
         return {id:sk.id||uid(),name:String(sk.name||'Fertigkeit'),color:isHex(sk.color)?sk.color:'',bgColor:isHex(sk.bgColor)?sk.bgColor:'',linkedAttr:ATTRS.some(a=>a.k===sk.linkedAttr)?sk.linkedAttr:'PR',category,rank,bonusOvr,sectionId,manualCost,customSp,customMsp,notes:String(sk.notes||'')};
       }):[];
-      S.powerSections=Array.isArray(raw.powerSections)?raw.powerSections.map(sec=>{const fa=String(sec?.filterArt||'').trim();return {id:sec?.id||uid(),name:String(sec?.name||'Sektion'),color:isHex(sec?.color)?sec.color:'',bgColor:isHex(sec?.bgColor)?sec.bgColor:'',collapsed:Boolean(sec?.collapsed),filterArt:fa.toLowerCase()==='sofortaktion'?'':fa,parentSectionId:String(sec?.parentSectionId||'')};}):[];
+      S.powerSections=Array.isArray(raw.powerSections)?raw.powerSections.map(sec=>({id:sec?.id||uid(),name:String(sec?.name||'Sektion'),color:isHex(sec?.color)?sec.color:'',bgColor:isHex(sec?.bgColor)?sec.bgColor:'',collapsed:Boolean(sec?.collapsed),filterArt:findMainArt(sec?.filterArt),parentSectionId:String(sec?.parentSectionId||'')})):[];
       sanitizeSecHierarchy(S.powerSections);
       S.powers=Array.isArray(raw.powers)?raw.powers.map(p=>normPwEntry(p,false)):[];
-      S.powers.forEach(p=>{if(String(p.art||'').trim().toLowerCase()==='sofortaktion')p.art='Freiaktion';if(p.sectionId&&!S.powerSections.some(s=>s.id===p.sectionId))p.sectionId='';if(getAllParsedEffectChips(p.effects).length&&raw.version<11)p.applyMods=true;});
+      S.powers.forEach(p=>{if(p.sectionId&&!S.powerSections.some(s=>s.id===p.sectionId))p.sectionId='';if(getAllParsedEffectChips(p.effects).length&&raw.version<11)p.applyMods=true;});
       S.augments=Array.isArray(raw.augments)?raw.augments.map(a=>normPwEntry(a,true)):[];
-      S.augments.forEach(a=>{if(String(a.art||'').trim().toLowerCase()==='sofortaktion')a.art='Freiaktion';if(getAllParsedEffectChips(a.effects).length&&raw.version<11)a.applyMods=true;});
-      if(Array.isArray(UI.pwFilterArts))UI.pwFilterArts=UI.pwFilterArts.filter(a=>String(a||'').trim().toLowerCase()!=='sofortaktion');
+      S.augments.forEach(a=>{if(getAllParsedEffectChips(a.effects).length&&raw.version<11)a.applyMods=true;});
+      const usedPwTags=[...S.powers,...S.augments].flatMap(it=>Array.isArray(it.tags)?it.tags:[]).filter(t=>!isReservedPwTerm(t));
+      if(usedPwTags.length){S.pwTagList=sortAlpha([...S.pwTagList,...usedPwTags]);S.subcatList=S.pwTagList;}
+      if(Array.isArray(UI.pwFilterArts))UI.pwFilterArts=UI.pwFilterArts.map(a=>findMainArt(a)).filter(Boolean);
       const slotCnt={};
       S.augments.forEach(ag=>{
         if(!ag.parentPowerId&&ag.parentPower){const m=S.powers.find(p=>p.name&&p.name.toLowerCase()===String(ag.parentPower).toLowerCase());if(m)ag.parentPowerId=m.id;}
@@ -4052,7 +4119,12 @@
       const selSkId=(it.bldSkId&&sortedSkills.some(s=>s.id===it.bldSkId))?it.bldSkId:(sortedSkills[0]?.id||'');
       const bldToken=getPwBuilderToken(it,sortedSkills);
       const hD=it.boxH?.desc>0?`style="height:${it.boxH.desc}px"`:'', hE=it.boxH?.effects>0?`style="height:${it.boxH.effects}px"`:'', hR=it.boxH?.rules>0?`style="height:${it.boxH.rules}px"`:'';
-      const availSubs=S.subcatList.filter(s=>!it.subcats.includes(s));
+      const itemActionSubs=DEF_ACTION_SUBS.filter(a=>Array.isArray(it.actionSubs)&&it.actionSubs.includes(a));
+      const itemTags=Array.isArray(it.tags)?it.tags.filter(t=>String(t||'').trim()&&!isReservedPwTerm(t)):[];
+      const availPwTags=sortAlpha((S.pwTagList||DEF_PW_TAGS).filter(t=>!isReservedPwTerm(t)&&!itemTags.some(x=>x.toLowerCase()===t.toLowerCase())));
+      const artDdKey=`art:${kind}:${it.id}`, asubDdKey=`asub:${kind}:${it.id}`;
+      const artOpen=UI.openPwMenu===artDdKey, asubOpen=UI.openPwMenu===asubDdKey;
+      const curArtTip=getPwTermTip(it.art);
       const linked=!isAug?getLinkedAugs(it.id):[], unlinked=!isAug?getUnlinkedAugs():[];
       return `<div ${isAug?`data-aug-card="${it.id}"`:""} class="card space-y-3 ${isAug?'border-amber-500/45':''}${viaParentPower?' opacity-75 hover:opacity-100 transition-opacity':''}" ${winStyle}>
         <div class="flex flex-wrap items-center justify-between gap-2 border-b bdr-line pb-2">${hdrLeft}${hdrRight}</div>
@@ -4083,13 +4155,45 @@
           </div>
         </div>
         <div class="grid grid-cols-1 md:grid-cols-12 gap-2.5 text-xs subcard p-2.5">
-          <div class="md:col-span-5">
-            <div class="flex items-center justify-between mb-1"><label class="font-bold t-mut">Art (Einzelauswahl)</label><div class="flex items-center gap-2"><button type="button" data-action="toggle-art-man" data-kind="${kind}" data-id="${it.id}" class="text-[10px] font-extrabold ${it.artManual?'text-amber-400':'text-acc'} hover:underline">✎ Manuell</button><button type="button" data-action="open-list" data-ltype="art" data-tip="Standardliste „Art“ bearbeiten" class="text-[11px]">⚙️</button></div></div>
-            ${it.artManual?`<input data-pwf="${kind}:${it.id}:art" type="text" value="${esc(it.art)}" placeholder="Eigene Art..." class="inp w-full font-bold"/>`:`<select data-pw-sel="${kind}:${it.id}:art" class="inp w-full font-bold"><option value="" ${!it.art?'selected':''}>— Keine Art —</option>${S.artList.map(a=>`<option value="${esc(a)}" ${it.art===a?'selected':''}>${esc(a)}</option>`).join('')}${it.art&&!S.artList.includes(it.art)?`<option value="${esc(it.art)}" selected>${esc(it.art)} (Manuell)</option>`:''}</select>`}
+          <div class="md:col-span-4 space-y-1">
+            <label class="font-bold t-mut block">Hauptaktionsart</label>
+            <div class="pw-dd-wrap">
+              <button type="button" data-action="toggle-pw-dd" data-ddkey="${artDdKey}" ${curArtTip?`data-tip="${esc(curArtTip)}"`:''} class="inp w-full font-bold flex items-center justify-between gap-2 text-left cursor-pointer ${artOpen?'bdr-acc':''}">
+                <span class="truncate ${it.art?'':'t-mut font-semibold'}">${it.art?esc(it.art):'— Keine Hauptaktionsart —'}</span>
+                <span class="text-[10px] t-mut shrink-0">${artOpen?'▴':'▾'}</span>
+              </button>
+              ${artOpen?`<div class="pw-dd-menu">
+                <button type="button" class="pw-dd-item ${!it.art?'on':''}" data-action="set-pw-main-art" data-kind="${kind}" data-id="${it.id}" data-val=""><span>— Keine —</span>${!it.art?'<span>✓</span>':''}</button>
+                ${DEF_MAIN_ARTS.map(a=>`<button type="button" class="pw-dd-item ${it.art===a?'on':''}" data-action="set-pw-main-art" data-kind="${kind}" data-id="${it.id}" data-val="${esc(a)}" data-tip="${esc(getPwTermTip(a))}"><span>${esc(a)}</span>${it.art===a?'<span>✓</span>':''}</button>`).join('')}
+              </div>`:''}
+            </div>
           </div>
-          <div class="md:col-span-7">
-            <div class="flex items-center justify-between mb-1"><label class="font-bold t-mut">Unterkategorien (Mehrfach-Tags)</label><button type="button" data-action="open-list" data-ltype="subcat" data-tip="Standardliste „Unterkategorie“ bearbeiten" class="text-[11px]">⚙️</button></div>
-            <div class="flex flex-wrap items-center gap-1.5">${it.subcats.map(sc=>`<span class="tag">${esc(sc)}<button type="button" data-action="rm-subcat" data-kind="${kind}" data-id="${it.id}" data-val="${esc(sc)}" class="hover:text-rose-400 font-black ml-0.5">✕</button></span>`).join('')}<select data-add-subcat="${kind}:${it.id}" class="inp py-1 px-2 text-xs font-semibold ${it.subcats.length?'w-auto max-w-full':'w-full'}"><option value="">+ Tag hinzufügen...</option>${availSubs.map(s=>`<option value="${esc(s)}">${esc(s)}</option>`).join('')}</select></div>
+          <div class="md:col-span-4 space-y-1">
+            <label class="font-bold t-mut block">Aktionsunterarten</label>
+            <div class="flex flex-wrap items-center gap-1.5">
+              ${itemActionSubs.map(asub=>`<span class="tag cursor-help" data-tip="${esc(getPwTermTip(asub))}"><span>${esc(asub)}</span><button type="button" data-action="toggle-pw-asub" data-kind="${kind}" data-id="${it.id}" data-val="${esc(asub)}" class="hover:text-rose-400 font-black ml-0.5">✕</button></span>`).join('')}
+              <div class="pw-dd-wrap ${itemActionSubs.length?'':'w-full'}">
+                <button type="button" data-action="toggle-pw-dd" data-ddkey="${asubDdKey}" class="inp py-1 px-2 text-xs font-bold flex items-center justify-between gap-1.5 cursor-pointer ${itemActionSubs.length?'':'w-full'} ${asubOpen?'bdr-acc':''}">
+                  <span>+ Aktionsunterart</span>
+                  <span class="text-[10px] t-mut shrink-0">${asubOpen?'▴':'▾'}</span>
+                </button>
+                ${asubOpen?`<div class="pw-dd-menu">
+                  ${DEF_ACTION_SUBS.map(asub=>{const on=itemActionSubs.includes(asub);return `<button type="button" class="pw-dd-item ${on?'on':''}" data-action="toggle-pw-asub" data-kind="${kind}" data-id="${it.id}" data-val="${esc(asub)}" data-tip="${esc(getPwTermTip(asub))}"><span class="inline-flex items-center gap-1.5"><span>${on?'☑':'☐'}</span><span>${esc(asub)}</span></span></button>`;}).join('')}
+                </div>`:''}
+              </div>
+            </div>
+          </div>
+          <div class="md:col-span-4 space-y-1">
+            <div class="flex items-center justify-between"><label class="font-bold t-mut">Tags</label><button type="button" data-action="open-list" data-ltype="pwTag" data-tip="Tag-Liste verwalten (hinzufügen / entfernen)" class="text-[11px]">⚙️</button></div>
+            ${itemTags.length?`<div class="flex flex-wrap items-center gap-1.5 mb-1">${itemTags.map(tg=>{const tTip=getPwTermTip(tg);return `<span class="tag ${tTip?'cursor-help':''}" ${tTip?`data-tip="${esc(tTip)}"`:''}><span>${esc(tg)}</span><button type="button" data-action="rm-pw-tag" data-kind="${kind}" data-id="${it.id}" data-val="${esc(tg)}" class="hover:text-rose-400 font-black ml-0.5">✕</button></span>`;}).join('')}</div>`:''}
+            <div class="flex flex-wrap items-center gap-1">
+              <select data-add-pw-tag="${kind}:${it.id}" class="inp py-1 px-2 text-xs font-semibold min-w-[115px] max-w-full flex-1">
+                <option value="">+ Tag wählen…</option>
+                ${availPwTags.map(tg=>`<option value="${esc(tg)}">${esc(tg)}</option>`).join('')}
+              </select>
+              <input data-new-pw-tag-inp="${kind}:${it.id}" type="text" placeholder="Eigenes Tag…" class="inp py-1 px-2 text-xs flex-1 min-w-[105px]"/>
+              <button type="button" data-action="add-custom-pw-tag" data-kind="${kind}" data-id="${it.id}" data-tip="Eigenes Tag erstellen und hinzufügen" class="btn btn-ok py-1 px-2 text-xs shrink-0">+</button>
+            </div>
           </div>
         </div>
         <div class="space-y-2.5 text-xs">
@@ -4126,7 +4230,7 @@
       </div>`;
     }
 
-    const getPwFilterCnt=()=>(UI.pwFilterTypes?.length||0)+(UI.pwFilterArts?.length||0)+(UI.pwFilterTiers?.length||0)+(UI.pwFilterSubs?.length||0);
+    const getPwFilterCnt=()=>(UI.pwFilterTypes?.length||0)+(UI.pwFilterArts?.length||0)+(UI.pwFilterActionSubs?.length||0)+(UI.pwFilterTiers?.length||0)+(UI.pwFilterTags?.length||0);
     const hasActivePwFilter=()=>getPwFilterCnt()>0;
     const isOnlyPowersFilter=()=>Array.isArray(UI.pwFilterTypes)&&UI.pwFilterTypes.length===1&&UI.pwFilterTypes[0]==='power';
     const isOnlyAugsFilter=()=>Array.isArray(UI.pwFilterTypes)&&UI.pwFilterTypes.length===1&&UI.pwFilterTypes[0]==='augment';
@@ -4136,20 +4240,23 @@
       const hasTypes=(UI.pwFilterTypes?.length||0)>0;
       if(hasTypes&&!UI.pwFilterTypes.includes(itemKind)) return false;
       const hasArts=(UI.pwFilterArts?.length||0)>0;
+      const hasAsubs=(UI.pwFilterActionSubs?.length||0)>0;
       const hasTiers=(UI.pwFilterTiers?.length||0)>0;
-      const hasSubs=(UI.pwFilterSubs?.length||0)>0;
-      if(!hasArts&&!hasTiers&&!hasSubs) return true;
+      const hasTags=(UI.pwFilterTags?.length||0)>0;
+      if(!hasArts&&!hasAsubs&&!hasTiers&&!hasTags) return true;
       const itemArt=String(it?.art||'').trim();
+      const itemAsubs=Array.isArray(it?.actionSubs)?it.actionSubs.map(s=>String(s||'').trim()):[];
       const isLegacyBasis=itemKind!=='augment'&&!it?.parentPowerId&&it?.tier==='marginal'&&it?.manualCost&&toInt(it?.sp,0)===0&&toInt(it?.msp,0)===0;
       const tKey=isLegacyBasis?'basisaktion':(PW_TIERS[it?.tier]?it.tier:'marginal');
-      const itemSubs=Array.isArray(it?.subcats)?it.subcats.map(s=>String(s||'').trim()):[];
+      const itemTags=Array.isArray(it?.tags)?it.tags.map(s=>String(s||'').trim()):[];
       const matchArt=hasArts&&UI.pwFilterArts.includes(itemArt);
+      const matchAsub=hasAsubs&&itemAsubs.some(s=>UI.pwFilterActionSubs.includes(s));
       const matchTier=hasTiers&&UI.pwFilterTiers.includes(tKey);
-      const matchSub=hasSubs&&itemSubs.some(sc=>UI.pwFilterSubs.includes(sc));
+      const matchTag=hasTags&&itemTags.some(tg=>UI.pwFilterTags.includes(tg));
       if(UI.pwFilterMode==='and'){
-        return (!hasArts||matchArt)&&(!hasTiers||matchTier)&&(!hasSubs||matchSub);
+        return (!hasArts||matchArt)&&(!hasAsubs||matchAsub)&&(!hasTiers||matchTier)&&(!hasTags||matchTag);
       }
-      return Boolean(matchArt||matchTier||matchSub);
+      return Boolean(matchArt||matchAsub||matchTier||matchTag);
     }
     function matchesPwGroupFilter(p){
       if(!hasActivePwFilter()) return true;
@@ -4217,9 +4324,9 @@
           </div>
           <div class="flex flex-wrap items-center gap-1.5">
             ${parentSel}
-            <select data-sec-art="${sec.id}" data-tip="Optionale Art wählen, um auf Anforderung alle Kräfte dieser Art hierher zu ziehen &amp; A–Z zu sortieren" class="inp py-1 px-2 text-xs font-bold max-w-full">
-              <option value="" ${!sec.filterArt?'selected':''}>— Art-Sortierfilter (optional) —</option>
-              ${S.artList.map(a=>`<option value="${esc(a)}" ${sec.filterArt===a?'selected':''}>Art: ${esc(a)}</option>`).join('')}
+            <select data-sec-art="${sec.id}" data-tip="Optionale Hauptaktionsart wählen, um auf Anforderung alle Kräfte dieser Hauptaktionsart hierher zu ziehen &amp; A–Z zu sortieren" class="inp py-1 px-2 text-xs font-bold max-w-full">
+              <option value="" ${!sec.filterArt?'selected':''}>— Hauptaktionsart-Sammler (optional) —</option>
+              ${DEF_MAIN_ARTS.map(a=>`<option value="${esc(a)}" ${sec.filterArt===a?'selected':''}>Hauptaktionsart: ${esc(a)}</option>`).join('')}
             </select>
             ${sec.filterArt?(isPullAsk
               ?`<span class="inline-flex items-center gap-1"><button type="button" data-action="confirm-sec-pull" data-id="${sec.id}" class="btn bg-amber-500 text-slate-950 border-amber-400 py-1 px-2.5 text-[11px] font-black">Sicher: Alle Kräfte mit „${esc(sec.filterArt)}“ hierher verschieben? (2/2)</button><button type="button" data-action="cancel-sec-pull" class="btn py-1 px-2 text-[11px]">✕</button></span>`
@@ -4247,8 +4354,7 @@
       const allUnlinked=getUnlinkedAugs(), unlinked=fAct?allUnlinked.filter(ag=>matchesPwItemFilter(ag,'augment')):allUnlinked;
       const allUnsecPowers=S.powers.filter(p=>!p.sectionId||!S.powerSections.some(s=>s.id===p.sectionId)), unsecPowers=fAct?allUnsecPowers.filter(matchesPwGroupFilter):allUnsecPowers;
       const hasAny=S.powers.length>0||S.augments.length>0||S.powerSections.length>0;
-      const allArts=sortAlpha([...S.artList,...S.powers.map(p=>p.art),...S.augments.map(a=>a.art)]);
-      const allSubs=sortAlpha([...S.subcatList,...S.powers.flatMap(p=>p.subcats||[]),...S.augments.flatMap(a=>a.subcats||[])]);
+      const allPwTags=sortAlpha([...(S.pwTagList||DEF_PW_TAGS),...S.powers.flatMap(p=>p.tags||[]),...S.augments.flatMap(a=>a.tags||[])].filter(t=>!isReservedPwTerm(t)));
       const matchedPwCnt=fAct?S.powers.filter(p=>matchesPwItemFilter(p,'power')).length:S.powers.length;
       const matchedAugCnt=fAct?S.augments.filter(ag=>matchesPwItemFilter(ag,'augment')).length:S.augments.length;
       const totalMatchedCnt=matchedPwCnt+matchedAugCnt;
@@ -4256,9 +4362,10 @@
         <div class="flex flex-wrap items-center gap-1.5">
           <span class="font-extrabold text-acc">🎯 Aktiver Filter (${totalMatchedCnt} ${totalMatchedCnt===1?'Treffer':'Treffer'}):</span>
           ${(UI.pwFilterTypes||[]).map(tp=>`<button type="button" data-action="toggle-pw-filter-opt" data-fkind="type" data-fval="${esc(tp)}" data-tip="Filter entfernen" class="tag cursor-pointer">Typ: ${tp==='augment'?'Augmente':'Kräfte'} ✕</button>`).join('')}
-          ${(UI.pwFilterArts||[]).map(a=>`<button type="button" data-action="toggle-pw-filter-opt" data-fkind="art" data-fval="${esc(a)}" data-tip="Filter entfernen" class="tag cursor-pointer">Art: ${esc(a)} ✕</button>`).join('')}
+          ${(UI.pwFilterArts||[]).map(a=>`<button type="button" data-action="toggle-pw-filter-opt" data-fkind="art" data-fval="${esc(a)}" data-tip="${esc(getPwTermTip(a)||'Filter entfernen')}" class="tag cursor-pointer">Hauptart: ${esc(a)} ✕</button>`).join('')}
+          ${(UI.pwFilterActionSubs||[]).map(asub=>`<button type="button" data-action="toggle-pw-filter-opt" data-fkind="asub" data-fval="${esc(asub)}" data-tip="${esc(getPwTermTip(asub)||'Filter entfernen')}" class="tag cursor-pointer">Unterart: ${esc(asub)} ✕</button>`).join('')}
           ${(UI.pwFilterTiers||[]).map(k=>`<button type="button" data-action="toggle-pw-filter-opt" data-fkind="tier" data-fval="${esc(k)}" data-tip="Filter entfernen" class="tag cursor-pointer">Stufe: ${esc(PW_TIERS[k]?.l||k)} ✕</button>`).join('')}
-          ${(UI.pwFilterSubs||[]).map(sc=>`<button type="button" data-action="toggle-pw-filter-opt" data-fkind="sub" data-fval="${esc(sc)}" data-tip="Filter entfernen" class="tag cursor-pointer">Tag: ${esc(sc)} ✕</button>`).join('')}
+          ${(UI.pwFilterTags||[]).map(tg=>`<button type="button" data-action="toggle-pw-filter-opt" data-fkind="tag" data-fval="${esc(tg)}" data-tip="${esc(getPwTermTip(tg)||'Filter entfernen')}" class="tag cursor-pointer">Tag: ${esc(tg)} ✕</button>`).join('')}
         </div>
         <div class="flex items-center gap-1.5">
           <span class="text-[11px] t-mut tabular">${matchedPwCnt} ${matchedPwCnt===1?'Kraft':'Kräfte'} • ${matchedAugCnt} ${matchedAugCnt===1?'Augment':'Augmente'}</span>
@@ -4287,16 +4394,20 @@
           </div>
         </div>
         <div class="space-y-1.5">
-          <div class="text-[11px] font-extrabold t-mut uppercase tracking-wider">Kraft-Art (${allArts.length})</div>
-          <div class="flex flex-wrap gap-1.5">${allArts.map(a=>{const on=(UI.pwFilterArts||[]).includes(a);return `<button type="button" data-action="toggle-pw-filter-opt" data-fkind="art" data-fval="${esc(a)}" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border cursor-pointer select-none transition-colors ${on?'bdr-acc bg-acc-soft text-acc font-extrabold':'bdr-line bg-black/20 hover:border-sky-400/50'}"><span class="text-xs leading-none">${on?'☑':'☐'}</span><span>${esc(a)}</span></button>`;}).join('')}</div>
+          <div class="text-[11px] font-extrabold t-mut uppercase tracking-wider">Hauptaktionsart (${DEF_MAIN_ARTS.length})</div>
+          <div class="flex flex-wrap gap-1.5">${DEF_MAIN_ARTS.map(a=>{const on=(UI.pwFilterArts||[]).includes(a);return `<button type="button" data-action="toggle-pw-filter-opt" data-fkind="art" data-fval="${esc(a)}" data-tip="${esc(getPwTermTip(a))}" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border cursor-pointer select-none transition-colors ${on?'bdr-acc bg-acc-soft text-acc font-extrabold':'bdr-line bg-black/20 hover:border-sky-400/50'}"><span class="text-xs leading-none">${on?'☑':'☐'}</span><span>${esc(a)}</span></button>`;}).join('')}</div>
+        </div>
+        <div class="space-y-1.5 pt-1 border-t bdr-line">
+          <div class="text-[11px] font-extrabold t-mut uppercase tracking-wider">Aktionsunterarten (${DEF_ACTION_SUBS.length})</div>
+          <div class="flex flex-wrap gap-1.5">${DEF_ACTION_SUBS.map(asub=>{const on=(UI.pwFilterActionSubs||[]).includes(asub);return `<button type="button" data-action="toggle-pw-filter-opt" data-fkind="asub" data-fval="${esc(asub)}" data-tip="${esc(getPwTermTip(asub))}" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border cursor-pointer select-none transition-colors ${on?'bdr-acc bg-acc-soft text-acc font-extrabold':'bdr-line bg-black/20 hover:border-sky-400/50'}"><span class="text-xs leading-none">${on?'☑':'☐'}</span><span>${esc(asub)}</span></button>`;}).join('')}</div>
         </div>
         <div class="space-y-1.5 pt-1 border-t bdr-line">
           <div class="text-[11px] font-extrabold t-mut uppercase tracking-wider">Lernkosten-Stufe</div>
           <div class="flex flex-wrap gap-1.5">${Object.entries(PW_TIERS).map(([k,t])=>{const on=(UI.pwFilterTiers||[]).includes(k);return `<button type="button" data-action="toggle-pw-filter-opt" data-fkind="tier" data-fval="${esc(k)}" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border cursor-pointer select-none transition-colors ${on?'bdr-acc bg-acc-soft text-acc font-extrabold':'bdr-line bg-black/20 hover:border-sky-400/50'}"><span class="text-xs leading-none">${on?'☑':'☐'}</span><span>${esc(t.l)}</span></button>`;}).join('')}</div>
         </div>
-        ${allSubs.length?`<div class="space-y-1.5 pt-1 border-t bdr-line">
-          <div class="text-[11px] font-extrabold t-mut uppercase tracking-wider">Unterkategorien (${allSubs.length})</div>
-          <div class="flex flex-wrap gap-1.5">${allSubs.map(sc=>{const on=(UI.pwFilterSubs||[]).includes(sc);return `<button type="button" data-action="toggle-pw-filter-opt" data-fkind="sub" data-fval="${esc(sc)}" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border cursor-pointer select-none transition-colors ${on?'bdr-acc bg-acc-soft text-acc font-extrabold':'bdr-line bg-black/20 hover:border-sky-400/50'}"><span class="text-xs leading-none">${on?'☑':'☐'}</span><span>${esc(sc)}</span></button>`;}).join('')}</div>
+        ${allPwTags.length?`<div class="space-y-1.5 pt-1 border-t bdr-line">
+          <div class="text-[11px] font-extrabold t-mut uppercase tracking-wider">Tags (${allPwTags.length})</div>
+          <div class="flex flex-wrap gap-1.5">${allPwTags.map(tg=>{const on=(UI.pwFilterTags||[]).includes(tg), tTip=getPwTermTip(tg);return `<button type="button" data-action="toggle-pw-filter-opt" data-fkind="tag" data-fval="${esc(tg)}" ${tTip?`data-tip="${esc(tTip)}"`:''} class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border cursor-pointer select-none transition-colors ${on?'bdr-acc bg-acc-soft text-acc font-extrabold':'bdr-line bg-black/20 hover:border-sky-400/50'}"><span class="text-xs leading-none">${on?'☑':'☐'}</span><span>${esc(tg)}</span></button>`;}).join('')}</div>
         </div>`:''}
       </div>`:'';
       const rawRootSecs=S.powerSections.filter(s=>!s.parentSectionId||!S.powerSections.some(p=>p.id===s.parentSectionId));
@@ -4313,7 +4424,7 @@
         }).join('')}</div>`:''}
         ${unlinked.length?`<div class="space-y-2.5 ${onlyAugsLinked.length?'pt-2':''}">${onlyAugsLinked.length?`<div class="text-xs font-extrabold text-amber-400/90 px-1">Ungebundene Augmente (${unlinked.length})</div>`:''}${unlinked.map((ag,ai)=>renderPwCard('augment',ag,ai,unlinked.length,pwCtx)).join('')}</div>`:''}
       </section>`:'';
-      return `<section class="card space-y-3"><div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3"><div><h2 class="text-base sm:text-lg font-extrabold cursor-help" data-tip="Erstelle beliebige Sektionen (Ordner), ziehe Kräfte am Viereck ⠿ hinein oder sammle Kräfte nach Art.\nÜber 🎨 (Textfarbe) und 🪟 (Fensterfarbe) lassen sich Kräfte, Augmente und Sektionen frei einfärben.">Kräfte &amp; Augmente</h2><p class="text-xs t-mut">Aktuelle Kosten: <strong id="pwSummaryHdr" class="text-acc">${P.pwSp} SP${P.pwMsp?` + ${P.pwMsp} MsP`:''}</strong></p></div><div class="flex flex-wrap items-center gap-2"><button type="button" data-action="toggle-pw-filter" data-tip="Kräfte &amp; Augmente nach Typ, Kraft-Art, Lernkosten-Stufe oder Unterkategorie live filtern" class="btn py-1 px-2.5 text-xs ${(UI.pwFilterOpen||fAct)?'bdr-acc bg-acc-soft text-acc font-extrabold':''}">🔍 Filter${fAct?` (${fCnt})`:''} ${UI.pwFilterOpen?'▴':'▾'}</button>${fAct&&!UI.pwFilterOpen?`<button type="button" data-action="reset-pw-filter" data-tip="Aktiven Kräfte-Filter zurücksetzen" class="btn btn-err py-1 px-2 text-xs">✕</button>`:''}${hasAny?`<button type="button" data-action="collapse-all-pw" data-val="1" class="btn py-1 px-2.5 text-xs">▸ Alle einklappen</button><button type="button" data-action="collapse-all-pw" data-val="0" class="btn py-1 px-2.5 text-xs">▾ Alle ausklappen</button>`:''}<button type="button" data-action="open-pw-library" data-tip="Server-Bibliothek durchsuchen, Basisaktionen abrufen oder lokale .json-Pakete importieren" class="btn bg-acc-soft bdr-acc text-acc">📚 Bibliothek / Import</button><button type="button" data-action="export-pw-all" data-tip="Alle Kräfte, Augmente &amp; Sektionen als .json-Paket herunterladen" class="btn">📤 Export</button><button type="button" data-action="add-pw-section" class="btn bg-acc-soft bdr-acc text-acc">+ Sektion</button><button type="button" data-action="add-power" class="btn btn-pri">+ Kraft</button><button type="button" data-action="add-augment" class="btn border-amber-400 text-amber-500">+ Freies Augment</button></div></div>${filterMenuHtml}${activeTagsHtml}</section>
+      return `<section class="card space-y-3"><div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3"><div><h2 class="text-base sm:text-lg font-extrabold cursor-help" data-tip="Erstelle beliebige Sektionen (Ordner), ziehe Kräfte am Viereck ⠿ hinein oder sammle Kräfte nach Art.\nÜber 🎨 (Textfarbe) und 🪟 (Fensterfarbe) lassen sich Kräfte, Augmente und Sektionen frei einfärben.">Kräfte &amp; Augmente</h2><p class="text-xs t-mut">Aktuelle Kosten: <strong id="pwSummaryHdr" class="text-acc">${P.pwSp} SP${P.pwMsp?` + ${P.pwMsp} MsP`:''}</strong></p></div><div class="flex flex-wrap items-center gap-2"><button type="button" data-action="toggle-pw-filter" data-tip="Kräfte &amp; Augmente nach Typ, Hauptaktionsart, Aktionsunterarten, Lernkosten-Stufe oder Tags live filtern" class="btn py-1 px-2.5 text-xs ${(UI.pwFilterOpen||fAct)?'bdr-acc bg-acc-soft text-acc font-extrabold':''}">🔍 Filter${fAct?` (${fCnt})`:''} ${UI.pwFilterOpen?'▴':'▾'}</button>${fAct&&!UI.pwFilterOpen?`<button type="button" data-action="reset-pw-filter" data-tip="Aktiven Kräfte-Filter zurücksetzen" class="btn btn-err py-1 px-2 text-xs">✕</button>`:''}${hasAny?`<button type="button" data-action="collapse-all-pw" data-val="1" class="btn py-1 px-2.5 text-xs">▸ Alle einklappen</button><button type="button" data-action="collapse-all-pw" data-val="0" class="btn py-1 px-2.5 text-xs">▾ Alle ausklappen</button>`:''}<button type="button" data-action="open-pw-library" data-tip="Server-Bibliothek durchsuchen, Basisaktionen abrufen oder lokale .json-Pakete importieren" class="btn bg-acc-soft bdr-acc text-acc">📚 Bibliothek / Import</button><button type="button" data-action="export-pw-all" data-tip="Alle Kräfte, Augmente &amp; Sektionen als .json-Paket herunterladen" class="btn">📤 Export</button><button type="button" data-action="add-pw-section" class="btn bg-acc-soft bdr-acc text-acc">+ Sektion</button><button type="button" data-action="add-power" class="btn btn-pri">+ Kraft</button><button type="button" data-action="add-augment" class="btn border-amber-400 text-amber-500">+ Freies Augment</button></div></div>${filterMenuHtml}${activeTagsHtml}</section>
       ${!hasAny?`<div class="card text-center py-8 space-y-2.5 text-xs t-mut"><div class="font-extrabold text-sm text-acc">Noch keine Sektionen, Kräfte oder Augmente vorhanden.</div><div>Über die Bibliothek kannst du bei Bedarf Basisaktionen, Vorlagen vom Server oder eigene .json-Pakete importieren.</div><div class="pt-1"><button type="button" data-action="open-pw-library" class="btn btn-pri py-1.5 px-3.5 text-xs">📚 Bibliothek / Import öffnen</button></div></div>`:''}
       ${fAct&&totalMatchedCnt===0?`<div class="card text-center py-8 space-y-2 text-xs t-mut"><div class="font-extrabold text-sm text-acc">Keine Kräfte oder Augmente mit Überschneidung zum gewählten Filter gefunden.</div><div>Passe die Filterauswahl oben an oder setze den Filter zurück.</div><div><button type="button" data-action="reset-pw-filter" class="btn btn-pri py-1 px-3 text-xs mt-1">↺ Filter zurücksetzen</button></div></div>`:''}
       ${onlyAugs?onlyAugsListHtml:`${rootSecs.length?`<div class="pw-sec-list">${rootSecs.map((sec,sIdx)=>renderPwSecSlot('',sec.id)+renderPwSection(sec,sIdx,rootSecs.length,0,pwCtx)).join('')}${renderPwSecSlot('','')}</div>`:''}
@@ -5802,7 +5913,7 @@
       const itemMatchesTier=it=>!fTier||itemTierKey(it)===fTier;
       const itemMatchesQuery=it=>{
         if(!q) return true;
-        const hay=[it?.name,it?.art,it?.req,...(Array.isArray(it?.subcats)?it.subcats:[]),stripHtml(it?.desc||''),stripHtml(it?.effects||'')].join(' ').toLowerCase();
+        const hay=[it?.name,it?.art,it?.req,...(Array.isArray(it?.actionSubs)?it.actionSubs:[]),...(Array.isArray(it?.tags)?it.tags:[]),...(Array.isArray(it?.subcats)?it.subcats:[]),stripHtml(it?.desc||''),stripHtml(it?.effects||'')].join(' ').toLowerCase();
         return hay.includes(q);
       };
       const filteredPacks=allPacks.filter(pk=>{
@@ -6070,12 +6181,14 @@
             `${lt==='weaponTags'?`<button type="button" data-action="reset-list" class="btn mr-auto">↺ Standardliste (26 Eigenschaften)</button>`:(tagMeta[1].length?`<button type="button" data-action="reset-list" class="btn mr-auto">Liste leeren</button>`:'')}<button type="button" data-action="close-modal" class="btn btn-pri px-5">Fertig</button>`,'max-w-2xl');
           return;
         }
-        const meta={art:['Standardliste „Art“',S.artList,'Neue Art (z.B. Reaktion)...'],subcat:['Standardliste „Unterkategorie“',S.subcatList,'Neue Unterkategorie...'],useRes:['Einsatzkosten-Ressourcen',S.useResList,'Eigene Ressource...'],customStats:['Eigene Baukasten-Variablen',S.customStats,'Neue Variable (z.B. Tragkraft)...']}[lt];
-        const quickPools=lt==='useRes'?`<div class="space-y-1"><span class="text-[11px] font-bold t-mut">Charakterbogen-Pools schnell hinzufügen:</span><div class="flex flex-wrap gap-1.5">${['ap','map','lp','mlp','cres',...(S.extraSecList||[]).map(x=>'ex_'+x.id),'bst'].map(pk=>`<button type="button" data-action="quick-add-res" data-val="${pk}" ${S.useResList.includes(pk)?'disabled':''} class="btn py-1 px-2 text-xs">+ ${esc(getResLabel(pk))}</button>`).join('')}</div></div>`:'';
-        m.innerHTML=modalShell(`⚙️ ${meta[0]}`,'Änderungen werden im Charakterbogen gespeichert und mit exportiert.',
+        const normLt=(lt==='subcat'||lt==='pwTag')?'pwTag':lt;
+        const meta={pwTag:['Tags (Kräfte & Augmente)',S.pwTagList||DEF_PW_TAGS,'Neues Tag (z.B. Fernkampf, Ritual)…'],useRes:['Einsatzkosten-Ressourcen',S.useResList,'Eigene Ressource...'],customStats:['Eigene Baukasten-Variablen',S.customStats,'Neue Variable (z.B. Tragkraft)...']}[normLt]||{pwTag:['Tags (Kräfte & Augmente)',S.pwTagList||DEF_PW_TAGS,'Neues Tag…']}.pwTag;
+        const quickPools=normLt==='useRes'?`<div class="space-y-1"><span class="text-[11px] font-bold t-mut">Charakterbogen-Pools schnell hinzufügen:</span><div class="flex flex-wrap gap-1.5">${['ap','map','lp','mlp','cres',...(S.extraSecList||[]).map(x=>'ex_'+x.id),'bst'].map(pk=>`<button type="button" data-action="quick-add-res" data-val="${pk}" ${S.useResList.includes(pk)?'disabled':''} class="btn py-1 px-2 text-xs">+ ${esc(getResLabel(pk))}</button>`).join('')}</div></div>`:'';
+        const subNote=normLt==='pwTag'?'Hauptaktionsarten &amp; Aktionsunterarten sind fest vorgegeben und können nicht als Tag angelegt werden.':'Änderungen werden im Charakterbogen gespeichert und mit exportiert.';
+        m.innerHTML=modalShell(`⚙️ ${meta[0]}`,subNote,
           `${quickPools}<form id="formAddListItem" class="flex gap-2"><input id="inpListItem" type="text" placeholder="${meta[2]}" class="inp flex-1"/><button type="submit" class="btn btn-ok">+ Hinzufügen</button></form>
-          <div class="flex flex-wrap gap-1.5">${meta[1].length?meta[1].map(item=>`<span class="subcard py-1.5 px-2.5 inline-flex items-center gap-2 text-xs font-bold"><span>${esc(lt==='useRes'?getResLabel(item):item)}</span><button type="button" data-action="del-list-item" data-val="${esc(item)}" class="text-rose-400 font-black">✕</button></span>`).join(''):`<span class="text-xs t-mut">Liste ist leer.</span>`}</div>`,
-          `${lt!=='customStats'?`<button type="button" data-action="reset-list" class="btn mr-auto">↺ Standardliste</button>`:''}<button type="button" data-action="close-modal" class="btn btn-pri px-5">Fertig</button>`,'max-w-lg');
+          <div class="flex flex-wrap gap-1.5">${meta[1].length?meta[1].map(item=>{const iTip=normLt==='pwTag'?getPwTermTip(item):'';return `<span ${iTip?`data-tip="${esc(iTip)}"`:''} class="subcard py-1.5 px-2.5 inline-flex items-center gap-2 text-xs font-bold ${iTip?'cursor-help':''}"><span>${esc(normLt==='useRes'?getResLabel(item):item)}</span><button type="button" data-action="del-list-item" data-val="${esc(item)}" class="text-rose-400 font-black">✕</button></span>`;}).join(''):`<span class="text-xs t-mut">Liste ist leer.</span>`}</div>`,
+          `${normLt!=='customStats'?`<button type="button" data-action="reset-list" class="btn mr-auto">↺ Standardliste</button>`:''}<button type="button" data-action="close-modal" class="btn btn-pri px-5">Fertig</button>`,'max-w-lg');
         return;
       }
       if(UI.modal==='settings'){
@@ -6747,13 +6860,36 @@
       else{S.progression.ep=ep;logChron(`${lbl} (EP: ${ep}/100).`);}
     }
 
+    function addCustomPwTagFromInput(kind,id){
+      const it=findPwItem(kind,id); if(!it) return;
+      const inp=document.querySelector(`[data-new-pw-tag-inp="${kind}:${id}"]`);
+      const raw=String(inp?.value||'').trim();
+      if(!raw) return;
+      if(isReservedPwTerm(raw)){
+        toast(`„${raw}“ gehört zu Hauptaktionsart / Aktionsunterarten und kann nicht als Tag angelegt werden.`);
+        return;
+      }
+      const canon=DEF_PW_TAGS.find(t=>t.toLowerCase()===raw.toLowerCase())||(S.pwTagList||[]).find(t=>t.toLowerCase()===raw.toLowerCase())||raw;
+      S.pwTagList=sortAlpha([...(S.pwTagList||DEF_PW_TAGS),canon].filter(t=>!isReservedPwTerm(t)));
+      S.subcatList=S.pwTagList;
+      if(!Array.isArray(it.tags)) it.tags=[];
+      if(!it.tags.some(t=>t.toLowerCase()===canon.toLowerCase())) it.tags.push(canon);
+      if(inp) inp.value='';
+      save(); renderMain();
+    }
+
     document.addEventListener('click',async e=>{
+      if(UI.openPwMenu&&!e.target.closest('.pw-dd-wrap')){
+        UI.openPwMenu='';
+        document.querySelectorAll('.pw-dd-menu').forEach(m=>m.remove());
+        if(tipOpen) hideTooltip();
+      }
       const el=e.target.closest('[data-action]'); if(!el) return;
       const btn=el, act=el.dataset.action; if(act==='close-modal-bg'&&e.target!==el) return;
       if(act==='win-float'){ const k=btn.dataset.win, st=getWinState(k); st.floating=!st.floating; if(st.floating){st.docked=false; st.z=Math.max(CN.z||50,D.z||50,LD.z||50)+1;} renderCampNotes(); renderLiveDice(); renderDice(); return; }
       if(act==='win-reset'){ const k=btn.dataset.win, st=getWinState(k); st.w=0; st.h=0; st.x=null; st.y=null; renderCampNotes(); renderLiveDice(); renderDice(); return; }
       switch(act){
-        case 'switch-tab': S.activeTab=el.dataset.tab; UI.confirmDelId=null; UI.confirmDelExSecId=null; saveLastActiveTab(S.charId,S.activeTab); applyTheme(); renderHeader(); renderMain(); save(false); break;
+        case 'switch-tab': S.activeTab=el.dataset.tab; UI.openPwMenu=''; UI.confirmDelId=null; UI.confirmDelExSecId=null; saveLastActiveTab(S.charId,S.activeTab); applyTheme(); renderHeader(); renderMain(); save(false); break;
         case 'rest-simple': performSimpleRest(); break;
         case 'rest-full': performFullRest(); break;
         case 'reset-regen-ovr':{
@@ -6963,22 +7099,24 @@
           }
           break;
         }
-        case 'open-list': UI.listType=el.dataset.ltype; UI.modal='list'; renderModal(); break;
+        case 'open-list': UI.listType=el.dataset.ltype==='subcat'?'pwTag':el.dataset.ltype; UI.modal='list'; renderModal(); break;
         case 'quick-add-res': if(!S.useResList.includes(el.dataset.val)){S.useResList.push(el.dataset.val);renderMain();renderModal();save();} break;
         case 'del-list-item': {
           const v=el.dataset.val, lt=UI.listType;
           if(lt==='weaponTags'||lt==='armorTags'||lt==='ammoTags'){
             const k={weaponTags:'weaponTagList',armorTags:'armorTagList',ammoTags:'ammoTagList'}[lt];
             S[k]=S[k].filter(x=>x.name!==v);
+          }else if(lt==='pwTag'||lt==='subcat'){
+            S.pwTagList=(S.pwTagList||DEF_PW_TAGS).filter(x=>x!==v);
+            S.subcatList=S.pwTagList;
           }else{
-            const k={art:'artList',subcat:'subcatList',useRes:'useResList',customStats:'customStats'}[lt];
-            S[k]=S[k].filter(x=>x!==v);
+            const k={useRes:'useResList',customStats:'customStats'}[lt];
+            if(k) S[k]=S[k].filter(x=>x!==v);
           }
           renderMain();renderModal();save();break;
         }
         case 'reset-list':
-          if(UI.listType==='art')S.artList=[...DEF_ARTS];
-          else if(UI.listType==='subcat')S.subcatList=[...DEF_SUBS];
+          if(UI.listType==='pwTag'||UI.listType==='subcat'){S.pwTagList=[...DEF_PW_TAGS];S.subcatList=S.pwTagList;}
           else if(UI.listType==='useRes')S.useResList=[...DEF_USERES];
           else if(UI.listType==='weaponTags')S.weaponTagList=JSON.parse(JSON.stringify(DEF_WEAPON_TAGS));
           else if(UI.listType==='armorTags')S.armorTagList=[];
@@ -7212,7 +7350,7 @@
         case 'toggle-pw-filter-linked': UI.pwFilterIncludeLinkedAugs=!UI.pwFilterIncludeLinkedAugs; renderMain(); break;
         case 'toggle-pw-filter-opt': {
           const fk=el.dataset.fkind, fv=String(el.dataset.fval||'');
-          const arrKey=fk==='type'?'pwFilterTypes':fk==='art'?'pwFilterArts':fk==='tier'?'pwFilterTiers':'pwFilterSubs';
+          const arrKey=fk==='type'?'pwFilterTypes':fk==='art'?'pwFilterArts':fk==='asub'?'pwFilterActionSubs':fk==='tier'?'pwFilterTiers':'pwFilterTags';
           if(!Array.isArray(UI[arrKey])) UI[arrKey]=[];
           const idx=UI[arrKey].indexOf(fv);
           if(idx>=0) UI[arrKey].splice(idx,1);
@@ -7220,7 +7358,7 @@
           renderMain();
           break;
         }
-        case 'reset-pw-filter': UI.pwFilterTypes=[]; UI.pwFilterArts=[]; UI.pwFilterTiers=[]; UI.pwFilterSubs=[]; renderMain(); toast('Kräfte-Filter zurückgesetzt'); break;
+        case 'reset-pw-filter': UI.pwFilterTypes=[]; UI.pwFilterArts=[]; UI.pwFilterActionSubs=[]; UI.pwFilterTiers=[]; UI.pwFilterTags=[]; UI.pwFilterSubs=[]; renderMain(); toast('Kräfte-Filter zurückgesetzt'); break;
         case 'collapse-all-pw': {const v=el.dataset.val==='1';[...S.powers,...S.augments,...S.powerSections].forEach(it=>{it.collapsed=v;});renderMain();save(false);break;}
         case 'ask-del-pw': UI.confirmDelId=el.dataset.id; renderMain(); break;
         case 'cancel-del-pw': UI.confirmDelId=null; renderMain(); break;
@@ -7260,8 +7398,50 @@
           }
           break;
         }
-        case 'toggle-art-man': {const it=findPwItem(el.dataset.kind,el.dataset.id);if(it){it.artManual=!it.artManual;renderMain();save();}break;}
-        case 'rm-subcat': {const it=findPwItem(el.dataset.kind,el.dataset.id);if(it){it.subcats=it.subcats.filter(s=>s!==el.dataset.val);renderMain();save();}break;}
+        case 'toggle-pw-dd': {
+          const k=String(el.dataset.ddkey||'');
+          UI.openPwMenu=(UI.openPwMenu===k)?'':k;
+          if(tipOpen) hideTooltip();
+          renderMain();
+          break;
+        }
+        case 'set-pw-main-art': {
+          const it=findPwItem(el.dataset.kind,el.dataset.id);
+          if(it){
+            const rawV=String(el.dataset.val||'').trim();
+            it.art=rawV?findMainArt(rawV):'';
+            it.artManual=false;
+            UI.openPwMenu='';
+            if(tipOpen) hideTooltip();
+            save(); renderMain();
+          }
+          break;
+        }
+        case 'toggle-pw-asub': {
+          const it=findPwItem(el.dataset.kind,el.dataset.id);
+          const asub=findActionSub(el.dataset.val);
+          if(it&&asub){
+            const cur=new Set(Array.isArray(it.actionSubs)?it.actionSubs:[]);
+            if(cur.has(asub)) cur.delete(asub);
+            else cur.add(asub);
+            it.actionSubs=DEF_ACTION_SUBS.filter(a=>cur.has(a));
+            if(tipOpen) hideTooltip();
+            save(); renderMain();
+          }
+          break;
+        }
+        case 'rm-pw-tag': {
+          const it=findPwItem(el.dataset.kind,el.dataset.id);
+          if(it){
+            it.tags=(Array.isArray(it.tags)?it.tags:[]).filter(t=>t!==el.dataset.val);
+            save(); renderMain();
+          }
+          break;
+        }
+        case 'add-custom-pw-tag': {
+          addCustomPwTagFromInput(el.dataset.kind,el.dataset.id);
+          break;
+        }
         case 'set-pw-bld-mode': {
           const it=findPwItem(el.dataset.kind,el.dataset.id);
           if(it){
@@ -9034,7 +9214,19 @@
         }
         return;
       }
-      if(el.dataset.addSubcat){const [kind,id]=el.dataset.addSubcat.split(':'),it=findPwItem(kind,id);if(it&&el.value&&!it.subcats.includes(el.value)){it.subcats.push(el.value);renderMain();save();}return;}
+      if(el.dataset.addPwTag){
+        const [kind,id]=el.dataset.addPwTag.split(':'), it=findPwItem(kind,id), val=String(el.value||'').trim();
+        if(it&&val){
+          if(isReservedPwTerm(val)){
+            toast(`„${val}“ gehört zu Hauptaktionsart / Aktionsunterarten und kann nicht als Tag hinzugefügt werden.`);
+          }else{
+            if(!Array.isArray(it.tags)) it.tags=[];
+            if(!it.tags.some(t=>t.toLowerCase()===val.toLowerCase())) it.tags.push(val);
+            save(); renderMain();
+          }
+        }
+        return;
+      }
       if(el.dataset.agLink){const ag=S.augments.find(a=>a.id===el.dataset.agLink);if(ag){if(el.value&&getLinkedAugs(el.value).length>=3){toast('Maximal 3 Augmente pro Kraft!');renderMain();return;}ag.parentPowerId=el.value;renderMain();save();}return;}
       if(el.dataset.linkSlot){const pid=el.dataset.linkSlot,ag=S.augments.find(a=>a.id===el.value);if(ag&&getLinkedAugs(pid).length<3){ag.parentPowerId=pid;renderMain();save();toast('Augment in Slot verknüpft');}return;}
       if(el.dataset.campAddUserSel){
@@ -9205,9 +9397,15 @@
           if(ex){ex.name=val;if(desc)ex.desc=desc;}else S[k].push({name:val,desc});
           S[k]=sortTagDefs(S[k]);
           if(D.open) renderDice();
-        }else if(UI.listType==='art') S.artList=sortAlpha([...S.artList,val]);
-        else if(UI.listType==='subcat') S.subcatList=sortAlpha([...S.subcatList,val]);
-        else if(UI.listType==='useRes'&&!S.useResList.includes(val)) S.useResList.push(val);
+        }else if(UI.listType==='pwTag'||UI.listType==='subcat'){
+          if(isReservedPwTerm(val)){
+            toast(`„${val}“ gehört zu Hauptaktionsart / Aktionsunterarten und kann nicht als Tag angelegt werden.`);
+            return;
+          }
+          const canon=DEF_PW_TAGS.find(t=>t.toLowerCase()===val.toLowerCase())||val;
+          S.pwTagList=sortAlpha([...(S.pwTagList||DEF_PW_TAGS),canon].filter(t=>!isReservedPwTerm(t)));
+          S.subcatList=S.pwTagList;
+        }else if(UI.listType==='useRes'&&!S.useResList.includes(val)) S.useResList.push(val);
         else if(UI.listType==='customStats') S.customStats=sortAlpha([...S.customStats,val]);
         renderMain(); renderModal(); save();
       }
@@ -9911,6 +10109,12 @@
     });
 
     document.addEventListener('keydown',e=>{
+      if(e.key==='Enter'&&e.target?.dataset?.newPwTagInp){
+        e.preventDefault();
+        const [kind,id]=e.target.dataset.newPwTagInp.split(':');
+        addCustomPwTagFromInput(kind,id);
+        return;
+      }
       const rtf=e.target.closest?.('[contenteditable="true"]');
       if((e.ctrlKey||e.metaKey)&&!e.altKey){
         const k=e.key.toLowerCase();
