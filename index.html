@@ -5114,8 +5114,8 @@
                   <button type="button" data-action="toggle-cnotes" data-tip="Kampagnennotizen öffnen/schließen (frei andockbar wie der Würfelassistent)" class="btn ${CN.open?'btn-pri':'bdr-acc bg-acc-soft'} text-xs font-extrabold px-3.5 py-2">📝 Kampagnennotizen</button>
                 </div>
                 <div class="flex flex-wrap items-center gap-2">
-                  <button type="button" data-action="open-lobby" data-tip="Zurück zur zentralen Lobby (?lobby=1)" class="btn py-2 px-3.5 text-xs font-extrabold ${CLOUD.viewingRemote?'!border-sky-400 !bg-sky-500/20 text-sky-300':S.cloudAutoSync?'!border-emerald-500/60 !bg-emerald-500/15 text-emerald-300':'bdr-acc bg-acc-soft'}">🏠 Lobby${CLOUD.syncing?' ⏳':S.cloudAutoSync?' ●':''}</button>${!CLOUD.viewingRemote?`<button type="button" data-action="cloud-push-now" data-tip="Diesen Charakterbogen jetzt in die Lobby hochladen/synchronisieren, damit er dort als Karte verlinkt ist" class="btn btn-ok min-w-[150px] py-2 px-3 text-xs font-extrabold">${CLOUD.syncing?'⏳ Sync...':'☁️ In Lobby speichern'}</button>`:''}
-                  <button type="button" id="saveBadge" data-action="export-json" data-tip="WICHTIGER HINWEIS:\nAktuell nur lokal im Browser zwischengespeichert!\nDu musst den Charakter als .json exportieren (Klick hier oder über ⚙️ Optionen), um ihn dauerhaft gespeichert zu halten, da Browserdaten jederzeit verloren gehen können." class="px-2.5 py-1.5 rounded-lg text-[11px] font-extrabold text-emerald-400 bg-emerald-500/15 border border-emerald-500/30 hover:border-amber-400 transition-colors cursor-pointer text-left leading-tight max-w-full ${UI.savedOnce?'inline-flex flex-col sm:flex-row sm:items-center gap-1':'opacity-0 pointer-events-none hidden'}"><span>✓ Gespeichert</span><span class="text-[10px] font-semibold text-amber-300/95">• Zum Behalten exportieren (.json), Browserdaten können verloren gehen!</span></button>
+                  <button type="button" data-action="open-lobby" data-tip="Zurück zur zentralen Lobby (?lobby=1)" class="btn py-2 px-3.5 text-xs font-extrabold ${CLOUD.viewingRemote?'!border-sky-400 !bg-sky-500/20 text-sky-300':S.cloudAutoSync?'!border-emerald-500/60 !bg-emerald-500/15 text-emerald-300':'bdr-acc bg-acc-soft'}">🏠 Lobby${CLOUD.syncing?' ⏳':S.cloudAutoSync?' ●':''}</button>${!CLOUD.viewingRemote?`<button type="button" data-action="cloud-push-now" data-tip="WICHTIGER HINWEIS:\nUm den Charakterbogen auf dem Server zu speichern, musst du diesen Knopf manuell drücken!\nLädt den aktuellen Stand in die Lobby hoch, damit er dort und für andere Geräte gespeichert bleibt." class="btn btn-ok min-w-[150px] py-2 px-3 text-xs font-extrabold">${CLOUD.syncing?'⏳ Sync...':'☁️ In Lobby speichern'}</button>`:''}
+                  <button type="button" id="saveBadge" data-action="export-json" data-tip="WICHTIGER HINWEIS:\nAktuell nur lokal im Browser zwischengespeichert!\nDu musst den Charakter als .json exportieren (Klick hier oder über ⚙️ Optionen), um ihn dauerhaft gespeichert zu halten, da Browserdaten jederzeit verloren gehen können." class="px-2.5 py-1.5 rounded-lg text-[11px] font-extrabold text-emerald-400 bg-emerald-500/15 border border-emerald-500/30 hover:border-amber-400 transition-colors cursor-pointer text-left leading-tight max-w-full ${UI.savedOnce?'inline-flex flex-col sm:flex-row sm:items-center gap-1':'opacity-0 pointer-events-none hidden'}"><span>✓ Lokal im Browser gespeichert</span><span class="text-[10px] font-semibold text-amber-300/95">• Zum Behalten exportieren (.json), Browserdaten können verloren gehen!</span></button>
                 </div>
               </div>
               <div class="shrink-0 self-end xl:self-center ml-auto flex flex-wrap items-center gap-2">
@@ -8045,6 +8045,7 @@
       </div>`;
     }
     function renderModal(fromRenderAll=false){
+      hideTooltip();
       const m=$('modalMount');
       syncBodyScrollLock();
       if(!UI.modal){
@@ -13002,135 +13003,68 @@
       }
     });
 
-    const tip=$('tooltip');
-    let activeTouchTipEl=null;
-    function hideTooltip(){
-      activeTouchTipEl=null;
-      if(!tip)return;
-      tip.classList.add('opacity-0');
-      tip.style.top='-9999px';
-      tip.style.left='-9999px';
+    let activeTipEl = null;
+    function hideTooltip() {
+      activeTipEl = null;
+      const tt = $('tooltip');
+      if (!tt) return;
+      tt.classList.add('opacity-0');
+      tt.style.top = '-9999px';
+      tt.style.left = '-9999px';
     }
-    function posTooltip(x,y,anchorEl=null){
-      if(!tip)return;
-      const ttRect=tip.getBoundingClientRect();
-      let left=x,top=y;
-      if(anchorEl&&anchorEl.getBoundingClientRect){
-        const r=anchorEl.getBoundingClientRect();
-        left=r.left+(r.width-ttRect.width)/2;
-        top=(r.top-ttRect.height-8>=8)?(r.top-ttRect.height-8):(r.bottom+8);
-      }else{
-        if(left+ttRect.width+12>window.innerWidth)left=x-ttRect.width-12;
-        if(top+ttRect.height+12>window.innerHeight)top=y-ttRect.height-12;
-      }
-      left=Math.max(8,Math.min(window.innerWidth-ttRect.width-8,left));
-      top=Math.max(8,Math.min(window.innerHeight-ttRect.height-8,top));
-      tip.style.left=left+'px';
-      tip.style.top=top+'px';
+    function positionTooltip(tt, x, y) {
+      if (!tt) return;
+      const r = tt.getBoundingClientRect();
+      const left = Math.max(8, Math.min(window.innerWidth - r.width - 8, x + 14));
+      const top = Math.max(8, Math.min(window.innerHeight - r.height - 8, y + 16));
+      tt.style.left = left + 'px';
+      tt.style.top = top + 'px';
     }
-    function showTooltip(h,x,y,anchorEl=null){
-      if(!tip||!h)return;
-      const t=h.getAttribute('data-tip');
-      if(!t){hideTooltip();return;}
-      tip.textContent=t;
-      tip.classList.remove('opacity-0');
-      posTooltip(x??0,y??0,anchorEl);
+    function showTooltipForEl(el, clientX, clientY) {
+      const tt = $('tooltip');
+      if (!tt || !el || !el.isConnected) { hideTooltip(); return; }
+      const txt = el.getAttribute('data-tip');
+      if (!txt) { hideTooltip(); return; }
+      activeTipEl = el;
+      tt.textContent = txt;
+      tt.classList.remove('opacity-0');
+      positionTooltip(tt, clientX, clientY);
     }
-    document.addEventListener('mousemove',e=>{
-      if(e.sourceCapabilities&&e.sourceCapabilities.firesTouchEvents)return;
-      if(activeTouchTipEl)return;
-      const h=e.target.closest('[data-tip]');
-      if(!h){hideTooltip();return;}
-      showTooltip(h,e.clientX+14,e.clientY+14,null);
+    document.addEventListener('mouseover', e => {
+      const el = e.target?.closest?.('[data-tip]');
+      if (el) showTooltipForEl(el, e.clientX, e.clientY);
+      else hideTooltip();
     });
-    document.addEventListener('mouseout',e=>{if(!activeTouchTipEl&&e.target.closest('[data-tip]'))hideTooltip();});
-    document.addEventListener('pointerdown',e=>{
-      if(e.pointerType!=='touch'&&e.pointerType!=='pen')return;
-      const h=e.target?.closest?.('[data-tip]');
-      if(!h){hideTooltip();return;}
-      const actEl=e.target?.closest?.('button[data-action],[data-action],a,input,select,textarea,[contenteditable="true"]');
-      const isPureInfo=!actEl||h.classList.contains('cursor-help')||(h.classList.contains('tag')&&!h.hasAttribute('data-action'));
-      if(!isPureInfo){hideTooltip();return;}
-      if(activeTouchTipEl===h&&!tip.classList.contains('opacity-0')){hideTooltip();return;}
-      activeTouchTipEl=h;
-      showTooltip(h,e.clientX,e.clientY,h);
-    },{passive:true});
-    document.addEventListener('click',e=>{
-      const actEl=e.target?.closest?.('button[data-action],[data-action],a,input,select,textarea');
-      if(actEl&&!actEl.classList.contains('cursor-help'))hideTooltip();
-    },true);
-    window.addEventListener('scroll',()=>hideTooltip(),{passive:true,capture:true});
-    const TIP_INPUT_SEL='input,textarea,select,[contenteditable]';
-    const TIP_INTERACTIVE_SEL='button,input,select,textarea,a,[contenteditable]';
-    function hideTooltip(){
-      if(!tip) return;
-      tipOpen=false; tipActiveEl=null;
-      tip.classList.add('opacity-0');
-      tip.style.top='-9999px'; tip.style.left='-9999px';
-    }
-    function showTooltipFor(h){
-      if(!tip||!h||!h.dataset.tip) return;
-      tip.textContent=h.dataset.tip;
-      tip.style.left='12px'; tip.style.top='12px';
-      const r=h.getBoundingClientRect();
-      const tw=tip.offsetWidth||Math.min(300,window.innerWidth-24);
-      const th=tip.offsetHeight||48;
-      const pad=12;
-      const left=Math.max(pad,Math.min(window.innerWidth-tw-pad,Math.round(r.left+r.width/2-tw/2)));
-      let top=r.bottom+8;
-      if(top+th+pad>window.innerHeight) top=r.top-th-8;
-      top=Math.max(pad,Math.min(window.innerHeight-th-pad,Math.round(top)));
-      tip.style.left=left+'px';
-      tip.style.top=top+'px';
-      tip.classList.remove('opacity-0');
-      tipOpen=true; tipActiveEl=h;
-    }
-    document.addEventListener('mouseover',e=>{
-      const h=e.target.closest('[data-tip]');
-      if(!h||window.matchMedia('(pointer:coarse)').matches){hideTooltip();return;}
-      showTooltipFor(h);
+    document.addEventListener('mousemove', e => {
+      if (!activeTipEl) return;
+      const hoveredTip = e.target?.closest?.('[data-tip]');
+      if (!activeTipEl.isConnected || !hoveredTip) { hideTooltip(); return; }
+      if (hoveredTip !== activeTipEl) { showTooltipForEl(hoveredTip, e.clientX, e.clientY); return; }
+      positionTooltip($('tooltip'), e.clientX, e.clientY);
+    }, { passive: true });
+    document.addEventListener('mouseout', e => {
+      if (!activeTipEl) return;
+      const rel = e.relatedTarget;
+      if (!rel || (!activeTipEl.contains(rel) && !rel.closest?.('[data-tip]'))) {
+        hideTooltip();
+      }
     });
-    document.addEventListener('mouseout',e=>{if(e.target.closest('[data-tip]'))hideTooltip();});
-    document.addEventListener('touchstart',e=>{
-      clearTimeout(tipTouchTimer); tipTouchTimer=null;
-      tipLongPressFired=false; tipTouchTarget=null;
-      const prevEl=tipOpen?tipActiveEl:null;
-      if(tipOpen) hideTooltip();
-      if(!e.touches||e.touches.length!==1) return;
-      const t=e.touches[0];
-      tipTouchStartX=t.clientX; tipTouchStartY=t.clientY;
-      const h=e.target?.closest?.('[data-tip]');
-      if(!h||!h.dataset.tip) return;
-      if(h.matches(TIP_INPUT_SEL)||e.target.closest(TIP_INPUT_SEL)) return;
-      const isNonInteractiveHelp=h.classList.contains('cursor-help')&&!h.matches(TIP_INTERACTIVE_SEL)&&!e.target.closest(TIP_INTERACTIVE_SEL)&&!h.hasAttribute('data-action');
-      if(isNonInteractiveHelp){
-        if(prevEl!==h) tipTouchTarget=h;
-      }else{
-        tipTouchTimer=setTimeout(()=>{
-          tipLongPressFired=true;
-          tipSuppressClickUntil=Date.now()+600;
-          showTooltipFor(h);
-        },420);
-      }
-    },{passive:true});
-    document.addEventListener('touchmove',e=>{
-      if(!tipTouchTimer&&!tipTouchTarget) return;
-      const t=e.touches?.[0]; if(!t) return;
-      if(Math.hypot(t.clientX-tipTouchStartX,t.clientY-tipTouchStartY)>10){
-        clearTimeout(tipTouchTimer); tipTouchTimer=null; tipTouchTarget=null;
-      }
-    },{passive:true});
-    document.addEventListener('touchend',e=>{
-      clearTimeout(tipTouchTimer); tipTouchTimer=null;
-      if(!tipLongPressFired&&tipTouchTarget){
-        const t=e.changedTouches?.[0];
-        if(!t||Math.hypot(t.clientX-tipTouchStartX,t.clientY-tipTouchStartY)<=12){
-          showTooltipFor(tipTouchTarget);
+    document.addEventListener('mouseleave', hideTooltip);
+    window.addEventListener('blur', hideTooltip);
+    window.addEventListener('scroll', hideTooltip, { passive: true, capture: true });
+    document.addEventListener('click', e => {
+      if (e.target?.closest?.('button, [data-action], a, select, input')) hideTooltip();
+    }, true);
+    document.addEventListener('pointerdown', e => {
+      if (e.pointerType === 'touch' || e.pointerType === 'pen') {
+        const el = e.target?.closest?.('[data-tip]');
+        if (el && !el.closest('button, [data-action], a, input, select, textarea, [contenteditable="true"]')) {
+          showTooltipForEl(el, e.clientX, e.clientY);
+        } else {
+          hideTooltip();
         }
       }
-      tipTouchTarget=null;
-    },{passive:true});
-    document.addEventListener('touchcancel',()=>{clearTimeout(tipTouchTimer);tipTouchTimer=null;tipTouchTarget=null;},{passive:true});
+    }, { passive: true });
     document.addEventListener('click',e=>{
       if(Date.now()<tipSuppressClickUntil){
         e.preventDefault(); e.stopPropagation();
