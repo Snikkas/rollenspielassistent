@@ -61,7 +61,7 @@
     .rtf-box li{display:list-item;white-space:pre-wrap;margin:.08rem 0}
     .dice-bar{display:grid;grid-template-columns:1fr;gap:.6rem;align-items:start}@media(min-width:520px){.dice-bar{grid-template-columns:1fr auto 1fr}}
     @keyframes critGlow{0%,100%{box-shadow:0 0 0 1px rgba(245,158,11,.5),0 6px 20px rgba(245,158,11,.25)}50%{box-shadow:0 0 0 2px #fbbf24,0 8px 28px rgba(245,158,11,.48)}}
-    .crit-glow{animation:critGlow 2s infinite}#toast,#tooltip{pointer-events:none!important}#tooltip{white-space:pre-line;line-height:1.4}
+    .crit-glow{animation:critGlow 2s infinite}@keyframes niceFlicker{0%{opacity:0;transform:scale(.7) rotate(var(--nr,0deg))}8%{opacity:.92}14%{opacity:.3}22%{opacity:1;transform:scale(1.08) rotate(var(--nr,0deg))}30%{opacity:.5}40%{opacity:.95}75%{opacity:.85;transform:scale(1) rotate(var(--nr,0deg))}100%{opacity:0;transform:scale(1.15) rotate(var(--nr,0deg))}}.nice-easter-egg{position:fixed;z-index:9999;pointer-events:none;user-select:none;font-weight:900;font-style:italic;font-size:clamp(1.25rem,2.6vw,2rem);letter-spacing:.08em;color:var(--accT);text-shadow:0 0 12px var(--accB),0 0 24px rgba(251,191,36,.45);animation:niceFlicker 2s ease-out forwards}#toast,#tooltip{pointer-events:none!important}#tooltip{white-space:pre-line;line-height:1.4}
     input[type="color"]{-webkit-appearance:none;appearance:none;border:none;padding:0;background:transparent;cursor:pointer}
     input[type="color"]::-webkit-color-swatch-wrapper{padding:0}input[type="color"]::-webkit-color-swatch{border:1px solid var(--bdr);border-radius:8px}
     input[type="range"]{accent-color:var(--acc)}::-webkit-scrollbar{width:6px;height:6px}::-webkit-scrollbar-thumb{background:rgba(148,163,184,.38);border-radius:99px}
@@ -88,7 +88,9 @@
       .rtf-wrap.rtf-focused [data-rtf-toolbar]{display:inline-flex!important}
     }
     .pw-dd-wrap{position:relative}
-    .pw-dd-menu{position:absolute;left:0;right:0;top:calc(100% + 4px);z-index:45;background:var(--surf2);border:1px solid var(--accB);border-radius:.65rem;padding:.3rem;box-shadow:0 12px 28px rgba(0,0,0,.45);display:flex;flex-direction:column;gap:.2rem;min-width:190px}
+    .pw-dd-menu{position:absolute;left:0;right:0;top:calc(100% + 4px);z-index:60;background:var(--surf2);border:1px solid var(--accB);border-radius:.65rem;padding:.3rem;box-shadow:0 12px 28px rgba(0,0,0,.45);display:flex;flex-direction:column;gap:.2rem;min-width:190px}
+    .card:has(.pw-dd-menu),.subcard:has(.pw-dd-menu){position:relative;z-index:25!important;overflow:visible!important}
+    .pw-dd-menu-right{left:auto;right:0}
     .pw-dd-item{display:flex;align-items:center;justify-content:space-between;gap:.4rem;width:100%;text-align:left;padding:.38rem .55rem;border-radius:.45rem;font-size:.76rem;font-weight:700;color:var(--txt);background:transparent;border:1px solid transparent;cursor:pointer}
     .pw-dd-item:hover{background:var(--accS);border-color:var(--accB);color:var(--accT)}
     .pw-dd-item.on{background:var(--accS);border-color:var(--accB);color:var(--accT);font-weight:800}
@@ -352,7 +354,7 @@
         if(s.parentSectionId&&!canSetSecParent(secList,s.id,s.parentSectionId)) s.parentSectionId='';
       });
     };
-    const makePower=(secId='')=>({id:uid(),templateId:'',name:'',color:'',bgColor:'',sectionId:secId,collapsed:false,req:'',tier:'marginal',manualCost:false,sp:1,msp:0,showManual:false,art:'Grundaktion',artManual:false,actionSubs:[],tags:[],subcats:[],useCosts:[],useAmt:0,useRes:'',desc:'',effects:'',rules:'',applyMods:true,bldAmt:'+1',bldStat:'LP-Max',bldMode:'stat',bldSkCnt:'1',bldSkKind:'adv',bldSkId:'',boxH:{desc:0,effects:0,rules:0}});
+    const makePower=(secId='')=>({id:uid(),templateId:'',name:'',color:'',bgColor:'',sectionId:secId,collapsed:false,req:'',tier:'marginal',manualCost:false,sp:1,msp:0,showManual:false,art:'Grundaktion',artManual:false,actionSubs:[],tags:[],subcats:[],useCosts:[],useAmt:0,useRes:'',reserved:false,reservedCosts:[],desc:'',effects:'',rules:'',applyMods:true,bldAmt:'+1',bldStat:'LP-Max',bldMode:'stat',bldSkCnt:'1',bldSkKind:'adv',bldSkId:'',boxH:{desc:0,effects:0,rules:0}});
     const makeAugment=(pid='')=>({...makePower(''),id:uid(),parentPowerId:pid,art:'',actionSubs:[],tags:['Eigenschaft'],subcats:[],useCosts:[],useAmt:0,useRes:''});
     function syncPwUseCostsLegacy(it){
       if(!it) return;
@@ -500,6 +502,9 @@
     const LIBRARY_ID='_power_library_';
     const REPO_LIBRARY_URL='./data/powers-library.json';
     const PWLIB_CACHE_KEY='scherbensturm_power_library_cache';
+    const PATCHNOTES_ID = '_patchnotes_';
+    const PATCHNOTES_CACHE_KEY = 'scherbensturm_patchnotes_cache';
+    let PATCHNOTES = { loaded:false, loading:false, saving:false, error:'', entries:[], lastLoadedTs:'', editingId:null, draft:null, confirmDelId:null };
     function normalizeCampaigns(rawCamps){
       const list=Array.isArray(rawCamps)?rawCamps.filter(c=>c&&typeof c==='object'&&String(c.id||'').trim()).map(c=>{
         const id=String(c.id).trim();
@@ -1002,6 +1007,7 @@
     }
     function publishLiveRoll(entry, forcePublic = false){
       if(!entry) return;
+      if(!forcePublic && hasNiceRoll(entry)) triggerNiceEasterEgg();
       if(!entry.campaignId) entry.campaignId=UI.inLobby?getActiveLiveCampaignId():getCharCampaignId(entry.charId||S.charId);
       if(!forcePublic && isSecretRollActive()){
         entry.isSecret=true;
@@ -1099,6 +1105,23 @@
     }
 
     function toast(msg,dur){const el=$('toast');if(!el)return;clearTimeout(toastTimer);el.textContent=msg;el.classList.remove('opacity-0');const ms=dur!==undefined?dur:(String(msg||'').includes('⚠️')?4800:2500);toastTimer=setTimeout(()=>el.classList.add('opacity-0'),ms);}
+    function hasNiceRoll(entry){
+      if(!entry||typeof entry!=='object') return false;
+      if(Array.isArray(entry.res)&&entry.res.some(x=>x&&(toInt(x.r,-1)===69||toInt(x.rawR,-1)===69))) return true;
+      if(Array.isArray(entry.customRolls)&&entry.customRolls.some(v=>toInt(v,-1)===69)) return true;
+      if(entry.isCustomDice&&toInt(entry.customTotal,-1)===69) return true;
+      return false;
+    }
+    function triggerNiceEasterEgg(){
+      const el=document.createElement('div');
+      el.className='nice-easter-egg';
+      el.textContent='Nice';
+      el.style.left=(8+Math.random()*74).toFixed(1)+'%';
+      el.style.top=(10+Math.random()*74).toFixed(1)+'%';
+      el.style.setProperty('--nr',((Math.random()*26)-13).toFixed(1)+'deg');
+      document.body.appendChild(el);
+      setTimeout(()=>el.remove(),2050);
+    }
     function logChron(text){S.chronicleLog.unshift({id:uid(),ts:stamp(),text});if(S.chronicleLog.length>300)S.chronicleLog.length=300;}
     const cresName=()=>String(S.customRes.name||'').trim()||'Benutzerdefiniert';
     const makeExtraSec=(idx=1)=>({id:uid(),name:`Ressource ${idx}`,current:3,max:3,color:COL_PRESETS[(idx+5)%COL_PRESETS.length]||'#34d399'});
@@ -1117,6 +1140,62 @@
     function formatPwUseCosts(it){
       const act=getActivePwUseCosts(it);
       return act.map(c=>`${c.amt} ${getResLabel(c.res)}`).join(' + ');
+    }
+    function isReservableResKey(k){
+      const key=String(k||'').trim();
+      return ['ap','map','lp','mlp','cres'].includes(key)||key.startsWith('ex_');
+    }
+    function getReservablePwCosts(it){
+      return getActivePwUseCosts(it).filter(c=>isReservableResKey(c.res));
+    }
+    function getReservedTotals(){
+      const tot={ap:0,map:0,lp:0,mlp:0,cres:0,extra:{},byRes:{},entries:[]};
+      const addList=(arr,kind)=>{
+        (arr||[]).forEach(it=>{
+          if(!it||it.reserved!==true) return;
+          const src=(Array.isArray(it.reservedCosts)&&it.reservedCosts.length)?it.reservedCosts:getReservablePwCosts(it);
+          const costs=src.filter(c=>c&&isReservableResKey(c.res)&&toInt(c.amt,0)>0).map(c=>({res:String(c.res).trim(),amt:Math.max(0,toInt(c.amt,0))}));
+          costs.forEach(c=>{
+            tot.byRes[c.res]=(tot.byRes[c.res]||0)+c.amt;
+            if(c.res==='ap'||c.res==='map'||c.res==='lp'||c.res==='mlp'||c.res==='cres') tot[c.res]+=c.amt;
+            else if(c.res.startsWith('ex_')){const exId=c.res.slice(3);tot.extra[exId]=(tot.extra[exId]||0)+c.amt;}
+          });
+          tot.entries.push({kind,id:it.id,name:String(it.name||'').trim()||(kind==='augment'?'Unbenanntes Augment':'Unbenannte Kraft'),color:it.color||'',costs});
+        });
+      };
+      addList(S.powers,'power');
+      addList(S.augments,'augment');
+      return tot;
+    }
+    function getEffectivePoolCap(resKey,M=calcActiveMods()){
+      const key=String(resKey||'').trim();
+      let fullMax=0;
+      if(key==='ap') fullMax=getApMax(M);
+      else if(key==='map') fullMax=getMapMax(M);
+      else if(key==='lp') fullMax=getLpMax(M);
+      else if(key==='mlp') fullMax=getMlpMax(M);
+      else if(key==='cres') fullMax=getCresMax(M);
+      else if(key.startsWith('ex_')){
+        const ex=(S.extraSecList||[]).find(x=>'ex_'+x.id===key);
+        fullMax=ex?getExtraSecMax(ex,M):0;
+      }
+      const R=getReservedTotals();
+      const reserved=R.byRes[key]||0;
+      return {fullMax,reserved,effMax:Math.max(0,fullMax-reserved)};
+    }
+    function getReservedSrcList(resKey){
+      const R=getReservedTotals(), out=[];
+      R.entries.forEach(e=>{
+        const sum=e.costs.filter(c=>c.res===resKey).reduce((s,c)=>s+c.amt,0);
+        if(sum>0) out.push(`${e.name} −${sum}`);
+      });
+      return out;
+    }
+    function fmtReservedTipLine(resKey,M=calcActiveMods()){
+      const cap=getEffectivePoolCap(resKey,M);
+      if(cap.reserved<=0) return '';
+      const srcs=getReservedSrcList(resKey);
+      return `\n• Reserviert: −${cap.reserved}${srcs.length?` (${srcs.join(', ')})`:''} → Frei max: ${cap.effMax}`;
     }
 
     function getStatGroups(){
@@ -1859,11 +1938,11 @@
     function buildSecTip(key,M=calcActiveMods()){
       if(key==='lp'){
         const ko=getAttrTot('KO',M),st=getAttrTot('ST',M),base=Math.floor((ko+st)/5),mod=toInt(S.secondary.lpMod),tot=getLpMax(M),sl=fmtSrcLines(M,'lpMax');
-        return `LP-Max Gesamt: ${tot}\n• Basis ⌊(KO ${ko} + ST ${st}) / 5⌋: ${base}${mod?`\n• Manuelles Mod: ${fmtSign(mod)}`:''}${sl?`\n${sl}`:''}`;
+        return `LP-Max Gesamt: ${tot}\n• Basis ⌊(KO ${ko} + ST ${st}) / 5⌋: ${base}${mod?`\n• Manuelles Mod: ${fmtSign(mod)}`:''}${sl?`\n${sl}`:''}${fmtReservedTipLine('lp',M)}`;
       }
       if(key==='mlp'){
         const au=getAttrTot('AU',M),wk=getAttrTot('WK',M),base=Math.floor((au+wk)/5),mod=toInt(S.secondary.mlpMod),tot=getMlpMax(M),sl=fmtSrcLines(M,'mlpMax');
-        return `mLP-Max Gesamt: ${tot}\n• Basis ⌊(AU ${au} + WK ${wk}) / 5⌋: ${base}${mod?`\n• Manuelles Mod: ${fmtSign(mod)}`:''}${sl?`\n${sl}`:''}`;
+        return `mLP-Max Gesamt: ${tot}\n• Basis ⌊(AU ${au} + WK ${wk}) / 5⌋: ${base}${mod?`\n• Manuelles Mod: ${fmtSign(mod)}`:''}${sl?`\n${sl}`:''}${fmtReservedTipLine('mlp',M)}`;
       }
       if(key==='lpRegen'){
         const auto=getLpRegenAuto(M),tot=getLpRegen(M),ovr=hasLpRegenOvr(),sl=fmtSrcLines(M,'lpRegen');
@@ -1879,19 +1958,19 @@
       }
       if(key==='ap'){
         const base=toInt(S.secondary.apMax,3),tot=base+M.apMax,sl=fmtSrcLines(M,'apMax');
-        return `AP-Max Gesamt: ${tot}\n• Basis-Maximum: ${base}${sl?`\n${sl}`:''}`;
+        return `AP-Max Gesamt: ${tot}\n• Basis-Maximum: ${base}${sl?`\n${sl}`:''}${fmtReservedTipLine('ap',M)}`;
       }
       if(key==='map'){
         const base=toInt(S.secondary.mapMax,3),tot=base+M.mapMax,sl=fmtSrcLines(M,'mapMax');
-        return `mAP-Max Gesamt: ${tot}\n• Basis-Maximum: ${base}${sl?`\n${sl}`:''}`;
+        return `mAP-Max Gesamt: ${tot}\n• Basis-Maximum: ${base}${sl?`\n${sl}`:''}${fmtReservedTipLine('map',M)}`;
       }
       if(key==='cres'){
         const cn=cresName(),base=toInt(S.customRes.max,3),tot=getCresMax(M),sl=fmtSrcLines(M,'cresMax');
-        return `${cn}-Max Gesamt: ${tot}\n• Basis-Maximum: ${base}${sl?`\n${sl}`:''}`;
+        return `${cn}-Max Gesamt: ${tot}\n• Basis-Maximum: ${base}${sl?`\n${sl}`:''}${fmtReservedTipLine('cres',M)}`;
       }
       if(String(key||'').startsWith('ex_')){
         const ex=(S.extraSecList||[]).find(x=>'ex_'+x.id===key);
-        if(ex){const nm=getExtraSecName(ex),base=getExtraSecBase(ex),tot=getExtraSecMax(ex,M),sl=fmtSrcLines(M,key);return `${nm}-Max Gesamt: ${tot}\n• Basis-Maximum: ${base}${sl?`\n${sl}`:''}`;}
+        if(ex){const nm=getExtraSecName(ex),base=getExtraSecBase(ex),tot=getExtraSecMax(ex,M),sl=fmtSrcLines(M,key);return `${nm}-Max Gesamt: ${tot}\n• Basis-Maximum: ${base}${sl?`\n${sl}`:''}${fmtReservedTipLine(key,M)}`;}
       }
       if(key==='bst'){
         const auto=getBstAuto(),base=getBstBase(),tot=getEffBst(M),ovr=hasBstOvr(),sl=fmtSrcLines(M,'bst');
@@ -2017,7 +2096,9 @@
         base.tags.forEach(pushTag);
       }
       const actionSubs=DEF_ACTION_SUBS.filter(s=>actionSubSet.has(s));
-      return {...base,...(raw||{}),id:raw?.id||uid(),templateId:String(raw?.templateId||''),color:col,bgColor:bgCol,sectionId:String(raw?.sectionId||''),collapsed:Boolean(raw?.collapsed),tier,manualCost:manual,sp:manual?toInt(raw.sp,def.sp):def.sp,msp:manual?toInt(raw.msp,def.msp):def.msp,showManual:Boolean(raw?.showManual),art,artManual:Boolean(raw?.artManual),actionSubs,tags,subcats:[],useCosts,useAmt,useRes,desc:String(raw?.desc||''),effects:String(raw?.effects??raw?.extraEffects??''),rules:String(raw?.rules||''),applyMods,bldAmt:String(raw?.bldAmt||'+1'),bldStat:String(raw?.bldStat||'LP-Max'),bldMode,bldSkCnt,bldSkKind,bldSkId,boxH:bh};
+      const reserved=Boolean(raw?.reserved);
+      const reservedCosts=Array.isArray(raw?.reservedCosts)?raw.reservedCosts.filter(c=>c&&String(c.res||'').trim()&&toInt(c.amt,0)>0).map(c=>({res:String(c.res).trim(),amt:Math.max(0,toInt(c.amt,0))})):[];
+      return {...base,...(raw||{}),id:raw?.id||uid(),templateId:String(raw?.templateId||''),color:col,bgColor:bgCol,sectionId:String(raw?.sectionId||''),collapsed:Boolean(raw?.collapsed),tier,manualCost:manual,sp:manual?toInt(raw.sp,def.sp):def.sp,msp:manual?toInt(raw.msp,def.msp):def.msp,showManual:Boolean(raw?.showManual),art,artManual:Boolean(raw?.artManual),actionSubs,tags,subcats:[],useCosts,useAmt,useRes,reserved,reservedCosts,desc:String(raw?.desc||''),effects:String(raw?.effects??raw?.extraEffects??''),rules:String(raw?.rules||''),applyMods,bldAmt:String(raw?.bldAmt||'+1'),bldStat:String(raw?.bldStat||'LP-Max'),bldMode,bldSkCnt,bldSkKind,bldSkId,boxH:bh};
     }
 
     const POWER_PACK_SCHEMA='scherbensturm_power_pack_v1';
@@ -2142,6 +2223,8 @@
         useCosts:Array.isArray(n.useCosts)?clone(n.useCosts):[],
         useAmt:toInt(n.useAmt,0),
         useRes:String(n.useRes||''),
+        reserved:false,
+        reservedCosts:[],
         desc:String(n.desc||''),
         effects:String(n.effects||''),
         rules:String(n.rules||''),
@@ -3099,7 +3182,7 @@
         if(!CLOUD.registry.charCampaigns||typeof CLOUD.registry.charCampaigns!=='object') CLOUD.registry.charCampaigns={};
         if(!Array.isArray(CLOUD.registry.deletedCharIds)) CLOUD.registry.deletedCharIds=[];
         const delSet=new Set(CLOUD.registry.deletedCharIds);
-        CLOUD.list=(Array.isArray(data)?data:[]).filter(ch=>ch&&ch.id!==REGISTRY_ID&&ch.name!=='__REGISTRY__'&&ch.id!==LIBRARY_ID&&ch.name!=='__POWER_LIBRARY__'&&!delSet.has(ch.id));
+        CLOUD.list=(Array.isArray(data)?data:[]).filter(ch=>ch&&ch.id!==REGISTRY_ID&&ch.name!=='__REGISTRY__'&&ch.id!==LIBRARY_ID&&ch.name!=='__POWER_LIBRARY__'&&ch.id!==PATCHNOTES_ID&&ch.name!=='__PATCHNOTES__'&&!delSet.has(ch.id));
         CLOUD.list.forEach(ch=>{
           if(ch.owner&&CLOUD.registry.claims[ch.id]===undefined) CLOUD.registry.claims[ch.id]=ch.owner;
           if(CLOUD.registry.charCampaigns[ch.id]===undefined){
@@ -3571,6 +3654,137 @@
         if(UI.modal==='powerLibrary') renderModal();
       }
     }
+    function normalizePatchnoteEntry(raw){
+      if(!raw||typeof raw!=='object') return null;
+      const items=Array.isArray(raw.items)?raw.items.filter(it=>it&&typeof it==='object').map(it=>({
+        id:String(it.id||'').trim()||uid(),
+        heading:String(it.heading??''),
+        text:String(it.text??'')
+      })):[];
+      const ts=String(raw.ts||raw.date||raw.createdAt||'').trim()||stamp();
+      return {
+        id:String(raw.id||'').trim()||uid(),
+        title:String(raw.title??'').trim(),
+        version:String(raw.version??'').trim(),
+        ts,
+        updatedAt:String(raw.updatedAt||ts).trim(),
+        intro:String(raw.intro??''),
+        items
+      };
+    }
+    function loadPatchnotesCache(){
+      try{
+        const raw=localStorage.getItem(PATCHNOTES_CACHE_KEY);
+        if(!raw) return null;
+        const parsed=JSON.parse(raw);
+        if(!parsed||typeof parsed!=='object') return null;
+        return {
+          entries:Array.isArray(parsed.entries)?parsed.entries.map(normalizePatchnoteEntry).filter(Boolean):[],
+          lastLoadedTs:String(parsed.lastLoadedTs||'')
+        };
+      }catch(e){return null;}
+    }
+    function savePatchnotesCache(){
+      try{
+        localStorage.setItem(PATCHNOTES_CACHE_KEY,JSON.stringify({
+          entries:Array.isArray(PATCHNOTES.entries)?PATCHNOTES.entries:[],
+          lastLoadedTs:PATCHNOTES.lastLoadedTs||stamp()
+        }));
+      }catch(e){}
+    }
+    async function fetchPatchnotes(force=false){
+      if((PATCHNOTES.loaded||PATCHNOTES.loading)&&!force) return PATCHNOTES.entries;
+      PATCHNOTES.loading=true;
+      PATCHNOTES.error='';
+      if(UI.modal==='info'&&UI.infoTab==='patchnotes') renderModal();
+      try{
+        const res=await fetch(`${getCloudEndpoint()}?id=${encodeURIComponent(PATCHNOTES_ID)}`,{headers:{'Accept':'application/json'}});
+        if(res.status===404){
+          PATCHNOTES.entries=[];
+          PATCHNOTES.loaded=true;
+          PATCHNOTES.lastLoadedTs=stamp();
+          PATCHNOTES.error='';
+          savePatchnotesCache();
+          return PATCHNOTES.entries;
+        }
+        if(!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data=await res.json().catch(()=>null);
+        if(data&&data.error&&/not\s*found|nicht\s*gefunden/i.test(String(data.error))){
+          PATCHNOTES.entries=[];
+          PATCHNOTES.loaded=true;
+          PATCHNOTES.lastLoadedTs=stamp();
+          PATCHNOTES.error='';
+          savePatchnotesCache();
+          return PATCHNOTES.entries;
+        }
+        const rawList=Array.isArray(data?.entries)?data.entries:(Array.isArray(data?.patchnotes?.entries)?data.patchnotes.entries:(Array.isArray(data)?data:[]));
+        PATCHNOTES.entries=rawList.map(normalizePatchnoteEntry).filter(Boolean);
+        PATCHNOTES.loaded=true;
+        PATCHNOTES.lastLoadedTs=stamp();
+        PATCHNOTES.error='';
+        savePatchnotesCache();
+        return PATCHNOTES.entries;
+      }catch(err){
+        const cache=loadPatchnotesCache();
+        if(cache){
+          PATCHNOTES.entries=cache.entries;
+          PATCHNOTES.loaded=true;
+          PATCHNOTES.lastLoadedTs=cache.lastLoadedTs||PATCHNOTES.lastLoadedTs;
+          PATCHNOTES.error='Offline-Modus: Lokaler Patchnotes-Cache wird angezeigt.';
+        }else{
+          PATCHNOTES.loaded=false;
+          PATCHNOTES.error='Patchnotes derzeit nicht vom Server erreichbar.';
+        }
+        return PATCHNOTES.entries;
+      }finally{
+        PATCHNOTES.loading=false;
+        if(UI.modal==='info'&&UI.infoTab==='patchnotes') renderModal();
+      }
+    }
+    async function savePatchnotesToServer(nextEntries,successMsg){
+      if(!CLOUD.isAdmin){
+        toast('🔒 Nur der Admin kann Patchnotes bearbeiten.');
+        return false;
+      }
+      const cleaned=(Array.isArray(nextEntries)?nextEntries:[]).map(normalizePatchnoteEntry).filter(Boolean);
+      PATCHNOTES.saving=true;
+      PATCHNOTES.error='';
+      if(UI.modal==='info'&&UI.infoTab==='patchnotes') renderModal();
+      try{
+        const payload={
+          charId:PATCHNOTES_ID,
+          profile:{name:'__PATCHNOTES__'},
+          _AdminOverride:true,
+          entries:cleaned,
+          _summary:{updatedAt:stamp()}
+        };
+        const res=await fetch(getCloudEndpoint(),{
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body:JSON.stringify(payload)
+        });
+        const data=await res.json().catch(()=>({}));
+        if(!res.ok||data.error) throw new Error(data.error||`HTTP ${res.status}`);
+        PATCHNOTES.entries=cleaned;
+        PATCHNOTES.loaded=true;
+        PATCHNOTES.lastLoadedTs=stamp();
+        PATCHNOTES.error='';
+        savePatchnotesCache();
+        toast(successMsg||'☁️ Patchnotes auf dem Server gespeichert!');
+        return true;
+      }catch(err){
+        PATCHNOTES.entries=cleaned;
+        PATCHNOTES.loaded=true;
+        PATCHNOTES.lastLoadedTs=stamp();
+        PATCHNOTES.error='Lokal im Cache gespeichert (Server nicht erreichbar).';
+        savePatchnotesCache();
+        toast('⚠️ Server nicht erreichbar – Patchnotes lokal im Browser-Cache gespeichert.');
+        return true;
+      }finally{
+        PATCHNOTES.saving=false;
+        if(UI.modal==='info'&&UI.infoTab==='patchnotes') renderModal();
+      }
+    }
     async function fetchAndSyncBasisPowers(mode='skipExisting',opts={}){
       const silent=Boolean(opts&&opts.silent);
       const targetCharId=S.charId;
@@ -3694,25 +3908,37 @@
     const getLpRegen=(M=calcActiveMods())=>hasLpRegenOvr()?Math.max(0,toInt(S.secondary.lpRegenOvr,getLpRegenAuto(M))):getLpRegenAuto(M);
     const getMlpRegen=(M=calcActiveMods())=>hasMlpRegenOvr()?Math.max(0,toInt(S.secondary.mlpRegenOvr,getMlpRegenAuto(M))):getMlpRegenAuto(M);
     function performSimpleRest(){
-      const M=calcActiveMods(), apMax=getApMax(M), mapMax=getMapMax(M);
-      S.secondary.apCurrent=apMax;
-      S.secondary.mapCurrent=mapMax;
-      logChron(`🔥 Pause: AP (${apMax}/${apMax}) und mAP (${mapMax}/${mapMax}) wiederhergestellt.`);
+      const M=calcActiveMods(), apInfo=getEffectivePoolCap('ap',M), mapInfo=getEffectivePoolCap('map',M);
+      const apCap=apInfo.effMax, mapCap=mapInfo.effMax;
+      if(toInt(S.secondary.apCurrent,apCap)<apCap) S.secondary.apCurrent=apCap;
+      if(toInt(S.secondary.mapCurrent,mapCap)<mapCap) S.secondary.mapCurrent=mapCap;
+      const resNotes=[];
+      if(apInfo.reserved>0) resNotes.push(`−${apInfo.reserved} AP`);
+      if(mapInfo.reserved>0) resNotes.push(`−${mapInfo.reserved} mAP`);
+      const resTxt=resNotes.length?` (🔒 reserviert: ${resNotes.join(', ')})`:'';
+      logChron(`🔥 Pause: AP (${S.secondary.apCurrent}/${apCap}${apInfo.reserved?` von ${apInfo.fullMax}`:''}) und mAP (${S.secondary.mapCurrent}/${mapCap}${mapInfo.reserved?` von ${mapInfo.fullMax}`:''}) wiederhergestellt${resTxt}.`);
       save(); renderHeader(); renderMain();
-      toast(`🔥 Pause: AP (${apMax}) & mAP (${mapMax}) wiederhergestellt!`);
+      toast(`🔥 Pause: AP (${S.secondary.apCurrent}) & mAP (${S.secondary.mapCurrent}) wiederhergestellt${resTxt}!`);
     }
     function performFullRest(){
       const M=calcActiveMods(), lpReg=getLpRegen(M), mlpReg=getMlpRegen(M);
       const lpHeal=lpReg*2, mlpHeal=mlpReg*2;
-      const lpMax=getLpMax(M), mlpMax=getMlpMax(M), apMax=getApMax(M), mapMax=getMapMax(M);
-      const oldLp=toInt(S.secondary.lpCurrent,lpMax), oldMlp=toInt(S.secondary.mlpCurrent,mlpMax);
-      S.secondary.lpCurrent=oldLp<lpMax?Math.min(lpMax,oldLp+lpHeal):oldLp;
-      S.secondary.mlpCurrent=oldMlp<mlpMax?Math.min(mlpMax,oldMlp+mlpHeal):oldMlp;
-      S.secondary.apCurrent=apMax;
-      S.secondary.mapCurrent=mapMax;
-      logChron(`🌙 Erholsame Rast: +${lpHeal} LP (2×${lpReg} → ${S.secondary.lpCurrent}/${lpMax}), +${mlpHeal} mLP (2×${mlpReg} → ${S.secondary.mlpCurrent}/${mlpMax}) sowie AP & mAP wiederhergestellt.`);
+      const lpInfo=getEffectivePoolCap('lp',M), mlpInfo=getEffectivePoolCap('mlp',M), apInfo=getEffectivePoolCap('ap',M), mapInfo=getEffectivePoolCap('map',M);
+      const lpCap=lpInfo.effMax, mlpCap=mlpInfo.effMax, apCap=apInfo.effMax, mapCap=mapInfo.effMax;
+      const oldLp=toInt(S.secondary.lpCurrent,lpCap), oldMlp=toInt(S.secondary.mlpCurrent,mlpCap);
+      S.secondary.lpCurrent=oldLp<lpCap?Math.min(lpCap,oldLp+lpHeal):oldLp;
+      S.secondary.mlpCurrent=oldMlp<mlpCap?Math.min(mlpCap,oldMlp+mlpHeal):oldMlp;
+      if(toInt(S.secondary.apCurrent,apCap)<apCap) S.secondary.apCurrent=apCap;
+      if(toInt(S.secondary.mapCurrent,mapCap)<mapCap) S.secondary.mapCurrent=mapCap;
+      const resNotes=[];
+      if(lpInfo.reserved>0) resNotes.push(`−${lpInfo.reserved} LP`);
+      if(mlpInfo.reserved>0) resNotes.push(`−${mlpInfo.reserved} mLP`);
+      if(apInfo.reserved>0) resNotes.push(`−${apInfo.reserved} AP`);
+      if(mapInfo.reserved>0) resNotes.push(`−${mapInfo.reserved} mAP`);
+      const resTxt=resNotes.length?` (🔒 blockiert: ${resNotes.join(', ')})`:'';
+      logChron(`🌙 Erholsame Rast: +${lpHeal} LP (2×${lpReg} → ${S.secondary.lpCurrent}/${lpCap}${lpInfo.reserved?` von ${lpInfo.fullMax}`:''}), +${mlpHeal} mLP (2×${mlpReg} → ${S.secondary.mlpCurrent}/${mlpCap}${mlpInfo.reserved?` von ${mlpInfo.fullMax}`:''}) sowie AP (${S.secondary.apCurrent}/${apCap}) & mAP (${S.secondary.mapCurrent}/${mapCap}) wiederhergestellt${resTxt}.`);
       save(); renderHeader(); renderMain();
-      toast(`🌙 Erholsame Rast: +${lpHeal} LP & +${mlpHeal} mLP (2× Reg.) wiederhergestellt!`);
+      toast(`🌙 Erholsame Rast: LP (${S.secondary.lpCurrent}/${lpCap}), mLP (${S.secondary.mlpCurrent}/${mlpCap}) & AP/mAP wiederhergestellt${resTxt}!`);
     }
     const getIniBase=()=>getAttrBase('WA')-getAttrBase('IN')+toInt(S.secondary.iniMod);
     const getIniTot=(M=calcActiveMods())=>getAttrTot('WA',M)-getAttrTot('IN',M)+toInt(S.secondary.iniMod)+M.ini;
@@ -3730,20 +3956,33 @@
     const getEffBst=(M=calcActiveMods())=>getBstBase()+(M.bst||0);
     function withPoolSync(fn){
       const M1=calcActiveMods(),oL=getLpMax(M1),oM=getMlpMax(M1),oA=getApMax(M1),oMA=getMapMax(M1),oC=getCresMax(M1);
+      const oLc=getEffectivePoolCap('lp',M1).effMax,oMc=getEffectivePoolCap('mlp',M1).effMax,oAc=getEffectivePoolCap('ap',M1).effMax,oMAc=getEffectivePoolCap('map',M1).effMax,oCc=getEffectivePoolCap('cres',M1).effMax;
       const oStLp=M1.statusLp||0,oStMlp=M1.statusMlp||0;
-      const oEx={}; (S.extraSecList||[]).forEach(x=>{oEx[x.id]=getExtraSecMax(x,M1);});
+      const oEx={}, oExc={}; (S.extraSecList||[]).forEach(x=>{oEx[x.id]=getExtraSecMax(x,M1);oExc[x.id]=getEffectivePoolCap('ex_'+x.id,M1).effMax;});
       fn();
       invalidateModsCache();
       const M2=calcActiveMods();
+      const capLp=getEffectivePoolCap('lp',M2), capMlp=getEffectivePoolCap('mlp',M2), capAp=getEffectivePoolCap('ap',M2), capMap=getEffectivePoolCap('map',M2), capCres=getEffectivePoolCap('cres',M2);
       const dStLp=(M2.statusLp||0)-oStLp, dStMlp=(M2.statusMlp||0)-oStMlp;
-      if(dStLp!==0) S.secondary.lpCurrent=toInt(S.secondary.lpCurrent)+dStLp;
-      else if(S.secondary.lpCurrent===oL) S.secondary.lpCurrent=getLpMax(M2);
-      if(dStMlp!==0) S.secondary.mlpCurrent=toInt(S.secondary.mlpCurrent)+dStMlp;
-      else if(S.secondary.mlpCurrent===oM) S.secondary.mlpCurrent=getMlpMax(M2);
-      if(S.secondary.apCurrent===oA) S.secondary.apCurrent=getApMax(M2);
-      if(S.secondary.mapCurrent===oMA) S.secondary.mapCurrent=getMapMax(M2);
-      if(S.customRes.current===oC) S.customRes.current=getCresMax(M2);
-      (S.extraSecList||[]).forEach(x=>{if(x.current===oEx[x.id]) x.current=getExtraSecMax(x,M2);});
+      if(dStLp!==0){
+        const nxt=toInt(S.secondary.lpCurrent)+dStLp;
+        S.secondary.lpCurrent=capLp.reserved>0?Math.min(nxt,capLp.effMax):nxt;
+      }else if(S.secondary.lpCurrent===oL||S.secondary.lpCurrent===oLc){
+        S.secondary.lpCurrent=capLp.reserved>0?capLp.effMax:getLpMax(M2);
+      }
+      if(dStMlp!==0){
+        const nxt=toInt(S.secondary.mlpCurrent)+dStMlp;
+        S.secondary.mlpCurrent=capMlp.reserved>0?Math.min(nxt,capMlp.effMax):nxt;
+      }else if(S.secondary.mlpCurrent===oM||S.secondary.mlpCurrent===oMc){
+        S.secondary.mlpCurrent=capMlp.reserved>0?capMlp.effMax:getMlpMax(M2);
+      }
+      if(S.secondary.apCurrent===oA||S.secondary.apCurrent===oAc) S.secondary.apCurrent=capAp.reserved>0?capAp.effMax:getApMax(M2);
+      if(S.secondary.mapCurrent===oMA||S.secondary.mapCurrent===oMAc) S.secondary.mapCurrent=capMap.reserved>0?capMap.effMax:getMapMax(M2);
+      if(S.customRes.current===oC||S.customRes.current===oCc) S.customRes.current=capCres.reserved>0?capCres.effMax:getCresMax(M2);
+      (S.extraSecList||[]).forEach(x=>{
+        const capEx=getEffectivePoolCap('ex_'+x.id,M2);
+        if(x.current===oEx[x.id]||x.current===oExc[x.id]) x.current=capEx.reserved>0?capEx.effMax:getExtraSecMax(x,M2);
+      });
     }
     const getSkAutoBonus=r=>SK_RANKS[r]?SK_RANKS[r].b:0;
     const hasSkBonusOvr=sk=>Boolean(sk&&sk.bonusOvr!==undefined&&sk.bonusOvr!==null&&String(sk.bonusOvr).trim()!=='');
@@ -3997,10 +4236,12 @@
     }
 
     function buildHdrPillsHtml(P,M=calcActiveMods()){
-      const apMax=getApMax(M), mapMax=getMapMax(M), lpReg=getLpRegen(M), mlpReg=getMlpRegen(M), lpMax=getLpMax(M), mlpMax=getMlpMax(M);
+      const lpReg=getLpRegen(M), mlpReg=getMlpRegen(M);
+      const lpCap=getEffectivePoolCap('lp',M), mlpCap=getEffectivePoolCap('mlp',M), apCap=getEffectivePoolCap('ap',M), mapCap=getEffectivePoolCap('map',M);
+      const fmtHdrRes=(k,cap)=>{if(cap.reserved<=0)return '';const s=getReservedSrcList(k);return `\n• Reserviert: −${cap.reserved} ${getResLabel(k)}${s.length?` (${s.join(', ')})`:''} → Frei max: ${cap.effMax}`;};
       const spTip=`Steigerungspunkte (aufgewendet / gesamt)\n• Basis (Stufe ${P.lvl}): ${P.baseSp} SP${P.bonusSp?`\n• Bonus-SP: ${fmtSign(P.bonusSp)} SP`:''}${P.spMod?`\n• SP-Mod (Effekte): ${fmtSign(P.spMod)} SP\n${P.spModSrc}`:''}\nNoch frei verfügbar: ${P.spRem} SP`;
-      const simpleRestTip=`🔥 Pause ausführen\nStellt AP (${apMax}) und mAP (${mapMax}) vollständig wieder her.\nHinweis: Ausgebrannte Sekundärattribute (meistens wie AP und mAP) werden durch eine Pause NICHT regeneriert.`;
-      const fullRestTip=`🌙 Erholsame Rast ausführen\nStellt doppelte Regeneration wieder her:\n• +${lpReg*2} LP (2 × ${lpReg} LP-Reg., bis max. ${lpMax})\n• +${mlpReg*2} mLP (2 × ${mlpReg} mLP-Reg., bis max. ${mlpMax})\n• Stellt zudem AP (${apMax}), mAP (${mapMax}) sowie ausgebrannte Sekundärattribute wieder vollständig her.`;
+      const simpleRestTip=`🔥 Pause ausführen\nStellt AP (${apCap.effMax}${apCap.reserved?` von ${apCap.fullMax}`:''}) und mAP (${mapCap.effMax}${mapCap.reserved?` von ${mapCap.fullMax}`:''}) wieder her.${fmtHdrRes('ap',apCap)}${fmtHdrRes('map',mapCap)}\nHinweis: Ausgebrannte Sekundärattribute (meistens wie AP und mAP) werden durch eine Pause NICHT regeneriert.`;
+      const fullRestTip=`🌙 Erholsame Rast ausführen\nStellt doppelte Regeneration wieder her:\n• +${lpReg*2} LP (2 × ${lpReg} LP-Reg., bis max. ${lpCap.effMax}${lpCap.reserved?` von ${lpCap.fullMax}`:''})${fmtHdrRes('lp',lpCap)}\n• +${mlpReg*2} mLP (2 × ${mlpReg} mLP-Reg., bis max. ${mlpCap.effMax}${mlpCap.reserved?` von ${mlpCap.fullMax}`:''})${fmtHdrRes('mlp',mlpCap)}\n• Stellt zudem AP (${apCap.effMax}${apCap.reserved?` von ${apCap.fullMax}`:''}), mAP (${mapCap.effMax}${mapCap.reserved?` von ${mapCap.fullMax}`:''}) sowie ausgebrannte Sekundärattribute wieder vollständig her.${fmtHdrRes('ap',apCap)}${fmtHdrRes('map',mapCap)}`;
       return `<div class="flex flex-col items-start xl:items-end gap-1.5">
         <div class="flex flex-wrap items-center gap-1.5">
           <button type="button" data-action="switch-tab" data-tab="chronicle" data-tip="Charakterstufe\nPro Stufe: +5 SP\nJede 10. Stufe: +1 MsP" class="pill">Stufe <span class="text-acc">${P.lvl}</span></button>
@@ -4042,6 +4283,7 @@
             <button type="button" data-action="open-local-sheet" data-tip="Öffnet den lokal gespeicherten Charakterbogen (oder einen Test-Bogen) direkt ohne Cloud-Zwang – ideal zum lokalen Testen vor dem GitHub-Upload" class="btn btn-ok text-xs font-extrabold px-3.5 py-2">🛠️ Lokalen Bogen öffnen / testen</button>
             <button type="button" data-action="toggle-livedice" class="btn ${LD.open?'btn-pri':'bdr-acc bg-acc-soft'} text-xs font-extrabold px-3.5 py-2">📡 Live-Würfel <span data-live-dice-cnt="1" class="px-1.5 rounded-full text-[10px] bg-black/25 tabular">${liveDiceCnt}</span></button>
             <button type="button" data-action="toggle-dice" class="btn ${D.open?'btn-pri':'bdr-acc bg-acc-soft'} text-xs font-extrabold px-3.5 py-2">🎲 Würfelassistent</button>
+            <button type="button" data-action="open-patchnotes" data-tip="Patchnotes & Änderungen anzeigen" class="btn py-2 px-3 text-xs font-extrabold bdr-acc bg-acc-soft">📋 Patchnotes</button>
             <button type="button" data-action="open-settings" class="btn py-2 px-3.5 text-xs font-extrabold bdr-acc bg-acc-soft">⚙️ Optionen</button>
           </div>
         </div></header>`;
@@ -4089,7 +4331,8 @@
                   <button type="button" id="saveBadge" data-action="export-json" data-tip="WICHTIGER HINWEIS:\nAktuell nur lokal im Browser zwischengespeichert!\nDu musst den Charakter als .json exportieren (Klick hier oder über ⚙️ Optionen), um ihn dauerhaft gespeichert zu halten, da Browserdaten jederzeit verloren gehen können." class="px-2.5 py-1.5 rounded-lg text-[11px] font-extrabold text-emerald-400 bg-emerald-500/15 border border-emerald-500/30 hover:border-amber-400 transition-colors cursor-pointer text-left leading-tight max-w-full ${UI.savedOnce?'inline-flex flex-col sm:flex-row sm:items-center gap-1':'opacity-0 pointer-events-none hidden'}"><span>✓ Gespeichert</span><span class="text-[10px] font-semibold text-amber-300/95">• Zum Behalten exportieren (.json), Browserdaten können verloren gehen!</span></button>
                 </div>
               </div>
-              <div class="shrink-0 self-end xl:self-center ml-auto">
+              <div class="shrink-0 self-end xl:self-center ml-auto flex flex-wrap items-center gap-2">
+                <button type="button" data-action="open-patchnotes" data-tip="Patchnotes & Änderungen anzeigen" class="btn py-2 px-3 text-xs font-extrabold bdr-acc bg-acc-soft">📋 Patchnotes</button>
                 <button type="button" data-action="open-settings" data-tip="Optionen &amp; Design (JSON Export/Import, Themen, Hintergrund)" class="btn py-2 px-3.5 text-xs font-extrabold bdr-acc bg-acc-soft">⚙️ Optionen</button>
               </div>
             </div>
@@ -4201,6 +4444,45 @@
         <button type="button" data-action="use-inspiration" ${stacks<=0||isAct?'disabled':''} data-tip="Verbraucht 1 Inspirations-Stapel und aktiviert automatisch +1 Vorteil für deinen nächsten Test im Würfelassistenten." class="btn w-full py-2 px-3 text-xs font-black ${isAct?'bg-amber-500 text-slate-950 border-amber-400':'btn-pri'}">✨ Inspiration einsetzen (1 Stapel verbrauchen)</button>
       </section>`;
     }
+    function renderReservationsSection(){
+      const M=calcActiveMods(), R=getReservedTotals(), entries=R.entries||[];
+      const hasAct=entries.length>0;
+      const resOrder=['lp','mlp','ap','map','cres',...(S.extraSecList||[]).map(x=>'ex_'+x.id)];
+      const sumKeys=[...new Set([...resOrder,...Object.keys(R.byRes||{})])].filter(k=>(R.byRes?.[k]||0)>0);
+      return `<section id="reservationsSec" class="card space-y-3 border-2 ${hasAct?'border-amber-400/80 bg-amber-500/10':'bdr-acc'}">
+        <div class="flex flex-wrap items-center justify-between gap-2 border-b bdr-line pb-2.5">
+          <div class="flex items-center gap-2">
+            <h3 class="text-sm sm:text-base font-extrabold text-amber-400 cursor-help" data-tip="Dauerhaft gebundene Ressourcen durch reservierte Kräfte &amp; Augmente. Reservierte Punkte senken das verfügbare Maximum für Pause, Erholsame Rast und Stepper.">🔒 Reservierungen</h3>
+            <span class="pill cursor-default text-[11px] py-0.5 px-2 tabular ${hasAct?'border-amber-400/60 bg-amber-500/15 text-amber-300':''}">${entries.length} aktiv</span>
+          </div>
+        </div>
+        ${!hasAct
+          ?`<div class="subcard p-3 text-xs t-mut leading-relaxed">Kräfte &amp; Augmente können im Tab „3. Kräfte &amp; Augmente“ über <strong class="text-amber-300">„🔒 Reservieren“</strong> Ressourcen dauerhaft binden.</div>`
+          :`<div class="flex flex-wrap items-center gap-1.5 tabular">
+              ${sumKeys.map(k=>{
+                const amt=R.byRes[k]||0, cap=getEffectivePoolCap(k,M), col=getSecCol(k)||'#f59e0b';
+                return `<span data-tip="${esc(`${getResLabel(k)}: −${amt} reserviert → Frei max. ${cap.effMax} von ${cap.fullMax}`)}" class="px-2 py-0.5 rounded-lg border border-amber-400/50 bg-amber-500/15 text-xs font-black cursor-help inline-flex items-center gap-1" style="color:${esc(col)}"><span>−${amt} ${esc(getResLabel(k))}</span><span class="text-[10px] t-mut font-bold">(${cap.effMax}/${cap.fullMax})</span></span>`;
+              }).join('')}
+            </div>
+            <div class="space-y-2">
+              ${entries.map(e=>{
+                const kindLbl=e.kind==='augment'?'Augment':'Kraft';
+                const costTxt=e.costs.map(c=>`−${c.amt} ${getResLabel(c.res)}`).join(' • ');
+                return `<div class="subcard p-2.5 flex items-center justify-between gap-2 border border-amber-500/35 min-w-0">
+                  <div class="min-w-0 flex-1">
+                    <div class="flex flex-wrap items-center gap-1.5 min-w-0">
+                      <span class="font-extrabold text-xs truncate" ${e.color?`style="color:${esc(e.color)}"`:''}>${esc(e.name)}</span>
+                      <span class="px-1.5 py-0.2 rounded text-[10px] font-bold border ${e.kind==='augment'?'border-amber-500/40 bg-amber-500/15 text-amber-300':'bdr-acc bg-acc-soft text-acc'} shrink-0">${kindLbl}</span>
+                    </div>
+                    <div class="text-[11px] font-bold text-amber-300 tabular mt-0.5">${esc(costTxt)}</div>
+                  </div>
+                  <button type="button" data-action="toggle-reserve-pw" data-kind="${esc(e.kind)}" data-id="${esc(e.id)}" data-tip="Reservierung aufheben" class="btn py-1 px-2 text-[11px] border-amber-400/60 bg-amber-500/15 text-amber-200 hover:border-amber-300 shrink-0 font-extrabold">🔓 Aufheben</button>
+                </div>`;
+              }).join('')}
+            </div>
+            <p class="text-[11px] t-mut italic leading-snug pt-0.5">Aufheben gibt das Maximum wieder frei, stellt verbrauchte Punkte nicht wieder her.</p>`}
+      </section>`;
+    }
     function renderStatusEffectsSection(){
       const posList=STATUS_DEFS.filter(d=>d.isPos), negList=STATUS_DEFS.filter(d=>!d.isPos);
       const actList=STATUS_DEFS.map(d=>getStatusEffValues(d.k)).filter(v=>v.active);
@@ -4239,8 +4521,9 @@
     function tplAttributes(){
       const M=calcActiveMods(),iniBase=getIniBase(),ini=getIniTot(M),iniDiff=ini-iniBase,bst=getEffBst(M),crCol=getSecCol('cres'),iniCol=getSecCol('ini'),cresBase=getCresBase(),cresMax=getCresMax(M),lpRegAuto=getLpRegenAuto(M),lpReg=getLpRegen(M),lpRegOvr=hasLpRegenOvr(),lpRegTip=esc(buildSecTip('lpRegen',M)),mlpRegAuto=getMlpRegenAuto(M),mlpReg=getMlpRegen(M),mlpRegOvr=hasMlpRegenOvr(),mlpRegTip=esc(buildSecTip('mlpRegen',M));
       const mkRow=(lbl,f,tip)=>`<tr><td class="text-left text-xs font-extrabold t-mut cursor-help" data-tip="${tip}">${lbl}</td>${ATTRS.map(a=>`<td class="ac-cell" style="--ac:${getAttrCol(a.k)}"><input data-at="${a.k}:${f}" type="text" inputmode="numeric" value="${esc(S.attributes[a.k][f])}" class="inp w-full text-center font-bold py-1 px-1"/></td>`).join('')}<td class="text-right text-xs font-extrabold t-mut">${lbl}</td></tr>`;
-      const pool=(key,lbl,form,curF,modF,maxId,baseVal,maxVal)=>{const col=getSecCol(key),diff=maxVal-baseVal,tip=esc(buildSecTip(key,M));return `<div class="md:col-span-4 card sc-card flex flex-col justify-between gap-2.5" style="--sc:${esc(col)}"><div class="flex items-center justify-between gap-2"><div id="tip_${maxId}_hdr" data-tip="${tip}" class="min-w-0 cursor-help"><div class="text-xs font-extrabold flex items-center gap-1.5 truncate" style="color:${esc(col)}"><span>${lbl}</span><span id="chip_${key}Max">${modChip(diff)}</span></div><div class="text-[11px] t-mut">${form}</div></div><div class="flex items-center gap-1.5 shrink-0"><label class="text-xs t-mut flex items-center gap-1">Mod <input id="inp_${modF}" data-sec="${modF}" type="text" inputmode="numeric" value="${esc(S.secondary[modF])}" class="inp w-12 text-center font-bold py-1 px-1"/></label>${secGearBtn(key,col)}</div></div><div class="flex items-center justify-between gap-1.5"><button type="button" data-action="sec-step" data-field="${curF}" data-delta="-1" class="btn btn-err w-8 h-8">−</button><div class="flex items-center gap-1.5"><input id="inp_${curF}" data-sec="${curF}" type="text" inputmode="numeric" value="${esc(S.secondary[curF])}" class="inp w-14 text-center text-base font-black"/><span class="t-mut font-bold">/</span><input id="${maxId}" data-sec-max="${key}" data-tip="${tip}" type="text" inputmode="numeric" value="${maxVal}" style="color:${esc(col)}" class="inp w-14 text-center text-base font-black cursor-help"/><span id="val_${key}MaxEff" data-tip="${tip}" class="text-xs font-black cursor-help ${diff?'':'hidden'}" style="color:${esc(col)}">(${baseVal})</span></div><button type="button" data-action="sec-step" data-field="${curF}" data-delta="1" class="btn btn-ok w-8 h-8">+</button></div></div>`;};
-      const stam=(key,lbl,curF,maxF,effVal)=>{const col=getSecCol(key),base=toInt(S.secondary[maxF],3),mx=base+effVal,tip=esc(buildSecTip(key,M));return `<div class="md:col-span-4 card sc-card flex flex-col justify-between gap-2.5" style="--sc:${esc(col)}"><div class="flex items-center justify-between gap-2"><span id="tip_${key}Max_hdr" class="text-xs font-extrabold flex items-center gap-1.5 truncate cursor-help" style="color:${esc(col)}" data-tip="${tip}">${lbl}<span id="chip_${key}Max">${modChip(effVal)}</span></span>${secGearBtn(key,col)}</div><div class="flex items-center justify-between gap-1.5"><button type="button" data-action="sec-step" data-field="${curF}" data-delta="-1" class="btn w-8 h-8">−</button><div class="flex items-center gap-1.5"><input id="inp_${curF}" data-sec="${curF}" type="text" inputmode="numeric" value="${esc(S.secondary[curF])}" class="inp w-14 text-center text-base font-black"/><span class="t-mut font-bold">/</span><input id="inp_${maxF}" data-sec="${maxF}" data-tip="${tip}" type="text" inputmode="numeric" value="${mx}" style="color:${esc(col)}" class="inp w-14 text-center text-base font-black cursor-help"/><span id="val_${key}MaxEff" data-tip="${tip}" class="text-xs font-black cursor-help ${effVal?'':'hidden'}" style="color:${esc(col)}">(${base})</span></div><button type="button" data-action="sec-step" data-field="${curF}" data-delta="1" class="btn w-8 h-8">+</button></div></div>`;};
+      const resBadge=(resKey)=>{const cap=getEffectivePoolCap(resKey,M);if(cap.reserved<=0)return '';const srcs=getReservedSrcList(resKey);const bTip=`Reserviert: −${cap.reserved} ${getResLabel(resKey)} (Frei max. ${cap.effMax} von ${cap.fullMax})${srcs.length?`\n• ${srcs.join('\n• ')}`:''}`;return `<span data-tip="${esc(bTip)}" class="px-1.5 py-0.5 rounded text-[10px] font-black border border-amber-400/60 bg-amber-500/20 text-amber-300 cursor-help tabular shrink-0 whitespace-nowrap">🔒 ${cap.reserved} res. (frei max. ${cap.effMax})</span>`;};
+      const pool=(key,lbl,form,curF,modF,maxId,baseVal,maxVal)=>{const col=getSecCol(key),diff=maxVal-baseVal,tip=esc(buildSecTip(key,M));return `<div class="md:col-span-4 card sc-card flex flex-col justify-between gap-2.5" style="--sc:${esc(col)}"><div class="flex items-center justify-between gap-2"><div id="tip_${maxId}_hdr" data-tip="${tip}" class="min-w-0 cursor-help"><div class="text-xs font-extrabold flex flex-wrap items-center gap-1.5" style="color:${esc(col)}"><span class="truncate">${lbl}</span><span id="chip_${key}Max">${modChip(diff)}</span>${resBadge(key)}</div><div class="text-[11px] t-mut">${form}</div></div><div class="flex items-center gap-1.5 shrink-0"><label class="text-xs t-mut flex items-center gap-1">Mod <input id="inp_${modF}" data-sec="${modF}" type="text" inputmode="numeric" value="${esc(S.secondary[modF])}" class="inp w-12 text-center font-bold py-1 px-1"/></label>${secGearBtn(key,col)}</div></div><div class="flex items-center justify-between gap-1.5"><button type="button" data-action="sec-step" data-field="${curF}" data-delta="-1" class="btn btn-err w-8 h-8">−</button><div class="flex items-center gap-1.5"><input id="inp_${curF}" data-sec="${curF}" type="text" inputmode="numeric" value="${esc(S.secondary[curF])}" class="inp w-14 text-center text-base font-black"/><span class="t-mut font-bold">/</span><input id="${maxId}" data-sec-max="${key}" data-tip="${tip}" type="text" inputmode="numeric" value="${maxVal}" style="color:${esc(col)}" class="inp w-14 text-center text-base font-black cursor-help"/><span id="val_${key}MaxEff" data-tip="${tip}" class="text-xs font-black cursor-help ${diff?'':'hidden'}" style="color:${esc(col)}">(${baseVal})</span></div><button type="button" data-action="sec-step" data-field="${curF}" data-delta="1" class="btn btn-ok w-8 h-8">+</button></div></div>`;};
+      const stam=(key,lbl,curF,maxF,effVal)=>{const col=getSecCol(key),base=toInt(S.secondary[maxF],3),mx=base+effVal,tip=esc(buildSecTip(key,M));return `<div class="md:col-span-4 card sc-card flex flex-col justify-between gap-2.5" style="--sc:${esc(col)}"><div class="flex items-center justify-between gap-2"><span id="tip_${key}Max_hdr" class="text-xs font-extrabold flex flex-wrap items-center gap-1.5 min-w-0 cursor-help" style="color:${esc(col)}" data-tip="${tip}"><span class="truncate">${lbl}</span><span id="chip_${key}Max">${modChip(effVal)}</span>${resBadge(key)}</span>${secGearBtn(key,col)}</div><div class="flex items-center justify-between gap-1.5"><button type="button" data-action="sec-step" data-field="${curF}" data-delta="-1" class="btn w-8 h-8">−</button><div class="flex items-center gap-1.5"><input id="inp_${curF}" data-sec="${curF}" type="text" inputmode="numeric" value="${esc(S.secondary[curF])}" class="inp w-14 text-center text-base font-black"/><span class="t-mut font-bold">/</span><input id="inp_${maxF}" data-sec="${maxF}" data-tip="${tip}" type="text" inputmode="numeric" value="${mx}" style="color:${esc(col)}" class="inp w-14 text-center text-base font-black cursor-help"/><span id="val_${key}MaxEff" data-tip="${tip}" class="text-xs font-black cursor-help ${effVal?'':'hidden'}" style="color:${esc(col)}">(${base})</span></div><button type="button" data-action="sec-step" data-field="${curF}" data-delta="1" class="btn w-8 h-8">+</button></div></div>`;};
       const iniTip=esc(buildSecTip('ini',M)), cresTip=esc(buildSecTip('cres',M)), bstTip=esc(buildSecTip('bst',M));
       const attrTips=Object.fromEntries(ATTRS.map(a=>[a.k,esc(buildAttrTip(a.k,M))]));
       return `<section class="card"><div class="flex flex-wrap items-center justify-between gap-2 mb-3"><div class="flex items-center gap-2"><h2 class="text-base sm:text-lg font-extrabold cursor-help" data-tip="4 gekoppelte Attributpaare:\n• ST & KO (Körper / LP)\n• PR & GW (Geschick)\n• WA & IN (Verstand / Ini)\n• AU & WK (Geist / mLP)">Attribute</h2><button type="button" data-action="open-attr-colors" data-tip="Farben der 4 Attributpaare anpassen" class="btn w-7 h-7 p-0 text-xs">⚙️</button></div><span class="text-xs t-mut">Klicke auf ein Attribut oder den Gesamtwert, um den Test zu starten.</span></div>
@@ -4279,11 +4562,11 @@
         ${pool('mlp',SEC_META.mlp,'(AU + WK) / 5','mlpCurrent','mlpMod','val_mlpMax',getMlpBase(),getMlpMax(M))}
         ${stam('ap',SEC_META.ap,'apCurrent','apMax',M.apMax)}
         ${stam('map',SEC_META.map,'mapCurrent','mapMax',M.mapMax)}
-        <div class="md:col-span-4 card sc-card flex flex-col justify-between gap-2.5 min-w-0" style="--sc:${esc(crCol)}"><div class="flex items-center justify-between gap-2"><div class="flex items-center gap-1.5 flex-1 min-w-0"><input id="cresNameInp" data-cres="name" type="text" value="${esc(S.customRes.name)}" placeholder="Benutzerdefiniert" data-tip="${cresTip}" style="color:${esc(crCol)}" class="inp-line text-xs font-extrabold flex-1 min-w-0"/><span id="chip_cresMax">${modChip(M.cresMax)}</span></div><div class="flex items-center gap-1 shrink-0">${secGearBtn('cres',crCol)}<button type="button" data-action="add-extra-sec" data-tip="Zusätzliches benutzerdefiniertes Sekundärattribut hinzufügen" class="btn w-7 h-7 p-0 text-xs font-black text-acc bdr-acc bg-acc-soft shrink-0">+</button></div></div><div class="flex items-center justify-between gap-1.5"><button type="button" data-action="cres-step" data-delta="-1" class="btn w-8 h-8">−</button><div class="flex items-center gap-1.5"><input id="inp_cresCurrent" data-cres="current" type="text" inputmode="numeric" value="${esc(S.customRes.current)}" class="inp w-14 text-center text-base font-black"/><span class="t-mut font-bold">/</span><input id="inp_cresMax" data-cres="max" data-tip="${cresTip}" type="text" inputmode="numeric" value="${cresMax}" style="color:${esc(crCol)}" class="inp w-14 text-center text-base font-black cursor-help"/><span id="val_cresMaxEff" data-tip="${cresTip}" class="text-xs font-black cursor-help ${M.cresMax?'':'hidden'}" style="color:${esc(crCol)}">(${cresBase})</span></div><button type="button" data-action="cres-step" data-delta="1" class="btn w-8 h-8">+</button></div></div>
-        ${(S.extraSecList||[]).map(ex=>{const exKey='ex_'+ex.id,exCol=getSecCol(exKey),exBase=getExtraSecBase(ex),exEff=M.extraSec?.[ex.id]||0,exMax=exBase+exEff,exTip=esc(buildSecTip(exKey,M)),isDelAsk=UI.confirmDelExSecId===ex.id;return `<div class="md:col-span-4 card sc-card flex flex-col justify-between gap-2.5 min-w-0" style="--sc:${esc(exCol)}"><div class="flex items-center justify-between gap-2"><div class="flex items-center gap-1.5 flex-1 min-w-0"><input id="exName_${ex.id}" data-exsec="${ex.id}:name" type="text" value="${esc(ex.name)}" placeholder="Sekundärattribut..." data-tip="${exTip}" style="color:${esc(exCol)}" class="inp-line text-xs font-extrabold flex-1 min-w-0"/><span id="chip_ex_${ex.id}Max">${modChip(exEff)}</span></div><div class="flex items-center gap-1 shrink-0">${secGearBtn(exKey,exCol)}${isDelAsk?`<span class="inline-flex items-center gap-1"><button type="button" data-action="confirm-del-extra-sec" data-id="${ex.id}" class="btn bg-rose-600 text-white border-rose-600 py-1 px-2 text-[11px] font-black">Sicher? (2/2)</button><button type="button" data-action="cancel-del-extra-sec" class="btn w-7 h-7 p-0 text-xs">✕</button></span>`:`<button type="button" data-action="ask-del-extra-sec" data-id="${ex.id}" data-tip="Sekundärattribut entfernen (zweistufige Sicherheitsabfrage)" class="btn btn-err w-7 h-7 p-0 text-xs font-black shrink-0">✕</button>`}</div></div><div class="flex items-center justify-between gap-1.5"><button type="button" data-action="exsec-step" data-id="${ex.id}" data-delta="-1" class="btn w-8 h-8">−</button><div class="flex items-center gap-1.5"><input id="inp_ex_${ex.id}_cur" data-exsec="${ex.id}:current" type="text" inputmode="numeric" value="${esc(ex.current)}" class="inp w-14 text-center text-base font-black"/><span class="t-mut font-bold">/</span><input id="inp_ex_${ex.id}_max" data-exsec="${ex.id}:max" data-tip="${exTip}" type="text" inputmode="numeric" value="${exMax}" style="color:${esc(exCol)}" class="inp w-14 text-center text-base font-black cursor-help"/><span id="val_ex_${ex.id}_eff" data-tip="${exTip}" class="text-xs font-black cursor-help ${exEff?'':'hidden'}" style="color:${esc(exCol)}">(${exBase})</span></div><button type="button" data-action="exsec-step" data-id="${ex.id}" data-delta="1" class="btn w-8 h-8">+</button></div></div>`;}).join('')}
+        <div class="md:col-span-4 card sc-card flex flex-col justify-between gap-2.5 min-w-0" style="--sc:${esc(crCol)}"><div class="flex items-center justify-between gap-2"><div class="flex flex-wrap items-center gap-1.5 flex-1 min-w-0"><input id="cresNameInp" data-cres="name" type="text" value="${esc(S.customRes.name)}" placeholder="Benutzerdefiniert" data-tip="${cresTip}" style="color:${esc(crCol)}" class="inp-line text-xs font-extrabold flex-1 min-w-[90px]"/><span id="chip_cresMax">${modChip(M.cresMax)}</span>${resBadge('cres')}</div><div class="flex items-center gap-1 shrink-0">${secGearBtn('cres',crCol)}<button type="button" data-action="add-extra-sec" data-tip="Zusätzliches benutzerdefiniertes Sekundärattribut hinzufügen" class="btn w-7 h-7 p-0 text-xs font-black text-acc bdr-acc bg-acc-soft shrink-0">+</button></div></div><div class="flex items-center justify-between gap-1.5"><button type="button" data-action="cres-step" data-delta="-1" class="btn w-8 h-8">−</button><div class="flex items-center gap-1.5"><input id="inp_cresCurrent" data-cres="current" type="text" inputmode="numeric" value="${esc(S.customRes.current)}" class="inp w-14 text-center text-base font-black"/><span class="t-mut font-bold">/</span><input id="inp_cresMax" data-cres="max" data-tip="${cresTip}" type="text" inputmode="numeric" value="${cresMax}" style="color:${esc(crCol)}" class="inp w-14 text-center text-base font-black cursor-help"/><span id="val_cresMaxEff" data-tip="${cresTip}" class="text-xs font-black cursor-help ${M.cresMax?'':'hidden'}" style="color:${esc(crCol)}">(${cresBase})</span></div><button type="button" data-action="cres-step" data-delta="1" class="btn w-8 h-8">+</button></div></div>
+        ${(S.extraSecList||[]).map(ex=>{const exKey='ex_'+ex.id,exCol=getSecCol(exKey),exBase=getExtraSecBase(ex),exEff=M.extraSec?.[ex.id]||0,exMax=exBase+exEff,exTip=esc(buildSecTip(exKey,M)),isDelAsk=UI.confirmDelExSecId===ex.id;return `<div class="md:col-span-4 card sc-card flex flex-col justify-between gap-2.5 min-w-0" style="--sc:${esc(exCol)}"><div class="flex items-center justify-between gap-2"><div class="flex flex-wrap items-center gap-1.5 flex-1 min-w-0"><input id="exName_${ex.id}" data-exsec="${ex.id}:name" type="text" value="${esc(ex.name)}" placeholder="Sekundärattribut..." data-tip="${exTip}" style="color:${esc(exCol)}" class="inp-line text-xs font-extrabold flex-1 min-w-[90px]"/><span id="chip_ex_${ex.id}Max">${modChip(exEff)}</span>${resBadge(exKey)}</div><div class="flex items-center gap-1 shrink-0">${secGearBtn(exKey,exCol)}${isDelAsk?`<span class="inline-flex items-center gap-1"><button type="button" data-action="confirm-del-extra-sec" data-id="${ex.id}" class="btn bg-rose-600 text-white border-rose-600 py-1 px-2 text-[11px] font-black">Sicher? (2/2)</button><button type="button" data-action="cancel-del-extra-sec" class="btn w-7 h-7 p-0 text-xs">✕</button></span>`:`<button type="button" data-action="ask-del-extra-sec" data-id="${ex.id}" data-tip="Sekundärattribut entfernen (zweistufige Sicherheitsabfrage)" class="btn btn-err w-7 h-7 p-0 text-xs font-black shrink-0">✕</button>`}</div></div><div class="flex items-center justify-between gap-1.5"><button type="button" data-action="exsec-step" data-id="${ex.id}" data-delta="-1" class="btn w-8 h-8">−</button><div class="flex items-center gap-1.5"><input id="inp_ex_${ex.id}_cur" data-exsec="${ex.id}:current" type="text" inputmode="numeric" value="${esc(ex.current)}" class="inp w-14 text-center text-base font-black"/><span class="t-mut font-bold">/</span><input id="inp_ex_${ex.id}_max" data-exsec="${ex.id}:max" data-tip="${exTip}" type="text" inputmode="numeric" value="${exMax}" style="color:${esc(exCol)}" class="inp w-14 text-center text-base font-black cursor-help"/><span id="val_ex_${ex.id}_eff" data-tip="${exTip}" class="text-xs font-black cursor-help ${exEff?'':'hidden'}" style="color:${esc(exCol)}">(${exBase})</span></div><button type="button" data-action="exsec-step" data-id="${ex.id}" data-delta="1" class="btn w-8 h-8">+</button></div></div>`;}).join('')}
         <div class="md:col-span-12 flex justify-end -mt-1"><button type="button" data-action="add-extra-sec" class="btn py-1 px-2.5 text-xs bdr-acc bg-acc-soft text-acc">+ Sekundärattribut hinzufügen</button></div>
       </section>
-      <div class="grid grid-cols-1 xl:grid-cols-12 gap-4 items-start"><div class="xl:col-span-8 2xl:col-span-9">${renderStatusEffectsSection()}</div><div class="xl:col-span-4 2xl:col-span-3">${renderInspirationSection()}</div></div>
+      <div class="grid grid-cols-1 xl:grid-cols-12 gap-4 items-start"><div class="xl:col-span-8 2xl:col-span-9">${renderStatusEffectsSection()}</div><div class="xl:col-span-4 2xl:col-span-3 space-y-4">${renderInspirationSection()}${renderReservationsSection()}</div></div>
       <section class="grid grid-cols-1 md:grid-cols-2 gap-4 tabular">${[['VERWUNDUNGSSCHWELLEN',getSecCol('lp'),[['woundLight','leicht','t-mut'],['woundMedium','mittel','text-amber-500'],['woundHeavy','schwer','text-rose-500']]],['TRAUMASCHWELLEN',getSecCol('mlp'),[['traumaLight','leicht','t-mut'],['traumaMedium','mittel','text-amber-500'],['traumaHeavy','schwer','text-indigo-400']]]].map(([h,hc,arr])=>`<div class="card"><h3 class="text-xs font-extrabold tracking-wider mb-2.5" style="color:${esc(hc)}">${h}</h3><div class="grid grid-cols-3 gap-2.5 text-center">${arr.map(([k,l,c])=>{const b=toInt(S.thresholds[k],0),em=M[k]||0,eff=b+em,thTip=esc(buildSecTip(k,M));return `<div id="thBox_${k}" data-tip="${thTip}" class="subcard p-2 cursor-help"><label class="block text-[11px] font-bold ${c} mb-1">${l} <span id="thEff_${k}" class="text-[10px] text-emerald-400 ${em?'':'hidden'}">(${b})</span></label><input id="thInp_${k}" data-th="${k}" type="text" inputmode="numeric" value="${eff}" class="inp w-full text-center text-lg font-black py-0.5 ${em?'!border-emerald-500/60 text-emerald-300':''}"/></div>`;}).join('')}</div></div>`).join('')}</section>
       <section class="card"><div class="flex flex-wrap items-center justify-between gap-2 mb-3"><h3 class="text-sm sm:text-base font-extrabold" data-tip="Meter pro Bewegen-Aktion (Standard-BSt = 1/5 der Basis-Bewegung; Änderungen der BSt durch Overwrite oder Statuseffekte wirken auf Bew (BSt)). Bew (BSt) kann pro Zeile auch manuell überschrieben werden.">Bewegungen (Bew &amp; BSt)</h3><div class="flex flex-wrap items-center gap-2 min-w-0"><div id="bstBox" data-tip="${bstTip}" class="subcard py-1 px-2.5 flex flex-wrap items-center gap-1.5 sm:gap-2 cursor-help max-w-full"><span class="text-xs font-extrabold text-acc">BSt:</span><button type="button" data-action="bst-step" data-delta="-1" class="btn w-7 h-7 p-0">−</button><input id="val_bstEff" data-bst-inp="1" type="text" inputmode="numeric" value="${bst}" class="inp w-14 md:w-12 text-center font-black text-sm tabular py-0.5 px-1 ${hasBstOvr()?'!border-amber-400 text-amber-300':'text-acc'}"/><button type="button" id="rst_bstOvr" data-action="reset-bst-ovr" data-tip="Manueller Overwrite aktiv – Klicken für Standardberechnung (${getBstAuto()})" class="text-[10px] font-black text-amber-400 hover:underline ${hasBstOvr()?'':'hidden'}">(${getBstAuto()})</button><span id="val_bstOrig" class="text-xs font-black text-acc ${M.bst?'':'hidden'}">(${getBstBase()})</span><span id="chip_bstMod">${modChip(M.bst)}</span><button type="button" data-action="bst-step" data-delta="1" class="btn w-7 h-7 p-0">+</button></div><button type="button" data-action="add-move" class="btn">+ Bewegungsart</button></div></div>
       <div class="overflow-x-auto"><table class="tbl r-tbl min-w-[540px] text-sm tabular"><thead><tr><th class="text-left">Art</th><th class="text-center">Basis (m)</th><th class="text-center">Bew (BSt)</th><th class="text-center">Bew/2</th><th class="text-center">Bew*2</th><th></th></tr></thead><tbody>${S.movements.map((mv,idx)=>{const bstDelta=getEffBst(M)-getBstAuto(),autoBew=Math.max(0,toFlt(mv.base,5)+M.moveBase+bstDelta),hasOvr=mv.ovr!==undefined&&mv.ovr!==null&&String(mv.ovr).trim()!=='',bew=hasOvr?Math.max(0,toFlt(mv.ovr,autoBew)):autoBew;return `<tr><td data-lbl="Art"><input data-mv="${mv.id}:type" type="text" value="${esc(mv.type)}" class="inp-line w-full min-w-0 text-right md:text-left font-bold"/></td><td data-lbl="Basis (m)" class="text-center"><input data-mv="${mv.id}:base" type="text" inputmode="decimal" value="${esc(mv.base)}" class="inp w-16 text-center font-bold py-1"/></td><td data-lbl="Bew (BSt)" class="text-center"><div class="inline-flex flex-wrap items-center justify-end md:justify-center gap-1"><input id="mv1_${mv.id}" data-mv="${mv.id}:ovr" type="text" inputmode="decimal" value="${fmtN(bew)}" data-tip="${hasOvr?`Manueller Overwrite aktiv (Automatisch: ${fmtN(autoBew)} m)\nFeld leeren oder auf (${fmtN(autoBew)}) klicken für Automatik`:`Automatisch berechnet: ${fmtN(autoBew)} m (Basis + BSt)\nDirekt eintippen für manuellen Overwrite`}" class="inp w-16 text-center font-extrabold py-1 text-acc ${hasOvr?'!border-amber-400 text-amber-300':''}"/><span class="text-xs font-bold t-mut">m</span><button type="button" id="mvOvrReset_${mv.id}" data-action="reset-mv-ovr" data-id="${mv.id}" data-tip="Manueller Overwrite aktiv – Klicken für Standardberechnung (${fmtN(autoBew)} m)" class="text-xs font-black text-amber-400 hover:underline ${hasOvr?'':'hidden'}">(${fmtN(autoBew)})</button></div></td><td id="mv2_${mv.id}" data-lbl="Bew/2" class="text-center font-bold">${fmtN(bew/2)} m</td><td id="mv3_${mv.id}" data-lbl="Bew*2" class="text-center font-bold">${fmtN(bew*2)} m</td><td class="text-right justify-end">${idx>0?`<button type="button" data-action="del-move" data-id="${mv.id}" class="t-mut hover:text-rose-500 font-bold px-1">✕</button>`:''}</td></tr>`;}).join('')}</tbody></table></div></section>
@@ -4481,7 +4764,10 @@
         ${parentBadgeHtml}${viaParentBadgeHtml}
         ${renderColorPairBtns('open-pw-color',`data-kind="${kind}" data-id="${it.id}"`,it,false,'Textfarbe (Name) anpassen','Fensterfarbe (Hintergrund) anpassen')}</div>`;
       const stToksInCard=parseStatusTokens(it.effects), uCosts=Array.isArray(it.useCosts)?it.useCosts:(it.useRes&&toInt(it.useAmt,0)>0?[{res:it.useRes,amt:toInt(it.useAmt,0)}]:[]), costSummary=formatPwUseCosts(it), hasUseCost=Boolean(costSummary), canSpendPw=hasUseCost||stToksInCard.length>0;
+      const reservableCosts=getReservablePwCosts(it), isReserved=Boolean(it.reserved), activeResCosts=(isReserved&&Array.isArray(it.reservedCosts)&&it.reservedCosts.length)?it.reservedCosts:reservableCosts, resTxt=activeResCosts.map(rc=>`${rc.amt} ${getResLabel(rc.res)}`).join(' + ');
+      const resChipHtml=isReserved?`<button type="button" data-action="toggle-reserve-pw" data-kind="${kind}" data-id="${it.id}" data-tip="Reservierung aufheben (verbrauchte Kosten werden nicht wiederhergestellt)" class="btn py-0.5 px-2 text-[11px] bg-amber-500/25 border-amber-400 text-amber-300 font-black tabular">🔒 Reserviert (${esc(resTxt)}) ✕</button>`:'';
       const hdrRight=`<div class="flex flex-wrap items-center gap-1.5">
+        ${resChipHtml}
         ${it.collapsed?`<span class="pill cursor-default text-[11px] py-0.5 px-2 tabular">${c.sp} SP${c.msp?` + ${c.msp} MsP`:''}</span>${canSpendPw?`<button type="button" data-action="spend-pw" data-kind="${kind}" data-id="${it.id}" class="btn btn-pri py-0.5 px-2 text-[11px]">⚡ ${hasUseCost?esc(costSummary):'Einsetzen'}</button>`:''}`:''}
         ${!isAug&&!it.collapsed?secOpts:''}
         ${isAug&&!it.collapsed?`<select data-ag-link="${it.id}" data-tip="Einer Kraft zuordnen (max. 3 Slots)" class="inp py-1 px-2 text-xs font-bold max-w-full sm:max-w-[200px]">${pOpts}</select>`:''}
@@ -4532,6 +4818,7 @@
                 ${getAvailableUseResources().map(r=>`<option value="${esc(r.res)}">${esc(r.label)}</option>`).join('')}
               </select>
               <button type="button" data-action="spend-pw" data-kind="${kind}" data-id="${it.id}" ${!canSpendPw?'disabled':''} class="btn btn-pri py-1.5 px-2.5 text-xs shrink-0">⚡ ${hasUseCost?esc(costSummary):'Einsetzen'}</button>
+              <button type="button" data-action="toggle-reserve-pw" data-kind="${kind}" data-id="${it.id}" ${!isReserved&&reservableCosts.length===0?'disabled':''} data-tip="${isReserved?'Reservierung aufheben (verbrauchte Kosten werden nicht wiederhergestellt)':'Zieht reservierbare Einsatzkosten sofort ab und sperrt den Betrag vom Maximum'}" class="btn py-1.5 px-2.5 text-xs shrink-0 ${isReserved?'bg-amber-500/25 border-amber-400 text-amber-300 font-black':''}">${isReserved?`🔒 Reserviert (${esc(resTxt)}) • Aufheben`:'🔒 Reservieren'}</button>
             </div>
           </div>
         </div>
@@ -4987,11 +5274,11 @@
         <input data-eqcv="${kind}:${itemId}:${cv.id}:val" type="text" inputmode="numeric" value="${esc(cv.val)}" placeholder="${phVal}" class="inp w-full text-center font-black py-1 px-1 text-xs"/>
       </div>`).join('');
     }
-    function renderAddWeaponDropdown(ddKey,btnCls='btn'){
+    function renderAddWeaponDropdown(ddKey,btnCls='btn',alignRight=false){
       const isOpen=UI.openPwMenu===ddKey;
       return `<div class="pw-dd-wrap inline-block">
         <button type="button" data-action="toggle-pw-dd" data-ddkey="${esc(ddKey)}" aria-expanded="${isOpen?'true':'false'}" class="${btnCls}${isOpen?' bdr-acc':''}">+ Waffe ▾</button>
-        ${isOpen?`<div class="pw-dd-menu">
+        ${isOpen?`<div class="pw-dd-menu${alignRight?' pw-dd-menu-right':''}">
           ${WEAPON_SUBTYPES.map(st=>`<button type="button" class="pw-dd-item" data-action="add-weapon" data-wtype="${esc(st.key)}"><span class="inline-flex items-center gap-1.5"><span>${esc(st.icon)}</span><span>${esc(st.label)}</span></span></button>`).join('')}
         </div>`:''}
       </div>`;
@@ -5317,7 +5604,7 @@
       </div>`;
 
       if(secKey==='weapons'){
-        return `<section data-eqsec="weapons" class="card space-y-3" ${winStyle}>
+        return `<section data-eqsec="weapons" class="card space-y-3${(UI.openPwMenu==='eq-add-weapon:sec')?' relative z-[25] !overflow-visible':''}" ${winStyle}>
           ${hdrCommon(`⚔️ Waffen (${S.weapons.length})`,`<button type="button" data-action="open-list" data-ltype="weaponTags" class="btn py-0.5 px-2 text-xs">⚙️ Waffeneigenschaften (${S.weaponTagList.length})</button>`,renderAddWeaponDropdown('eq-add-weapon:sec','btn py-1 px-2.5 text-xs'))}
           ${!meta.collapsed?(!S.weapons.length?`<div class="py-4 text-center text-xs t-mut">Noch keine Waffen eingetragen.</div>`:`<div class="space-y-3">${S.weapons.map((w,i)=>renderWeaponCard(w,i,S.weapons.length)).join('')}</div>`):''}
         </section>`;
@@ -5354,7 +5641,7 @@
       const hzNames=[...new Set(S.hitZones.map(z=>String(z.zone||'').trim()).filter(Boolean))];
       const eqH=S.bioBoxH?.equipNotes>0?`style="height:${S.bioBoxH.equipNotes}px"`:'';
       const ord=Array.isArray(S.equipSecOrder)&&S.equipSecOrder.length===4?S.equipSecOrder:DEF_EQ_SEC_ORDER;
-      return `<section class="card flex flex-wrap items-center justify-between gap-3">
+      return `<section class="card flex flex-wrap items-center justify-between gap-3${(UI.openPwMenu==='eq-add-weapon:top')?' relative z-[25] !overflow-visible':''}">
         <div>
           <h2 class="text-base sm:text-lg font-extrabold" data-tip="Kategorien und einzelne Gegenstände lassen sich über ⠿ per Drag &amp; Drop oder ▲/▼ verschieben, über ▾/▸ ein- und ausklappen sowie über 🎨/🪟 einfärben.">Ausrüstung – Waffen, Munition, Rüstungen &amp; Inventar</h2>
           <p class="text-xs t-mut">Kategorien &amp; Einträge sind frei sortierbar (⠿ / ▲▼), klappbar (▾/▸) und einfärbbar (🎨 Text / 🪟 Fenster).</p>
@@ -5362,7 +5649,7 @@
         <div class="flex flex-wrap items-center gap-1.5">
           <button type="button" data-action="collapse-all-eq" data-val="1" class="btn py-1 px-2.5 text-xs">▸ Alle einklappen</button>
           <button type="button" data-action="collapse-all-eq" data-val="0" class="btn py-1 px-2.5 text-xs">▾ Alle ausklappen</button>
-          ${renderAddWeaponDropdown('eq-add-weapon:top','btn')}
+          ${renderAddWeaponDropdown('eq-add-weapon:top','btn',true)}
           <button type="button" data-action="add-ammo" class="btn border-amber-400/60 text-amber-400">🎯 + Munition</button>
           <button type="button" data-action="add-armor" class="btn border-emerald-400/60 text-emerald-400">🛡️ + Rüstung</button>
           <button type="button" data-action="add-inv" class="btn">🎒 + Inventar</button>
@@ -6853,6 +7140,122 @@
       closeActiveModal();
     }
 
+    function renderPatchnotesTabHtml(){
+      const isAdm=Boolean(CLOUD.isAdmin);
+      const entries=Array.isArray(PATCHNOTES.entries)?PATCHNOTES.entries:[];
+      const edId=isAdm?PATCHNOTES.editingId:null;
+      const d=(edId&&PATCHNOTES.draft)?PATCHNOTES.draft:{id:uid(),title:'',version:'',ts:stamp(),updatedAt:'',intro:'',items:[{id:uid(),heading:'',text:''}]};
+      const dItems=Array.isArray(d.items)&&d.items.length?d.items:[{id:uid(),heading:'',text:''}];
+      const editorHtml=(isAdm&&edId)?`<div class="subcard p-3.5 space-y-3 border-2 border-amber-400/70 bg-amber-500/10">
+        <div class="flex flex-wrap items-center justify-between gap-2 border-b bdr-line pb-2">
+          <div class="text-xs sm:text-sm font-black text-amber-300 flex items-center gap-1.5">
+            <span>👑 ${edId==='__new__'?'Neuen Patchnotes-Eintrag erstellen':'Patchnotes-Eintrag bearbeiten'}</span>
+          </div>
+          <span class="text-[11px] t-mut">Fokus-stabiler Live-Entwurf</span>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-12 gap-2.5 text-xs">
+          <div class="sm:col-span-6">
+            <label class="font-bold t-mut block mb-1">Titel</label>
+            <input type="text" data-pn-field="title" value="${esc(d.title||'')}" placeholder="z.B. Großes Kampagnen- &amp; UI-Update" class="inp w-full font-extrabold"/>
+          </div>
+          <div class="sm:col-span-2">
+            <label class="font-bold t-mut block mb-1">Version (optional)</label>
+            <input type="text" data-pn-field="version" value="${esc(d.version||'')}" placeholder="z.B. v2.4" class="inp w-full font-bold tabular"/>
+          </div>
+          <div class="sm:col-span-4">
+            <label class="font-bold t-mut block mb-1">Zeitstempel</label>
+            <div class="flex items-center gap-1.5">
+              <input type="text" data-pn-field="ts" value="${esc(d.ts||stamp())}" placeholder="TT.MM.JJJJ, HH:MM" class="inp flex-1 min-w-0 font-semibold tabular"/>
+              <button type="button" data-action="pn-set-now" data-tip="Aktuelles Datum &amp; Uhrzeit eintragen" class="btn py-1 px-2 text-xs shrink-0">🕒 Jetzt</button>
+            </div>
+          </div>
+          <div class="sm:col-span-12">
+            <label class="font-bold t-mut block mb-1">Kurze Einleitung (optional)</label>
+            <textarea data-pn-field="intro" rows="2" placeholder="Kurze Zusammenfassung oder Kontext zum Update..." class="inp w-full resize-y">${esc(d.intro||'')}</textarea>
+          </div>
+        </div>
+        <div class="space-y-2 pt-1">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <label class="text-xs font-extrabold text-acc uppercase tracking-wider">Oberbegriffe &amp; Erklärungen (${dItems.length})</label>
+            <button type="button" data-action="pn-item-add" class="btn bg-acc-soft bdr-acc text-acc py-1 px-2.5 text-xs font-extrabold">+ Oberbegriff hinzufügen</button>
+          </div>
+          <div class="space-y-2">
+            ${dItems.map((it,idx)=>`<div class="subcard p-2.5 space-y-2 bg-black/25 border bdr-line">
+              <div class="flex items-center justify-between gap-2">
+                <div class="flex items-center gap-1.5 flex-1 min-w-0">
+                  <span class="px-1.5 py-0.5 rounded bg-acc-soft border bdr-acc text-acc font-black text-[10px] tabular shrink-0">#${idx+1}</span>
+                  <input type="text" data-pn-item="${idx}:heading" value="${esc(it.heading||'')}" placeholder="Oberbegriff (z.B. Würfelassistent, Neue Kräfte, Bugfixes)..." class="inp flex-1 min-w-0 font-extrabold text-xs"/>
+                </div>
+                <div class="flex items-center gap-1 shrink-0">
+                  <button type="button" data-action="pn-item-move" data-idx="${idx}" data-dir="-1" ${idx===0?'disabled':''} data-tip="Punkt nach oben verschieben" class="btn w-6 h-6 p-0 text-[10px]">▲</button>
+                  <button type="button" data-action="pn-item-move" data-idx="${idx}" data-dir="1" ${idx===dItems.length-1?'disabled':''} data-tip="Punkt nach unten verschieben" class="btn w-6 h-6 p-0 text-[10px]">▼</button>
+                  <button type="button" data-action="pn-item-del" data-idx="${idx}" data-tip="Punkt entfernen" class="btn btn-err w-6 h-6 p-0 text-[10px] font-black">✕</button>
+                </div>
+              </div>
+              <div>
+                <textarea data-pn-item="${idx}:text" rows="2" placeholder="Erklärung / Details zu diesem Oberbegriff..." class="inp w-full text-xs resize-y leading-relaxed">${esc(it.text||'')}</textarea>
+              </div>
+            </div>`).join('')}
+          </div>
+        </div>
+        <div class="flex flex-wrap items-center justify-between gap-2 pt-2 border-t bdr-line">
+          <button type="button" data-action="pn-item-add" class="btn py-1 px-2.5 text-xs">+ Oberbegriff hinzufügen</button>
+          <div class="flex flex-wrap items-center gap-2">
+            <button type="button" data-action="pn-cancel" ${PATCHNOTES.saving?'disabled':''} class="btn py-1.5 px-3 text-xs">Abbrechen</button>
+            <button type="button" data-action="pn-save" ${PATCHNOTES.saving?'disabled':''} class="btn btn-ok py-1.5 px-3.5 text-xs font-black">${PATCHNOTES.saving?'⏳ Speichert...':'☁️ Auf Server speichern'}</button>
+          </div>
+        </div>
+      </div>`:'';
+
+      const cardsHtml=entries.length?`<div class="space-y-3">${entries.map((e,idx)=>{
+        const items=Array.isArray(e.items)?e.items.filter(it=>it&&(String(it.heading||'').trim()||String(it.text||'').trim())):[];
+        const showUpd=Boolean(e.updatedAt&&e.updatedAt!==e.ts);
+        const isDelAsk=isAdm&&PATCHNOTES.confirmDelId===e.id;
+        return `<div class="subcard p-3.5 space-y-2.5 border bdr-line hover:border-sky-500/40 transition-colors">
+          <div class="flex flex-wrap items-start justify-between gap-2 border-b bdr-line pb-2">
+            <div class="space-y-1 min-w-0 flex-1">
+              <div class="flex flex-wrap items-center gap-2">
+                ${e.version?`<span class="px-2 py-0.5 rounded-md bg-acc-soft border bdr-acc text-acc font-black text-xs tabular">${esc(e.version)}</span>`:''}
+                <h4 class="text-sm sm:text-base font-black tracking-tight break-words">${esc(e.title||'Patchnotes')}</h4>
+              </div>
+              <div class="flex flex-wrap items-center gap-2 text-[11px] t-mut tabular">
+                <span>🕒 ${esc(e.ts||'')}</span>
+                ${showUpd?`<span>• bearbeitet: ${esc(e.updatedAt)}</span>`:''}
+              </div>
+            </div>
+            ${isAdm?`<div class="flex flex-wrap items-center gap-1 shrink-0">
+              <button type="button" data-action="pn-edit" data-id="${esc(e.id)}" class="btn py-1 px-2 text-xs font-bold">✎ Bearbeiten</button>
+              ${entries.length>1?`<button type="button" data-action="pn-move" data-id="${esc(e.id)}" data-dir="-1" ${idx===0||PATCHNOTES.saving?'disabled':''} data-tip="Eintrag nach oben" class="btn py-1 px-1.5 text-xs">▲</button><button type="button" data-action="pn-move" data-id="${esc(e.id)}" data-dir="1" ${idx===entries.length-1||PATCHNOTES.saving?'disabled':''} data-tip="Eintrag nach unten" class="btn py-1 px-1.5 text-xs">▼</button>`:''}
+              ${isDelAsk
+                ?`<span class="inline-flex items-center gap-1"><button type="button" data-action="pn-confirm-del" data-id="${esc(e.id)}" class="btn bg-rose-600 text-white border-rose-600 py-1 px-2 text-[11px] font-black">Löschen? (2/2)</button><button type="button" data-action="pn-cancel-del" class="btn py-1 px-1.5 text-[11px]">✕</button></span>`
+                :`<button type="button" data-action="pn-ask-del" data-id="${esc(e.id)}" data-tip="Eintrag löschen (2-Stufen)" class="btn btn-err py-1 px-2 text-xs">🗑️</button>`}
+            </div>`:''}
+          </div>
+          ${String(e.intro||'').trim()?`<p class="text-xs t-mut whitespace-pre-line leading-relaxed">${esc(e.intro)}</p>`:''}
+          ${items.length?`<div class="space-y-2 pt-0.5">${items.map(it=>`<div class="p-2.5 rounded-lg bg-black/20 border bdr-line space-y-1">
+            ${String(it.heading||'').trim()?`<div class="font-extrabold text-xs sm:text-sm text-acc break-words">${esc(it.heading)}</div>`:''}
+            ${String(it.text||'').trim()?`<div class="text-xs leading-relaxed whitespace-pre-line break-words">${esc(it.text)}</div>`:''}
+          </div>`).join('')}</div>`:''}
+        </div>`;
+      }).join('')}</div>`:`<div class="subcard border-dashed py-8 px-4 text-center text-xs t-mut">${PATCHNOTES.loading?'⏳ Patchnotes werden vom Server geladen...':'Noch keine Patchnotes hinterlegt.'}</div>`;
+
+      return `<div class="space-y-3.5">
+        <div class="flex flex-wrap items-center justify-between gap-2 pb-2 border-b bdr-line">
+          <div class="flex flex-wrap items-center gap-2">
+            <h3 class="text-sm sm:text-base font-black text-acc">📋 Patchnotes &amp; Änderungen</h3>
+            <span class="pill cursor-default text-[10px] py-0.5 px-2 tabular">${entries.length} ${entries.length===1?'Eintrag':'Einträge'}</span>
+            ${PATCHNOTES.lastLoadedTs?`<span class="text-[11px] t-mut tabular">Stand: ${esc(PATCHNOTES.lastLoadedTs)}</span>`:''}
+          </div>
+          <div class="flex flex-wrap items-center gap-1.5">
+            <button type="button" data-action="pn-refresh" ${PATCHNOTES.loading?'disabled':''} class="btn py-1 px-2.5 text-xs font-bold">${PATCHNOTES.loading?'⏳ Lädt...':'🔄 Aktualisieren'}</button>
+            ${isAdm?`<button type="button" data-action="pn-new" class="btn btn-pri py-1 px-2.5 text-xs font-extrabold">+ Neuer Eintrag</button>`:''}
+          </div>
+        </div>
+        ${PATCHNOTES.error?`<div class="p-2.5 rounded-xl border border-amber-400/50 bg-amber-500/15 text-amber-200 text-xs font-semibold">${esc(PATCHNOTES.error)}</div>`:''}
+        ${editorHtml}
+        ${cardsHtml}
+      </div>`;
+    }
     function renderModal(fromRenderAll=false){
       const m=$('modalMount');
       syncBodyScrollLock();
@@ -7213,9 +7616,10 @@
         return;
       }
       if(UI.modal==='info'){
-        const tabs=[['dice','1. Würfelsystem'],['prog','2. Steigerung'],['gloss','3. Glossar']].map(([k,l])=>`<button type="button" data-action="info-tab" data-itab="${k}" class="btn py-1 px-2.5 text-xs ${UI.infoTab===k?'btn-pri':''}">${l}</button>`).join('');
+        const tabs=[['dice','1. Würfelsystem'],['prog','2. Steigerung'],['gloss','3. Glossar'],['patchnotes','📋 Patchnotes']].map(([k,l])=>`<button type="button" data-action="info-tab" data-itab="${k}" class="btn py-1 px-2.5 text-xs ${UI.infoTab===k?'btn-pri':''}">${l}</button>`).join('');
         const body=UI.infoTab==='dice'?`<div class="subcard text-center py-3 font-extrabold bdr-acc bg-acc-soft">Testschwelle = Charakterwert + 50 − Schwierigkeit + Vor-/Nachteils-Bonus</div><p>Mit <strong>W100 (1–100)</strong> die Schwelle erreichen oder unterbieten (1 = immer kritischer Erfolg, 100 = immer Patzer). Netto-Vor-/Nachteile: 1=±10, 2=±15, 3=±20, 4=±25, 5+=±30. Kritisch bei Endziffer 1 (erweiterbar). EG = ⌈Wurf/10⌉, MEG = ⌈(101−Wurf)/10⌉.</p>`
         :UI.infoTab==='prog'?`<div class="subcard space-y-1.5"><p><strong>Stufen:</strong> 100 EP = +1 Stufe (pro Stufe +5 SP, jede 10. Stufe +1 MsP).</p><p><strong>Training:</strong> Block 1 &amp; 2 je 2 SP (+5), Block 3 &amp; 4 je 3 SP (+5), Block 5 = 5 SP + 1 MsP (+10).</p><p><strong>Fertigkeiten:</strong> Marginal 1/1/2/2+MsP • Fundamental 2/2/3/3+MsP • Grandios 3/2/3/4+MsP.</p><p><strong>Kräfte &amp; Augmente:</strong> Marginal 1 SP • Fundamental 2 SP • Grandios 2 SP + 1 MsP (max. 1 MsP kollektiv pro Kraft-Gruppe).</p></div>`
+        :UI.infoTab==='patchnotes'?renderPatchnotesTabHtml()
         :`<div class="grid grid-cols-1 md:grid-cols-2 gap-2.5">${GLOSSARY.map(([a,n,d])=>`<div class="subcard p-2.5 flex gap-2.5"><span class="px-2 py-0.5 rounded bg-acc-soft border bdr-acc text-acc font-black text-xs shrink-0 self-start">${a}</span><div><div class="font-extrabold text-xs">${n}</div><div class="text-xs t-mut">${d}</div></div></div>`).join('')}</div>`;
         m.innerHTML=modalShell('Scherbensturm – Regelreferenz','',body,`<button type="button" data-action="close-modal" class="btn btn-pri px-6">Schließen</button>`,'max-w-3xl',tabs);
       }
@@ -7906,8 +8310,32 @@
           break;
         }
         case 'open-chrsec-color': if(!S.chrSecMeta)S.chrSecMeta=makeChrSecMeta(); openDualColorModal('chrsec',el.dataset.sec,el.dataset.cmode); break;
-        case 'sec-step': S.secondary[el.dataset.field]=toInt(S.secondary[el.dataset.field])+Number(el.dataset.delta); renderMain(); save(); break;
-        case 'cres-step': S.customRes.current=toInt(S.customRes.current)+Number(el.dataset.delta); renderMain(); save(); break;
+        case 'sec-step': {
+          const f=el.dataset.field, d=Number(el.dataset.delta);
+          let next=toInt(S.secondary[f])+d;
+          const resMap={lpCurrent:'lp',mlpCurrent:'mlp',apCurrent:'ap',mapCurrent:'map'};
+          const rKey=resMap[f];
+          if(rKey&&d>0){
+            const cap=getEffectivePoolCap(rKey);
+            if(cap.reserved>0&&next>cap.effMax){
+              next=cap.effMax;
+              toast(`🔒 ${cap.reserved} ${getResLabel(rKey)} reserviert (max. ${cap.effMax}/${cap.fullMax}) – zum Freigeben Reservierung aufheben.`);
+            }
+          }
+          S.secondary[f]=next; renderMain(); save(); break;
+        }
+        case 'cres-step': {
+          const d=Number(el.dataset.delta);
+          let next=toInt(S.customRes.current)+d;
+          if(d>0){
+            const cap=getEffectivePoolCap('cres');
+            if(cap.reserved>0&&next>cap.effMax){
+              next=cap.effMax;
+              toast(`🔒 ${cap.reserved} ${getResLabel('cres')} reserviert (max. ${cap.effMax}/${cap.fullMax}) – zum Freigeben Reservierung aufheben.`);
+            }
+          }
+          S.customRes.current=next; renderMain(); save(); break;
+        }
         case 'add-extra-sec': if(!Array.isArray(S.extraSecList))S.extraSecList=[]; S.extraSecList.push(makeExtraSec(S.extraSecList.length+1)); renderMain(); save(); toast('Sekundärattribut hinzugefügt'); break;
         case 'ask-del-extra-sec': UI.confirmDelExSecId=el.dataset.id; renderMain(); break;
         case 'cancel-del-extra-sec': UI.confirmDelExSecId=null; renderMain(); break;
@@ -7924,7 +8352,22 @@
           }
           break;
         }
-        case 'exsec-step': {const ex=(S.extraSecList||[]).find(x=>x.id===el.dataset.id);if(ex){ex.current=toInt(ex.current)+Number(el.dataset.delta);renderMain();save();}break;}
+        case 'exsec-step': {
+          const ex=(S.extraSecList||[]).find(x=>x.id===el.dataset.id);
+          if(ex){
+            const d=Number(el.dataset.delta);
+            let next=toInt(ex.current)+d;
+            if(d>0){
+              const rKey='ex_'+ex.id, cap=getEffectivePoolCap(rKey);
+              if(cap.reserved>0&&next>cap.effMax){
+                next=cap.effMax;
+                toast(`🔒 ${cap.reserved} ${getResLabel(rKey)} reserviert (max. ${cap.effMax}/${cap.fullMax}) – zum Freigeben Reservierung aufheben.`);
+              }
+            }
+            ex.current=next; renderMain(); save();
+          }
+          break;
+        }
         case 'open-attr-colors': UI.colTarget='attr'; UI.attrGroupSel='ST_KO'; UI.colDraft=S.attrColors.ST_KO; UI.modal='color'; renderModal(); break;
         case 'sel-attr-grp': UI.attrGroupSel=el.dataset.grp; UI.colDraft=S.attrColors[UI.attrGroupSel]; renderModal(); break;
         case 'open-sec-color': UI.colTarget=el.dataset.target; UI.colDraft=getSecCol(UI.colTarget); UI.modal='color'; renderModal(); break;
@@ -8011,7 +8454,7 @@
         case 'reset-hz': UI.confirmHzStep=1; UI.modal='resetHz'; renderModal(); break;
         case 'confirm-reset-hz-1': UI.confirmHzStep=2; renderModal(); break;
         case 'confirm-reset-hz-2': S.hitZones=JSON.parse(JSON.stringify(DEF_HZ)); S.lastHzRoll=null; UI.modal=null; renderMain(); renderModal(); save(); toast('Standard-Trefferzonen wiederhergestellt'); break;
-        case 'roll-hz': {const prevWinY=window.scrollY,prevWinX=window.scrollX;const r=rollW100();S.lastHzRoll=r;const hzHit=S.hitZones.find(z=>{const m=String(z.range||'').match(/\d+/g);return m&&r>=Math.min(+m[0],+(m[1]??m[0]))&&r<=Math.max(+m[0],+(m[1]??m[0]));});const isLobHz=Boolean(UI.inLobby);publishLiveRoll({id:uid(),tsMs:Date.now(),ts:new Date().toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit',second:'2-digit'}),senderTabId:LIVE_TAB_ID,charId:isLobHz?'':(S.charId||''),charName:isLobHz?(CLOUD.currentUser?CLOUD.currentUser:'Gast'):(String(S.profile.name||'').trim()||'Unbenannter Held'),playerName:isLobHz?'':String(CLOUD.currentUser||S.owner||'').trim(),campaignId:isLobHz?getActiveLiveCampaignId():getCharCampaignId(S.charId),label:'🎯 Trefferzonen-Wurf',isHz:true,hzZone:hzHit?`${hzHit.zone} (${hzHit.size||'normal'})`:'Keine Zone',th:100,chance:100,res:[{r,ok:true,crit:false,eg:0,meg:0}]});renderMain();if(window.scrollY!==prevWinY)window.scrollTo(prevWinX,prevWinY);save();if(!isSecretRollActive()) toast(`Trefferzone W100 = ${r}${hzHit?` (${hzHit.zone})`:''}`);break;}
+        case 'roll-hz': {const prevWinY=window.scrollY,prevWinX=window.scrollX;const r=rollW100(); if(r===69) triggerNiceEasterEgg();S.lastHzRoll=r;const hzHit=S.hitZones.find(z=>{const m=String(z.range||'').match(/\d+/g);return m&&r>=Math.min(+m[0],+(m[1]??m[0]))&&r<=Math.max(+m[0],+(m[1]??m[0]));});const isLobHz=Boolean(UI.inLobby);publishLiveRoll({id:uid(),tsMs:Date.now(),ts:new Date().toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit',second:'2-digit'}),senderTabId:LIVE_TAB_ID,charId:isLobHz?'':(S.charId||''),charName:isLobHz?(CLOUD.currentUser?CLOUD.currentUser:'Gast'):(String(S.profile.name||'').trim()||'Unbenannter Held'),playerName:isLobHz?'':String(CLOUD.currentUser||S.owner||'').trim(),campaignId:isLobHz?getActiveLiveCampaignId():getCharCampaignId(S.charId),label:'🎯 Trefferzonen-Wurf',isHz:true,hzZone:hzHit?`${hzHit.zone} (${hzHit.size||'normal'})`:'Keine Zone',th:100,chance:100,res:[{r,ok:true,crit:false,eg:0,meg:0}]});renderMain();if(window.scrollY!==prevWinY)window.scrollTo(prevWinX,prevWinY);save();if(!isSecretRollActive()) toast(`Trefferzone W100 = ${r}${hzHit?` (${hzHit.zone})`:''}`);break;}
         case 'roll-attr': {const k=el.dataset.attr,v=getAttrTot(k);D.weaponId=null;D.wRollCat='Normaler Test';D.skillId=null;D.attrKey=k;D.critOff=0;D.sitActive={};D.cMode='breakdown';D.cAttr=v;D.cSkill='0';D.cDirect=v;D.label=`Normaler Test: ${k} (${v})`;applyDiceAutoAdvDis(true);D.open=true;renderHeader();renderDice();break;}
         case 'toggle-sk-edit': {
           const sid=el.dataset.id;
@@ -8231,6 +8674,8 @@
           copy.templateId='';
           copy.collapsed=false;
           copy.showManual=false;
+          copy.reserved=false;
+          copy.reservedCosts=[];
           if(String(it.name||'').trim()) copy.name=makeUniquePwName(it.name);
           else copy.name='';
           let slotFullNotice=false;
@@ -8402,6 +8847,44 @@
         }
         case 'toggle-apply-mods': {const it=findPwItem(el.dataset.kind,el.dataset.id);if(it){withPoolSync(()=>{it.applyMods=!it.applyMods;});syncDiceFromSheet();renderAll();toast(it.applyMods?'Effekt-Bausteine auf Charakterbogen aktiv!':'Effekt-Bausteine deaktiviert');}break;}
         case 'spend-pw': spendResource(el.dataset.kind,el.dataset.id); break;
+        case 'toggle-reserve-pw': {
+          const kind=el.dataset.kind==='augment'?'augment':'power', it=findPwItem(kind,el.dataset.id);
+          if(!it) break;
+          const nm=String(it.name||'').trim()||(kind==='augment'?'Augment':'Kraft');
+          if(!it.reserved){
+            const costs=getReservablePwCosts(it);
+            if(!costs.length){
+              toast('⚠️ Bitte zuerst AP, mAP, LP oder mLP als Einsatzkosten eintragen.');
+              break;
+            }
+            costs.forEach(c=>{
+              if(c.res==='ap') S.secondary.apCurrent=toInt(S.secondary.apCurrent)-c.amt;
+              else if(c.res==='map') S.secondary.mapCurrent=toInt(S.secondary.mapCurrent)-c.amt;
+              else if(c.res==='lp') S.secondary.lpCurrent=toInt(S.secondary.lpCurrent)-c.amt;
+              else if(c.res==='mlp') S.secondary.mlpCurrent=toInt(S.secondary.mlpCurrent)-c.amt;
+              else if(c.res==='cres') S.customRes.current=toInt(S.customRes.current)-c.amt;
+              else if(String(c.res||'').startsWith('ex_')){
+                const ex=(S.extraSecList||[]).find(x=>'ex_'+x.id===c.res);
+                if(ex) ex.current=toInt(ex.current)-c.amt;
+              }
+            });
+            it.reserved=true;
+            it.reservedCosts=clone(costs);
+            const resTxt=costs.map(c=>`${c.amt} ${getResLabel(c.res)}`).join(' + ');
+            logChron(`🔒 Reserviert (${kind==='augment'?'Augment':'Kraft'}): ${nm} (${resTxt}).`);
+            save(); renderHeader(); renderMain();
+            toast(`🔒 Reserviert: ${nm} (${resTxt})`);
+          }else{
+            const prevCosts=(Array.isArray(it.reservedCosts)&&it.reservedCosts.length)?it.reservedCosts:getReservablePwCosts(it);
+            const resTxt=prevCosts.map(c=>`${c.amt} ${getResLabel(c.res)}`).join(' + ');
+            it.reserved=false;
+            it.reservedCosts=[];
+            logChron(`🔓 Reservierung aufgehoben (${kind==='augment'?'Augment':'Kraft'}): ${nm}${resTxt?` (${resTxt})`:''} – verbrauchte Kosten nicht wiederhergestellt.`);
+            save(); renderHeader(); renderMain();
+            toast('🔓 Reservierung aufgehoben (verbrauchte Kosten werden nicht wiederhergestellt).');
+          }
+          break;
+        }
         case 'rm-pw-ucost': {
           const it=findPwItem(el.dataset.kind,el.dataset.id), idx=toInt(el.dataset.cidx,-1);
           if(it){
@@ -9390,9 +9873,158 @@
           break;
         }
         case 'open-settings': S.appearance.editScope=UI.inLobby?'lobby':S.activeTab; UI.modal='settings'; UI.confirmNew=false; syncPalDraftFromSlot(); applyTheme(); renderModal(); break;
-        case 'open-info': UI.modal='info'; renderModal(); break;
+        case 'open-info': UI.modal='info'; renderModal(); if(UI.infoTab==='patchnotes'&&!PATCHNOTES.loaded&&!PATCHNOTES.loading) fetchPatchnotes(false); break;
+        case 'open-patchnotes': UI.modal='info'; UI.infoTab='patchnotes'; renderModal(); if(!PATCHNOTES.loaded&&!PATCHNOTES.loading) fetchPatchnotes(false); break;
         case 'close-modal': case 'close-modal-bg': closeActiveModal(); break;
-        case 'info-tab': UI.infoTab=el.dataset.itab; renderModal(); break;
+        case 'info-tab': UI.infoTab=el.dataset.itab; renderModal(); if(UI.infoTab==='patchnotes'&&!PATCHNOTES.loaded&&!PATCHNOTES.loading) fetchPatchnotes(false); break;
+        case 'pn-refresh': fetchPatchnotes(true); break;
+        case 'pn-new': {
+          if(!CLOUD.isAdmin) return;
+          PATCHNOTES.editingId='__new__';
+          PATCHNOTES.draft={id:uid(),title:'',version:'',ts:stamp(),updatedAt:'',intro:'',items:[{id:uid(),heading:'',text:''}]};
+          PATCHNOTES.confirmDelId=null;
+          renderModal();
+          break;
+        }
+        case 'pn-edit': {
+          if(!CLOUD.isAdmin) return;
+          const id=String(el.dataset.id||'').trim();
+          const found=(PATCHNOTES.entries||[]).find(x=>x&&x.id===id);
+          if(!found) return;
+          PATCHNOTES.editingId=found.id;
+          PATCHNOTES.draft=clone(found);
+          if(!Array.isArray(PATCHNOTES.draft.items)||!PATCHNOTES.draft.items.length){
+            PATCHNOTES.draft.items=[{id:uid(),heading:'',text:''}];
+          }
+          PATCHNOTES.confirmDelId=null;
+          renderModal();
+          break;
+        }
+        case 'pn-cancel': {
+          if(!CLOUD.isAdmin) return;
+          PATCHNOTES.editingId=null;
+          PATCHNOTES.draft=null;
+          renderModal();
+          break;
+        }
+        case 'pn-set-now': {
+          if(!CLOUD.isAdmin) return;
+          if(!PATCHNOTES.draft) return;
+          PATCHNOTES.draft.ts=stamp();
+          const tsInp=document.querySelector('[data-pn-field="ts"]');
+          if(tsInp) tsInp.value=PATCHNOTES.draft.ts;
+          else renderModal();
+          break;
+        }
+        case 'pn-item-add': {
+          if(!CLOUD.isAdmin) return;
+          if(!PATCHNOTES.draft) return;
+          if(!Array.isArray(PATCHNOTES.draft.items)) PATCHNOTES.draft.items=[];
+          PATCHNOTES.draft.items.push({id:uid(),heading:'',text:''});
+          renderModal();
+          break;
+        }
+        case 'pn-item-del': {
+          if(!CLOUD.isAdmin) return;
+          if(!PATCHNOTES.draft||!Array.isArray(PATCHNOTES.draft.items)) return;
+          const idx=toInt(el.dataset.idx,-1);
+          if(idx>=0&&idx<PATCHNOTES.draft.items.length){
+            PATCHNOTES.draft.items.splice(idx,1);
+            if(!PATCHNOTES.draft.items.length) PATCHNOTES.draft.items.push({id:uid(),heading:'',text:''});
+            renderModal();
+          }
+          break;
+        }
+        case 'pn-item-move': {
+          if(!CLOUD.isAdmin) return;
+          if(!PATCHNOTES.draft||!Array.isArray(PATCHNOTES.draft.items)) return;
+          const idx=toInt(el.dataset.idx,-1), dir=toInt(el.dataset.dir,0), nxt=idx+dir;
+          if(idx>=0&&nxt>=0&&idx<PATCHNOTES.draft.items.length&&nxt<PATCHNOTES.draft.items.length){
+            const [it]=PATCHNOTES.draft.items.splice(idx,1);
+            PATCHNOTES.draft.items.splice(nxt,0,it);
+            renderModal();
+          }
+          break;
+        }
+        case 'pn-save': {
+          if(!CLOUD.isAdmin) return;
+          if(!PATCHNOTES.draft||PATCHNOTES.saving) return;
+          const cleanItems=(Array.isArray(PATCHNOTES.draft.items)?PATCHNOTES.draft.items:[]).map(it=>({
+            id:String(it?.id||'').trim()||uid(),
+            heading:String(it?.heading??'').trim(),
+            text:String(it?.text??'').trim()
+          })).filter(it=>it.heading||it.text);
+          const cleanTitle=String(PATCHNOTES.draft.title??'').trim();
+          if(!cleanTitle&&!cleanItems.length){
+            toast('⚠️ Bitte mindestens einen Titel oder einen Punkt (Oberbegriff/Erklärung) ausfüllen.');
+            return;
+          }
+          const isNew=PATCHNOTES.editingId==='__new__' || !(PATCHNOTES.entries||[]).some(e=>e&&e.id===PATCHNOTES.editingId);
+          const nowTs=stamp();
+          const cleanTs=String(PATCHNOTES.draft.ts??'').trim()||nowTs;
+          const entryObj=normalizePatchnoteEntry({
+            id:isNew?(String(PATCHNOTES.draft.id||'').trim()||uid()):PATCHNOTES.editingId,
+            title:cleanTitle||'Patchnotes',
+            version:String(PATCHNOTES.draft.version??'').trim(),
+            ts:cleanTs,
+            updatedAt:isNew?cleanTs:nowTs,
+            intro:String(PATCHNOTES.draft.intro??'').trim(),
+            items:cleanItems
+          });
+          const nextEntries=clone(PATCHNOTES.entries||[]);
+          if(isNew){
+            nextEntries.unshift(entryObj);
+          }else{
+            const eIdx=nextEntries.findIndex(e=>e&&e.id===PATCHNOTES.editingId);
+            if(eIdx>=0) nextEntries[eIdx]=entryObj;
+            else nextEntries.unshift(entryObj);
+          }
+          (async()=>{
+            const ok=await savePatchnotesToServer(nextEntries,isNew?'☁️ Neuer Patchnotes-Eintrag gespeichert!':'☁️ Patchnotes-Eintrag aktualisiert!');
+            if(ok){
+              PATCHNOTES.editingId=null;
+              PATCHNOTES.draft=null;
+              renderModal();
+            }
+          })();
+          break;
+        }
+        case 'pn-move': {
+          if(!CLOUD.isAdmin) return;
+          const id=String(el.dataset.id||'').trim(), dir=toInt(el.dataset.dir,0);
+          const list=clone(PATCHNOTES.entries||[]), idx=list.findIndex(e=>e&&e.id===id), nxt=idx+dir;
+          if(idx>=0&&nxt>=0&&idx<list.length&&nxt<list.length){
+            const [it]=list.splice(idx,1);
+            list.splice(nxt,0,it);
+            savePatchnotesToServer(list,'☁️ Reihenfolge der Patchnotes aktualisiert.');
+          }
+          break;
+        }
+        case 'pn-ask-del': {
+          if(!CLOUD.isAdmin) return;
+          PATCHNOTES.confirmDelId=String(el.dataset.id||'').trim()||null;
+          renderModal();
+          break;
+        }
+        case 'pn-cancel-del': {
+          if(!CLOUD.isAdmin) return;
+          PATCHNOTES.confirmDelId=null;
+          renderModal();
+          break;
+        }
+        case 'pn-confirm-del': {
+          if(!CLOUD.isAdmin) return;
+          const id=String(el.dataset.id||'').trim();
+          if(!id) return;
+          const nextEntries=(PATCHNOTES.entries||[]).filter(e=>e&&e.id!==id);
+          PATCHNOTES.confirmDelId=null;
+          if(PATCHNOTES.editingId===id){
+            PATCHNOTES.editingId=null;
+            PATCHNOTES.draft=null;
+          }
+          savePatchnotesToServer(nextEntries,'🗑️ Patchnotes-Eintrag gelöscht.');
+          break;
+        }
         case 'toggle-dark': S.appearance.dark=!S.appearance.dark; syncPalDraftFromSlot(); applyTheme(); renderModal(); save(); break;
         case 'app-mode': S.appearance.mode=el.dataset.mode; S.appearance.editScope=S.activeTab; syncPalDraftFromSlot(); applyTheme(); renderModal(); save(); break;
         case 'edit-scope': S.appearance.editScope=el.dataset.scope; syncPalDraftFromSlot(); applyTheme(); renderModal(); save(false); break;
@@ -9646,6 +10278,21 @@
     document.addEventListener('focusin',e=>{if(e.target.dataset?.cres==='name') e.target.dataset.prevCres=cresName();if(e.target.dataset?.exsec?.endsWith(':name')){const id=e.target.dataset.exsec.split(':')[0],ex=(S.extraSecList||[]).find(x=>x.id===id);if(ex)e.target.dataset.prevExName=getExtraSecName(ex);}if(e.target.dataset?.sk?.endsWith(':name')){const id=e.target.dataset.sk.split(':')[0],sk=S.skills.find(x=>x.id===id);if(sk)e.target.dataset.prevSkName=String(sk.name||'').trim();}if(e.target.dataset?.pwf?.endsWith(':name')){const [kind,id]=e.target.dataset.pwf.split(':'),it=findPwItem(kind,id);if(it)e.target.dataset.prevName=String(it.name||'');}});
 
     document.addEventListener('input',e=>{
+      if(e.target?.dataset?.pnField){
+        if(!CLOUD.isAdmin||!PATCHNOTES.draft) return;
+        const f=e.target.dataset.pnField;
+        if(f==='title'||f==='version'||f==='ts'||f==='intro') PATCHNOTES.draft[f]=e.target.value;
+        return;
+      }
+      if(e.target?.dataset?.pnItem){
+        if(!CLOUD.isAdmin||!PATCHNOTES.draft||!Array.isArray(PATCHNOTES.draft.items)) return;
+        const [idxStr,field]=e.target.dataset.pnItem.split(':');
+        const idx=toInt(idxStr,-1);
+        if(idx>=0&&idx<PATCHNOTES.draft.items.length&&(field==='heading'||field==='text')){
+          PATCHNOTES.draft.items[idx][field]=e.target.value;
+        }
+        return;
+      }
       if(e.target?.dataset?.pwlibInp){
         const f=e.target.dataset.pwlibInp;
         PWLIB[f]=e.target.value;
