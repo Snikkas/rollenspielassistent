@@ -10,7 +10,7 @@
   <style>
     :root{--bg:#020617;--surf:rgba(15,23,42,.92);--surf2:rgba(9,14,26,.95);--bdr:#1e293b;--txt:#f1f5f9;--mut:#94a3b8;--acc:#0ea5e9;--acc2:#6366f1;--accT:#38bdf8;--accS:rgba(56,189,248,.16);--accB:rgba(56,189,248,.45);--btnTxt:#fff;--t1:rgba(14,165,233,.18);--t2:rgba(99,102,241,.14)}
     *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-    body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--txt);overflow-x:hidden;margin:0}
+    body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--txt);margin:0}
     #bgLayer{position:fixed;inset:0;z-index:-2;background:var(--bg) center/cover no-repeat;transition:background-image .25s,filter .2s}
     #bgScrim{position:fixed;inset:0;z-index:-1;background:var(--bg);opacity:0;pointer-events:none;transition:opacity .2s}
     .tabular{font-variant-numeric:tabular-nums}.accent-bar{background:linear-gradient(90deg,var(--acc),var(--acc2),#f59e0b)}
@@ -65,9 +65,9 @@
     input[type="color"]{-webkit-appearance:none;appearance:none;border:none;padding:0;background:transparent;cursor:pointer}
     input[type="color"]::-webkit-color-swatch-wrapper{padding:0}input[type="color"]::-webkit-color-swatch{border:1px solid var(--bdr);border-radius:8px}
     input[type="range"]{accent-color:var(--acc)}::-webkit-scrollbar{width:6px;height:6px}::-webkit-scrollbar-thumb{background:rgba(148,163,184,.38);border-radius:99px}
-    .win-drag-hdr{cursor:move;user-select:none}
-    .win-resize-h{position:absolute;right:2px;bottom:2px;width:18px;height:18px;cursor:nwse-resize;display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--accT);opacity:.75;z-index:20;user-select:none}
-    .win-resize-w{position:absolute;left:0;top:0;bottom:0;width:6px;cursor:ew-resize;z-index:20}
+    .win-drag-hdr,[data-win-drag]{cursor:move;user-select:none;touch-action:none}
+    .win-resize-h{position:absolute;right:2px;bottom:2px;width:18px;height:18px;cursor:nwse-resize;display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--accT);opacity:.75;z-index:20;user-select:none;touch-action:none}
+    .win-resize-w{position:absolute;left:0;top:0;bottom:0;width:6px;cursor:ew-resize;z-index:20;touch-action:none}
     html,body{max-width:100%;overflow-x:hidden}
     .overflow-x-auto,.overflow-y-auto,.autogrow{-webkit-overflow-scrolling:touch}
     @media (max-width:767px){
@@ -94,8 +94,10 @@
     .pw-dd-item{display:flex;align-items:center;justify-content:space-between;gap:.4rem;width:100%;text-align:left;padding:.38rem .55rem;border-radius:.45rem;font-size:.76rem;font-weight:700;color:var(--txt);background:transparent;border:1px solid transparent;cursor:pointer}
     .pw-dd-item:hover{background:var(--accS);border-color:var(--accB);color:var(--accT)}
     .pw-dd-item.on{background:var(--accS);border-color:var(--accB);color:var(--accT);font-weight:800}
+    .safe-pb{padding-bottom:max(1rem,env(safe-area-inset-bottom,0px))!important}
+    @media (pointer:coarse){[data-drag-pw],[data-drag-aug],[data-drag-sec],[data-drag-sksec],[data-drag-sk],[data-drag-chr-pw],[data-drag-chrsec],[data-drag-eqsec],[data-drag-eqitem],[data-drag-invsec],[data-drag-invitem],[data-drag-tok]{display:none!important}}
     @media (max-width:639px){
-      [data-action="open-info"]{bottom:.75rem!important;left:.75rem!important;width:2.5rem!important;height:2.5rem!important;font-size:1.25rem!important}
+      [data-action="open-info"]{bottom:calc(.75rem + env(safe-area-inset-bottom,0px))!important;left:.75rem!important;width:2.5rem!important;height:2.5rem!important;font-size:1.25rem!important}
     }
   </style>
 </head>
@@ -110,6 +112,8 @@
     <aside id="liveDiceMount" class="hidden"></aside>
     <div id="diceBackdrop" data-action="close-dice" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 hidden cursor-pointer"></div>
     <aside id="diceMount" class="hidden"></aside>
+    <div id="fbAdminBackdrop" data-action="close-fbadmin" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 hidden cursor-pointer"></div>
+    <aside id="fbAdminMount" class="hidden"></aside>
   </div>
   <div id="modalMount"></div>
   <button type="button" data-action="open-info" data-tip="Scherbensturm Regelreferenz, Tabellen &amp; Glossar" class="fixed bottom-5 left-5 z-40 w-12 h-12 rounded-2xl btn-pri font-serif italic font-black text-2xl shadow-xl">i</button>
@@ -187,8 +191,6 @@
     const findActionSub=name=>{const low=String(name||'').trim().toLowerCase();return DEF_ACTION_SUBS.find(a=>a.toLowerCase()===low)||'';};
     const getPwTermTip=term=>{const low=String(term||'').trim().toLowerCase();if(!low)return '';const hit=Object.entries(PW_ACTION_TIPS).find(([k])=>k.toLowerCase()===low);return hit?`${hit[0]}\n${hit[1]}`:'';};
     const isReservedPwTerm=name=>{const low=String(name||'').trim().toLowerCase();return Boolean(low&&(DEF_MAIN_ARTS.some(a=>a.toLowerCase()===low)||DEF_ACTION_SUBS.some(a=>a.toLowerCase()===low)));};
-    const DEF_ARTS=[...DEF_MAIN_ARTS];
-    const DEF_SUBS=[...DEF_PW_TAGS];
     const DEF_USERES=['ap','map'];
     const TR_DEFS=[{i:0,b:5,sp:2,msp:0},{i:1,b:5,sp:2,msp:0},{i:2,b:5,sp:3,msp:0},{i:3,b:5,sp:3,msp:0},{i:4,b:10,sp:5,msp:1}];
     const SK_CATS={marginal:{l:'Marginal',s:[0,1,1,2,2]},fundamental:{l:'Fundamental',s:[0,2,2,3,3]},grandios:{l:'Grandios',s:[0,3,2,3,4]}};
@@ -289,7 +291,6 @@
       rtf.dispatchEvent(new Event('input',{bubbles:true}));
       save();
     }
-    const execRtfFormat=applyRtfCommand;
     const cardColorStyle=it=>{const p=[];if(isHex(it?.bgColor)){p.push(`background:color-mix(in srgb,${it.bgColor} 34%,var(--surf))`);p.push(`border-color:color-mix(in srgb,${it.bgColor} 72%,var(--bdr))`);}if(isHex(it?.color))p.push(`border-left:4px solid ${it.color}`);return p.length?`style="${p.join(';')}"`:'';};
     const makeStyleSlot=()=>({palette:'azur',bg:'',overlay:75,blur:0,fit:'cover',pos:'center'});
     const sortTagDefs=arr=>[...(arr||[])].filter(t=>t&&String(t.name||'').trim()).map(t=>({name:String(t.name).trim(),desc:String(t.desc||'').trim()})).sort((a,b)=>a.name.localeCompare(b.name,'de'));
@@ -324,7 +325,7 @@
     const isWeaponMassiv=w=>Array.isArray(w?.tags)&&w.tags.some(t=>String(t?.name??t??'').trim().toLowerCase()==='massiv');
     const makeWeapon=(wType='melee')=>({id:uid(),name:'',color:'',bgColor:'',collapsed:false,img:'',wType:normWeaponType(wType),wAttr:'PR',skillId:'',grip:'',ammoId:'',dmgCut:'0',dmgPierce:'0',dmgImpact:'0',customDmg:[],tags:[],notes:''});
     const makeAmmo=(name='',qty=20)=>({id:uid(),name,color:'',bgColor:'',collapsed:false,img:'',qty:toInt(qty,20),dmgCut:'0',dmgPierce:'0',dmgImpact:'0',customDmg:[],tags:[],notes:''});
-    const makeArmor=()=>({id:uid(),name:'',color:'',bgColor:'',collapsed:false,equipped:true,img:'',grp:'0',protCut:'0',protPierce:'0',protImpact:'0',customProt:[],zones:[],extraZones:[],customZones:'',tags:[],notes:''});
+    const makeArmor=()=>({id:uid(),name:'',color:'',bgColor:'',collapsed:false,equipped:true,img:'',grp:'0',protCut:'0',protPierce:'0',protImpact:'0',customProt:[],zones:[],extraZones:[],tags:[],notes:''});
     const makeInvItem=(secId='')=>({id:uid(),name:'',color:'',bgColor:'',img:'',category:'Inventar',qty:'1',notes:'',sectionId:String(secId||'')});
     const DEF_EQ_SEC_ORDER=['weapons','ammos','armors','inventory'];
     const makeEqSecMeta=()=>({weapons:{collapsed:false,color:'',bgColor:''},ammos:{collapsed:false,color:'',bgColor:''},armors:{collapsed:false,color:'',bgColor:''},inventory:{collapsed:false,color:'',bgColor:''}});
@@ -354,8 +355,8 @@
         if(s.parentSectionId&&!canSetSecParent(secList,s.id,s.parentSectionId)) s.parentSectionId='';
       });
     };
-    const makePower=(secId='')=>({id:uid(),templateId:'',name:'',color:'',bgColor:'',sectionId:secId,collapsed:false,req:'',tier:'marginal',manualCost:false,sp:1,msp:0,showManual:false,art:'Grundaktion',artManual:false,actionSubs:[],tags:[],subcats:[],useCosts:[],useAmt:0,useRes:'',reserved:false,reservedCosts:[],desc:'',effects:'',rules:'',applyMods:true,bldAmt:'+1',bldStat:'LP-Max',bldMode:'stat',bldSkCnt:'1',bldSkKind:'adv',bldSkId:'',boxH:{desc:0,effects:0,rules:0}});
-    const makeAugment=(pid='')=>({...makePower(''),id:uid(),parentPowerId:pid,art:'',actionSubs:[],tags:['Eigenschaft'],subcats:[],useCosts:[],useAmt:0,useRes:''});
+    const makePower=(secId='')=>({id:uid(),templateId:'',name:'',color:'',bgColor:'',sectionId:secId,collapsed:false,req:'',tier:'marginal',manualCost:false,sp:1,msp:0,showManual:false,art:'Grundaktion',artManual:false,actionSubs:[],tags:[],useCosts:[],useAmt:0,useRes:'',reserved:false,reservedCosts:[],desc:'',effects:'',rules:'',applyMods:true,bldAmt:'+1',bldStat:'LP-Max',bldMode:'stat',bldSkCnt:'1',bldSkKind:'adv',bldSkId:'',boxH:{desc:0,effects:0,rules:0}});
+    const makeAugment=(pid='')=>({...makePower(''),id:uid(),parentPowerId:pid,art:'',actionSubs:[],tags:['Eigenschaft'],useCosts:[],useAmt:0,useRes:''});
     function syncPwUseCostsLegacy(it){
       if(!it) return;
       if(!Array.isArray(it.useCosts)) it.useCosts=[];
@@ -411,7 +412,7 @@
         profile:{name:'',ancestry:'',concept:'',avatar:''},
         appearance:{dark:true,mode:'global',editScope:'attributes',global:makeStyleSlot(),lobby:makeStyleSlot(),tabs:tabStyles},
         attrColors:{...DEF_ATTR_COLS},secColors:{...DEF_SEC_COLS},
-        artList:[...DEF_MAIN_ARTS],actionSubList:[...DEF_ACTION_SUBS],pwTagList:[...DEF_PW_TAGS],subcatList:[...DEF_PW_TAGS],useResList:[...DEF_USERES],customStats:[],
+        artList:[...DEF_MAIN_ARTS],actionSubList:[...DEF_ACTION_SUBS],pwTagList:[...DEF_PW_TAGS],useResList:[...DEF_USERES],customStats:[],
         weaponTagList:clone(DEF_WEAPON_TAGS),armorTagList:clone(DEF_ARMOR_TAGS),ammoTagList:[],
         attributes,secondary:{lpCurrent:8,lpMod:0,lpRegenOvr:'',iniMod:0,mlpCurrent:8,mlpMod:0,mlpRegenOvr:'',apCurrent:3,apMax:3,mapCurrent:3,mapMax:3},
         customRes:{name:'Benutzerdefiniert',current:3,max:3,color:'#c084fc'},extraSecList:[],
@@ -435,20 +436,21 @@
     const DICE_DEF={open:false,docked:false,floating:false,x:null,y:null,w:0,h:0,z:50,label:'Freie Probe',skillId:null,attrKey:null,weaponId:null,wRollCat:'Normaler Test',cMode:'direct',cDirect:0,cAttr:0,cSkill:'0',cCustom:25,dMode:'direct',dDirect:40,dAttr:30,dSkill:'10',dCustom:25,adv:0,dis:0,advAdj:0,disAdj:0,cnt:1,crit:'1',critOff:0,critMode:'range',sitActive:{},blockFollowAtk:40,customCnt:1,customSides:20,customMod:0,customOpen:false,_lobbyNeutral:false,secretMode:false};
     const CNOTES_DEF={open:false,docked:false,floating:false,x:null,y:null,w:0,h:0,z:50,tocOpen:true,confirmDelId:null,confirmDelFolderId:null,newFolderOpen:false,newFolderName:'',newFolderPublic:false};
     const LIVEDICE_DEF={open:false,docked:false,floating:false,x:null,y:null,w:0,h:0,z:50};
-    let S=defaultState(), D={...DICE_DEF}, CN={...CNOTES_DEF}, LD={...LIVEDICE_DEF}, diceLogs=[], toastTimer=null, dragPwId=null, dragAugId=null, dragSecId=null, dragSkSecId=null, dragSkId=null, dragChrPw=null, dragChrSec=null, dragEqSec=null, dragEqItem=null, dragInvSecId=null, dragInvItemId=null, dragCampId=null, dragCnPageId=null, dragCnFolderId=null, dragToken='';
+    const FBW_DEF={open:false,docked:false,floating:false,x:null,y:null,w:540,h:0,z:50};
+    let S=defaultState(), D={...DICE_DEF}, CN={...CNOTES_DEF}, LD={...LIVEDICE_DEF}, FBW={...FBW_DEF}, diceLogs=[], toastTimer=null, dragPwId=null, dragAugId=null, dragSecId=null, dragSkSecId=null, dragSkId=null, dragChrPw=null, dragChrSec=null, dragEqSec=null, dragEqItem=null, dragInvSecId=null, dragInvItemId=null, dragCampId=null, dragCnPageId=null, dragCnFolderId=null, dragToken='';
     const isMobileLayout=()=>window.matchMedia('(max-width: 767px)').matches;
     function syncBodyScrollLock(){
-      document.body.style.overflow=(isMobileLayout()&&Boolean(D.open||CN.open||LD.open||UI.modal))?'hidden':'';
+      document.body.style.overflow=(isMobileLayout()&&Boolean(D.open||CN.open||LD.open||FBW.open||UI.modal))?'hidden':'';
     }
-    const getWinState=k=>k==='cnotes'?CN:k==='livedice'?LD:D;
+    const getWinState=k=>k==='cnotes'?CN:k==='livedice'?LD:k==='fbadmin'?FBW:D;
     function applyWinFrame(k,mount,bd,defWClass){
       const st=getWinState(k);
       if(!st.open){mount.className='hidden';mount.style.cssText='';if(bd)bd.classList.add('hidden');syncBodyScrollLock();return;}
       if(isMobileLayout()){
         if(bd) bd.classList.add('hidden');
         mount.className=k==='livedice'
-          ?'fixed inset-0 z-50 w-full h-[100dvh] max-h-[100dvh] overflow-hidden flex flex-col rounded-none'
-          :'fixed inset-0 z-50 w-full h-[100dvh] max-h-[100dvh] overflow-y-auto rounded-none';
+          ?'fixed inset-0 z-50 w-full h-[100dvh] max-h-[100dvh] overflow-hidden flex flex-col rounded-none safe-pb'
+          :'fixed inset-0 z-50 w-full h-[100dvh] max-h-[100dvh] overflow-y-auto rounded-none safe-pb';
         mount.style.cssText='';
         syncBodyScrollLock();
         return;
@@ -480,7 +482,7 @@
           :'fixed z-50 overflow-y-auto shadow-2xl rounded-2xl';
         mount.style.cssText=`position:fixed!important;left:${x}px;top:${y}px;width:${w}px;${hCss}z-index:${st.z||50};margin:0;right:auto;bottom:auto`;
       }else{
-        const defDrawerW=k==='cnotes'?500:k==='livedice'?440:450;
+        const defDrawerW=k==='fbadmin'?540:k==='cnotes'?500:k==='livedice'?440:450;
         const dw=Math.max(320,Math.min(window.innerWidth-32,st.w>280?st.w:defDrawerW));
         mount.className=k==='livedice'
           ?'fixed z-50 top-20 bottom-6 overflow-hidden flex flex-col shadow-2xl rounded-2xl'
@@ -497,7 +499,7 @@
     function renderWinResizeHandles(k){return '<div data-win-resize-w="'+k+'" title="Breite ziehen" class="win-resize-w"></div><div data-win-resize="'+k+'" title="Größe ziehen" class="win-resize-h">◢</div>';}
     let dragMouseY=null, dragScrollRaf=null;
     const savedEffRanges={};
-    let UI={inLobby:true,sheetLoaded:false,modal:null,mobileHdrOpen:false,mobileLobbyMenuOpen:false,infoTab:'dice',listType:'art',ammoModalWeaponId:'',skSort:{col:'',asc:true},editSkNameId:null,imgTargetKind:'',imgTargetId:'',imgZoomOpen:false,imgReturnModal:'',confirmNew:false,confirmLog:false,confirmDelId:null,confirmDelSecId:null,confirmSecPullId:null,confirmDelSkSecId:null,confirmSkSecPullId:null,confirmDelInvSecId:null,confirmDelExSecId:null,confirmHzStep:1,openPwMenu:'',dupPwWarn:null,pwFilterOpen:false,pwFilterMode:'or',pwFilterTypes:[],pwFilterIncludeLinkedAugs:true,pwFilterArts:[],pwFilterActionSubs:[],pwFilterTags:[],pwFilterTiers:[],pwFilterSubs:[],statusIniPromptKey:'',lastRollHtml:'',lastBlockBaseHtml:'',lastBlockFollowRes:null,lastSecretRollId:'',secretRollsCollapsed:false,colTarget:'cres',colMode:'text',colPwKind:'power',colPwId:'',colDraft:'#c084fc',attrGroupSel:'ST_KO',savedOnce:true,palBuilderOpen:false,palDraft:{name:'',isLt:false,bg:'#020617',acc:'#0ea5e9',acc2:'#6366f1',txt:'#f1f5f9',mut:'#94a3b8',btnTxt:'#ffffff'}};
+    let UI={inLobby:true,sheetLoaded:false,modal:null,mobileHdrOpen:false,mobileLobbyMenuOpen:false,infoTab:'dice',listType:'art',ammoModalWeaponId:'',skSort:{col:'',asc:true},editSkNameId:null,imgTargetKind:'',imgTargetId:'',imgZoomOpen:false,imgReturnModal:'',confirmNew:false,confirmLog:false,confirmDelId:null,confirmDelSecId:null,confirmSecPullId:null,confirmDelSkSecId:null,confirmSkSecPullId:null,confirmDelInvSecId:null,confirmDelExSecId:null,confirmHzStep:1,openPwMenu:'',dupPwWarn:null,pwFilterOpen:false,pwFilterMode:'or',pwFilterTypes:[],pwFilterIncludeLinkedAugs:true,pwFilterArts:[],pwFilterActionSubs:[],pwFilterTags:[],pwFilterTiers:[],statusIniPromptKey:'',lastRollHtml:'',lastBlockBaseHtml:'',lastBlockFollowRes:null,lastSecretRollId:'',secretRollsCollapsed:false,colTarget:'cres',colMode:'text',colPwKind:'power',colPwId:'',colDraft:'#c084fc',attrGroupSel:'ST_KO',savedOnce:true,palBuilderOpen:false,palDraft:{name:'',isLt:false,bg:'#020617',acc:'#0ea5e9',acc2:'#6366f1',txt:'#f1f5f9',mut:'#94a3b8',btnTxt:'#ffffff'}};
     const REGISTRY_ID='_lobby_meta_registry_', LIVE_TAB_ID=uid();
     const LIBRARY_ID='_power_library_';
     const REPO_LIBRARY_URL='./data/powers-library.json';
@@ -505,6 +507,10 @@
     const PATCHNOTES_ID = '_patchnotes_';
     const PATCHNOTES_CACHE_KEY = 'scherbensturm_patchnotes_cache';
     let PATCHNOTES = { loaded:false, loading:false, saving:false, error:'', entries:[], lastLoadedTs:'', editingId:null, draft:null, confirmDelId:null };
+    const FEEDBACK_ID = '_feedback_store_';
+    const FEEDBACK_CACHE_KEY = 'scherbensturm_feedback_cache';
+    const DEF_FB_FOLDERS = [{ id:'fb_inbox', name:'📥 Posteingang', isSystem:true }, { id:'fb_saved', name:'⭐ Aufbewahrt', isSystem:false }];
+    let FEEDBACK = { loaded:false, loading:false, saving:false, error:'', lastLoadedTs:'', folders: clone(DEF_FB_FOLDERS), items:[], backlog:[], activeTab:'write', activeFolderId:'all', sortBy:'newest', selectedId:'', backlogUser:'all', draftTitle:'', draftHtml:'', replyDrafts:{}, confirmDelId:null, confirmDelFolderId:null, newFolderName:'' };
     function normalizeCampaigns(rawCamps){
       const list=Array.isArray(rawCamps)?rawCamps.filter(c=>c&&typeof c==='object'&&String(c.id||'').trim()).map(c=>{
         const id=String(c.id).trim();
@@ -2098,7 +2104,7 @@
       const actionSubs=DEF_ACTION_SUBS.filter(s=>actionSubSet.has(s));
       const reserved=Boolean(raw?.reserved);
       const reservedCosts=Array.isArray(raw?.reservedCosts)?raw.reservedCosts.filter(c=>c&&String(c.res||'').trim()&&toInt(c.amt,0)>0).map(c=>({res:String(c.res).trim(),amt:Math.max(0,toInt(c.amt,0))})):[];
-      return {...base,...(raw||{}),id:raw?.id||uid(),templateId:String(raw?.templateId||''),color:col,bgColor:bgCol,sectionId:String(raw?.sectionId||''),collapsed:Boolean(raw?.collapsed),tier,manualCost:manual,sp:manual?toInt(raw.sp,def.sp):def.sp,msp:manual?toInt(raw.msp,def.msp):def.msp,showManual:Boolean(raw?.showManual),art,artManual:Boolean(raw?.artManual),actionSubs,tags,subcats:[],useCosts,useAmt,useRes,reserved,reservedCosts,desc:String(raw?.desc||''),effects:String(raw?.effects??raw?.extraEffects??''),rules:String(raw?.rules||''),applyMods,bldAmt:String(raw?.bldAmt||'+1'),bldStat:String(raw?.bldStat||'LP-Max'),bldMode,bldSkCnt,bldSkKind,bldSkId,boxH:bh};
+      return {...base,...(raw||{}),id:raw?.id||uid(),templateId:String(raw?.templateId||''),color:col,bgColor:bgCol,sectionId:String(raw?.sectionId||''),collapsed:Boolean(raw?.collapsed),tier,manualCost:manual,sp:manual?toInt(raw.sp,def.sp):def.sp,msp:manual?toInt(raw.msp,def.msp):def.msp,showManual:Boolean(raw?.showManual),art,artManual:Boolean(raw?.artManual),actionSubs,tags,useCosts,useAmt,useRes,reserved,reservedCosts,desc:String(raw?.desc||''),effects:String(raw?.effects??raw?.extraEffects??''),rules:String(raw?.rules||''),applyMods,bldAmt:String(raw?.bldAmt||'+1'),bldStat:String(raw?.bldStat||'LP-Max'),bldMode,bldSkCnt,bldSkKind,bldSkId,boxH:bh};
     }
 
     const POWER_PACK_SCHEMA='scherbensturm_power_pack_v1';
@@ -2643,7 +2649,7 @@
       sanitizeSecHierarchy(S.powerSections);
       S.artList=[...DEF_MAIN_ARTS];
       S.actionSubList=[...DEF_ACTION_SUBS];
-      if(collectedTags.length){S.pwTagList=sortAlpha([...(S.pwTagList||DEF_PW_TAGS),...collectedTags].filter(t=>!isReservedPwTerm(t)));S.subcatList=S.pwTagList;}
+      if(collectedTags.length){S.pwTagList=sortAlpha([...(S.pwTagList||DEF_PW_TAGS),...collectedTags].filter(t=>!isReservedPwTerm(t)));}
       invalidateModsCache();
       if(summary.addedSec||summary.addedPw||summary.addedAug||summary.updatedPw){
         const lbl=packNames.length===1?packNames[0]:`${packNames.length} Pakete`;
@@ -2686,7 +2692,6 @@
       S.actionSubList=[...DEF_ACTION_SUBS];
       const rawTagSrc=Array.isArray(raw.pwTagList)?raw.pwTagList:(Array.isArray(raw.subcatList)?raw.subcatList:[]);
       S.pwTagList=sortAlpha([...DEF_PW_TAGS,...rawTagSrc].filter(t=>!isReservedPwTerm(t)));
-      S.subcatList=S.pwTagList;
       S.useResList=Array.isArray(raw.useResList)&&raw.useResList.length?[...new Set(raw.useResList.map(x=>String(x).trim()).filter(Boolean))]:[...DEF_USERES];
       S.customStats=Array.isArray(raw.customStats)?sortAlpha(raw.customStats):[];
       const mergeDefTags=(rawArr,defArr)=>{const b=Array.isArray(rawArr)?rawArr.filter(t=>t&&String(t.name||'').trim()):[];(defArr||[]).forEach(d=>{if(!b.some(t=>String(t.name).trim().toLowerCase()===d.name.toLowerCase()))b.push({...d});});return sortTagDefs(b);};
@@ -2740,7 +2745,7 @@
       S.augments=Array.isArray(raw.augments)?raw.augments.map(a=>normPwEntry(a,true)):[];
       S.augments.forEach(a=>{if(getAllParsedEffectChips(a.effects).length&&raw.version<11)a.applyMods=true;});
       const usedPwTags=[...S.powers,...S.augments].flatMap(it=>Array.isArray(it.tags)?it.tags:[]).filter(t=>!isReservedPwTerm(t));
-      if(usedPwTags.length){S.pwTagList=sortAlpha([...S.pwTagList,...usedPwTags]);S.subcatList=S.pwTagList;}
+      if(usedPwTags.length){S.pwTagList=sortAlpha([...S.pwTagList,...usedPwTags]);}
       if(Array.isArray(UI.pwFilterArts))UI.pwFilterArts=UI.pwFilterArts.map(a=>findMainArt(a)).filter(Boolean);
       const slotCnt={};
       S.augments.forEach(ag=>{
@@ -2770,7 +2775,7 @@
       DEF_EQ_SEC_ORDER.forEach(k=>{const im=raw.equipSecMeta?.[k]||{};S.equipSecMeta[k]={collapsed:Boolean(im.collapsed),color:isHex(im.color)?im.color:'',bgColor:isHex(im.bgColor)?im.bgColor:''};});
       const normTags=arr=>Array.isArray(arr)?arr.filter(t=>t&&(t.name||typeof t==='string')).map(t=>typeof t==='string'?{name:t,x:'1'}:{name:String(t.name),x:String(t.x??'1')}):[];
       S.weapons=Array.isArray(raw.weapons)?raw.weapons.map(w=>{const wTags=normTags(w?.tags),hasMas=isWeaponMassiv({tags:wTags}),wType=normWeaponType(w?.wType),wAttr=hasMas?'ST':(ATTRS.some(a=>a.k===w?.wAttr)?w.wAttr:'PR'),skillId=(w?.skillId&&S.skills.some(s=>s.id===w.skillId))?String(w.skillId):'';return {...makeWeapon(wType),...(w||{}),id:w?.id||uid(),color:isHex(w?.color)?w.color:'',bgColor:isHex(w?.bgColor)?w.bgColor:'',collapsed:Boolean(w?.collapsed),img:String(w?.img||''),wType,wAttr,skillId,grip:w?.grip==='1h'||w?.grip==='2h'?w.grip:'',ammoId:String(w?.ammoId||''),dmgCut:String(w?.dmgCut??'0'),dmgPierce:String(w?.dmgPierce??'0'),dmgImpact:String(w?.dmgImpact??'0'),customDmg:normEqCustomVals(w?.customDmg),tags:wTags,notes:String(w?.notes||'')};}):def.weapons;
-      S.armors=Array.isArray(raw.armors)?raw.armors.map(ar=>{const zns=Array.isArray(ar?.zones)?ar.zones.map(z=>String(z).trim()).filter(Boolean):[];const exZ=Array.isArray(ar?.extraZones)?ar.extraZones.map(z=>String(z).trim()).filter(Boolean):[];const legacyCz=String(ar?.customZones||'').split(/[,;]+/).map(s=>s.trim()).filter(Boolean);legacyCz.forEach(cz=>{if(!exZ.includes(cz))exZ.push(cz);if(!zns.includes(cz))zns.push(cz);});return {...makeArmor(),...(ar||{}),id:ar?.id||uid(),color:isHex(ar?.color)?ar.color:'',bgColor:isHex(ar?.bgColor)?ar.bgColor:'',collapsed:Boolean(ar?.collapsed),equipped:ar?.equipped!==undefined?Boolean(ar.equipped):true,img:String(ar?.img||''),grp:String(ar?.grp??'0'),protCut:String(ar?.protCut??'0'),protPierce:String(ar?.protPierce??'0'),protImpact:String(ar?.protImpact??'0'),customProt:normEqCustomVals(ar?.customProt),zones:zns,extraZones:exZ,customZones:'',tags:normTags(ar?.tags),notes:String(ar?.notes||'')};}):def.armors;
+      S.armors=Array.isArray(raw.armors)?raw.armors.map(ar=>{const zns=Array.isArray(ar?.zones)?ar.zones.map(z=>String(z).trim()).filter(Boolean):[];const exZ=Array.isArray(ar?.extraZones)?ar.extraZones.map(z=>String(z).trim()).filter(Boolean):[];const legacyCz=String(ar?.customZones||'').split(/[,;]+/).map(s=>s.trim()).filter(Boolean);legacyCz.forEach(cz=>{if(!exZ.includes(cz))exZ.push(cz);if(!zns.includes(cz))zns.push(cz);});return {...makeArmor(),...(ar||{}),id:ar?.id||uid(),color:isHex(ar?.color)?ar.color:'',bgColor:isHex(ar?.bgColor)?ar.bgColor:'',collapsed:Boolean(ar?.collapsed),equipped:ar?.equipped!==undefined?Boolean(ar.equipped):true,img:String(ar?.img||''),grp:String(ar?.grp??'0'),protCut:String(ar?.protCut??'0'),protPierce:String(ar?.protPierce??'0'),protImpact:String(ar?.protImpact??'0'),customProt:normEqCustomVals(ar?.customProt),zones:zns,extraZones:exZ,tags:normTags(ar?.tags),notes:String(ar?.notes||'')};}):def.armors;
       S.ammos=Array.isArray(raw.ammos)?raw.ammos.map(am=>({...makeAmmo(),...(am||{}),id:am?.id||uid(),color:isHex(am?.color)?am.color:'',bgColor:isHex(am?.bgColor)?am.bgColor:'',collapsed:Boolean(am?.collapsed),img:String(am?.img||''),qty:toInt(am?.qty,20),dmgCut:String(am?.dmgCut??'0'),dmgPierce:String(am?.dmgPierce??'0'),dmgImpact:String(am?.dmgImpact??'0'),customDmg:normEqCustomVals(am?.customDmg),tags:normTags(am?.tags),notes:String(am?.notes||'')})):[];
       S.invSections=Array.isArray(raw.invSections)?raw.invSections.map(sec=>({id:sec?.id||uid(),name:String(sec?.name||'Neuer Beutel'),color:isHex(sec?.color)?sec.color:'',bgColor:isHex(sec?.bgColor)?sec.bgColor:'',collapsed:Boolean(sec?.collapsed),parentSectionId:String(sec?.parentSectionId||'')})):[];
       sanitizeSecHierarchy(S.invSections);
@@ -3182,7 +3187,7 @@
         if(!CLOUD.registry.charCampaigns||typeof CLOUD.registry.charCampaigns!=='object') CLOUD.registry.charCampaigns={};
         if(!Array.isArray(CLOUD.registry.deletedCharIds)) CLOUD.registry.deletedCharIds=[];
         const delSet=new Set(CLOUD.registry.deletedCharIds);
-        CLOUD.list=(Array.isArray(data)?data:[]).filter(ch=>ch&&ch.id!==REGISTRY_ID&&ch.name!=='__REGISTRY__'&&ch.id!==LIBRARY_ID&&ch.name!=='__POWER_LIBRARY__'&&ch.id!==PATCHNOTES_ID&&ch.name!=='__PATCHNOTES__'&&!delSet.has(ch.id));
+        CLOUD.list=(Array.isArray(data)?data:[]).filter(ch=>ch&&ch.id!==REGISTRY_ID&&ch.name!=='__REGISTRY__'&&ch.id!==LIBRARY_ID&&ch.name!=='__POWER_LIBRARY__'&&ch.id!==PATCHNOTES_ID&&ch.name!=='__PATCHNOTES__'&&ch.id!==FEEDBACK_ID&&ch.name!=='__FEEDBACK__'&&!delSet.has(ch.id));
         CLOUD.list.forEach(ch=>{
           if(ch.owner&&CLOUD.registry.claims[ch.id]===undefined) CLOUD.registry.claims[ch.id]=ch.owner;
           if(CLOUD.registry.charCampaigns[ch.id]===undefined){
@@ -3739,6 +3744,7 @@
       }finally{
         PATCHNOTES.loading=false;
         if(UI.modal==='info'&&UI.infoTab==='patchnotes') renderModal();
+        if(typeof updateNotifBadges==='function') updateNotifBadges();
       }
     }
     async function savePatchnotesToServer(nextEntries,successMsg){
@@ -3783,7 +3789,784 @@
       }finally{
         PATCHNOTES.saving=false;
         if(UI.modal==='info'&&UI.infoTab==='patchnotes') renderModal();
+        if(typeof updateNotifBadges==='function') updateNotifBadges();
       }
+    }
+    function normalizeFeedbackStore(raw){
+      const src=(raw&&typeof raw==='object'&&raw.feedback&&typeof raw.feedback==='object')?raw.feedback:(raw&&typeof raw==='object'?raw:{});
+      const rawFolders=Array.isArray(src.folders)?src.folders:[];
+      const folders=[];
+      const seenF=new Set();
+      rawFolders.forEach(f=>{
+        if(!f||typeof f!=='object') return;
+        const id=String(f.id||'').trim()||uid();
+        if(seenF.has(id)) return;
+        seenF.add(id);
+        folders.push({
+          id,
+          name:String(f.name||(id==='fb_inbox'?'📥 Posteingang':'Ordner')).trim()||(id==='fb_inbox'?'📥 Posteingang':'Ordner'),
+          isSystem:id==='fb_inbox'?true:Boolean(f.isSystem)
+        });
+      });
+      if(!folders.length){
+        clone(DEF_FB_FOLDERS).forEach(f=>{seenF.add(f.id);folders.push(f);});
+      }else if(!seenF.has('fb_inbox')){
+        folders.unshift({ id:'fb_inbox', name:'📥 Posteingang', isSystem:true });
+        seenF.add('fb_inbox');
+      }else{
+        const inb=folders.find(f=>f.id==='fb_inbox');
+        if(inb) inb.isSystem=true;
+      }
+      const items=(Array.isArray(src.items)?src.items:[]).filter(it=>it&&typeof it==='object').map((it,idx)=>{
+        const ts=String(it.ts||'').trim()||stamp();
+        const tsMs=toInt(it.tsMs,0)||Date.now();
+        const rawFolderId=String(it.folderId||'fb_inbox').trim()||'fb_inbox';
+        const folderId=seenF.has(rawFolderId)?rawFolderId:'fb_inbox';
+        const messages=(Array.isArray(it.messages)?it.messages:[]).filter(m=>m&&typeof m==='object').map(m=>{
+          const mts=String(m.ts||'').trim()||stamp();
+          const mtsMs=toInt(m.tsMs,0)||tsMs;
+          return {
+            id:String(m.id||'').trim()||uid(),
+            author:String(m.author??'').trim()||(m.isAdmin?'Admin':'Gast'),
+            isAdmin:Boolean(m.isAdmin),
+            html:String(m.html??m.text??''),
+            ts:mts,
+            tsMs:mtsMs
+          };
+        });
+        const calcAdminMs=messages.reduce((mx,m)=>m.isAdmin?Math.max(mx,toInt(m.tsMs,0)):mx,0);
+        const lastAdminReplyMs=Math.max(toInt(it.lastAdminReplyMs,0),calcAdminMs);
+        return {
+          id:String(it.id||'').trim()||uid(),
+          author:String(it.author??'').trim()||'Gast',
+          title:String(it.title??'').trim(),
+          html:String(it.html??it.text??''),
+          ts,
+          tsMs,
+          folderId,
+          order:typeof it.order==='number'&&!Number.isNaN(it.order)?it.order:toInt(it.order,idx),
+          messages,
+          lastAdminReplyMs
+        };
+      });
+      const backlog=(Array.isArray(src.backlog)?src.backlog:[]).filter(b=>b&&typeof b==='object').map(b=>{
+        const ts=String(b.ts||'').trim()||stamp();
+        const tsMs=toInt(b.tsMs,0)||Date.now();
+        return {
+          id:String(b.id||'').trim()||uid(),
+          author:String(b.author??'').trim()||'Gast',
+          title:String(b.title??'').trim(),
+          html:String(b.html??b.text??''),
+          ts,
+          tsMs,
+          status:String(b.status||'done').trim()||'done',
+          closedAt:String(b.closedAt||ts).trim()||ts
+        };
+      });
+      return { folders, items, backlog };
+    }
+    function loadFeedbackCache(){
+      try{
+        const raw=localStorage.getItem(FEEDBACK_CACHE_KEY);
+        if(!raw) return null;
+        const parsed=JSON.parse(raw);
+        if(!parsed||typeof parsed!=='object') return null;
+        const norm=normalizeFeedbackStore(parsed);
+        return { ...norm, lastLoadedTs:String(parsed.lastLoadedTs||'') };
+      }catch(e){return null;}
+    }
+    function saveFeedbackCache(){
+      try{
+        localStorage.setItem(FEEDBACK_CACHE_KEY,JSON.stringify({
+          folders:Array.isArray(FEEDBACK.folders)?FEEDBACK.folders:clone(DEF_FB_FOLDERS),
+          items:Array.isArray(FEEDBACK.items)?FEEDBACK.items:[],
+          backlog:Array.isArray(FEEDBACK.backlog)?FEEDBACK.backlog:[],
+          lastLoadedTs:FEEDBACK.lastLoadedTs||stamp()
+        }));
+      }catch(e){}
+    }
+    async function fetchFeedback(force=false){
+      if((FEEDBACK.loaded||FEEDBACK.loading)&&!force) return FEEDBACK;
+      FEEDBACK.loading=true;
+      FEEDBACK.error='';
+      if (UI.modal==='feedback') renderModal();
+      if (typeof renderFbAdminWin==='function' && FBW?.open) renderFbAdminWin();
+      try{
+        const res=await fetch(`${getCloudEndpoint()}?id=${encodeURIComponent(FEEDBACK_ID)}`,{headers:{'Accept':'application/json'}});
+        if(res.status===404){
+          const empty=normalizeFeedbackStore({});
+          FEEDBACK.folders=empty.folders;
+          FEEDBACK.items=empty.items;
+          FEEDBACK.backlog=empty.backlog;
+          FEEDBACK.loaded=true;
+          FEEDBACK.lastLoadedTs=stamp();
+          FEEDBACK.error='';
+          saveFeedbackCache();
+          return FEEDBACK;
+        }
+        if(!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data=await res.json().catch(()=>null);
+        if(data&&data.error&&/not\s*found|nicht\s*gefunden/i.test(String(data.error))){
+          const empty=normalizeFeedbackStore({});
+          FEEDBACK.folders=empty.folders;
+          FEEDBACK.items=empty.items;
+          FEEDBACK.backlog=empty.backlog;
+          FEEDBACK.loaded=true;
+          FEEDBACK.lastLoadedTs=stamp();
+          FEEDBACK.error='';
+          saveFeedbackCache();
+          return FEEDBACK;
+        }
+        const norm=normalizeFeedbackStore(data);
+        FEEDBACK.folders=norm.folders;
+        FEEDBACK.items=norm.items;
+        FEEDBACK.backlog=norm.backlog;
+        FEEDBACK.loaded=true;
+        FEEDBACK.lastLoadedTs=stamp();
+        FEEDBACK.error='';
+        saveFeedbackCache();
+        return FEEDBACK;
+      }catch(err){
+        const cache=loadFeedbackCache();
+        if(cache){
+          FEEDBACK.folders=cache.folders;
+          FEEDBACK.items=cache.items;
+          FEEDBACK.backlog=cache.backlog;
+          FEEDBACK.loaded=true;
+          FEEDBACK.lastLoadedTs=cache.lastLoadedTs||FEEDBACK.lastLoadedTs||stamp();
+          FEEDBACK.error='Offline-Modus: Lokaler Feedback-Cache wird angezeigt.';
+        }else{
+          const fbNorm=normalizeFeedbackStore(FEEDBACK);
+          FEEDBACK.folders=fbNorm.folders;
+          FEEDBACK.items=fbNorm.items;
+          FEEDBACK.backlog=fbNorm.backlog;
+          FEEDBACK.loaded=false;
+          FEEDBACK.error='Feedback derzeit nicht vom Server erreichbar.';
+        }
+        return FEEDBACK;
+      }finally{
+        FEEDBACK.loading=false;
+        if (UI.modal==='feedback') renderModal();
+        if (typeof renderFbAdminWin==='function' && FBW?.open) renderFbAdminWin();
+        if (typeof updateNotifBadges==='function') updateNotifBadges();
+      }
+    }
+    async function saveFeedbackStore(mutatorFn, successMsg=''){
+      if(typeof mutatorFn!=='function') return false;
+      FEEDBACK.saving=true;
+      FEEDBACK.error='';
+      if (UI.modal==='feedback') renderModal();
+      if (typeof renderFbAdminWin==='function' && FBW?.open) renderFbAdminWin();
+      let store=normalizeFeedbackStore(FEEDBACK);
+      try{
+        const getRes=await fetch(`${getCloudEndpoint()}?id=${encodeURIComponent(FEEDBACK_ID)}`,{headers:{'Accept':'application/json'}});
+        if(getRes.ok){
+          const rem=await getRes.json().catch(()=>null);
+          if(rem&&!(rem.error&&/not\s*found|nicht\s*gefunden/i.test(String(rem.error)))){
+            store=normalizeFeedbackStore(rem);
+          }
+        }
+      }catch(e){}
+      const res=mutatorFn(store);
+      if(res===false){
+        FEEDBACK.saving=false;
+        if (UI.modal==='feedback') renderModal();
+        if (typeof renderFbAdminWin==='function' && FBW?.open) renderFbAdminWin();
+        return false;
+      }
+      store=normalizeFeedbackStore(store);
+      try{
+        const payload={ charId: FEEDBACK_ID, profile:{ name:'__FEEDBACK__' }, _AdminOverride: true, feedback: store, _summary:{ updatedAt: stamp() } };
+        const postRes=await fetch(getCloudEndpoint(),{
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body:JSON.stringify(payload)
+        });
+        const postData=await postRes.json().catch(()=>({}));
+        if(!postRes.ok||postData.error) throw new Error(postData.error||`HTTP ${postRes.status}`);
+        FEEDBACK.folders=store.folders;
+        FEEDBACK.items=store.items;
+        FEEDBACK.backlog=store.backlog;
+        FEEDBACK.loaded=true;
+        FEEDBACK.lastLoadedTs=stamp();
+        FEEDBACK.error='';
+        saveFeedbackCache();
+        if(successMsg) toast(successMsg);
+        return true;
+      }catch(err){
+        FEEDBACK.folders=store.folders;
+        FEEDBACK.items=store.items;
+        FEEDBACK.backlog=store.backlog;
+        FEEDBACK.loaded=true;
+        FEEDBACK.lastLoadedTs=stamp();
+        FEEDBACK.error='Lokal im Cache gespeichert (Server nicht erreichbar).';
+        saveFeedbackCache();
+        if(successMsg) toast(successMsg);
+        else toast('⚠️ Server nicht erreichbar – Feedback lokal im Browser-Cache gespeichert.');
+        return true;
+      }finally{
+        FEEDBACK.saving=false;
+        if (UI.modal==='feedback') renderModal();
+        if (typeof renderFbAdminWin==='function' && FBW?.open) renderFbAdminWin();
+        if (typeof updateNotifBadges==='function') updateNotifBadges();
+      }
+    }
+    function getNotifSeenKey(user=CLOUD.currentUser){
+      const effUser = String(user || (CLOUD.isAdmin ? '__admin__' : '')).trim().toLowerCase();
+      return `scherbensturm_notif_seen_${effUser}`;
+    }
+    function loadNotifSeen(user=CLOUD.currentUser){
+      const def={patchnotes:{},replies:{},adminFb:{}};
+      const effUser = String(user || (CLOUD.isAdmin ? '__admin__' : '')).trim().toLowerCase();
+      if(!effUser) return def;
+      try{
+        const raw=localStorage.getItem(getNotifSeenKey(effUser));
+        if(!raw) return def;
+        const parsed=JSON.parse(raw);
+        if(!parsed||typeof parsed!=='object') return def;
+        return {
+          patchnotes:(parsed.patchnotes&&typeof parsed.patchnotes==='object')?{...parsed.patchnotes}:{},
+          replies:(parsed.replies&&typeof parsed.replies==='object')?{...parsed.replies}:{},
+          adminFb:(parsed.adminFb&&typeof parsed.adminFb==='object')?{...parsed.adminFb}:{}
+        };
+      }catch(e){return def;}
+    }
+    function saveNotifSeen(obj,user=CLOUD.currentUser){
+      const effUser = String(user || (CLOUD.isAdmin ? '__admin__' : '')).trim().toLowerCase();
+      if(!effUser) return;
+      try{
+        const safe={
+          patchnotes:(obj?.patchnotes&&typeof obj.patchnotes==='object')?obj.patchnotes:{},
+          replies:(obj?.replies&&typeof obj.replies==='object')?obj.replies:{},
+          adminFb:(obj?.adminFb&&typeof obj.adminFb==='object')?obj.adminFb:{}
+        };
+        localStorage.setItem(getNotifSeenKey(effUser),JSON.stringify(safe));
+      }catch(e){}
+    }
+    function getPatchnoteNotifKey(entry){
+      return String(entry?.id??'');
+    }
+    function getUserNotifications(user=CLOUD.currentUser){
+      if(!Boolean(user || CLOUD.isAdmin)) return {unread:[],read:[],unreadCount:0};
+      const seen=loadNotifSeen(user);
+      const uLow=String(user||'').trim().toLowerCase();
+      const all=[];
+      if(user){
+        (Array.isArray(PATCHNOTES.entries)?PATCHNOTES.entries:[]).forEach(pn=>{
+          if(!pn||!pn.id) return;
+          const key=getPatchnoteNotifKey(pn);
+          const isUnread=!seen.patchnotes[key];
+          all.push({
+            kind:'patchnote',
+            key,
+            id:pn.id,
+            title:pn.title||pn.version||'Neue Patchnotes',
+            preview:pn.items?.[0]?.heading||pn.intro||'Änderungen ansehen',
+            ts:pn.ts||'',
+            unread:isUnread
+          });
+        });
+        (Array.isArray(FEEDBACK.items)?FEEDBACK.items:[]).forEach(it=>{
+          if(!it||String(it.author||'').trim().toLowerCase()!==uLow) return;
+          (Array.isArray(it.messages)?it.messages:[]).forEach(m=>{
+            if(!m||m.isAdmin!==true||!m.id) return;
+            const key=String(m.id);
+            const isUnread=!seen.replies[key];
+            all.push({
+              kind:'fb_reply',
+              key,
+              feedbackId:it.id,
+              msgId:m.id,
+              title:`Antwort auf „${it.title||'Dein Feedback'}“`,
+              preview:stripHtml(m.html||'').trim().slice(0,110),
+              ts:m.ts||'',
+              tsMs:toInt(m.tsMs,0),
+              unread:isUnread
+            });
+          });
+        });
+      }
+      if(CLOUD.isAdmin === true){
+        (Array.isArray(FEEDBACK.items)?FEEDBACK.items:[]).forEach(it=>{
+          if(!it||!it.id) return;
+          const itemKey = 'item_' + it.id;
+          const hasAdminReplied = (it.messages||[]).some(m=>m&&m.isAdmin);
+          const isUnread = hasAdminReplied ? false : !seen.adminFb[itemKey];
+          all.push({
+            kind:'fb_admin',
+            subKind:'new',
+            key:itemKey,
+            feedbackId:it.id,
+            folderId:it.folderId||'fb_inbox',
+            title:'Neues Feedback von ' + (it.author||'Spieler') + ': „' + (it.title||'Ohne Betreff') + '“',
+            preview:stripHtml(it.html||'').trim().slice(0,110),
+            ts:it.ts||'',
+            tsMs:toInt(it.tsMs,0),
+            unread:isUnread
+          });
+          (Array.isArray(it.messages)?it.messages:[]).forEach(m=>{
+            if(!m||m.isAdmin||!m.id) return;
+            const msgKey = 'umsg_' + m.id;
+            const isUnread = !seen.adminFb[msgKey];
+            all.push({
+              kind:'fb_admin',
+              subKind:'reply',
+              key:msgKey,
+              feedbackId:it.id,
+              folderId:it.folderId||'fb_inbox',
+              title:'Antwort von ' + (m.author||it.author||'Spieler') + ' zu „' + (it.title||'Feedback') + '“',
+              preview:stripHtml(m.html||'').trim().slice(0,110),
+              ts:m.ts||'',
+              tsMs:toInt(m.tsMs,0),
+              unread:isUnread
+            });
+          });
+        });
+      }
+      const unread=all.filter(n=>n.unread);
+      const read=all.filter(n=>!n.unread);
+      return {unread,read,unreadCount:unread.length};
+    }
+    function markNotifRead(kind,key,user=CLOUD.currentUser){
+      if(!(user||CLOUD.isAdmin)||!key) return;
+      const seen=loadNotifSeen(user);
+      if(kind==='patchnote') seen.patchnotes[String(key)]=1;
+      else if(kind==='fb_admin') seen.adminFb[String(key)]=1;
+      else seen.replies[String(key)]=1;
+      saveNotifSeen(seen,user);
+      updateNotifBadges();
+    }
+    function markAllNotifsRead(user=CLOUD.currentUser){
+      if(!(user||CLOUD.isAdmin)) return;
+      const seen=loadNotifSeen(user);
+      if(user){
+        (Array.isArray(PATCHNOTES.entries)?PATCHNOTES.entries:[]).forEach(pn=>{
+          if(pn&&pn.id) seen.patchnotes[getPatchnoteNotifKey(pn)]=1;
+        });
+        const uLow=String(user).trim().toLowerCase();
+        (Array.isArray(FEEDBACK.items)?FEEDBACK.items:[]).forEach(it=>{
+          if(!it||String(it.author||'').trim().toLowerCase()!==uLow) return;
+          (Array.isArray(it.messages)?it.messages:[]).forEach(m=>{
+            if(m&&m.isAdmin===true&&m.id) seen.replies[String(m.id)]=1;
+          });
+        });
+      }
+      if(CLOUD.isAdmin){
+        (Array.isArray(FEEDBACK.items)?FEEDBACK.items:[]).forEach(it=>{
+          if(!it||!it.id) return;
+          seen.adminFb[`item_${it.id}`]=1;
+          (Array.isArray(it.messages)?it.messages:[]).forEach(m=>{
+            if(m&&!m.isAdmin&&m.id) seen.adminFb[`umsg_${m.id}`]=1;
+          });
+        });
+      }
+      saveNotifSeen(seen,user);
+      updateNotifBadges();
+    }
+    function updateNotifBadges(){
+      const cnt=(CLOUD.currentUser||CLOUD.isAdmin)?getUserNotifications().unreadCount:0;
+      document.querySelectorAll('[data-notif-cnt]').forEach(el=>{
+        el.textContent=String(cnt);
+        el.classList.toggle('inline-flex',cnt>0);
+        el.classList.toggle('hidden',cnt<=0);
+      });
+      document.querySelectorAll('[data-action="open-notifs"]').forEach(btn=>{
+        btn.classList.toggle('border-amber-400/70',cnt>0);
+        btn.classList.toggle('bg-amber-500/15',cnt>0);
+        btn.classList.toggle('text-amber-200',cnt>0);
+        btn.classList.toggle('bdr-acc',cnt<=0);
+        btn.classList.toggle('bg-acc-soft',cnt<=0);
+      });
+    }
+    function renderNotifBellBtnHtml(compact=false){
+      if(!(CLOUD.currentUser||CLOUD.isAdmin)) return '';
+      const cnt=getUserNotifications().unreadCount;
+      const szCls=compact?'h-9 px-2 text-xs font-extrabold shrink-0':'py-2 px-3 text-xs font-extrabold';
+      return `<button type="button" data-action="open-notifs" data-tip="Benachrichtigungen (Patchnotes &amp; Feedback)" class="btn relative ${szCls} ${cnt>0?'border-amber-400/70 bg-amber-500/15 text-amber-200':'bdr-acc bg-acc-soft'}">🔔<span data-notif-cnt="1" class="${cnt>0?'inline-flex':'hidden'} items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-rose-600 text-white text-[10px] font-black tabular leading-none">${cnt}</span></button>`;
+    }
+    function renderNotifsModalHtml(){
+      if(!(CLOUD.currentUser||CLOUD.isAdmin)){
+        return `<div class="subcard p-6 border-2 border-amber-500/40 bg-amber-500/10 text-center space-y-2">
+          <div class="text-2xl">🔒</div>
+          <div class="text-sm font-black text-amber-300">🔒 Nur für eingeloggte Benutzer – Bitte melde dich zuerst in der Lobby mit deinem Benutzernamen an, um deine Benachrichtigungen zu sehen.</div>
+        </div>`;
+      }
+      const N = getUserNotifications();
+      const renderItemCard = (it, isRead=false) => {
+        const isPn = it.kind === 'patchnote';
+        const isFbAdmin = it.kind === 'fb_admin';
+        const icon = isPn ? '📋' : isFbAdmin ? '📥' : '💬';
+        const badgeTxt = isPn ? 'Neue Patchnote' : isFbAdmin ? (it.subKind==='reply' ? 'Spieler-Antwort' : 'Neues Feedback') : 'Admin-Antwort';
+        const badgeCls = isPn
+          ? 'bg-sky-500/20 text-sky-300 border-sky-400/50'
+          : isFbAdmin
+            ? 'bg-emerald-500/20 text-emerald-300 border-emerald-400/50'
+            : 'bg-amber-500/20 text-amber-300 border-amber-400/50';
+        const cardCls = isRead
+          ? 'subcard p-2.5 opacity-70 hover:opacity-100 border bdr-line transition-opacity'
+          : 'subcard p-3 border-2 bdr-acc bg-acc-soft/20 hover:bg-acc-soft/35 transition-colors';
+        return `<button type="button" data-action="notif-open-item" data-nkind="${it.kind}" data-nkey="${esc(it.key)}" data-nid="${esc(it.id||it.feedbackId||'')}" class="${cardCls} w-full text-left flex items-start gap-2.5 cursor-pointer">
+          <span class="text-lg leading-none shrink-0 mt-0.5">${icon}</span>
+          <div class="min-w-0 flex-1 space-y-1">
+            <div class="flex flex-wrap items-center justify-between gap-1.5">
+              <span class="px-2 py-0.5 rounded-full text-[10px] font-extrabold border ${badgeCls}">${badgeTxt}</span>
+              ${it.ts?`<span class="text-[10px] t-mut tabular">🕒 ${esc(it.ts)}</span>`:''}
+            </div>
+            <div class="font-black text-xs sm:text-sm text-acc break-words">${esc(it.title||'')}</div>
+            ${it.preview?`<div class="text-xs t-mut break-words">${esc(stripHtml(it.preview))}</div>`:''}
+          </div>
+        </button>`;
+      };
+      const unreadHtml = N.unread.length
+        ? `<div class="space-y-2">${N.unread.map(it=>renderItemCard(it,false)).join('')}</div>`
+        : `<div class="subcard border-dashed p-5 text-center text-xs t-mut">Alles gelesen – keine neuen Benachrichtigungen.</div>`;
+      const recentRead = N.read.slice(0, 8);
+      const readHtml = recentRead.length
+        ? `<div class="space-y-2 pt-2 border-t bdr-line">
+            <div class="text-xs font-extrabold t-mut uppercase tracking-wider">Zuletzt gelesen (${recentRead.length})</div>
+            <div class="space-y-1.5">${recentRead.map(it=>renderItemCard(it,true)).join('')}</div>
+          </div>`
+        : '';
+      return `<div class="space-y-4">
+        <div class="subcard p-2.5 sm:p-3 flex flex-wrap items-center justify-between gap-2 bg-black/20">
+          <div class="flex flex-wrap items-center gap-2">
+            <span class="text-xs sm:text-sm font-black text-acc">🔔 Benachrichtigungen</span>
+            <span class="pill cursor-default text-[11px] py-0.5 px-2.5 tabular ${N.unreadCount>0?'border-amber-400/70 bg-amber-500/15 text-amber-200':'opacity-75'}">${N.unreadCount} ungelesen</span>
+          </div>
+          <div class="flex flex-wrap items-center gap-1.5">
+            <button type="button" data-action="notif-refresh" class="btn py-1 px-2.5 text-xs font-bold">🔄 Prüfen</button>
+            ${N.unreadCount>0?`<button type="button" data-action="notif-mark-all" class="btn btn-ok py-1 px-2.5 text-xs font-extrabold">✓ Alle als gelesen markieren</button>`:''}
+          </div>
+        </div>
+        <div class="space-y-2">
+          <div class="text-xs font-extrabold text-acc uppercase tracking-wider">Ungelesen (${N.unread.length})</div>
+          ${unreadHtml}
+        </div>
+        ${readHtml}
+      </div>`;
+    }
+    function refreshUserNotificationsBg(force=false){
+      if(!(CLOUD.currentUser||CLOUD.isAdmin)){
+        updateNotifBadges();
+        return Promise.resolve();
+      }
+      return Promise.allSettled([fetchPatchnotes(force),fetchFeedback(force)]).then(()=>updateNotifBadges());
+    }
+    function renderFbMiniChatHtml(item, asAdmin=false){
+      if(!item) return '';
+      if(!Array.isArray(item.messages)) item.messages=[];
+      if(!FEEDBACK.replyDrafts||typeof FEEDBACK.replyDrafts!=='object') FEEDBACK.replyDrafts={};
+      const canReply=Boolean((asAdmin&&CLOUD.isAdmin)||(!asAdmin&&CLOUD.currentUser&&String(item.author||'').toLowerCase()===CLOUD.currentUser.toLowerCase()));
+      return `<div data-fb-minichat="${esc(item.id)}" class="subcard border bdr-acc/50 bg-black/20 space-y-2 p-2.5 sm:p-3">
+        <div class="flex flex-wrap items-center justify-between gap-2 border-b bdr-line pb-1.5">
+          <span class="text-xs font-extrabold text-acc">💬 Miniatur-Chat (${item.messages.length} ${item.messages.length===1?'Nachricht':'Nachrichten'})</span>
+          <span class="text-[10px] font-semibold t-mut">Wird nach Erledigen/Löschen geschlossen</span>
+        </div>
+        <div class="max-h-56 overflow-y-auto space-y-1.5 pr-0.5">
+          ${item.messages.length?item.messages.map(m=>{
+            const isAdm=Boolean(m&&m.isAdmin);
+            const bCls=isAdm?'border-amber-400/50 bg-amber-500/15':'bdr-acc bg-acc-soft/30';
+            const authorHtml=isAdm?`<span class="font-black text-amber-300">👑 Admin</span>`:`<span class="font-extrabold text-acc">👤 ${esc(m.author)}</span>`;
+            return `<div class="p-2 rounded-lg border ${bCls} space-y-1">
+              <div class="flex flex-wrap items-center justify-between gap-2 text-[11px]">
+                ${authorHtml}
+                <span class="text-[10px] t-mut tabular">${esc(m.ts)}</span>
+              </div>
+              <div class="rtf-box text-xs leading-snug">${toRtfHtml(m.html)}</div>
+            </div>`;
+          }).join(''):`<div class="text-[11px] t-mut italic py-1.5 text-center">Noch keine Antworten im Chat.</div>`}
+        </div>
+        ${canReply?`<div class="rtf-wrap space-y-1.5 pt-1.5 border-t bdr-line">
+          <div class="flex flex-wrap items-center justify-between gap-1.5">
+            <span class="text-[11px] font-bold ${asAdmin?'text-amber-300':'text-acc'}">${asAdmin?'👑 Antwort als Admin':'💬 Antwort an den Admin'}</span>
+            ${renderRtfToolbarHtml(true)}
+          </div>
+          <div contenteditable="true" data-fb-reply="${esc(item.id)}" data-ph="${asAdmin?'Antwort als Admin schreiben...':'Antwort an den Admin schreiben...'}" class="inp w-full autogrow rtf-box min-h-[60px] text-xs">${toRtfHtml(FEEDBACK.replyDrafts[item.id]||'')}</div>
+          <div class="flex justify-end">
+            <button type="button" data-action="fb-send-reply" data-id="${esc(item.id)}" data-asadmin="${asAdmin?'1':'0'}" class="btn btn-pri py-1 px-3 text-xs">📨 Antworten</button>
+          </div>
+        </div>`:''}
+      </div>`;
+    }
+    function renderFbAdminPanelHtml(inExtraWin=false){
+      if(!CLOUD.isAdmin) return '';
+      const folders=Array.isArray(FEEDBACK.folders)&&FEEDBACK.folders.length?FEEDBACK.folders:clone(DEF_FB_FOLDERS);
+      const allItems=Array.isArray(FEEDBACK.items)?FEEDBACK.items:[];
+      if(FEEDBACK.activeFolderId!=='all'&&!folders.some(f=>f&&f.id===FEEDBACK.activeFolderId)) FEEDBACK.activeFolderId='all';
+      const activeFid=FEEDBACK.activeFolderId||'all';
+      const sortBy=FEEDBACK.sortBy||'newest';
+      const filtered=allItems.filter(it=>it&&(activeFid==='all'||(String(it.folderId||'fb_inbox')===activeFid)));
+      const sorted=[...filtered].sort((a,b)=>{
+        if(sortBy==='oldest') return toInt(a.tsMs,0)-toInt(b.tsMs,0);
+        if(sortBy==='author') return String(a.author||'').localeCompare(String(b.author||''),'de')||(toInt(b.tsMs,0)-toInt(a.tsMs,0));
+        if(sortBy==='manual') return (toInt(a.order,0)-toInt(b.order,0))||(toInt(b.tsMs,0)-toInt(a.tsMs,0));
+        return toInt(b.tsMs,0)-toInt(a.tsMs,0);
+      });
+      const hdrHtml=`<div class="subcard p-2.5 sm:p-3 flex flex-wrap items-center justify-between gap-2 bg-black/20">
+        <div class="flex flex-wrap items-center gap-2">
+          <span class="text-xs font-extrabold text-amber-300">📥 Admin-Posteingang (${filtered.length}/${allItems.length})</span>
+          <label class="inline-flex items-center gap-1.5 text-xs font-bold t-mut">
+            <span>Sortierung:</span>
+            <select data-fb-sort="1" class="inp py-1 px-2 text-xs font-bold">
+              <option value="newest" ${sortBy==='newest'?'selected':''}>Neueste zuerst</option>
+              <option value="oldest" ${sortBy==='oldest'?'selected':''}>Älteste zuerst</option>
+              <option value="author" ${sortBy==='author'?'selected':''}>Benutzer A–Z</option>
+              <option value="manual" ${sortBy==='manual'?'selected':''}>Manuell ▲/▼</option>
+            </select>
+          </label>
+        </div>
+        <div class="flex flex-wrap items-center gap-1.5">
+          ${!inExtraWin?'<button type="button" data-action="open-fbadmin-win" class="btn py-1 px-2.5 text-xs bdr-acc bg-acc-soft text-acc">🪟 Extrafenster</button>':''}
+        </div>
+      </div>`;
+      const foldersHtml=`<div class="subcard p-2.5 space-y-2 bg-black/15">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <div class="flex flex-wrap items-center gap-1.5">
+            <button type="button" data-action="fb-select-folder" data-fid="all" class="btn py-1 px-2.5 text-xs font-extrabold ${activeFid==='all'?'btn-pri':''}">📁 Alle (${allItems.length})</button>
+            ${folders.map(f=>{
+              const cnt=allItems.filter(it=>it&&String(it.folderId||'fb_inbox')===f.id).length;
+              const isAct=activeFid===f.id;
+              const canDel=!f.isSystem&&f.id!=='fb_inbox';
+              const isConfirmDel=canDel&&FEEDBACK.confirmDelFolderId===f.id;
+              return `<div class="inline-flex items-center gap-0.5">
+                <button type="button" data-action="fb-select-folder" data-fid="${esc(f.id)}" class="btn py-1 px-2.5 text-xs font-extrabold ${isAct?'btn-pri':''}">${esc(f.name)} (${cnt})</button>
+                ${canDel?(isConfirmDel
+                  ?`<button type="button" data-action="fb-confirm-del-folder" data-fid="${esc(f.id)}" class="btn bg-rose-600 text-white border-rose-600 py-1 px-2 text-[10px] font-black">Löschen? (2/2)</button><button type="button" data-action="fb-cancel-del-folder" class="btn py-1 px-1.5 text-[10px]">✕</button>`
+                  :`<button type="button" data-action="fb-ask-del-folder" data-fid="${esc(f.id)}" data-tip="Ordner löschen (Einträge wandern in den Posteingang)" class="btn btn-err py-1 px-1.5 text-[10px]">✕</button>`
+                ):''}
+              </div>`;
+            }).join('')}
+          </div>
+          <div class="flex items-center gap-1.5">
+            <input type="text" data-fb-new-folder="1" value="${esc(FEEDBACK.newFolderName||'')}" placeholder="Neuer Ordner..." class="inp py-1 px-2 text-xs w-36 sm:w-44"/>
+            <button type="button" data-action="fb-add-folder" ${FEEDBACK.saving?'disabled':''} class="btn btn-ok py-1 px-2.5 text-xs font-extrabold">+ Ordner</button>
+          </div>
+        </div>
+      </div>`;
+      const listHtml=!sorted.length
+        ?`<div class="subcard border-dashed p-6 text-center text-xs t-mut">📭 Keine Feedback-Einträge in dieser Ansicht.</div>`
+        :`<div class="space-y-3">${sorted.map((it,idx)=>{
+          const titleTxt=String(it.title||'').trim()||'Feedback ohne Betreff';
+          const isDelConfirm=FEEDBACK.confirmDelId===it.id;
+          const curFid=folders.some(f=>f.id===it.folderId)?it.folderId:'fb_inbox';
+          return `<div class="subcard p-3.5 space-y-2.5 border bdr-line">
+            <div class="flex flex-wrap items-start justify-between gap-2">
+              <div class="min-w-0 flex-1">
+                <div class="flex flex-wrap items-center gap-1.5">
+                  <span class="font-black text-sm text-acc break-words">${esc(titleTxt)}</span>
+                  <span class="px-2 py-0.5 rounded-md text-[11px] font-extrabold bg-indigo-500/20 text-indigo-300 border border-indigo-400/40">👤 ${esc(it.author||'Gast')}</span>
+                  <span class="text-[11px] t-mut tabular">🕒 ${esc(it.ts||'')}</span>
+                </div>
+              </div>
+              <div class="flex flex-wrap items-center gap-1.5 shrink-0">
+                <select data-fb-move-folder="${esc(it.id)}" data-tip="In Ordner verschieben" class="inp py-0.5 px-2 text-[11px] font-bold">
+                  ${folders.map(f=>`<option value="${esc(f.id)}" ${curFid===f.id?'selected':''}>${esc(f.name)}</option>`).join('')}
+                </select>
+                <div class="inline-flex items-center gap-0.5">
+                  <button type="button" data-action="fb-move-item" data-id="${esc(it.id)}" data-dir="-1" ${idx===0?'disabled':''} data-tip="Manuell nach oben schieben" class="btn py-0.5 px-1.5 text-[11px]">▲</button>
+                  <button type="button" data-action="fb-move-item" data-id="${esc(it.id)}" data-dir="1" ${idx===sorted.length-1?'disabled':''} data-tip="Manuell nach unten schieben" class="btn py-0.5 px-1.5 text-[11px]">▼</button>
+                </div>
+                <button type="button" data-action="fb-done-item" data-id="${esc(it.id)}" ${FEEDBACK.saving?'disabled':''} data-tip="Als erledigt markieren (wandert ins Benutzer-Backlog, Chat wird geschlossen)" class="btn btn-ok py-1 px-2.5 text-xs font-extrabold">✅ Erledigt</button>
+                ${isDelConfirm
+                  ?`<span class="inline-flex items-center gap-1"><button type="button" data-action="fb-confirm-del-item" data-id="${esc(it.id)}" class="btn bg-rose-600 text-white border-rose-600 py-1 px-2 text-[11px] font-black">Löschen? (2/2)</button><button type="button" data-action="fb-cancel-del-item" class="btn py-1 px-1.5 text-[11px]">✕</button></span>`
+                  :`<button type="button" data-action="fb-ask-del-item" data-id="${esc(it.id)}" ${FEEDBACK.saving?'disabled':''} data-tip="Eintrag löschen (wird im Benutzer-Backlog als Gelöscht vermerkt)" class="btn btn-err py-1 px-2.5 text-xs font-extrabold">🗑️ Löschen</button>`}
+              </div>
+            </div>
+            <div class="rtf-box text-xs sm:text-sm p-2.5 rounded-lg bg-black/25 border bdr-line leading-relaxed">${toRtfHtml(it.html||'')}</div>
+            ${renderFbMiniChatHtml(it, true)}
+          </div>`;
+        }).join('')}</div>`;
+      return `<div class="space-y-3">${hdrHtml}${foldersHtml}${listHtml}</div>`;
+    }
+    function renderFbAdminWin(){
+      if(!CLOUD.isAdmin) FBW.open=false;
+      const mount=$('fbAdminMount'), bd=$('fbAdminBackdrop');
+      if(!mount) return;
+      applyWinFrame('fbadmin',mount,bd,'xl:w-[540px]');
+      if(!FBW.open){mount.innerHTML='';return;}
+      mount.innerHTML=`<div class="card relative space-y-3 border-2 bdr-acc shadow-2xl">
+        <div data-win-drag="fbadmin" class="win-drag-hdr flex flex-wrap items-center justify-between gap-2 border-b bdr-line pb-2.5">
+          <div class="flex items-center gap-2 min-w-0">
+            <span class="text-sm sm:text-base font-black text-acc truncate">💬 Feedback-Ablage (Admin)</span>
+          </div>
+          <div class="flex flex-wrap items-center gap-1.5">
+            ${renderWinCtrlBtns('fbadmin')}
+            <button type="button" data-action="fb-refresh" ${FEEDBACK.loading?'disabled':''} data-tip="Feedback vom Server aktualisieren" class="btn py-1 px-2 text-xs">🔄</button>
+            <button type="button" data-action="close-fbadmin" data-tip="Extrafenster schließen" class="btn py-1 px-2.5 text-xs font-black">✕</button>
+          </div>
+        </div>
+        ${renderFbAdminPanelHtml(true)}
+        ${renderWinResizeHandles('fbadmin')}
+      </div>`;
+    }
+    function renderFbStatusBadge(b, activeItem=null){
+      const hasAdminReply=Boolean(activeItem&&((toInt(activeItem.lastAdminReplyMs,0)>0)||(Array.isArray(activeItem.messages)&&activeItem.messages.some(m=>m&&m.isAdmin))));
+      const rawSt=String(b?.status||'open').trim().toLowerCase();
+      const effSt=(rawSt==='open'&&hasAdminReply)?'answered':rawSt;
+      const closedSuffix=b?.closedAt?` (${esc(b.closedAt)})`:'';
+      if(effSt==='deleted') return `<span class="px-2 py-0.5 rounded-full text-[11px] font-extrabold bg-rose-500/20 text-rose-300 border border-rose-500/40">🗑️ Gelöscht${closedSuffix}</span>`;
+      if(effSt==='resolved'||effSt==='done') return `<span class="px-2 py-0.5 rounded-full text-[11px] font-extrabold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">✅ Erledigt${closedSuffix}</span>`;
+      if(effSt==='answered') return `<span class="px-2 py-0.5 rounded-full text-[11px] font-extrabold bg-sky-500/20 text-sky-300 border border-sky-400/50">💬 Beantwortet</span>`;
+      return `<span class="px-2 py-0.5 rounded-full text-[11px] font-extrabold bg-amber-500/20 text-amber-300 border border-amber-400/50">🟡 Offen</span>`;
+    }
+    function renderFbBacklogPanelHtml(){
+      if(!CLOUD.isAdmin) return '';
+      if(!Array.isArray(FEEDBACK.backlog)) FEEDBACK.backlog=[];
+      const allUsers=sortAlpha([...Object.keys(CLOUD.registry?.users||{}), ...(FEEDBACK.backlog||[]).map(b=>b.author)]);
+      const countByUser=u=>(FEEDBACK.backlog||[]).filter(b=>b&&String(b.author||'').toLowerCase()===String(u||'').toLowerCase()).length;
+      const curSel=String(FEEDBACK.backlogUser||'all');
+      const usersWithEntries=allUsers.filter(u=>countByUser(u)>0);
+      const filtered=(FEEDBACK.backlog||[])
+        .filter(b=>b&&(curSel==='all'||String(b.author||'').toLowerCase()===curSel.toLowerCase()))
+        .sort((a,b)=>toInt(b.tsMs,0)-toInt(a.tsMs,0));
+      const filterRowHtml=`<div class="subcard p-2.5 sm:p-3 space-y-2 bg-black/20">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <div class="flex flex-wrap items-center gap-2">
+            <span class="text-xs font-extrabold text-amber-300">📚 Benutzer-Backlogs (${filtered.length}/${FEEDBACK.backlog.length})</span>
+            <select data-fb-backlog-user="1" class="inp py-1 px-2.5 text-xs font-bold">
+              <option value="all" ${curSel==='all'?'selected':''}>👥 Alle Benutzer (${FEEDBACK.backlog.length})</option>
+              ${allUsers.map(u=>{
+                const cnt=countByUser(u);
+                const isSel=curSel!=='all'&&curSel.toLowerCase()===u.toLowerCase();
+                return `<option value="${esc(u)}" ${isSel?'selected':''}>👤 ${esc(u)} (${cnt})</option>`;
+              }).join('')}
+            </select>
+          </div>
+        </div>
+        ${usersWithEntries.length?`<div class="flex flex-wrap items-center gap-1.5 pt-1 border-t bdr-line">
+          <button type="button" data-action="fb-set-backlog-user" data-user="all" class="pill text-[11px] py-0.5 px-2.5 ${curSel==='all'?'bdr-acc bg-acc-soft text-acc':''}">👥 Alle (${FEEDBACK.backlog.length})</button>
+          ${usersWithEntries.map(u=>{
+            const cnt=countByUser(u);
+            const isSel=curSel!=='all'&&curSel.toLowerCase()===u.toLowerCase();
+            return `<button type="button" data-action="fb-set-backlog-user" data-user="${esc(u)}" class="pill text-[11px] py-0.5 px-2.5 ${isSel?'bdr-acc bg-acc-soft text-acc':''}">👤 ${esc(u)} (${cnt})</button>`;
+          }).join('')}
+        </div>`:''}
+      </div>`;
+      const cardsHtml=!filtered.length
+        ?`<div class="subcard border-dashed p-6 text-center text-xs t-mut">📭 Keine Backlog-Einträge für diese Auswahl vorhanden.</div>`
+        :`<div class="space-y-2.5">${filtered.map(b=>{
+          const activeItem=(Array.isArray(FEEDBACK.items)?FEEDBACK.items:[]).find(it=>it&&it.id===b.id)||null;
+          const stBadge=renderFbStatusBadge(b, activeItem);
+          return `<div class="subcard p-3 space-y-2 border bdr-line">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <div class="flex flex-wrap items-center gap-1.5 min-w-0">
+                <span class="px-2 py-0.5 rounded-md text-[11px] font-extrabold bg-indigo-500/20 text-indigo-300 border border-indigo-400/40">👤 ${esc(b.author)}</span>
+                <span class="font-black text-xs sm:text-sm text-acc break-words">${esc(b.title||'Feedback')}</span>
+                <span class="text-[11px] t-mut tabular">🕒 ${esc(b.ts)}</span>
+              </div>
+              <div class="shrink-0">${stBadge}</div>
+            </div>
+            <div class="rtf-box text-xs p-2 rounded bg-black/20 border bdr-line">${toRtfHtml(b.html)}</div>
+          </div>`;
+        }).join('')}</div>`;
+      return `<div class="space-y-3">${filterRowHtml}${cardsHtml}</div>`;
+    }
+    function renderFeedbackModalHtml(){
+      if(!CLOUD.isAdmin&&(FEEDBACK.activeTab==='admin'||FEEDBACK.activeTab==='backlog')){
+        FEEDBACK.activeTab='write';
+      }
+      const tab=FEEDBACK.activeTab||'write';
+      const curUser=String(CLOUD.currentUser||'').trim();
+      const myBacklog=curUser
+        ?(Array.isArray(FEEDBACK.backlog)?FEEDBACK.backlog:[])
+            .filter(b=>b&&String(b.author||'').trim().toLowerCase()===curUser.toLowerCase())
+            .sort((a,b)=>toInt(b.tsMs,0)-toInt(a.tsMs,0))
+        :[];
+      const activeItemsCnt=Array.isArray(FEEDBACK.items)?FEEDBACK.items.length:0;
+      const totalBacklogCnt=Array.isArray(FEEDBACK.backlog)?FEEDBACK.backlog.length:0;
+
+      const tabsHtml=`<div class="flex flex-wrap items-center justify-between gap-2 border-b bdr-line pb-2.5">
+        <div class="flex flex-wrap items-center gap-1.5">
+          <button type="button" data-action="fb-tab" data-tab="write" class="btn py-1.5 px-3 text-xs font-extrabold ${tab==='write'?'btn-pri':''}">✍️ Feedback schreiben</button>
+          <button type="button" data-action="fb-tab" data-tab="mylog" class="btn py-1.5 px-3 text-xs font-extrabold ${tab==='mylog'?'btn-pri':''}">📜 Mein Feedback-Log${curUser?` <span class="px-1.5 py-0.2 rounded-full text-[10px] bg-black/25 tabular">${myBacklog.length}</span>`:''}</button>
+          ${CLOUD.isAdmin===true?`
+            <button type="button" data-action="fb-tab" data-tab="admin" class="btn py-1.5 px-3 text-xs font-extrabold ${tab==='admin'?'btn-pri':'!border-amber-400/50 text-amber-300'}">📥 Admin-Posteingang <span class="px-1.5 py-0.2 rounded-full text-[10px] bg-black/25 tabular">${activeItemsCnt}</span></button>
+            <button type="button" data-action="fb-tab" data-tab="backlog" class="btn py-1.5 px-3 text-xs font-extrabold ${tab==='backlog'?'btn-pri':'!border-amber-400/50 text-amber-300'}">📚 Benutzer-Backlogs <span class="px-1.5 py-0.2 rounded-full text-[10px] bg-black/25 tabular">${totalBacklogCnt}</span></button>
+          `:''}
+        </div>
+        <div class="flex items-center gap-1.5">
+          ${FEEDBACK.lastLoadedTs?`<span class="text-[10px] t-mut tabular hidden sm:inline">Stand: ${esc(FEEDBACK.lastLoadedTs)}</span>`:''}
+          ${CLOUD.isAdmin===true?`<button type="button" data-action="fb-refresh" ${FEEDBACK.loading?'disabled':''} class="btn py-1 px-2.5 text-xs font-bold">🔄 Aktualisieren</button>`:`<button type="button" data-action="fb-refresh" ${FEEDBACK.loading?'disabled':''} class="btn py-1 px-2 text-[11px]" data-tip="Feedback-Status aktualisieren">🔄</button>`}
+        </div>
+      </div>`;
+
+      const statusBanner=FEEDBACK.error?`<div class="p-2.5 rounded-xl border border-amber-400/50 bg-amber-500/10 text-amber-200 text-xs font-semibold flex items-center justify-between gap-2"><span>⚠️ ${esc(FEEDBACK.error)}</span></div>`:'';
+
+      let bodyHtml='';
+      if(tab==='write'){
+        if(!curUser){
+          bodyHtml=`<div class="subcard p-6 border-2 border-amber-500/40 bg-amber-500/10 text-center space-y-2">
+            <div class="text-2xl">🔒</div>
+            <div class="text-sm font-black text-amber-300">🔒 Nur für eingeloggte Benutzer – Bitte melde dich zuerst in der Lobby mit deinem Benutzernamen an, damit dein Feedback mit Benutzername und Zeitstempel übermittelt werden kann.</div>
+          </div>`;
+        }else{
+          bodyHtml=`<div class="space-y-3">
+            <div class="subcard p-3 flex flex-wrap items-center justify-between gap-2 bg-acc-soft/20 bdr-acc">
+              <div class="flex items-center gap-2 text-xs font-bold">
+                <span class="px-2.5 py-1 rounded-lg bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 font-black">👤 ${esc(curUser)}</span>
+                <span class="t-mut">Dein Feedback wird mit Benutzername und Zeitstempel versehen und ist <strong>ausschließlich für den Admin</strong> sichtbar.</span>
+              </div>
+            </div>
+            <div class="space-y-1.5">
+              <label for="fbDraftTitle" class="block text-xs font-extrabold text-acc uppercase tracking-wider">Betreff / Titel (optional)</label>
+              <input id="fbDraftTitle" data-fb-draft="title" type="text" value="${esc(FEEDBACK.draftTitle||'')}" placeholder="Kurzer Betreff (z.B. Wunsch für Kräfte-Filter, Bug bei Rüstung...)" class="inp w-full text-sm font-bold py-2 px-3"/>
+            </div>
+            <div class="space-y-1.5 rtf-wrap">
+              <div class="flex flex-wrap items-center justify-between gap-2">
+                <label class="text-xs font-extrabold text-acc uppercase tracking-wider">Nachricht / Beschreibung</label>
+                ${renderRtfToolbarHtml(true)}
+              </div>
+              <div contenteditable="true" id="fbDraftBody" data-fb-draft="html" data-ph="Dein Feedback, Wunsch oder Bug-Report..." class="inp w-full autogrow rtf-box min-h-[140px] text-xs sm:text-sm p-3">${toRtfHtml(FEEDBACK.draftHtml||'')}</div>
+            </div>
+            <div class="flex items-center justify-end gap-2 pt-1">
+              <button type="button" data-action="fb-submit" ${FEEDBACK.saving?'disabled':''} class="btn btn-pri py-2 px-4 text-xs sm:text-sm font-black shadow-lg">${FEEDBACK.saving?'⏳ Wird gesendet...':'📨 Feedback absenden'}</button>
+            </div>
+          </div>`;
+        }
+      }else if(tab==='mylog'){
+        if(!curUser){
+          bodyHtml=`<div class="subcard p-6 border-2 border-amber-500/40 bg-amber-500/10 text-center space-y-2">
+            <div class="text-2xl">🔒</div>
+            <div class="text-sm font-black text-amber-300">🔒 Nur für eingeloggte Benutzer – Bitte melde dich zuerst in der Lobby mit deinem Benutzernamen an, um dein persönliches Feedback-Log einzusehen.</div>
+          </div>`;
+        }else if(!myBacklog.length){
+          bodyHtml=`<div class="subcard border-dashed p-6 text-center text-xs t-mut space-y-2">
+            <div class="text-lg">📭</div>
+            <div>Du hast bisher noch kein Feedback eingereicht. Wechsle auf <strong>„✍️ Feedback schreiben“</strong>, um dem Admin eine Nachricht zu senden.</div>
+          </div>`;
+        }else{
+          bodyHtml=`<div class="space-y-3">${myBacklog.map(b=>{
+            const activeItem=(Array.isArray(FEEDBACK.items)?FEEDBACK.items:[]).find(it=>it&&it.id===b.id)||null;
+            const stBadge=renderFbStatusBadge(b, activeItem);
+            const titleTxt=String(b.title||'').trim()||'Feedback ohne Betreff';
+            return `<div class="subcard p-3.5 space-y-2.5 border bdr-line">
+              <div class="flex flex-wrap items-center justify-between gap-2">
+                <div class="min-w-0 flex-1">
+                  <div class="font-black text-sm text-acc break-words">${esc(titleTxt)}</div>
+                  <div class="text-[11px] t-mut tabular mt-0.5">🕒 ${esc(b.ts||'')} • 👤 ${esc(b.author||curUser)}</div>
+                </div>
+                <div class="flex flex-wrap items-center gap-1.5 shrink-0">${stBadge}</div>
+              </div>
+              <div class="rtf-box text-xs sm:text-sm p-2.5 rounded-lg bg-black/25 border bdr-line leading-relaxed">${toRtfHtml(b.html||'')}</div>
+              ${activeItem ? renderFbMiniChatHtml(activeItem, false) : ''}
+            </div>`;
+          }).join('')}</div>`;
+        }
+      }else if(tab==='admin'||tab==='backlog'){
+        if(!CLOUD.isAdmin){
+          bodyHtml=`<div class="subcard p-6 border-2 border-rose-500/40 bg-rose-500/10 text-center text-xs font-black text-rose-300">🔒 Zugriff verweigert – Dieser Bereich ist strikt dem Admin vorbehalten.</div>`;
+        }else if(tab==='admin'){
+          bodyHtml=renderFbAdminPanelHtml(false);
+        }else{
+          bodyHtml=`${renderFbBacklogPanelHtml()}`;
+        }
+      }
+
+      return `<div class="space-y-4">
+        ${tabsHtml}
+        ${statusBanner}
+        ${FEEDBACK.loading&&!FEEDBACK.loaded?`<div class="subcard p-6 text-center text-xs t-mut animate-pulse">⏳ Feedback-Daten werden vom Server geladen...</div>`:bodyHtml}
+      </div>`;
     }
     async function fetchAndSyncBasisPowers(mode='skipExisting',opts={}){
       const silent=Boolean(opts&&opts.silent);
@@ -4273,6 +5056,7 @@
               </div>
             </div>
             <div class="flex lg:hidden items-center gap-1.5 shrink-0">
+              ${renderNotifBellBtnHtml(true)}
               <button type="button" data-action="toggle-dice" data-tip="W100-Würfelassistent öffnen/schließen" class="btn ${D.open?'btn-pri ring-1 ring-amber-400':'bdr-acc bg-acc-soft'} py-1.5 px-2.5 text-sm font-black">🎲</button>
               <button type="button" data-action="toggle-mobile-lobby-menu" data-tip="Lobby-Menü öffnen/schließen" aria-expanded="${UI.mobileLobbyMenuOpen?'true':'false'}" class="btn ${UI.mobileLobbyMenuOpen?'btn-pri ring-1 ring-amber-400':'bdr-acc bg-acc-soft'} py-1.5 px-2.5 text-xs font-extrabold">☰ Menü</button>
             </div>
@@ -4283,7 +5067,9 @@
             <button type="button" data-action="open-local-sheet" data-tip="Öffnet den lokal gespeicherten Charakterbogen (oder einen Test-Bogen) direkt ohne Cloud-Zwang – ideal zum lokalen Testen vor dem GitHub-Upload" class="btn btn-ok text-xs font-extrabold px-3.5 py-2">🛠️ Lokalen Bogen öffnen / testen</button>
             <button type="button" data-action="toggle-livedice" class="btn ${LD.open?'btn-pri':'bdr-acc bg-acc-soft'} text-xs font-extrabold px-3.5 py-2">📡 Live-Würfel <span data-live-dice-cnt="1" class="px-1.5 rounded-full text-[10px] bg-black/25 tabular">${liveDiceCnt}</span></button>
             <button type="button" data-action="toggle-dice" class="btn ${D.open?'btn-pri':'bdr-acc bg-acc-soft'} text-xs font-extrabold px-3.5 py-2">🎲 Würfelassistent</button>
+            <button type="button" data-action="open-feedback" data-tip="Feedback an den Admin senden, Antworten lesen &amp; eigenes Feedback-Log ansehen" class="btn py-2 px-3 text-xs font-extrabold bdr-acc bg-acc-soft">💬 Feedback</button>
             <button type="button" data-action="open-patchnotes" data-tip="Patchnotes & Änderungen anzeigen" class="btn py-2 px-3 text-xs font-extrabold bdr-acc bg-acc-soft">📋 Patchnotes</button>
+            ${renderNotifBellBtnHtml()}
             <button type="button" data-action="open-settings" class="btn py-2 px-3.5 text-xs font-extrabold bdr-acc bg-acc-soft">⚙️ Optionen</button>
           </div>
         </div></header>`;
@@ -4301,6 +5087,7 @@
             </div>
           </div>
           <div class="flex items-center gap-1.5 shrink-0">
+            ${renderNotifBellBtnHtml(true)}
             <button type="button" data-action="toggle-dice" data-tip="W100-Würfelassistent öffnen/schließen" class="btn ${D.open?'btn-pri ring-1 ring-amber-400':'bdr-acc bg-acc-soft'} w-9 h-9 p-0 text-base">🎲</button>
             <button type="button" data-action="toggle-livedice" data-tip="Live-Würfel öffnen/schließen" class="btn ${LD.open?'btn-pri':'bdr-acc bg-acc-soft'} h-9 px-2 text-xs font-extrabold">📡<span data-live-dice-cnt="1" class="px-1 rounded-full text-[9px] bg-black/25 tabular">${liveDiceCnt}</span></button>
             <button type="button" data-action="toggle-mobile-hdr" data-tip="Charakterdetails &amp; Aktionen ein-/ausblenden" aria-expanded="${UI.mobileHdrOpen?'true':'false'}" class="btn ${UI.mobileHdrOpen?'btn-pri ring-1 ring-amber-400':'bdr-acc bg-acc-soft'} w-9 h-9 p-0 text-base font-black">☰</button>
@@ -4333,6 +5120,7 @@
               </div>
               <div class="shrink-0 self-end xl:self-center ml-auto flex flex-wrap items-center gap-2">
                 <button type="button" data-action="open-patchnotes" data-tip="Patchnotes & Änderungen anzeigen" class="btn py-2 px-3 text-xs font-extrabold bdr-acc bg-acc-soft">📋 Patchnotes</button>
+                ${renderNotifBellBtnHtml()}
                 <button type="button" data-action="open-settings" data-tip="Optionen &amp; Design (JSON Export/Import, Themen, Hintergrund)" class="btn py-2 px-3.5 text-xs font-extrabold bdr-acc bg-acc-soft">⚙️ Optionen</button>
               </div>
             </div>
@@ -7615,6 +8403,14 @@
         }
         return;
       }
+      if(UI.modal==='feedback'){
+        m.innerHTML=`<div data-overlay="1" class="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm sm:p-6 flex items-start justify-center overflow-y-auto p-2 sm:p-4"><div class="card w-full max-w-4xl my-auto space-y-4 max-h-[90dvh] overflow-y-auto overscroll-contain"><div class="flex flex-wrap items-center justify-between gap-2 border-b bdr-line pb-3"><div class="flex items-center gap-2.5"><span class="w-9 h-9 rounded-xl btn-pri flex items-center justify-center text-lg shadow">💬</span><div><h3 class="text-base sm:text-lg font-black">Feedback &amp; Wünsche</h3><p class="text-[11px] t-mut">Direkter Kanal an den Admin, Antworten &amp; persönliches Feedback-Log</p></div></div><button type="button" data-action="close-modal" class="btn py-1 px-2.5 text-xs">✕ Schließen</button></div>${renderFeedbackModalHtml()}</div></div>`;
+        return;
+      }
+      if(UI.modal==='notifs'){
+        m.innerHTML=`<div data-overlay="1" class="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm sm:p-6 flex items-start justify-center overflow-y-auto p-2 sm:p-4"><div class="card w-full max-w-xl my-4 sm:my-8 space-y-4 max-h-[90dvh] overflow-y-auto overscroll-contain"><div class="flex items-center justify-between gap-2 border-b bdr-line pb-3"><h2 class="text-base sm:text-lg font-extrabold text-acc">🔔 Benachrichtigungen</h2><button type="button" data-action="close-modal" class="btn py-1 px-2.5 text-xs">✕ Schließen</button></div>${renderNotifsModalHtml()}</div></div>`;
+        return;
+      }
       if(UI.modal==='info'){
         const tabs=[['dice','1. Würfelsystem'],['prog','2. Steigerung'],['gloss','3. Glossar'],['patchnotes','📋 Patchnotes']].map(([k,l])=>`<button type="button" data-action="info-tab" data-itab="${k}" class="btn py-1 px-2.5 text-xs ${UI.infoTab===k?'btn-pri':''}">${l}</button>`).join('');
         const body=UI.infoTab==='dice'?`<div class="subcard text-center py-3 font-extrabold bdr-acc bg-acc-soft">Testschwelle = Charakterwert + 50 − Schwierigkeit + Vor-/Nachteils-Bonus</div><p>Mit <strong>W100 (1–100)</strong> die Schwelle erreichen oder unterbieten (1 = immer kritischer Erfolg, 100 = immer Patzer). Netto-Vor-/Nachteile: 1=±10, 2=±15, 3=±20, 4=±25, 5+=±30. Kritisch bei Endziffer 1 (erweiterbar). EG = ⌈Wurf/10⌉, MEG = ⌈(101−Wurf)/10⌉.</p>`
@@ -8152,7 +8948,7 @@
       }
       const canon=DEF_PW_TAGS.find(t=>t.toLowerCase()===raw.toLowerCase())||(S.pwTagList||[]).find(t=>t.toLowerCase()===raw.toLowerCase())||raw;
       S.pwTagList=sortAlpha([...(S.pwTagList||DEF_PW_TAGS),canon].filter(t=>!isReservedPwTerm(t)));
-      S.subcatList=S.pwTagList;
+      
       if(!Array.isArray(it.tags)) it.tags=[];
       if(!it.tags.some(t=>t.toLowerCase()===canon.toLowerCase())) it.tags.push(canon);
       if(inp) inp.value='';
@@ -8168,8 +8964,11 @@
       }
       const el=e.target.closest('[data-action]'); if(!el) return;
       const btn=el, act=el.dataset.action; if(act==='close-modal-bg'&&e.target!==el) return;
-      if(act==='win-float'){ const k=btn.dataset.win, st=getWinState(k); st.floating=!st.floating; if(st.floating){st.docked=false; st.z=Math.max(CN.z||50,D.z||50,LD.z||50)+1;} renderCampNotes(); renderLiveDice(); renderDice(); return; }
-      if(act==='win-reset'){ const k=btn.dataset.win, st=getWinState(k); st.w=0; st.h=0; st.x=null; st.y=null; renderCampNotes(); renderLiveDice(); renderDice(); return; }
+      if(act==='fb-set-backlog-user'){if(!CLOUD.isAdmin)return;FEEDBACK.backlogUser=btn.dataset.user||'all';renderModal();return;}
+      if(act==='win-float'){ const k=btn.dataset.win, st=getWinState(k); st.floating=!st.floating; if(st.floating){st.docked=false; st.z=Math.max(CN.z||50,D.z||50,LD.z||50,FBW.z||50)+1;} renderCampNotes(); renderLiveDice(); renderFbAdminWin(); renderDice(); return; }
+      if(act==='win-reset'){ const k=btn.dataset.win, st=getWinState(k); st.w=0; st.h=0; st.x=null; st.y=null; renderCampNotes(); renderLiveDice(); renderFbAdminWin(); renderDice(); return; }
+      if(act==='open-fbadmin-win'){ if(CLOUD.isAdmin){ UI.modal=null; FBW.open=true; FBW.floating=true; renderModal(); renderFbAdminWin(); fetchFeedback(false); } return; }
+      if(act==='close-fbadmin'){ FBW.open=false; renderFbAdminWin(); return; }
       switch(act){
         case 'switch-tab': S.activeTab=el.dataset.tab; UI.openPwMenu=''; UI.confirmDelId=null; UI.confirmDelExSecId=null; saveLastActiveTab(S.charId,S.activeTab); applyTheme(); renderHeader(); renderMain(); save(false); break;
         case 'rest-simple': performSimpleRest(); break;
@@ -8430,7 +9229,7 @@
             S[k]=S[k].filter(x=>x.name!==v);
           }else if(lt==='pwTag'||lt==='subcat'){
             S.pwTagList=(S.pwTagList||DEF_PW_TAGS).filter(x=>x!==v);
-            S.subcatList=S.pwTagList;
+            
           }else{
             const k={useRes:'useResList',customStats:'customStats'}[lt];
             if(k) S[k]=S[k].filter(x=>x!==v);
@@ -8438,7 +9237,7 @@
           renderMain();renderModal();save();break;
         }
         case 'reset-list':
-          if(UI.listType==='pwTag'||UI.listType==='subcat'){S.pwTagList=[...DEF_PW_TAGS];S.subcatList=S.pwTagList;}
+          if(UI.listType==='pwTag'||UI.listType==='subcat'){S.pwTagList=[...DEF_PW_TAGS];}
           else if(UI.listType==='useRes')S.useResList=[...DEF_USERES];
           else if(UI.listType==='weaponTags')S.weaponTagList=JSON.parse(JSON.stringify(DEF_WEAPON_TAGS));
           else if(UI.listType==='armorTags')S.armorTagList=[];
@@ -8723,7 +9522,7 @@
           renderMain();
           break;
         }
-        case 'reset-pw-filter': UI.pwFilterTypes=[]; UI.pwFilterArts=[]; UI.pwFilterActionSubs=[]; UI.pwFilterTiers=[]; UI.pwFilterTags=[]; UI.pwFilterSubs=[]; renderMain(); toast('Kräfte-Filter zurückgesetzt'); break;
+        case 'reset-pw-filter': UI.pwFilterTypes=[]; UI.pwFilterArts=[]; UI.pwFilterActionSubs=[]; UI.pwFilterTiers=[]; UI.pwFilterTags=[]; renderMain(); toast('Kräfte-Filter zurückgesetzt'); break;
         case 'collapse-all-pw': {const v=el.dataset.val==='1';[...S.powers,...S.augments,...S.powerSections].forEach(it=>{it.collapsed=v;});renderMain();save(false);break;}
         case 'ask-del-pw': UI.confirmDelId=el.dataset.id; renderMain(); break;
         case 'cancel-del-pw': UI.confirmDelId=null; renderMain(); break;
@@ -9737,6 +10536,7 @@
           CLOUD.registry.users[u]={passHash:simpleHash(p),createdAt:stamp()};
           CLOUD.currentUser=u;
           try{loadLobbyStyleForCurrentUser();applyTheme();localStorage.setItem('scherbensturm_cloud_user',u);}catch(e){}
+          renderHeader(); refreshUserNotificationsBg(false);
           syncCloudRegistry(true); renderModal(); toast(`✨ Account „${u}“ registriert & angemeldet!`);
           break;
         }
@@ -9750,6 +10550,7 @@
           }
           CLOUD.currentUser=exKey;
           try{loadLobbyStyleForCurrentUser();applyTheme();localStorage.setItem('scherbensturm_cloud_user',exKey);}catch(e){}
+          renderHeader(); refreshUserNotificationsBg(false);
           renderModal(); toast(`🔑 Willkommen zurück, ${exKey}!`);
           break;
         }
@@ -9773,11 +10574,11 @@
           if(!CLOUD.registry.adminHash){
             CLOUD.registry.adminHash=simpleHash(pin);
             CLOUD.isAdmin=true;
-            try{localStorage.setItem('scherbensturm_cloud_admin','1');}catch(e){}
+            try{localStorage.setItem('scherbensturm_cloud_admin','1');}catch(e){} refreshUserNotificationsBg(false);
             syncCloudRegistry(true); renderModal(); if(D.open) renderDice(); toast('👑 Admin-Master-PIN gespeichert & Admin-Modus aktiviert!');
           }else if(simpleHash(pin)===CLOUD.registry.adminHash){
             CLOUD.isAdmin=true;
-            try{localStorage.setItem('scherbensturm_cloud_admin','1');}catch(e){}
+            try{localStorage.setItem('scherbensturm_cloud_admin','1');}catch(e){} refreshUserNotificationsBg(false);
             renderModal(); if(D.open) renderDice(); toast('👑 Admin-Modus freigeschaltet!');
           }else{
             toast('🔒 Falsche Admin-Master-PIN.');
@@ -9873,10 +10674,299 @@
           break;
         }
         case 'open-settings': S.appearance.editScope=UI.inLobby?'lobby':S.activeTab; UI.modal='settings'; UI.confirmNew=false; syncPalDraftFromSlot(); applyTheme(); renderModal(); break;
-        case 'open-info': UI.modal='info'; renderModal(); if(UI.infoTab==='patchnotes'&&!PATCHNOTES.loaded&&!PATCHNOTES.loading) fetchPatchnotes(false); break;
-        case 'open-patchnotes': UI.modal='info'; UI.infoTab='patchnotes'; renderModal(); if(!PATCHNOTES.loaded&&!PATCHNOTES.loading) fetchPatchnotes(false); break;
+        case 'open-info': UI.modal='info'; if(UI.infoTab==='patchnotes'&&CLOUD.currentUser&&PATCHNOTES.entries.length) PATCHNOTES.entries.forEach(e=>markNotifRead('patchnote',String(e.id))); renderModal(); if(UI.infoTab==='patchnotes'&&!PATCHNOTES.loaded&&!PATCHNOTES.loading) fetchPatchnotes(false).then(()=>{if(UI.modal==='info'&&UI.infoTab==='patchnotes'&&CLOUD.currentUser&&PATCHNOTES.entries.length) PATCHNOTES.entries.forEach(e=>markNotifRead('patchnote',String(e.id)));}); break;
+        case 'open-patchnotes': UI.modal='info'; UI.infoTab='patchnotes'; if(CLOUD.currentUser&&PATCHNOTES.entries.length) PATCHNOTES.entries.forEach(e=>markNotifRead('patchnote',String(e.id))); renderModal(); if(!PATCHNOTES.loaded&&!PATCHNOTES.loading) fetchPatchnotes(false).then(()=>{if(UI.modal==='info'&&UI.infoTab==='patchnotes'&&CLOUD.currentUser&&PATCHNOTES.entries.length) PATCHNOTES.entries.forEach(e=>markNotifRead('patchnote',String(e.id)));}); break;
+        case 'open-notifs': if(!(CLOUD.currentUser||CLOUD.isAdmin)) return; UI.modal='notifs'; renderModal(); refreshUserNotificationsBg(true); break;
+        case 'notif-refresh': refreshUserNotificationsBg(true).then(()=>{ if(UI.modal==='notifs') renderModal(); }); break;
+        case 'notif-mark-all': markAllNotifsRead(); toast('✓ Alle Benachrichtigungen als gelesen markiert.'); renderModal(); break;
+        case 'notif-open-item': {
+          const nkind=btn.dataset.nkind||'', nkey=btn.dataset.nkey||'', nid=btn.dataset.nid||'';
+          markNotifRead(nkind,nkey);
+        if(nkind==='fb_admin'){
+          const seen=loadNotifSeen();
+          if(nkey) seen.adminFb[String(nkey)]=1;
+          if(nid){
+            seen.adminFb['item_'+nid]=1;
+            const fbIt=(Array.isArray(FEEDBACK.items)?FEEDBACK.items:[]).find(x=>x&&x.id===nid);
+            if(fbIt&&Array.isArray(fbIt.messages)){
+              fbIt.messages.forEach(m=>{if(m&&!m.isAdmin&&m.id) seen.adminFb['umsg_'+m.id]=1;});
+            }
+          }
+          saveNotifSeen(seen);
+          updateNotifBadges();
+          UI.modal = 'feedback';
+          FEEDBACK.activeTab = 'admin';
+          FEEDBACK.activeFolderId = 'all';
+          renderModal();
+          fetchFeedback(false);
+          return;
+        }
+          if(nkind==='patchnote'){
+            UI.modal='info'; UI.infoTab='patchnotes';
+            if(CLOUD.currentUser&&PATCHNOTES.entries.length) PATCHNOTES.entries.forEach(e=>markNotifRead('patchnote',String(e.id)));
+            renderModal(); fetchPatchnotes(false);
+          }else if(nkind==='fb_reply'){
+            const fbIt=(Array.isArray(FEEDBACK.items)?FEEDBACK.items:[]).find(x=>x&&String(x.id)===String(nid));
+            if(fbIt&&Array.isArray(fbIt.messages)) fbIt.messages.forEach(m=>{if(m&&m.isAdmin&&m.id) markNotifRead('fb_reply',String(m.id));});
+            UI.modal='feedback'; FEEDBACK.activeTab='mylog'; FEEDBACK.selectedId=nid;
+            renderModal(); fetchFeedback(false);
+          }
+          break;
+        }
+        case 'open-feedback': UI.modal='feedback'; FEEDBACK.activeTab=CLOUD.isAdmin?'admin':'write'; renderModal(); fetchFeedback(true); break;
+        case 'fb-tab': {
+          const nextTab=String(btn.dataset.tab||'write').trim();
+          if(!CLOUD.isAdmin&&(nextTab==='admin'||nextTab==='backlog')){
+            toast('🔒 Nur für den Admin zugänglich.');
+            break;
+          }
+          FEEDBACK.activeTab=nextTab;
+          renderModal();
+          break;
+        }
+        case 'fb-refresh': fetchFeedback(true); break;
+        case 'fb-submit': {
+          if(!CLOUD.currentUser){
+            toast('🔒 Bitte zuerst anmelden.');
+            break;
+          }
+          const titleEl=$('fbDraftTitle');
+          const bodyEl=$('fbDraftBody');
+          const title=String(titleEl?titleEl.value:(FEEDBACK.draftTitle||'')).trim();
+          const html=cleanInlineStyles(bodyEl?bodyEl.innerHTML:(FEEDBACK.draftHtml||''));
+          if(!stripHtml(html).trim()){
+            toast('⚠️ Bitte gib einen Feedback-Text ein.');
+            break;
+          }
+          const id=uid(), ts=stamp(), tsMs=Date.now(), author=CLOUD.currentUser;
+          saveFeedbackStore(store=>{
+            if(!Array.isArray(store.items)) store.items=[];
+            if(!Array.isArray(store.backlog)) store.backlog=[];
+            store.items.unshift({
+              id,
+              author,
+              title,
+              html,
+              ts,
+              tsMs,
+              folderId:'fb_inbox',
+              order:0,
+              messages:[],
+              lastAdminReplyMs:0
+            });
+            store.backlog.unshift({
+              id,
+              author,
+              title,
+              html,
+              ts,
+              tsMs,
+              status:'open',
+              closedAt:''
+            });
+          }).then(ok=>{
+            if(ok){
+              FEEDBACK.draftTitle='';
+              FEEDBACK.draftHtml='';
+              FEEDBACK.activeTab='mylog';
+              renderModal();
+              toast('📨 Feedback erfolgreich an den Admin gesendet!');
+            }
+          });
+          break;
+        }
+        case 'fb-select-folder': {
+          if(!CLOUD.isAdmin) break;
+          FEEDBACK.activeFolderId=String(btn.dataset.fid||'all').trim()||'all';
+          FEEDBACK.confirmDelFolderId=null;
+          renderModal();
+          if(typeof renderFbAdminWin==='function'&&FBW?.open) renderFbAdminWin();
+          break;
+        }
+        case 'fb-add-folder': {
+          if(!CLOUD.isAdmin) break;
+          const inp=document.querySelector('[data-fb-new-folder]');
+          const rawName=String(inp?inp.value:(FEEDBACK.newFolderName||'')).trim();
+          if(!rawName){toast('⚠️ Bitte einen Namen für den neuen Ordner eingeben.');break;}
+          const newId='fb_f_'+uid();
+          await saveFeedbackStore(store=>{
+            if(!Array.isArray(store.folders)) store.folders=clone(DEF_FB_FOLDERS);
+            if(store.folders.some(f=>f&&String(f.name||'').trim().toLowerCase()===rawName.toLowerCase())){
+              toast('ℹ️ Ein Ordner mit diesem Namen existiert bereits.');
+              return false;
+            }
+            store.folders.push({id:newId,name:rawName,isSystem:false});
+            FEEDBACK.newFolderName='';
+            FEEDBACK.activeFolderId=newId;
+          },`📁 Ordner „${rawName}“ erstellt.`);
+          break;
+        }
+        case 'fb-ask-del-folder': {
+          if(!CLOUD.isAdmin) break;
+          FEEDBACK.confirmDelFolderId=String(btn.dataset.fid||'').trim()||null;
+          renderModal();
+          if(typeof renderFbAdminWin==='function'&&FBW?.open) renderFbAdminWin();
+          break;
+        }
+        case 'fb-cancel-del-folder': {
+          FEEDBACK.confirmDelFolderId=null;
+          renderModal();
+          if(typeof renderFbAdminWin==='function'&&FBW?.open) renderFbAdminWin();
+          break;
+        }
+        case 'fb-confirm-del-folder': {
+          if(!CLOUD.isAdmin) break;
+          const fid=String(btn.dataset.fid||'').trim();
+          if(!fid||fid==='fb_inbox') break;
+          await saveFeedbackStore(store=>{
+            const fObj=(store.folders||[]).find(f=>f&&f.id===fid);
+            if(!fObj||fObj.isSystem) return false;
+            store.folders=store.folders.filter(f=>f&&f.id!==fid);
+            (store.items||[]).forEach(it=>{if(it&&it.folderId===fid) it.folderId='fb_inbox';});
+            FEEDBACK.confirmDelFolderId=null;
+            if(FEEDBACK.activeFolderId===fid) FEEDBACK.activeFolderId='all';
+          },'🗑️ Ordner gelöscht (Einträge in Posteingang verschoben).');
+          break;
+        }
+        case 'fb-move-item': {
+          if(!CLOUD.isAdmin) break;
+          const id=String(btn.dataset.id||'').trim(), dir=toInt(btn.dataset.dir,0);
+          if(!id||!dir) break;
+          await saveFeedbackStore(store=>{
+            const activeFid=FEEDBACK.activeFolderId||'all';
+            const sortBy=FEEDBACK.sortBy||'newest';
+            const vis=(store.items||[]).filter(it=>it&&(activeFid==='all'||String(it.folderId||'fb_inbox')===activeFid));
+            vis.sort((a,b)=>{
+              if(sortBy==='oldest') return toInt(a.tsMs,0)-toInt(b.tsMs,0);
+              if(sortBy==='author') return String(a.author||'').localeCompare(String(b.author||''),'de')||(toInt(b.tsMs,0)-toInt(a.tsMs,0));
+              if(sortBy==='manual') return (toInt(a.order,0)-toInt(b.order,0))||(toInt(b.tsMs,0)-toInt(a.tsMs,0));
+              return toInt(b.tsMs,0)-toInt(a.tsMs,0);
+            });
+            vis.forEach((it,i)=>{it.order=i;});
+            const idx=vis.findIndex(it=>it.id===id);
+            const tIdx=idx+dir;
+            if(idx<0||tIdx<0||tIdx>=vis.length) return false;
+            const tmp=vis[idx].order;
+            vis[idx].order=vis[tIdx].order;
+            vis[tIdx].order=tmp;
+            FEEDBACK.sortBy='manual';
+          });
+          break;
+        }
+        case 'fb-done-item': {
+          if(!CLOUD.isAdmin) break;
+          const id=String(btn.dataset.id||'').trim();
+          if(!id) break;
+          await saveFeedbackStore(store=>{
+            const idx=(store.items||[]).findIndex(it=>it&&it.id===id);
+            if(idx<0) return false;
+            const [it]=store.items.splice(idx,1);
+            const nowStr=stamp();
+            if(!Array.isArray(store.backlog)) store.backlog=[];
+            const bEntry=store.backlog.find(b=>b&&b.id===id);
+            if(bEntry){
+              bEntry.status='done';
+              bEntry.closedAt=nowStr;
+            }else{
+              store.backlog.unshift({id:it.id,author:it.author,title:it.title,html:it.html,ts:it.ts,tsMs:it.tsMs,status:'done',closedAt:nowStr});
+            }
+            if(FEEDBACK.confirmDelId===id) FEEDBACK.confirmDelId=null;
+            if(FEEDBACK.replyDrafts) delete FEEDBACK.replyDrafts[id];
+          },'✅ Feedback als erledigt abgeschlossen.');
+          break;
+        }
+        case 'fb-ask-del-item': {
+          if(!CLOUD.isAdmin) break;
+          FEEDBACK.confirmDelId=String(btn.dataset.id||'').trim()||null;
+          renderModal();
+          if(typeof renderFbAdminWin==='function'&&FBW?.open) renderFbAdminWin();
+          break;
+        }
+        case 'fb-cancel-del-item': {
+          FEEDBACK.confirmDelId=null;
+          renderModal();
+          if(typeof renderFbAdminWin==='function'&&FBW?.open) renderFbAdminWin();
+          break;
+        }
+        case 'fb-confirm-del-item': {
+          if(!CLOUD.isAdmin) break;
+          const id=String(btn.dataset.id||'').trim();
+          if(!id) break;
+          await saveFeedbackStore(store=>{
+            const idx=(store.items||[]).findIndex(it=>it&&it.id===id);
+            if(idx<0) return false;
+            const [it]=store.items.splice(idx,1);
+            const nowStr=stamp();
+            if(!Array.isArray(store.backlog)) store.backlog=[];
+            const bEntry=store.backlog.find(b=>b&&b.id===id);
+            if(bEntry){
+              bEntry.status='deleted';
+              bEntry.closedAt=nowStr;
+            }else{
+              store.backlog.unshift({id:it.id,author:it.author,title:it.title,html:it.html,ts:it.ts,tsMs:it.tsMs,status:'deleted',closedAt:nowStr});
+            }
+            FEEDBACK.confirmDelId=null;
+            if(FEEDBACK.replyDrafts) delete FEEDBACK.replyDrafts[id];
+          },'🗑️ Feedback gelöscht.');
+          break;
+        }
+        case 'fb-send-reply': {
+          const id=String(btn.dataset.id||'').trim();
+          const asAdmin=btn.dataset.asadmin==='1';
+          if(!id) break;
+          if(asAdmin){
+            if(!CLOUD.isAdmin){toast('🔒 Nur der Admin kann als Admin antworten.');break;}
+          }else{
+            if(!CLOUD.currentUser){toast('🔒 Bitte melde dich zuerst an, um zu antworten.');break;}
+            const curItem=(Array.isArray(FEEDBACK.items)?FEEDBACK.items:[]).find(x=>x&&x.id===id);
+            if(curItem&&String(curItem.author||'').toLowerCase()!==CLOUD.currentUser.toLowerCase()){
+              toast('🔒 Du kannst nur auf dein eigenes Feedback antworten.');
+              break;
+            }
+          }
+          if(!FEEDBACK.replyDrafts||typeof FEEDBACK.replyDrafts!=='object') FEEDBACK.replyDrafts={};
+          const rawHtml=String(FEEDBACK.replyDrafts[id]||'');
+          if(!stripHtml(rawHtml).trim()){
+            toast('⚠️ Bitte gib zuerst eine Antwort ein.');
+            break;
+          }
+          if(asAdmin){markNotifRead('fb_admin','item_'+id);const _it=(FEEDBACK.items||[]).find(x=>x&&x.id===id);if(_it&&Array.isArray(_it.messages))_it.messages.forEach(m=>{if(m&&!m.isAdmin&&m.id)markNotifRead('fb_admin','umsg_'+m.id);});setTimeout(()=>refreshUserNotificationsBg(false),50);}saveFeedbackStore(store=>{
+            const target=(store.items||[]).find(x=>x&&x.id===id);
+            if(!target){
+              toast('Dieses Feedback wurde bereits geschlossen.');
+              return false;
+            }
+            if(!asAdmin&&(!CLOUD.currentUser||String(target.author||'').toLowerCase()!==CLOUD.currentUser.toLowerCase())){
+              toast('🔒 Du kannst nur auf dein eigenes Feedback antworten.');
+              return false;
+            }
+            if(!Array.isArray(target.messages)) target.messages=[];
+            target.messages.push({
+              id:uid(),
+              author:asAdmin?'Admin':CLOUD.currentUser,
+              isAdmin:asAdmin,
+              html:cleanInlineStyles(rawHtml),
+              ts:stamp(),
+              tsMs:Date.now()
+            });
+            if(asAdmin){
+              target.lastAdminReplyMs=Date.now();
+              const bEntry=(store.backlog||[]).find(b=>b&&b.id===id);
+              if(bEntry) bEntry.status='answered';
+            }
+            FEEDBACK.replyDrafts[id]='';
+          }).then(ok=>{
+            if(ok){
+              FEEDBACK.replyDrafts[id]='';
+              toast(asAdmin?'📨 Admin-Antwort gesendet!':'📨 Antwort gesendet!');
+              if(UI.modal==='feedback') renderModal();
+              if(typeof renderFbAdminWin==='function'&&typeof FBW!=='undefined'&&FBW?.open) renderFbAdminWin();
+            }
+          });
+          break;
+        }
         case 'close-modal': case 'close-modal-bg': closeActiveModal(); break;
-        case 'info-tab': UI.infoTab=el.dataset.itab; renderModal(); if(UI.infoTab==='patchnotes'&&!PATCHNOTES.loaded&&!PATCHNOTES.loading) fetchPatchnotes(false); break;
+        case 'info-tab': UI.infoTab=el.dataset.itab; if(UI.infoTab==='patchnotes'&&CLOUD.currentUser&&PATCHNOTES.entries.length) PATCHNOTES.entries.forEach(e=>markNotifRead('patchnote',String(e.id))); renderModal(); if(UI.infoTab==='patchnotes'&&!PATCHNOTES.loaded&&!PATCHNOTES.loading) fetchPatchnotes(false).then(()=>{if(UI.modal==='info'&&UI.infoTab==='patchnotes'&&CLOUD.currentUser&&PATCHNOTES.entries.length) PATCHNOTES.entries.forEach(e=>markNotifRead('patchnote',String(e.id)));}); break;
         case 'pn-refresh': fetchPatchnotes(true); break;
         case 'pn-new': {
           if(!CLOUD.isAdmin) return;
@@ -10591,6 +11681,39 @@
       if(el.dataset.th){const k=el.dataset.th,M=calcActiveMods();S.thresholds[k]=toInt(el.value,0)-(M[k]||0);syncLiveCalculations();return;}
       if(el.dataset.mv){const [id,f]=el.dataset.mv.split(':'),m=S.movements.find(x=>x.id===id);if(m){m[f]=el.value;syncLiveCalculations();}return;}
       if(el.dataset.hz){const [id,f]=el.dataset.hz.split(':'),z=S.hitZones.find(x=>x.id===id);if(z){z[f]=el.value;saveSoon();}return;}
+      if(el.dataset.fbNewFolder){
+        FEEDBACK.newFolderName=el.value;
+        return;
+      }
+      if(el.dataset.fbSort){
+        if(!CLOUD.isAdmin) return;
+        FEEDBACK.sortBy=String(el.value||'newest');
+        renderModal();
+        if(typeof renderFbAdminWin==='function'&&FBW?.open) renderFbAdminWin();
+        return;
+      }
+      if(el.dataset.fbMoveFolder){
+        if(!CLOUD.isAdmin) return;
+        const itemId=String(el.dataset.fbMoveFolder||'').trim(), targetFid=String(el.value||'fb_inbox').trim();
+        if(!itemId) return;
+        saveFeedbackStore(store=>{
+          const it=(store.items||[]).find(x=>x&&x.id===itemId);
+          if(!it) return false;
+          it.folderId=targetFid;
+        },'📁 Feedback verschoben.');
+        return;
+      }
+      if(el.dataset.fbDraft){
+        const f=el.dataset.fbDraft;
+        if(f==='title') FEEDBACK.draftTitle=el.value;
+        else if(f==='html') FEEDBACK.draftHtml=cleanInlineStyles(el.innerHTML);
+        return;
+      }
+      if(el.dataset.fbReply){
+        if(!FEEDBACK.replyDrafts||typeof FEEDBACK.replyDrafts!=='object') FEEDBACK.replyDrafts={};
+        FEEDBACK.replyDrafts[el.dataset.fbReply]=cleanInlineStyles(el.innerHTML);
+        return;
+      }
       if(el.dataset.qnote){S.combatNotes[el.dataset.qnote]=val;saveSoon();return;}
       if(el.dataset.trnote){const [k,i]=el.dataset.trnote.split(':');S.attributes[k].trNotes[+i]=el.value;saveSoon();return;}
       if(el.dataset.trcost){
@@ -10858,6 +11981,7 @@
       compressImg(f,ctx.maxDim,ctx.quality,dataUrl=>applyImgUrlForContext(ctx,dataUrl,false));
     });
     document.addEventListener('change',e=>{
+      {const el=e.target;if(el&&el.matches&&el.matches('[data-fb-backlog-user]')){if(!CLOUD.isAdmin)return;FEEDBACK.backlogUser=el.value||'all';renderModal();return;}}
       if(e.target&&e.target.dataset?.inspInp){renderMain();save();return;}
       const stEl=e.target;
       if(stEl&&stEl.dataset&&(stEl.dataset.stStacks||stEl.dataset.stOvr)){
@@ -11174,7 +12298,7 @@
           }
           const canon=DEF_PW_TAGS.find(t=>t.toLowerCase()===val.toLowerCase())||val;
           S.pwTagList=sortAlpha([...(S.pwTagList||DEF_PW_TAGS),canon].filter(t=>!isReservedPwTerm(t)));
-          S.subcatList=S.pwTagList;
+          
         }else if(UI.listType==='useRes'&&!S.useResList.includes(val)) S.useResList.push(val);
         else if(UI.listType==='customStats') S.customStats=sortAlpha([...S.customStats,val]);
         renderMain(); renderModal(); save();
@@ -11879,7 +13003,63 @@
     });
 
     const tip=$('tooltip');
-    let tipOpen=false, tipActiveEl=null, tipTouchTimer=null, tipTouchStartX=0, tipTouchStartY=0, tipTouchTarget=null, tipLongPressFired=false, tipSuppressClickUntil=0;
+    let activeTouchTipEl=null;
+    function hideTooltip(){
+      activeTouchTipEl=null;
+      if(!tip)return;
+      tip.classList.add('opacity-0');
+      tip.style.top='-9999px';
+      tip.style.left='-9999px';
+    }
+    function posTooltip(x,y,anchorEl=null){
+      if(!tip)return;
+      const ttRect=tip.getBoundingClientRect();
+      let left=x,top=y;
+      if(anchorEl&&anchorEl.getBoundingClientRect){
+        const r=anchorEl.getBoundingClientRect();
+        left=r.left+(r.width-ttRect.width)/2;
+        top=(r.top-ttRect.height-8>=8)?(r.top-ttRect.height-8):(r.bottom+8);
+      }else{
+        if(left+ttRect.width+12>window.innerWidth)left=x-ttRect.width-12;
+        if(top+ttRect.height+12>window.innerHeight)top=y-ttRect.height-12;
+      }
+      left=Math.max(8,Math.min(window.innerWidth-ttRect.width-8,left));
+      top=Math.max(8,Math.min(window.innerHeight-ttRect.height-8,top));
+      tip.style.left=left+'px';
+      tip.style.top=top+'px';
+    }
+    function showTooltip(h,x,y,anchorEl=null){
+      if(!tip||!h)return;
+      const t=h.getAttribute('data-tip');
+      if(!t){hideTooltip();return;}
+      tip.textContent=t;
+      tip.classList.remove('opacity-0');
+      posTooltip(x??0,y??0,anchorEl);
+    }
+    document.addEventListener('mousemove',e=>{
+      if(e.sourceCapabilities&&e.sourceCapabilities.firesTouchEvents)return;
+      if(activeTouchTipEl)return;
+      const h=e.target.closest('[data-tip]');
+      if(!h){hideTooltip();return;}
+      showTooltip(h,e.clientX+14,e.clientY+14,null);
+    });
+    document.addEventListener('mouseout',e=>{if(!activeTouchTipEl&&e.target.closest('[data-tip]'))hideTooltip();});
+    document.addEventListener('pointerdown',e=>{
+      if(e.pointerType!=='touch'&&e.pointerType!=='pen')return;
+      const h=e.target?.closest?.('[data-tip]');
+      if(!h){hideTooltip();return;}
+      const actEl=e.target?.closest?.('button[data-action],[data-action],a,input,select,textarea,[contenteditable="true"]');
+      const isPureInfo=!actEl||h.classList.contains('cursor-help')||(h.classList.contains('tag')&&!h.hasAttribute('data-action'));
+      if(!isPureInfo){hideTooltip();return;}
+      if(activeTouchTipEl===h&&!tip.classList.contains('opacity-0')){hideTooltip();return;}
+      activeTouchTipEl=h;
+      showTooltip(h,e.clientX,e.clientY,h);
+    },{passive:true});
+    document.addEventListener('click',e=>{
+      const actEl=e.target?.closest?.('button[data-action],[data-action],a,input,select,textarea');
+      if(actEl&&!actEl.classList.contains('cursor-help'))hideTooltip();
+    },true);
+    window.addEventListener('scroll',()=>hideTooltip(),{passive:true,capture:true});
     const TIP_INPUT_SEL='input,textarea,select,[contenteditable]';
     const TIP_INTERACTIVE_SEL='button,input,select,textarea,a,[contenteditable]';
     function hideTooltip(){
@@ -12314,6 +13494,7 @@
           if(D.open) renderDice();
           if(CN.open) renderCampNotes();
           if(LD.open) renderLiveDice();
+          if(FBW.open) renderFbAdminWin();
           if(!UI.inLobby&&S.activeTab==='attributes') renderMain();
         }else{
           if(D.open&&$('diceMount')) applyWinFrame('dice',$('diceMount'),$('diceBackdrop'),'xl:w-[430px] 2xl:w-[470px]');
@@ -12355,6 +13536,7 @@
 
     load();
     initLiveDiceChannel();
+    refreshUserNotificationsBg(false);
     const params=new URLSearchParams(window.location.search);
     const reqCharId=(params.get('char')||'').trim();
     const forceSheet=params.get('sheet')==='1';
@@ -12400,11 +13582,12 @@
       if(isMobileLayout()) return;
       const rEl=e.target.closest('[data-win-resize],[data-win-resize-w]');
       if(rEl){
+        try{if(e.pointerId!==undefined)rEl.setPointerCapture(e.pointerId);}catch(err){}
         const k=rEl.dataset.winResize||rEl.dataset.winResizeW, onlyW=Boolean(rEl.dataset.winResizeW), cfg=WIN_CFG[k], mount=$(cfg?.m);
         if(!mount) return;
         e.preventDefault();
         const st=getWinState(k), rect=mount.getBoundingClientRect();
-        st.z=Math.max(CN.z||50,D.z||50,LD.z||50)+1;
+        st.z=Math.max(CN.z||50,D.z||50,LD.z||50,FBW.z||50)+1;
         mount.style.zIndex=String(st.z);
         const startX=rect.left, startY=rect.top, startW=rect.width, startH=rect.height;
         winAct={mode:onlyW?'rw':'rwh',k,cfg,mount,st,startClientX:e.clientX,startClientY:e.clientY,startX,startY,startW,startH};
@@ -12416,7 +13599,7 @@
       if(!mount) return;
       e.preventDefault();
       const st=getWinState(k), rect=mount.getBoundingClientRect();
-      st.z=Math.max(CN.z||50,D.z||50,LD.z||50)+1;
+      st.z=Math.max(CN.z||50,D.z||50,LD.z||50,FBW.z||50)+1;
       if(!st.floating){
         st.w=Math.round(rect.width);
         st.h=Math.round(rect.height);
