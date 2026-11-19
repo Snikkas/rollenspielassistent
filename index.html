@@ -513,7 +513,7 @@
     function renderWinResizeHandles(k){return '<div data-win-resize-w="'+k+'" title="Breite ziehen" class="win-resize-w"></div><div data-win-resize="'+k+'" title="Größe ziehen" class="win-resize-h">◢</div>';}
     let dragMouseY=null, dragScrollRaf=null;
     const savedEffRanges={};
-    let UI={inLobby:true,sheetLoaded:false,modal:null,profileUser:'',mobileHdrOpen:false,mobileLobbyMenuOpen:false,infoTab:'dice',glossSearch:'',listType:'art',ammoModalWeaponId:'',skSort:{col:'',asc:true},editSkNameId:null,imgTargetKind:'',imgTargetId:'',imgZoomOpen:false,imgReturnModal:'',confirmNew:false,confirmLog:false,confirmDelId:null,confirmDelSecId:null,confirmSecPullId:null,confirmDelSkSecId:null,confirmSkSecPullId:null,confirmDelInvSecId:null,confirmDelExSecId:null,confirmHzStep:1,openPwMenu:'',dupPwWarn:null,pwFilterOpen:false,pwFilterMode:'or',pwFilterTypes:[],pwFilterIncludeLinkedAugs:true,pwFilterArts:[],pwFilterActionSubs:[],pwFilterTags:[],pwFilterTiers:[],statusIniPromptKey:'',lastRollHtml:'',lastBlockBaseHtml:'',lastBlockFollowRes:null,lastSecretRollId:'',secretRollsCollapsed:false,colTarget:'cres',colMode:'text',colPwKind:'power',colPwId:'',colDraft:'#c084fc',attrGroupSel:'ST_KO',savedOnce:true,palBuilderOpen:false,palDraft:{name:'',isLt:false,bg:'#020617',acc:'#0ea5e9',acc2:'#6366f1',txt:'#f1f5f9',mut:'#94a3b8',btnTxt:'#ffffff'}};
+    let UI={inLobby:true,sheetLoaded:false,modal:null,profileUser:'',mobileHdrOpen:false,mobileLobbyMenuOpen:false,infoTab:'dice',glossSearch:'',listType:'art',ammoModalWeaponId:'',skSort:{col:'',asc:true},editSkNameId:null,imgTargetKind:'',imgTargetId:'',imgZoomOpen:false,imgReturnModal:'',confirmNew:false,confirmLog:false,confirmDelId:null,confirmDelSecId:null,confirmSecPullId:null,confirmDelSkSecId:null,confirmSkSecPullId:null,confirmDelInvSecId:null,confirmDelExSecId:null,confirmHzStep:1,openPwMenu:'',dupPwWarn:null,pwFilterOpen:false,pwFilterMode:'or',pwFilterTypes:[],pwFilterIncludeLinkedAugs:true,pwFilterArts:[],pwFilterActionSubs:[],pwFilterTags:[],pwFilterTiers:[],statusIniPromptKey:'',lastRollHtml:'',lastBlockBaseHtml:'',lastBlockFollowRes:null,lastSecretRollId:'',secretRollsCollapsed:false,colTarget:'cres',colMode:'text',colPwKind:'power',colPwId:'',colDraft:'#c084fc',attrGroupSel:'ST_KO',palBuilderOpen:false,palDraft:{name:'',isLt:false,bg:'#020617',acc:'#0ea5e9',acc2:'#6366f1',txt:'#f1f5f9',mut:'#94a3b8',btnTxt:'#ffffff'}};
     const REGISTRY_ID='_lobby_meta_registry_', LIVE_TAB_ID=uid();
     const LIBRARY_ID='_power_library_';
     const REPO_LIBRARY_URL='./data/powers-library.json';
@@ -5167,8 +5167,6 @@
         saveLastActiveTab(S.charId,S.activeTab);
         localStorage.setItem(STORE_KEY,JSON.stringify(S));
         if(fromUser){
-          UI.savedOnce=true;
-          const b=$('saveBadge');if(b)b.classList.remove('opacity-0','pointer-events-none','hidden');
           if(S.cloudAutoSync){clearTimeout(cloudSyncTimer);cloudSyncTimer=setTimeout(()=>pushToCloud(true),1500);}
         }
       }catch(e){toast('Speicherlimit erreicht – bitte kleinere Bilder nutzen oder JSON exportieren.');}
@@ -5182,8 +5180,6 @@
     }
     function saveSoon(delay=250){
       if(CLOUD.viewingRemote) return;
-      UI.savedOnce=true;
-      const b=$('saveBadge');if(b)b.classList.remove('opacity-0','pointer-events-none','hidden');
       clearTimeout(saveDebounceTimer);
       saveDebounceTimer=setTimeout(()=>{
         saveDebounceTimer=null;
@@ -5638,8 +5634,8 @@
                   <button type="button" data-action="toggle-cnotes" data-tip="Kampagnennotizen öffnen/schließen (frei andockbar wie der Würfelassistent)" class="btn ${CN.open?'btn-pri':'bdr-acc bg-acc-soft'} text-xs font-extrabold px-3.5 py-2">📝 Kampagnennotizen</button>
                 </div>
                 <div class="flex flex-wrap items-center gap-2">
-                  <button type="button" data-action="open-lobby" data-tip="Zurück zur zentralen Lobby (?lobby=1)" class="btn py-2 px-3.5 text-xs font-extrabold ${CLOUD.viewingRemote?'!border-sky-400 !bg-sky-500/20 text-sky-300':S.cloudAutoSync?'!border-emerald-500/60 !bg-emerald-500/15 text-emerald-300':'bdr-acc bg-acc-soft'}">🏠 Lobby${CLOUD.syncing?' ⏳':S.cloudAutoSync?' ●':''}</button>${!CLOUD.viewingRemote?`<button type="button" data-action="cloud-push-now" data-tip="WICHTIGER HINWEIS:\nUm den Charakterbogen auf dem Server zu speichern, musst du diesen Knopf manuell drücken!\nLädt den aktuellen Stand in die Lobby hoch, damit er dort und für andere Geräte gespeichert bleibt." class="btn btn-ok min-w-[150px] py-2 px-3 text-xs font-extrabold">${CLOUD.syncing?'⏳ Sync...':'☁️ In Lobby speichern'}</button>`:''}
-                  <button type="button" id="saveBadge" data-action="export-json" data-tip="WICHTIGER HINWEIS:\nAktuell nur lokal im Browser zwischengespeichert!\nDu musst den Charakter als .json exportieren (Klick hier oder über ⚙️ Optionen), um ihn dauerhaft gespeichert zu halten, da Browserdaten jederzeit verloren gehen können." class="px-2.5 py-1.5 rounded-lg text-[11px] font-extrabold text-emerald-400 bg-emerald-500/15 border border-emerald-500/30 hover:border-amber-400 transition-colors cursor-pointer text-left leading-tight max-w-full ${UI.savedOnce?'inline-flex flex-col sm:flex-row sm:items-center gap-1':'opacity-0 pointer-events-none hidden'}"><span>✓ Lokal im Browser gespeichert</span><span class="text-[10px] font-semibold text-amber-300/95">• Zum Behalten exportieren (.json), Browserdaten können verloren gehen!</span></button>
+                  <button type="button" data-action="open-lobby" data-tip="Zurück zur zentralen Lobby (?lobby=1)" class="btn py-2 px-3.5 text-xs font-extrabold ${CLOUD.viewingRemote?'!border-sky-400 !bg-sky-500/20 text-sky-300':S.cloudAutoSync?'!border-emerald-500/60 !bg-emerald-500/15 text-emerald-300':'bdr-acc bg-acc-soft'}">🏠 Lobby${CLOUD.syncing?' ⏳':S.cloudAutoSync?' ●':''}</button>${!CLOUD.viewingRemote?`<button type="button" data-action="cloud-push-now" data-tip="${esc('Charakterbogen dauerhaft in der Lobby auf dem Server speichern und für alle Geräte synchronisieren.'+(CLOUD.lastSyncTs?'
+Zuletzt in Lobby gespeichert: '+CLOUD.lastSyncTs:''))}" class="btn btn-ok min-w-[165px] py-2 px-4 text-xs sm:text-sm font-black shadow-md whitespace-nowrap">${CLOUD.syncing?'⏳ Speichert...':'☁️ In Lobby speichern'}</button>`:''}
                 </div>
               </div>
               <div class="shrink-0 self-end xl:self-center ml-auto flex flex-wrap items-center gap-2">
