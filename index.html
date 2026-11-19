@@ -116,7 +116,7 @@
     <aside id="fbAdminMount" class="hidden"></aside>
   </div>
   <div id="modalMount"></div>
-  <button type="button" data-action="open-info" data-tip="Scherbensturm Regelreferenz, Tabellen &amp; Glossar" class="fixed bottom-5 left-5 z-40 w-12 h-12 rounded-2xl btn-pri font-serif italic font-black text-2xl shadow-xl">i</button>
+  <button type="button" data-action="open-info" data-tip="Regel-Wiki (Würfelsystem, Steigerung, Glossar) &amp; Patchnotes" class="fixed bottom-5 left-5 z-40 w-12 h-12 rounded-2xl btn-pri font-serif italic font-black text-2xl shadow-xl">i</button>
   <div id="toast" class="fixed bottom-5 left-1/2 -translate-x-1/2 z-[90] px-4 py-2 rounded-xl bg-slate-900 text-white border border-slate-700 text-xs font-bold shadow-xl opacity-0 transition-opacity duration-200"></div>
   <div id="tooltip" class="fixed z-[90] max-w-[calc(100vw-24px)] sm:max-w-xs px-3 py-2 rounded-xl text-xs font-medium bg-slate-950/95 text-slate-100 border border-slate-700 shadow-2xl opacity-0 transition-opacity duration-150" style="top:-9999px;left:-9999px"></div>
   <input id="fileAvatar" type="file" accept="image/*" class="hidden" /><input id="fileBg" type="file" accept="image/*" class="hidden" /><input id="fileItemImg" type="file" accept="image/*" class="hidden" /><input id="fileBioImg" type="file" accept="image/*" class="hidden" /><input id="fileImport" type="file" accept=".json,application/json" class="hidden" /><input id="filePwImport" type="file" accept=".json,application/json" class="hidden" /><input id="fileLobbyLogo" type="file" accept="image/*" class="hidden" /><input id="fileCampImg" type="file" accept="image/*" class="hidden" /><input id="fileUserAvatar" type="file" accept="image/*" class="hidden" />
@@ -5522,7 +5522,7 @@
             <button type="button" data-action="toggle-livedice" class="btn ${LD.open?'btn-pri':'bdr-acc bg-acc-soft'} text-xs font-extrabold px-3.5 py-2">📡 Live-Würfel <span data-live-dice-cnt="1" class="px-1.5 rounded-full text-[10px] bg-black/25 tabular">${liveDiceCnt}</span></button>
             <button type="button" data-action="toggle-dice" class="btn ${D.open?'btn-pri':'bdr-acc bg-acc-soft'} text-xs font-extrabold px-3.5 py-2">🎲 Würfelassistent</button>
             <button type="button" data-action="open-feedback" data-tip="Feedback an den Admin senden, Antworten lesen &amp; eigenes Feedback-Log ansehen" class="btn py-2 px-3 text-xs font-extrabold bdr-acc bg-acc-soft">💬 Feedback</button>
-            <button type="button" data-action="open-patchnotes" data-tip="Patchnotes & Änderungen anzeigen" class="btn py-2 px-3 text-xs font-extrabold bdr-acc bg-acc-soft">📋 Patchnotes</button>
+            <button type="button" data-action="open-info" data-tip="Regel-Wiki (Würfelsystem, Steigerung, Glossar) &amp; Patchnotes öffnen" class="btn py-2 px-3 text-xs font-extrabold bdr-acc bg-acc-soft whitespace-nowrap">📖 Regeln & News</button>
             ${renderNotifBellBtnHtml()}
             <button type="button" data-action="open-settings" class="btn py-2 px-3.5 text-xs font-extrabold bdr-acc bg-acc-soft">⚙️ Optionen</button>
           </div>
@@ -5573,7 +5573,7 @@
                 </div>
               </div>
               <div class="shrink-0 self-end xl:self-center ml-auto flex flex-wrap items-center gap-2">
-                <button type="button" data-action="open-patchnotes" data-tip="Patchnotes & Änderungen anzeigen" class="btn py-2 px-3 text-xs font-extrabold bdr-acc bg-acc-soft">📋 Patchnotes</button>
+                <button type="button" data-action="open-info" data-tip="Regel-Wiki (Würfelsystem, Steigerung, Glossar) &amp; Patchnotes öffnen" class="btn py-2 px-3 text-xs font-extrabold bdr-acc bg-acc-soft whitespace-nowrap">📖 Regeln & News</button>
                 ${renderNotifBellBtnHtml()}
                 <button type="button" data-action="open-settings" data-tip="Optionen &amp; Design (JSON Export/Import, Themen, Hintergrund)" class="btn py-2 px-3.5 text-xs font-extrabold bdr-acc bg-acc-soft">⚙️ Optionen</button>
               </div>
