@@ -220,16 +220,30 @@
       amber:['Bernstein-Gold','Bernstein & Anthrazit',['#120e07','#f59e0b','#eab308'],[0,'#120e07','#f59e0b','#eab308','#fffbeb','#bfb093','#171004'],[1,'#fffbeb','#d97706','#ca8a04','#291a05','#785c32','#fff']],
       slate:['Schiefer-Stahl','Stahlgrau & Petrol',['#0b1118','#64748b','#06b6d4'],[0,'#0b1118','#64748b','#06b6d4','#f1f5f9','#94a3b8','#fff'],[1,'#f1f5f9','#334155','#0891b2','#0f172a','#64748b','#fff']]
     };
+    const GLOSSARY_CATS=["Attribute & Sekundärwerte","Würfel & Kampf","Aktionen, Zustände & Ressourcen","Fortschritt & Kräfte"];
     const GLOSSARY=[
-      ['ST / KO','Stärke & Konstitution','Körperkraft & Zähigkeit; bilden zusammen die LP: ⌊(KO+ST)/5⌋ + Mod.'],
-      ['PR / GW','Präzision & Gewandtheit','Zielgenauigkeit, Feinmotorik, Balance & Ausweichen.'],
-      ['WA / IN','Wahrnehmung & Intelligenz','Sinnesschärfe & Logik; bilden zusammen die Initiative: WA − IN + Mod.'],
-      ['AU / WK','Ausdruck & Willenskraft','Präsenz & Fokus; bilden zusammen die mLP: ⌊(AU+WK)/5⌋ + Mod.'],
-      ['Vw / Pot / Tr','Attributs-Bausteine','Volkswert (20) + Potenzial + Training (4× +5 in Paaren, Block 5: +10).'],
-      ['AP / mAP','Ausdauerpunkte','Physische & mentale Aktionsressourcen für Manöver und Kräfte (Standard 3/3).'],
-      ['Bew / BSt','Bewegung & Stufe','Meter pro Bewegen-Aktion (Basis + aktive Bewegungsstufe BSt).'],
-      ['EP / SP / MsP','Fortschritt','100 EP = +1 Stufe. Pro Stufe +5 SP, jede 10. Stufe +1 MsP.'],
-      ['EG / MEG','Erfolgs-/Misserfolgsgrade','Qualität eines W100-Wurfs (EG 1–10 aufwärts, MEG 100–1 rückwärts).']
+      ["ST / KO","Stärke & Konstitution","Körperkraft & Zähigkeit; bilden zusammen die maximalen LP: ⌊(KO + ST) / 5⌋ + Mod.","Attribute & Sekundärwerte"],
+      ["PR / GW","Präzision & Gewandtheit","Zielgenauigkeit, Feinmotorik, Balance, Reflexe & Ausweichen.","Attribute & Sekundärwerte"],
+      ["WA / IN","Wahrnehmung & Intelligenz","Sinnesschärfe & Logik; bilden zusammen die Initiative: WA − IN + Mod.","Attribute & Sekundärwerte"],
+      ["AU / WK","Ausdruck & Willenskraft","Präsenz, Ausstrahlung & mentaler Fokus; bilden zusammen die maximalen mLP: ⌊(AU + WK) / 5⌋ + Mod.","Attribute & Sekundärwerte"],
+      ["Vw / Pot / Tr","Attributs-Bausteine","Volkswert (Standard 20) + individuelles Potenzial + Training (Blöcke 1–4 je +5, Block 5: +10).","Attribute & Sekundärwerte"],
+      ["LP / mLP","Lebens- & Mentale LP","Physische (⌊(KO+ST)/5⌋) und mentale (⌊(AU+WK)/5⌋) Belastbarkeit. Basis-Regenerationsrate jeweils 5.","Attribute & Sekundärwerte"],
+      ["AP / mAP","Ausdauerpunkte","Physische & mentale Aktionsressourcen für Manöver, Kräfte und Reaktionen (Standard 3/3).","Attribute & Sekundärwerte"],
+      ["Bew / BSt","Bewegung & Bewegungsstufe","Meter pro Bewegen-Aktion (Basis + aktive BSt). Automatische Basis-BSt = ⌊Basis-Bewegung / 5⌋ (manuell überschreibbar).","Attribute & Sekundärwerte"],
+      ["Verw. / Trauma","Verwundungs- & Traumaschwellen","Physische bzw. mentale Schadensstufen (leicht / mittel / schwer, Standard 3 / 6 / 9), ab denen schwerere Verletzungs- oder Traumafolgen eintreten.","Attribute & Sekundärwerte"],
+      ["EG / MEG","Erfolgs- & Misserfolgsgrade","Qualität eines W100-Wurfs. Bei Erfolg: EG = ⌈Wurf / 10⌉ (je höher, desto besser); bei Misserfolg: MEG = ⌈(101 − Wurf) / 10⌉. Ab Schwelle > 100 greift der EG-Multiplikator (⌊Schwelle / 100⌋ + 1).","Würfel & Kampf"],
+      ["Krit / Patzer","Kritische Ziffer & Patzer","Eine gewürfelte 1 ist immer ein kritischer Erfolg, eine 100 immer ein Patzer. Standardmäßig ist Endziffer 1 bei Erfolg kritisch (erweiterbar in Reihe 1→2→…→9→0, z. B. durch „Tödlich (X)“).","Würfel & Kampf"],
+      ["Vor. / Nacht.","Vorteile & Nachteile","Verrechnen sich 1:1 zur Netto-Differenz (gedeckelt bei ±5): ±1 = ±10, ±2 = ±15, ±3 = ±20, ±4 = ±25, ±5+ = ±30 auf die Testschwelle.","Würfel & Kampf"],
+      ["Block-Folgewurf","Blocken & Grundschaden","Bei erfolgreichem Blocken würfelt der Aggressor einen Folgewurf (Aggressor-Trefferwert gegen Schwierigkeit 20), um die EG für den Grundschaden gegen die Rüstung zu bestimmen.","Würfel & Kampf"],
+      ["Zonen / GRP","Trefferzonen & Rüstung","W100-Trefferzonentabelle (Kopf 01–10, Rumpf 11–50, Arme 51–74, Beine 75–100) sowie Rüstungsschutz gegen Schnitt, Stich, Einschlag und Gesamt-Rüstungspunkte (GRP).","Würfel & Kampf"],
+      ["Aktionsarten","Frei-, Schnell-, Grundaktion & Einsatz","Freiaktionen beliebig oft im Zug; erste Schnellaktion pro Phase frei (weitere = Grundaktion); 1 Grundaktion pro Phase; Einsatz außerhalb des Kampfes. Ergänzend: Reaktion & Sofortaktion.","Aktionen, Zustände & Ressourcen"],
+      ["Flut / Ebbe","Phasen & Kraftaktion","Kraftaktionen können nur in einer Flutphase eingesetzt werden; danach ist die nächste eigene Phase automatisch eine Ebbephase.","Aktionen, Zustände & Ressourcen"],
+      ["Statuseffekte","Positive & Negative Zustände","Stapelbare Effekte je Attributpaar: Gestärkt/Geschwächt (±2 LP, ST/KO), Beweglich/Eingeschränkt (±1 BSt, PR/GW), Konzentriert/Abgelenkt (±10 Ini nach Wahl, WA/IN), Entschlossen/Verunsichert (±2 mLP, AU/WK) – jeweils +1 Vorteil bzw. Nachteil pro Stapel.","Aktionen, Zustände & Ressourcen"],
+      ["Inspiration","✨ Inspirations-Stapel","Vor einem Test kann 1 Stapel verbraucht werden für +1 Vorteil auf genau diesen Wurf (max. 1 Stapel pro Wurf).","Aktionen, Zustände & Ressourcen"],
+      ["Reservierung","🔒 Gebundene Ressourcen","Kräfte/Augmente können LP, mLP, AP, mAP oder eigene Ressourcen dauerhaft reservieren; das senkt das freie Maximum bei Pause und Rast bis zur Aufhebung.","Aktionen, Zustände & Ressourcen"],
+      ["Pause / Rast","Erholung & Regeneration","Pause stellt AP & mAP wieder her (keine ausgebrannten Sekundärattribute). Erholsame Rast heilt 2× LP- & mLP-Regenerationsrate und stellt AP, mAP sowie ausgebrannte Sekundärattribute wieder her.","Aktionen, Zustände & Ressourcen"],
+      ["EP / SP / MsP","Erfahrung, Steigerung & Meisterschaft","100 EP = +1 Stufe (mit Rest-Übertrag). Pro Stufe +5 SP; jede 10. Stufe +1 MsP.","Fortschritt & Kräfte"],
+      ["Kräfte / Augm.","Basisaktionen, Kräfte & Augmente","Basisaktionen kosten 0 SP; Kräfte/Augmente kosten Marginal 1 SP, Fundamental 2 SP oder Grandios 2 SP + 1 MsP. Bis zu 3 Augmente pro Kraft, kollektiv max. 1 MsP pro Kraft-Gruppe.","Fortschritt & Kräfte"]
     ];
 
     const $=id=>document.getElementById(id), uid=()=>'u'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
@@ -499,14 +513,14 @@
     function renderWinResizeHandles(k){return '<div data-win-resize-w="'+k+'" title="Breite ziehen" class="win-resize-w"></div><div data-win-resize="'+k+'" title="Größe ziehen" class="win-resize-h">◢</div>';}
     let dragMouseY=null, dragScrollRaf=null;
     const savedEffRanges={};
-    let UI={inLobby:true,sheetLoaded:false,modal:null,profileUser:'',mobileHdrOpen:false,mobileLobbyMenuOpen:false,infoTab:'dice',listType:'art',ammoModalWeaponId:'',skSort:{col:'',asc:true},editSkNameId:null,imgTargetKind:'',imgTargetId:'',imgZoomOpen:false,imgReturnModal:'',confirmNew:false,confirmLog:false,confirmDelId:null,confirmDelSecId:null,confirmSecPullId:null,confirmDelSkSecId:null,confirmSkSecPullId:null,confirmDelInvSecId:null,confirmDelExSecId:null,confirmHzStep:1,openPwMenu:'',dupPwWarn:null,pwFilterOpen:false,pwFilterMode:'or',pwFilterTypes:[],pwFilterIncludeLinkedAugs:true,pwFilterArts:[],pwFilterActionSubs:[],pwFilterTags:[],pwFilterTiers:[],statusIniPromptKey:'',lastRollHtml:'',lastBlockBaseHtml:'',lastBlockFollowRes:null,lastSecretRollId:'',secretRollsCollapsed:false,colTarget:'cres',colMode:'text',colPwKind:'power',colPwId:'',colDraft:'#c084fc',attrGroupSel:'ST_KO',savedOnce:true,palBuilderOpen:false,palDraft:{name:'',isLt:false,bg:'#020617',acc:'#0ea5e9',acc2:'#6366f1',txt:'#f1f5f9',mut:'#94a3b8',btnTxt:'#ffffff'}};
+    let UI={inLobby:true,sheetLoaded:false,modal:null,profileUser:'',mobileHdrOpen:false,mobileLobbyMenuOpen:false,infoTab:'dice',glossSearch:'',listType:'art',ammoModalWeaponId:'',skSort:{col:'',asc:true},editSkNameId:null,imgTargetKind:'',imgTargetId:'',imgZoomOpen:false,imgReturnModal:'',confirmNew:false,confirmLog:false,confirmDelId:null,confirmDelSecId:null,confirmSecPullId:null,confirmDelSkSecId:null,confirmSkSecPullId:null,confirmDelInvSecId:null,confirmDelExSecId:null,confirmHzStep:1,openPwMenu:'',dupPwWarn:null,pwFilterOpen:false,pwFilterMode:'or',pwFilterTypes:[],pwFilterIncludeLinkedAugs:true,pwFilterArts:[],pwFilterActionSubs:[],pwFilterTags:[],pwFilterTiers:[],statusIniPromptKey:'',lastRollHtml:'',lastBlockBaseHtml:'',lastBlockFollowRes:null,lastSecretRollId:'',secretRollsCollapsed:false,colTarget:'cres',colMode:'text',colPwKind:'power',colPwId:'',colDraft:'#c084fc',attrGroupSel:'ST_KO',savedOnce:true,palBuilderOpen:false,palDraft:{name:'',isLt:false,bg:'#020617',acc:'#0ea5e9',acc2:'#6366f1',txt:'#f1f5f9',mut:'#94a3b8',btnTxt:'#ffffff'}};
     const REGISTRY_ID='_lobby_meta_registry_', LIVE_TAB_ID=uid();
     const LIBRARY_ID='_power_library_';
     const REPO_LIBRARY_URL='./data/powers-library.json';
     const PWLIB_CACHE_KEY='scherbensturm_power_library_cache';
     const PATCHNOTES_ID = '_patchnotes_';
     const PATCHNOTES_CACHE_KEY = 'scherbensturm_patchnotes_cache';
-    let PATCHNOTES = { loaded:false, loading:false, saving:false, error:'', entries:[], lastLoadedTs:'', editingId:null, draft:null, confirmDelId:null };
+    let PATCHNOTES = { loaded:false, loading:false, saving:false, error:'', entries:[], lastLoadedTs:'', editingId:null, draft:null, confirmDelId:null, sortOrder:'desc', collapsedIds:{} };
     const FEEDBACK_ID = '_feedback_store_';
     const FEEDBACK_CACHE_KEY = 'scherbensturm_feedback_cache';
     const DEF_FB_FOLDERS = [{ id:'fb_inbox', name:'📥 Posteingang', isSystem:true }, { id:'fb_saved', name:'⭐ Aufbewahrt', isSystem:false }];
@@ -4053,6 +4067,43 @@
         if(UI.modal==='powerLibrary') renderModal();
       }
     }
+    function parsePatchnoteTsMs(tsStr, fallbackMs = 0){
+      const s=String(tsStr||'').trim();
+      if(s){
+        const m=s.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})(?:[,\s]+(\d{1,2}):(\d{2})(?::(\d{2}))?)?/);
+        if(m){
+          const day=parseInt(m[1],10), month=parseInt(m[2],10), year=parseInt(m[3],10);
+          const hh=m[4]!==undefined?parseInt(m[4],10):0;
+          const mm=m[5]!==undefined?parseInt(m[5],10):0;
+          const ss=m[6]!==undefined?parseInt(m[6],10):0;
+          const ms=new Date(year,month-1,day,hh,mm,ss).getTime();
+          if(!Number.isNaN(ms)) return ms;
+        }
+        const parsed=Date.parse(s);
+        if(!Number.isNaN(parsed)) return parsed;
+      }
+      return toInt(fallbackMs,0);
+    }
+    function getSortedPatchnoteEntries(list=PATCHNOTES.entries, order=PATCHNOTES.sortOrder){
+      const arr=Array.isArray(list)?list:[];
+      const dir=order==='asc'?'asc':'desc';
+      return arr.map((e,origIdx)=>({e,origIdx,ms:parsePatchnoteTsMs(e?.ts,e?.tsMs)})).sort((a,b)=>{
+        const diff=dir==='asc'?(a.ms-b.ms):(b.ms-a.ms);
+        return diff!==0?diff:(a.origIdx-b.origIdx);
+      }).map(x=>x.e);
+    }
+    function getNewestPatchnoteId(list=PATCHNOTES.entries){
+      const desc=getSortedPatchnoteEntries(list,'desc');
+      return desc.length&&desc[0]?.id?String(desc[0].id):'';
+    }
+    function isPatchnoteCollapsed(e, newestId='', edId=null){
+      if(!e||!e.id) return false;
+      const map=(PATCHNOTES.collapsedIds&&typeof PATCHNOTES.collapsedIds==='object')?PATCHNOTES.collapsedIds:{};
+      if(Object.prototype.hasOwnProperty.call(map,e.id)) return Boolean(map[e.id]);
+      if(edId&&e.id===edId) return false;
+      const topId=newestId||getNewestPatchnoteId();
+      return e.id!==topId;
+    }
     function normalizePatchnoteEntry(raw){
       if(!raw||typeof raw!=='object') return null;
       const items=Array.isArray(raw.items)?raw.items.filter(it=>it&&typeof it==='object').map(it=>({
@@ -4066,6 +4117,7 @@
         title:String(raw.title??'').trim(),
         version:String(raw.version??'').trim(),
         ts,
+        tsMs:parsePatchnoteTsMs(ts,toInt(raw.tsMs,0)),
         updatedAt:String(raw.updatedAt||ts).trim(),
         intro:String(raw.intro??''),
         items
@@ -4454,9 +4506,11 @@
             kind:'patchnote',
             key,
             id:pn.id,
+            version:String(pn.version||'').trim(),
             title:pn.title||pn.version||'Neue Patchnotes',
             preview:pn.items?.[0]?.heading||pn.intro||'Änderungen ansehen',
             ts:pn.ts||'',
+            tsMs:parsePatchnoteTsMs(pn.ts,toInt(pn.tsMs,0)),
             unread:isUnread
           });
         });
@@ -4599,14 +4653,20 @@
         const cardCls = isRead
           ? 'subcard p-2.5 opacity-70 hover:opacity-100 border bdr-line transition-opacity'
           : 'subcard p-3 border-2 bdr-acc bg-acc-soft/20 hover:bg-acc-soft/35 transition-colors';
+        const pnVer = isPn ? String(it.version || '').trim() : '';
+        const rawTitle = String(it.title || '').trim();
+        const dispTitle = (isPn && pnVer && rawTitle.toLowerCase() === pnVer.toLowerCase()) ? 'Neue Patchnotes' : rawTitle;
         return `<button type="button" data-action="notif-open-item" data-nkind="${it.kind}" data-nkey="${esc(it.key)}" data-nid="${esc(it.id||it.feedbackId||'')}" class="${cardCls} w-full text-left flex items-start gap-2.5 cursor-pointer">
           <span class="text-lg leading-none shrink-0 mt-0.5">${icon}</span>
           <div class="min-w-0 flex-1 space-y-1">
             <div class="flex flex-wrap items-center justify-between gap-1.5">
-              <span class="px-2 py-0.5 rounded-full text-[10px] font-extrabold border ${badgeCls}">${badgeTxt}</span>
+              <div class="flex flex-wrap items-center gap-1.5">
+                <span class="px-2 py-0.5 rounded-full text-[10px] font-extrabold border ${badgeCls}">${badgeTxt}</span>
+                ${(isPn && it.version)?`<span class="px-1.5 py-0.5 rounded text-[10px] font-black bg-acc-soft border bdr-acc text-acc tabular">${esc(it.version)}</span>`:''}
+              </div>
               ${it.ts?`<span class="text-[10px] t-mut tabular">🕒 ${esc(it.ts)}</span>`:''}
             </div>
-            <div class="font-black text-xs sm:text-sm text-acc break-words">${esc(it.title||'')}</div>
+            <div class="font-black text-xs sm:text-sm text-acc break-words">${esc(dispTitle)}</div>
             ${it.preview?`<div class="text-xs t-mut break-words">${esc(stripHtml(it.preview))}</div>`:''}
           </div>
         </button>`;
@@ -6787,7 +6847,7 @@
 
       if(secKey==='weapons'){
         return `<section data-eqsec="weapons" class="card space-y-3${(UI.openPwMenu==='eq-add-weapon:sec')?' relative z-[25] !overflow-visible':''}" ${winStyle}>
-          ${hdrCommon(`⚔️ Waffen (${S.weapons.length})`,`<button type="button" data-action="open-list" data-ltype="weaponTags" class="btn py-0.5 px-2 text-xs">⚙️ Waffeneigenschaften (${S.weaponTagList.length})</button>`,renderAddWeaponDropdown('eq-add-weapon:sec','btn py-1 px-2.5 text-xs'))}
+          ${hdrCommon(`⚔️ Waffen (${S.weapons.length})`,`<button type="button" data-action="open-list" data-ltype="weaponTags" class="btn py-0.5 px-2 text-xs">⚙️ Waffeneigenschaften (${S.weaponTagList.length})</button>`,renderAddWeaponDropdown('eq-add-weapon:sec','btn py-1 px-2.5 text-xs',true))}
           ${!meta.collapsed?(!S.weapons.length?`<div class="py-4 text-center text-xs t-mut">Noch keine Waffen eingetragen.</div>`:`<div class="space-y-3">${S.weapons.map((w,i)=>renderWeaponCard(w,i,S.weapons.length)).join('')}</div>`):''}
         </section>`;
       }
@@ -7883,7 +7943,7 @@
     const DUAL_COL_TARGETS=new Set(['pw','sec-folder','sksec-folder','invsec-folder','sk-item','eq','eqsec','chrsec','camp']);
     const getColTargetObj=()=>UI.colTarget==='pw'?findPwItem(UI.colPwKind,UI.colPwId):UI.colTarget==='sec-folder'?S.powerSections.find(s=>s.id===UI.colPwId):UI.colTarget==='sksec-folder'?S.skillSections.find(s=>s.id===UI.colPwId):UI.colTarget==='invsec-folder'?(S.invSections||[]).find(s=>s.id===UI.colPwId):UI.colTarget==='sk-item'?S.skills.find(s=>s.id===UI.colPwId):UI.colTarget==='eq'?findEqItem(UI.colPwKind,UI.colPwId):UI.colTarget==='chrsec'?S.chrSecMeta?.[UI.colPwId]:UI.colTarget==='camp'?getCampaigns().find(c=>c.id===UI.colPwId):UI.colTarget==='eqsec'?S.equipSecMeta?.[UI.colPwId]:null;
     const openDualColorModal=(target,id,cmode,kind='')=>{UI.colTarget=target;UI.colPwKind=kind;UI.colPwId=id;UI.colMode=cmode==='bg'?'bg':'text';const it=getColTargetObj();if(!it)return;const cur=UI.colMode==='bg'?it.bgColor:it.color;UI.colDraft=isHex(cur)?cur:(UI.colMode==='bg'?'#1e293b':'#38bdf8');UI.modal='color';renderModal();};
-    const modalShell=(title,sub,body,foot,maxW='max-w-2xl',extra='')=>`<div data-action="close-modal-bg" class="fixed inset-0 z-[70] flex items-center justify-center p-2 sm:p-5 bg-black/75 backdrop-blur-sm"><div class="card ${maxW} w-full max-h-[92dvh] overflow-y-auto flex flex-col p-0 shadow-2xl"><div class="sticky top-0 z-10 flex flex-wrap items-center justify-between gap-2 px-4 sm:px-5 py-3 sm:py-3.5 border-b bdr-line shrink-0" style="background:var(--surf2)"><div class="min-w-0 flex-1"><h2 class="text-base sm:text-lg font-extrabold">${title}</h2>${sub?`<p class="text-xs t-mut">${sub}</p>`:''}</div><div class="flex flex-wrap items-center gap-1.5 shrink-0">${extra}<button type="button" data-action="close-modal" aria-label="Schließen" class="btn py-1 px-2.5">✕</button></div></div><div class="p-4 sm:p-5 overflow-y-auto flex-1 min-h-0 space-y-4 text-xs sm:text-sm">${body}</div><div class="sticky bottom-0 z-10 px-4 sm:px-5 py-3 border-t bdr-line flex flex-wrap items-center justify-end gap-2 shrink-0" style="background:var(--surf2)">${foot}</div></div></div>`;
+    const modalShell=(title,sub,body,foot,maxW='max-w-2xl',extra='')=>`<div data-action="close-modal-bg" class="fixed inset-0 z-[70] flex items-center justify-center p-2 sm:p-5 bg-black/75 backdrop-blur-sm"><div class="card ${maxW} w-full max-h-[92dvh] overflow-y-auto flex flex-col p-0 shadow-2xl"><div class="sticky top-0 z-10 flex flex-wrap items-center justify-between gap-2 px-4 sm:px-5 py-3 sm:py-3.5 border-b bdr-line shrink-0" style="background:var(--surf2)">${(String(title||'').trim()||String(sub||'').trim())?`<div class="min-w-0 flex-1"><h2 class="text-base sm:text-lg font-extrabold">${title}</h2>${sub?`<p class="text-xs t-mut">${sub}</p>`:''}</div><div class="flex flex-wrap items-center gap-1.5 shrink-0">${extra}<button type="button" data-action="close-modal" aria-label="Schließen" class="btn py-1 px-2.5">✕</button></div>`:`${extra?`<div class="flex-1 min-w-0 flex flex-wrap items-center gap-1.5">${extra}</div>`:'<div class="flex-1 min-w-0"></div>'}<button type="button" data-action="close-modal" aria-label="Schließen" class="btn py-1 px-2.5">✕</button>`}</div><div class="p-4 sm:p-5 overflow-y-auto flex-1 min-h-0 space-y-4 text-xs sm:text-sm">${body}</div><div class="sticky bottom-0 z-10 px-4 sm:px-5 py-3 border-t bdr-line flex flex-wrap items-center justify-end gap-2 shrink-0" style="background:var(--surf2)">${foot}</div></div></div>`;
 
     function formatPwLibImportToast(res,label=''){
       if(!res) return '⚠️ Import fehlgeschlagen.';
@@ -8411,35 +8471,43 @@
         </div>
       </div>`:'';
 
-      const cardsHtml=entries.length?`<div class="space-y-3">${entries.map((e,idx)=>{
+      const sortOrder=PATCHNOTES.sortOrder==='asc'?'asc':'desc';
+      const sortedEntries=getSortedPatchnoteEntries(entries,sortOrder);
+      const newestId=getNewestPatchnoteId(entries);
+      const anyCollapsed=sortedEntries.some(e=>isPatchnoteCollapsed(e,newestId,edId));
+      const cardsHtml=sortedEntries.length?`<div class="space-y-3">${sortedEntries.map(e=>{
         const items=Array.isArray(e.items)?e.items.filter(it=>it&&(String(it.heading||'').trim()||String(it.text||'').trim())):[];
         const showUpd=Boolean(e.updatedAt&&e.updatedAt!==e.ts);
         const isDelAsk=isAdm&&PATCHNOTES.confirmDelId===e.id;
-        return `<div class="subcard p-3.5 space-y-2.5 border bdr-line hover:border-sky-500/40 transition-colors">
-          <div class="flex flex-wrap items-start justify-between gap-2 border-b bdr-line pb-2">
-            <div class="space-y-1 min-w-0 flex-1">
-              <div class="flex flex-wrap items-center gap-2">
-                ${e.version?`<span class="px-2 py-0.5 rounded-md bg-acc-soft border bdr-acc text-acc font-black text-xs tabular">${esc(e.version)}</span>`:''}
-                <h4 class="text-sm sm:text-base font-black tracking-tight break-words">${esc(e.title||'Patchnotes')}</h4>
+        const isCollapsed=isPatchnoteCollapsed(e,newestId,edId);
+        return `<div class="subcard p-3.5 ${isCollapsed?'':'space-y-2.5'} border bdr-line hover:border-sky-500/40 transition-colors">
+          <div class="flex flex-wrap items-start justify-between gap-2 ${isCollapsed?'':'border-b bdr-line pb-2'}">
+            <button type="button" data-action="pn-toggle-collapse" data-id="${esc(e.id)}" aria-expanded="${isCollapsed?'false':'true'}" data-tip="${isCollapsed?'Patchnote ausklappen':'Patchnote einklappen'}" class="flex items-start gap-2 min-w-0 flex-1 text-left cursor-pointer group bg-transparent border-0 p-0">
+              <span class="btn w-6 h-6 p-0 text-xs font-black shrink-0 mt-0.5 pointer-events-none">${isCollapsed?'▸':'▾'}</span>
+              <div class="space-y-1 min-w-0 flex-1">
+                <div class="flex flex-wrap items-center gap-2">
+                  ${e.version?`<span class="px-2 py-0.5 rounded-md bg-acc-soft border bdr-acc text-acc font-black text-xs tabular">${esc(e.version)}</span>`:''}
+                  <h4 class="text-sm sm:text-base font-black tracking-tight break-words group-hover:text-acc transition-colors">${esc(e.title||'Patchnotes')}</h4>
+                  ${items.length?`<span class="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-black/25 border bdr-line t-mut tabular shrink-0">${items.length} ${items.length===1?'Punkt':'Punkte'}</span>`:''}
+                </div>
+                <div class="flex flex-wrap items-center gap-2 text-[11px] t-mut tabular">
+                  <span>🕒 ${esc(e.ts||'')}</span>
+                  ${showUpd?`<span>• bearbeitet: ${esc(e.updatedAt)}</span>`:''}
+                </div>
               </div>
-              <div class="flex flex-wrap items-center gap-2 text-[11px] t-mut tabular">
-                <span>🕒 ${esc(e.ts||'')}</span>
-                ${showUpd?`<span>• bearbeitet: ${esc(e.updatedAt)}</span>`:''}
-              </div>
-            </div>
+            </button>
             ${isAdm?`<div class="flex flex-wrap items-center gap-1 shrink-0">
               <button type="button" data-action="pn-edit" data-id="${esc(e.id)}" class="btn py-1 px-2 text-xs font-bold">✎ Bearbeiten</button>
-              ${entries.length>1?`<button type="button" data-action="pn-move" data-id="${esc(e.id)}" data-dir="-1" ${idx===0||PATCHNOTES.saving?'disabled':''} data-tip="Eintrag nach oben" class="btn py-1 px-1.5 text-xs">▲</button><button type="button" data-action="pn-move" data-id="${esc(e.id)}" data-dir="1" ${idx===entries.length-1||PATCHNOTES.saving?'disabled':''} data-tip="Eintrag nach unten" class="btn py-1 px-1.5 text-xs">▼</button>`:''}
               ${isDelAsk
                 ?`<span class="inline-flex items-center gap-1"><button type="button" data-action="pn-confirm-del" data-id="${esc(e.id)}" class="btn bg-rose-600 text-white border-rose-600 py-1 px-2 text-[11px] font-black">Löschen? (2/2)</button><button type="button" data-action="pn-cancel-del" class="btn py-1 px-1.5 text-[11px]">✕</button></span>`
                 :`<button type="button" data-action="pn-ask-del" data-id="${esc(e.id)}" data-tip="Eintrag löschen (2-Stufen)" class="btn btn-err py-1 px-2 text-xs">🗑️</button>`}
             </div>`:''}
           </div>
-          ${String(e.intro||'').trim()?`<p class="text-xs t-mut whitespace-pre-line leading-relaxed">${esc(e.intro)}</p>`:''}
+          ${!isCollapsed?`${String(e.intro||'').trim()?`<p class="text-xs t-mut whitespace-pre-line leading-relaxed">${esc(e.intro)}</p>`:''}
           ${items.length?`<div class="space-y-2 pt-0.5">${items.map(it=>`<div class="p-2.5 rounded-lg bg-black/20 border bdr-line space-y-1">
             ${String(it.heading||'').trim()?`<div class="font-extrabold text-xs sm:text-sm text-acc break-words">${esc(it.heading)}</div>`:''}
             ${String(it.text||'').trim()?`<div class="text-xs leading-relaxed whitespace-pre-line break-words">${esc(it.text)}</div>`:''}
-          </div>`).join('')}</div>`:''}
+          </div>`).join('')}</div>`:''}`:''}
         </div>`;
       }).join('')}</div>`:`<div class="subcard border-dashed py-8 px-4 text-center text-xs t-mut">${PATCHNOTES.loading?'⏳ Patchnotes werden vom Server geladen...':'Noch keine Patchnotes hinterlegt.'}</div>`;
 
@@ -8451,6 +8519,8 @@
             ${PATCHNOTES.lastLoadedTs?`<span class="text-[11px] t-mut tabular">Stand: ${esc(PATCHNOTES.lastLoadedTs)}</span>`:''}
           </div>
           <div class="flex flex-wrap items-center gap-1.5">
+            <button type="button" data-action="pn-toggle-sort" data-tip="Sortierung nach Datum umschalten" class="btn py-1 px-2.5 text-xs font-bold">${sortOrder==='asc'?'↑ Älteste zuerst':'↓ Neueste zuerst'}</button>
+            ${sortedEntries.length?`<button type="button" data-action="pn-toggle-all-collapse" data-tip="${anyCollapsed?'Alle Patchnotes ausklappen':'Alle Patchnotes einklappen'}" class="btn py-1 px-2.5 text-xs font-bold">${anyCollapsed?'▾ Alle ausklappen':'▸ Alle einklappen'}</button>`:''}
             <button type="button" data-action="pn-refresh" ${PATCHNOTES.loading?'disabled':''} class="btn py-1 px-2.5 text-xs font-bold">${PATCHNOTES.loading?'⏳ Lädt...':'🔄 Aktualisieren'}</button>
             ${isAdm?`<button type="button" data-action="pn-new" class="btn btn-pri py-1 px-2.5 text-xs font-extrabold">+ Neuer Eintrag</button>`:''}
           </div>
@@ -8936,12 +9006,490 @@
       }
       if(UI.modal==='info'){
         const tabs=[['dice','1. Würfelsystem'],['prog','2. Steigerung'],['gloss','3. Glossar'],['patchnotes','📋 Patchnotes']].map(([k,l])=>`<button type="button" data-action="info-tab" data-itab="${k}" class="btn py-1 px-2.5 text-xs ${UI.infoTab===k?'btn-pri':''}">${l}</button>`).join('');
-        const body=UI.infoTab==='dice'?`<div class="subcard text-center py-3 font-extrabold bdr-acc bg-acc-soft">Testschwelle = Charakterwert + 50 − Schwierigkeit + Vor-/Nachteils-Bonus</div><p>Mit <strong>W100 (1–100)</strong> die Schwelle erreichen oder unterbieten (1 = immer kritischer Erfolg, 100 = immer Patzer). Netto-Vor-/Nachteile: 1=±10, 2=±15, 3=±20, 4=±25, 5+=±30. Kritisch bei Endziffer 1 (erweiterbar). EG = ⌈Wurf/10⌉, MEG = ⌈(101−Wurf)/10⌉.</p>`
-        :UI.infoTab==='prog'?`<div class="subcard space-y-1.5"><p><strong>Stufen:</strong> 100 EP = +1 Stufe (pro Stufe +5 SP, jede 10. Stufe +1 MsP).</p><p><strong>Training:</strong> Block 1 &amp; 2 je 2 SP (+5), Block 3 &amp; 4 je 3 SP (+5), Block 5 = 5 SP + 1 MsP (+10).</p><p><strong>Fertigkeiten:</strong> Marginal 1/1/2/2+MsP • Fundamental 2/2/3/3+MsP • Grandios 3/2/3/4+MsP.</p><p><strong>Kräfte &amp; Augmente:</strong> Marginal 1 SP • Fundamental 2 SP • Grandios 2 SP + 1 MsP (max. 1 MsP kollektiv pro Kraft-Gruppe).</p></div>`
+        const body=UI.infoTab==='dice'?renderInfoDiceWikiHtml()
+        :UI.infoTab==='prog'?renderInfoProgWikiHtml()
         :UI.infoTab==='patchnotes'?renderPatchnotesTabHtml()
-        :`<div class="grid grid-cols-1 md:grid-cols-2 gap-2.5">${GLOSSARY.map(([a,n,d])=>`<div class="subcard p-2.5 flex gap-2.5"><span class="px-2 py-0.5 rounded bg-acc-soft border bdr-acc text-acc font-black text-xs shrink-0 self-start">${a}</span><div><div class="font-extrabold text-xs">${n}</div><div class="text-xs t-mut">${d}</div></div></div>`).join('')}</div>`;
-        m.innerHTML=modalShell('Scherbensturm – Regelreferenz','',body,`<button type="button" data-action="close-modal" class="btn btn-pri px-6">Schließen</button>`,'max-w-3xl',tabs);
+        :renderInfoGlossaryHtml();
+        m.innerHTML=modalShell('','',body,`<button type="button" data-action="close-modal" class="btn btn-pri px-6">Schließen</button>`,'max-w-4xl',tabs);
       }
+    }
+
+
+    function renderInfoDiceWikiHtml(){
+      const advRows=[
+        ['±1','±10','Basis-Stufe'],
+        ['±2','±15','+5 zusätzlich'],
+        ['±3','±20','+5 zusätzlich'],
+        ['±4','±25','+5 zusätzlich'],
+        ['±5+ (Max.)','±30','Deckelung bei ±5']
+      ];
+      const hzRows=[
+        ['01–10','Kopf','klein'],
+        ['11–50','Rumpf','groß'],
+        ['51–62','Arm links','normal'],
+        ['63–74','Arm rechts','normal'],
+        ['75–87','Bein links','normal'],
+        ['88–100','Bein rechts','normal']
+      ];
+      const egSteps=[
+        ['1–10','1 EG'],['11–20','2 EG'],['21–30','3 EG'],['31–40','4 EG'],['41–50','5 EG'],
+        ['51–60','6 EG'],['61–70','7 EG'],['71–80','8 EG'],['81–90','9 EG'],['91–99','10 EG']
+      ];
+      const megSteps=[
+        ['100–91','1 MEG'],['90–81','2 MEG'],['80–71','3 MEG'],['70–61','4 MEG'],['60–51','5 MEG'],
+        ['50–41','6 MEG'],['40–31','7 MEG'],['30–21','8 MEG'],['20–11','9 MEG'],['10–1','10 MEG']
+      ];
+      return `<div class="space-y-5">
+        <section class="subcard rounded-xl p-4 sm:p-5 border-2 bdr-acc bg-acc-soft/30 space-y-4">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <div class="flex items-center gap-2">
+              <span class="px-2 py-0.5 rounded-md bg-acc-soft border bdr-acc text-acc text-[10px] font-black uppercase tracking-wider">Sektion 1</span>
+              <h3 class="text-sm sm:text-base font-black text-acc tracking-tight">Grundformel des W100-Systems</h3>
+            </div>
+            <span class="text-[11px] font-bold t-mut">W100 • Gleich-oder-Unterbieten</span>
+          </div>
+          <div class="rounded-xl p-3.5 sm:p-4 bg-black/30 border bdr-acc/60 flex flex-wrap items-center justify-center gap-1.5 sm:gap-2 text-center tabular">
+            <span class="px-3 py-1.5 rounded-lg bg-acc-soft border-2 bdr-acc text-acc font-black text-xs sm:text-sm shadow-sm">Testschwelle</span>
+            <span class="font-black text-base sm:text-lg text-acc px-0.5">=</span>
+            <span class="px-2.5 py-1.5 rounded-lg bg-sky-500/15 border border-sky-400/45 text-sky-200 font-extrabold text-xs sm:text-sm">Charakterwert</span>
+            <span class="px-2.5 py-1.5 rounded-lg bg-emerald-500/15 border border-emerald-400/45 text-emerald-300 font-black text-xs sm:text-sm">+ 50</span>
+            <span class="px-2.5 py-1.5 rounded-lg bg-rose-500/15 border border-rose-400/45 text-rose-300 font-extrabold text-xs sm:text-sm">− Schwierigkeit</span>
+            <span class="px-2.5 py-1.5 rounded-lg bg-amber-500/15 border border-amber-400/45 text-amber-300 font-extrabold text-xs sm:text-sm">+ Vor-/Nachteils-Bonus</span>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-2.5">
+            <div class="rounded-xl p-3 bg-black/25 border border-sky-500/35 space-y-1">
+              <div class="text-[11px] font-black uppercase tracking-wider text-sky-300">Charakterwert</div>
+              <p class="text-xs t-mut leading-snug">Attributswert + Fertigkeitsbonus <span class="text-sky-200/90 font-semibold tabular">(z. B. PR 30 + Schwertkampf 15 = 45)</span>.</p>
+            </div>
+            <div class="rounded-xl p-3 bg-black/25 border border-rose-500/35 space-y-1">
+              <div class="text-[11px] font-black uppercase tracking-wider text-rose-300">Schwierigkeit</div>
+              <p class="text-xs t-mut leading-snug">Fester Zielwert <span class="text-rose-200/90 font-semibold tabular">(z. B. 40)</span> oder gegnerischer Vergleichswert im direkten Duell.</p>
+            </div>
+            <div class="rounded-xl p-3 bg-black/25 border border-emerald-500/35 space-y-1">
+              <div class="text-[11px] font-black uppercase tracking-wider text-emerald-300">Basis-Chance</div>
+              <p class="text-xs t-mut leading-snug">Bei Gleichstand <span class="font-semibold text-emerald-200 tabular">(Wert = Schwierigkeit)</span> liegt die Schwelle exakt bei <strong class="text-emerald-300 tabular">50 (50 %)</strong>.</p>
+            </div>
+          </div>
+        </section>
+
+        <section class="space-y-2.5">
+          <div class="flex items-center justify-between gap-2 pb-1.5 border-b bdr-line">
+            <div class="flex items-center gap-2">
+              <span class="px-2 py-0.5 rounded-md bg-acc-soft border bdr-acc text-acc text-[10px] font-black uppercase tracking-wider">Sektion 2</span>
+              <h3 class="text-sm font-black tracking-tight">Ablauf eines W100-Tests</h3>
+            </div>
+            <span class="text-[11px] font-bold t-mut">3 Schritte</span>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div class="subcard rounded-xl p-3.5 space-y-1.5 border bdr-line">
+              <div class="flex items-center gap-2">
+                <span class="w-6 h-6 rounded-lg bg-acc-soft border bdr-acc text-acc font-black text-xs inline-flex items-center justify-center shrink-0 tabular">1</span>
+                <h4 class="font-extrabold text-xs sm:text-sm">Schwelle bestimmen</h4>
+              </div>
+              <p class="text-xs t-mut leading-relaxed">Formel anwenden. Die effektive Erfolgschance liegt stets zwischen <strong class="text-emerald-300 tabular">1 %</strong> und <strong class="text-emerald-300 tabular">99 %</strong>, da eine <strong class="tabular">1</strong> immer gelingt und eine <strong class="tabular">100</strong> immer patzt.</p>
+            </div>
+            <div class="subcard rounded-xl p-3.5 space-y-1.5 border bdr-line">
+              <div class="flex items-center gap-2">
+                <span class="w-6 h-6 rounded-lg bg-acc-soft border bdr-acc text-acc font-black text-xs inline-flex items-center justify-center shrink-0 tabular">2</span>
+                <h4 class="font-extrabold text-xs sm:text-sm">W100 würfeln</h4>
+              </div>
+              <p class="text-xs t-mut leading-relaxed">Ist das Ergebnis <strong class="text-emerald-300 tabular">≤ Testschwelle</strong> (und keine <strong class="tabular">100</strong>), ist der Test <strong class="text-emerald-300">bestanden</strong>; liegt der Wurf darüber, ist er <strong class="text-rose-300">gescheitert</strong>.</p>
+            </div>
+            <div class="subcard rounded-xl p-3.5 space-y-1.5 border bdr-line">
+              <div class="flex items-center gap-2">
+                <span class="w-6 h-6 rounded-lg bg-acc-soft border bdr-acc text-acc font-black text-xs inline-flex items-center justify-center shrink-0 tabular">3</span>
+                <h4 class="font-extrabold text-xs sm:text-sm">Qualität (EG / MEG) ablesen</h4>
+              </div>
+              <p class="text-xs t-mut leading-relaxed">Je <strong>höher</strong> der erfolgreiche Wurf ausfällt (ohne die Schwelle zu überschreiten), desto mehr <strong class="text-emerald-300">Erfolgsgrade (EG)</strong> werden erzielt.</p>
+            </div>
+          </div>
+        </section>
+
+        <section class="space-y-2.5">
+          <div class="flex items-center justify-between gap-2 pb-1.5 border-b bdr-line">
+            <div class="flex items-center gap-2">
+              <span class="px-2 py-0.5 rounded-md bg-acc-soft border bdr-acc text-acc text-[10px] font-black uppercase tracking-wider">Sektion 3</span>
+              <h3 class="text-sm font-black tracking-tight">Vor- &amp; Nachteile</h3>
+            </div>
+            <span class="text-[11px] font-bold t-mut tabular">Netto gedeckelt bei ±5</span>
+          </div>
+          <div class="grid grid-cols-1 lg:grid-cols-12 gap-3 items-stretch">
+            <div class="lg:col-span-5 subcard rounded-xl p-3.5 space-y-2.5 border bdr-line flex flex-col justify-between">
+              <div class="space-y-2">
+                <div class="text-xs font-extrabold text-acc">Verrechnungsregel</div>
+                <p class="text-xs t-mut leading-relaxed">Vorteile und Nachteile heben sich stets <strong class="text-acc tabular">1:1</strong> auf. Die verbleibende Netto-Differenz wird bei <strong class="text-amber-300 tabular">±5</strong> gedeckelt.</p>
+              </div>
+              <div class="rounded-xl p-2.5 border border-amber-400/45 bg-amber-500/10 text-xs leading-snug">
+                <span class="font-black text-amber-300">✨ Inspiration:</span> <span class="t-mut">Gewährt beim Einsetzen einmalig <strong class="text-amber-200 tabular">+1 Vorteil</strong> auf genau den nächsten Wurf (max. 1 Stapel pro Test).</span>
+              </div>
+            </div>
+            <div class="lg:col-span-7 subcard rounded-xl p-3 border bdr-line overflow-x-auto">
+              <table class="tbl tabular text-xs">
+                <thead>
+                  <tr>
+                    <th class="text-left">Netto-Differenz</th>
+                    <th class="text-center">Effekt auf Testschwelle</th>
+                    <th class="text-right">Hinweis</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${advRows.map(([net,mod,note],idx)=>`<tr class="${idx===4?'bg-amber-500/10':''}">
+                    <td class="font-black ${idx===4?'text-amber-300':'text-acc'}">${net}</td>
+                    <td class="text-center"><span class="px-2 py-0.5 rounded-md bg-acc-soft border bdr-acc font-black text-acc">${mod}</span></td>
+                    <td class="text-right text-[11px] t-mut">${note}</td>
+                  </tr>`).join('')}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <section class="space-y-3">
+          <div class="flex items-center justify-between gap-2 pb-1.5 border-b bdr-line">
+            <div class="flex items-center gap-2">
+              <span class="px-2 py-0.5 rounded-md bg-acc-soft border bdr-acc text-acc text-[10px] font-black uppercase tracking-wider">Sektion 4</span>
+              <h3 class="text-sm font-black tracking-tight">Erfolgsgrade (EG), Misserfolgsgrade (MEG) &amp; Über-100-Skalierung</h3>
+            </div>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div class="subcard rounded-xl p-3.5 border border-emerald-500/45 bg-emerald-500/5 space-y-2.5">
+              <div class="flex flex-wrap items-center justify-between gap-2">
+                <h4 class="font-black text-xs sm:text-sm text-emerald-400">✓ Erfolgsgrade (EG)</h4>
+                <span class="px-2 py-0.5 rounded-md bg-emerald-500/20 border border-emerald-500/40 text-emerald-200 font-black text-xs tabular">EG = ⌈Wurf / 10⌉</span>
+              </div>
+              <p class="text-[11px] t-mut leading-snug">Zählt bei bestandenem Test. Ein hoher Wurf knapp unter der Schwelle liefert maximale Qualität.</p>
+              <div class="grid grid-cols-2 sm:grid-cols-5 gap-1.5 tabular">
+                ${egSteps.map(([rng,val])=>`<div class="px-2 py-1 rounded-lg bg-black/25 border border-emerald-500/25 text-center"><div class="text-[10px] t-mut font-semibold">${rng}</div><div class="text-[11px] font-black text-emerald-300">${val}</div></div>`).join('')}
+              </div>
+            </div>
+            <div class="subcard rounded-xl p-3.5 border border-rose-500/45 bg-rose-500/5 space-y-2.5">
+              <div class="flex flex-wrap items-center justify-between gap-2">
+                <h4 class="font-black text-xs sm:text-sm text-rose-400">✕ Misserfolgsgrade (MEG)</h4>
+                <span class="px-2 py-0.5 rounded-md bg-rose-500/20 border border-rose-500/40 text-rose-200 font-black text-xs tabular">MEG = ⌈(101 − Wurf) / 10⌉</span>
+              </div>
+              <p class="text-[11px] t-mut leading-snug">Zählt bei gescheitertem Test. Je weiter unterhalb der 100 der Fehlversuch liegt, desto höher die MEG.</p>
+              <div class="grid grid-cols-2 sm:grid-cols-5 gap-1.5 tabular">
+                ${megSteps.map(([rng,val])=>`<div class="px-2 py-1 rounded-lg bg-black/25 border border-rose-500/25 text-center"><div class="text-[10px] t-mut font-semibold">${rng}</div><div class="text-[11px] font-black text-rose-300">${val}</div></div>`).join('')}
+              </div>
+            </div>
+          </div>
+          <div class="subcard rounded-xl p-3.5 border border-amber-400/55 bg-amber-500/10 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+            <div class="space-y-1">
+              <div class="flex flex-wrap items-center gap-2">
+                <span class="font-black text-xs sm:text-sm text-amber-300">⚡ Testschwelle über 100 (EG-Multiplikator)</span>
+                <span class="px-2 py-0.5 rounded-md bg-amber-500/20 border border-amber-400/50 text-amber-200 font-black text-[11px] tabular">Faktor = ⌊Schwelle / 100⌋ + 1</span>
+              </div>
+              <p class="text-xs t-mut leading-relaxed">Ab einer Schwelle <strong class="text-amber-200 tabular">&gt; 100</strong> werden alle erzielten EG multipliziert: bei <strong class="text-amber-200 tabular">101–199 → ×2</strong>, bei <strong class="text-amber-200 tabular">200–299 → ×3</strong> usw. <span class="text-rose-300 font-semibold">(Eine gewürfelte 100 bleibt dennoch immer ein Patzer.)</span></p>
+            </div>
+          </div>
+        </section>
+
+        <section class="space-y-2.5">
+          <div class="flex items-center justify-between gap-2 pb-1.5 border-b bdr-line">
+            <div class="flex items-center gap-2">
+              <span class="px-2 py-0.5 rounded-md bg-acc-soft border bdr-acc text-acc text-[10px] font-black uppercase tracking-wider">Sektion 5</span>
+              <h3 class="text-sm font-black tracking-tight">Kritische Erfolge &amp; Patzer</h3>
+            </div>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div class="subcard rounded-xl p-3.5 border-2 border-amber-400/55 bg-amber-500/10 space-y-2">
+              <div class="font-black text-xs sm:text-sm text-amber-300">★ Kritischer Erfolg</div>
+              <p class="text-xs t-mut leading-relaxed">Eine gewürfelte <strong class="text-amber-200 tabular">1</strong> ist <strong>immer</strong> ein kritischer Erfolg. Zudem ist jeder bestandene Wurf mit der <strong class="text-amber-200">kritischen Endziffer</strong> (Standard: <strong class="tabular text-amber-200">1</strong> → 1, 11, 21, 31, …) kritisch.</p>
+              <div class="rounded-lg p-2 bg-black/25 border border-amber-400/35 text-[11px] leading-snug">
+                <span class="font-bold text-amber-300">Erweiterung (z. B. <em>Tödlich (X)</em>):</span> <span class="t-mut">Erweitert die kritische Endziffer Schritt für Schritt in der Reihe</span>
+                <div class="mt-1 font-black text-amber-200 tabular tracking-wide">1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → 9 → 0</div>
+              </div>
+            </div>
+            <div class="subcard rounded-xl p-3.5 border-2 border-rose-500/55 bg-rose-500/10 space-y-2 flex flex-col justify-between">
+              <div class="space-y-2">
+                <div class="font-black text-xs sm:text-sm text-rose-400">💀 Patzer</div>
+                <p class="text-xs t-mut leading-relaxed">Eine gewürfelte <strong class="text-rose-300 tabular">100</strong> ist <strong>immer</strong> ein automatischer Misserfolg (Patzer) — völlig unabhängig davon, wie hoch die berechnete Testschwelle liegt.</p>
+              </div>
+              <div class="rounded-lg p-2 bg-black/25 border border-rose-500/35 text-[11px] text-rose-200/90 font-semibold tabular">
+                Wurf 100 ⇒ Misserfolg (1 MEG) • selbst bei Schwelle &gt; 100
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="space-y-2.5">
+          <div class="flex items-center justify-between gap-2 pb-1.5 border-b bdr-line">
+            <div class="flex items-center gap-2">
+              <span class="px-2 py-0.5 rounded-md bg-acc-soft border bdr-acc text-acc text-[10px] font-black uppercase tracking-wider">Sektion 6</span>
+              <h3 class="text-sm font-black tracking-tight">Kampf-Sonderregeln</h3>
+            </div>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div class="subcard rounded-xl p-3.5 border border-sky-500/40 bg-sky-500/5 space-y-2">
+              <div class="font-black text-xs sm:text-sm text-sky-300">🛡️ Blocken &amp; Folgewurf</div>
+              <p class="text-xs t-mut leading-relaxed">Gelingt ein Blocken-Test, folgt ein Folgewurf mit dem <strong class="text-sky-200">Aggressor-Trefferwert gegen Schwierigkeit 20</strong>, dessen EG den Grundschaden gegen die Rüstung bestimmen.</p>
+              <div class="rounded-lg p-2.5 bg-black/25 border border-sky-400/35 text-xs font-extrabold text-sky-200 text-center tabular">
+                Folgewurf-Schwelle = Aggressor-Wert + 50 − 20 = <span class="text-acc">Aggressor + 30</span>
+              </div>
+            </div>
+            <div class="subcard rounded-xl p-3.5 border bdr-line space-y-2 overflow-x-auto">
+              <div class="font-black text-xs sm:text-sm text-acc">🎯 Trefferzonen (W100)</div>
+              <table class="tbl tabular text-xs">
+                <thead>
+                  <tr>
+                    <th class="text-left">W100</th>
+                    <th class="text-left">Trefferzone</th>
+                    <th class="text-right">Größe</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${hzRows.map(([rng,zone,sz])=>`<tr>
+                    <td class="font-black text-acc">${rng}</td>
+                    <td class="font-bold">${zone}</td>
+                    <td class="text-right text-[11px] t-mut">${sz}</td>
+                  </tr>`).join('')}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <section class="subcard rounded-xl p-4 border-2 border-emerald-500/45 bg-emerald-500/10 space-y-2.5">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <span class="font-black text-xs sm:text-sm text-emerald-300">📘 Praxisbeispiel (Durchgerechnet)</span>
+            <span class="px-2 py-0.5 rounded-md bg-amber-500 text-slate-950 font-black text-[11px] tabular">★ Kritisch • 6 EG</span>
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs tabular">
+            <div class="rounded-lg p-2.5 bg-black/25 border bdr-line">
+              <div class="text-[10px] font-bold uppercase t-mut">1. Ausgangslage</div>
+              <div class="mt-0.5 font-semibold">Wert <strong class="text-sky-300">45</strong> vs. Schwierigkeit <strong class="text-rose-300">40</strong><br/>mit <strong class="text-amber-300">1 Vorteil (+10)</strong></div>
+            </div>
+            <div class="rounded-lg p-2.5 bg-black/25 border bdr-line">
+              <div class="text-[10px] font-bold uppercase t-mut">2. Testschwelle</div>
+              <div class="mt-0.5 font-semibold">45 + 50 − 40 + 10 = <strong class="text-acc text-sm">65</strong><br/><span class="text-[11px] t-mut">(65 % Erfolgschance)</span></div>
+            </div>
+            <div class="rounded-lg p-2.5 bg-black/25 border border-emerald-500/40">
+              <div class="text-[10px] font-bold uppercase t-mut">3. W100-Ergebnis: 51</div>
+              <div class="mt-0.5 font-semibold"><strong class="text-emerald-300">51 ≤ 65 (Bestanden)</strong><br/>Endziffer <strong class="text-amber-300">1 = ★ Kritisch</strong> • ⌈51/10⌉ = <strong class="text-emerald-300">6 EG</strong></div>
+            </div>
+          </div>
+        </section>
+      </div>`;
+    }
+
+    function renderInfoProgWikiHtml(){
+      const trRows=[
+        ['Block 1','+5','2 SP','—',false],
+        ['Block 2','+5','2 SP','—',false],
+        ['Block 3','+5','3 SP','—',false],
+        ['Block 4','+5','3 SP','—',false],
+        ['Block 5 (Meisterschaft)','+10','5 SP','1 MsP',true]
+      ];
+      const skRanks=[
+        ['Ungelernt','+0'],
+        ['Novize','+10'],
+        ['Geselle','+15'],
+        ['Experte','+20'],
+        ['Meister','+30']
+      ];
+      const skMatrix=[
+        ['Marginal','1 SP','+1 SP','+2 SP','+2 SP + 1 MsP','6 SP + 1 MsP'],
+        ['Fundamental','2 SP','+2 SP','+3 SP','+3 SP + 1 MsP','10 SP + 1 MsP'],
+        ['Grandios','3 SP','+2 SP','+3 SP','+4 SP + 1 MsP','12 SP + 1 MsP']
+      ];
+      const pwRows=[
+        ['Basisaktion','0 SP','—','Allgemeine Grundmanöver (kostenfrei)',false],
+        ['Marginal','1 SP','—','Kleine Effekte, Tricks oder Spezialisierungen',false],
+        ['Fundamental','2 SP','—','Zentrale Kampfkünste, Zauber &amp; Manöver',false],
+        ['Grandios','2 SP','1 MsP','Mächtige Meister-Kräfte &amp; Schlüssel-Augmente',true]
+      ];
+      return `<div class="space-y-5">
+        <section class="space-y-2.5">
+          <div class="flex items-center justify-between gap-2 pb-1.5 border-b bdr-line">
+            <div class="flex items-center gap-2">
+              <span class="px-2 py-0.5 rounded-md bg-acc-soft border bdr-acc text-acc text-[10px] font-black uppercase tracking-wider">Sektion 1</span>
+              <h3 class="text-sm font-black tracking-tight">Stufenaufstieg &amp; Punkte-Ökonomie</h3>
+            </div>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-3 tabular">
+            <div class="subcard rounded-xl p-3.5 border border-sky-500/45 bg-sky-500/10 space-y-1.5">
+              <div class="text-[11px] font-black uppercase tracking-wider text-sky-300">Erfahrung (EP)</div>
+              <div class="text-lg sm:text-xl font-black text-sky-200">100 EP = +1 Stufe</div>
+              <p class="text-xs t-mut leading-snug">Überschüssige EP werden beim Stufenaufstieg automatisch in die nächste Stufe übertragen.</p>
+            </div>
+            <div class="subcard rounded-xl p-3.5 border border-emerald-500/45 bg-emerald-500/10 space-y-1.5">
+              <div class="text-[11px] font-black uppercase tracking-wider text-emerald-300">Steigerungspunkte (SP)</div>
+              <div class="text-lg sm:text-xl font-black text-emerald-200">+5 SP / Stufe</div>
+              <p class="text-xs t-mut leading-snug">Jede Charakterstufe gewährt 5 SP — inklusive <strong class="text-emerald-200">Stufe 1 = 5 SP</strong>.</p>
+            </div>
+            <div class="subcard rounded-xl p-3.5 border border-amber-400/50 bg-amber-500/10 space-y-1.5">
+              <div class="text-[11px] font-black uppercase tracking-wider text-amber-300">Meisterschaftspunkte (MsP)</div>
+              <div class="text-lg sm:text-xl font-black text-amber-200">+1 MsP alle 10 Stufen</div>
+              <p class="text-xs t-mut leading-snug">Wird auf jeder 10. Charakterstufe vergeben (<strong class="text-amber-200">Stufe 10, 20, 30, …</strong>).</p>
+            </div>
+          </div>
+        </section>
+
+        <section class="space-y-2.5">
+          <div class="flex flex-wrap items-center justify-between gap-2 pb-1.5 border-b bdr-line">
+            <div class="flex items-center gap-2">
+              <span class="px-2 py-0.5 rounded-md bg-acc-soft border bdr-acc text-acc text-[10px] font-black uppercase tracking-wider">Sektion 2</span>
+              <h3 class="text-sm font-black tracking-tight">Attributs-Training</h3>
+            </div>
+            <span class="text-[11px] font-bold t-mut">5 aufeinanderfolgende Trainingsblöcke</span>
+          </div>
+          <div class="subcard rounded-xl p-3 bg-acc-soft/20 border bdr-acc/50 text-xs leading-relaxed">
+            <span class="font-extrabold text-acc">Attributs-Formel:</span> Jedes Attribut setzt sich aus <strong>Volkswert (Standard 20) + Potenzial + Training + Modifikatoren</strong> zusammen.
+          </div>
+          <div class="subcard rounded-xl p-3 border bdr-line overflow-x-auto">
+            <table class="tbl tabular text-xs">
+              <thead>
+                <tr>
+                  <th class="text-left">Trainingsblock</th>
+                  <th class="text-center">Attributs-Bonus</th>
+                  <th class="text-center">SP-Kosten</th>
+                  <th class="text-right">MsP-Kosten</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${trRows.map(([lbl,bon,sp,msp,isMaster])=>`<tr class="${isMaster?'bg-amber-500/15':''}">
+                  <td class="font-extrabold ${isMaster?'text-amber-300':''}">${lbl}</td>
+                  <td class="text-center font-black ${isMaster?'text-amber-300':'text-emerald-400'}">${bon}</td>
+                  <td class="text-center font-bold">${sp}</td>
+                  <td class="text-right font-black ${isMaster?'text-amber-300':'t-mut'}">${msp}</td>
+                </tr>`).join('')}
+                <tr class="bg-acc-soft/25 border-t-2 bdr-acc">
+                  <td class="font-black text-acc">Gesamt (alle 5 Blöcke)</td>
+                  <td class="text-center font-black text-emerald-300">+30</td>
+                  <td class="text-center font-black text-acc">15 SP</td>
+                  <td class="text-right font-black text-amber-300">1 MsP</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="space-y-2.5">
+          <div class="flex flex-wrap items-center justify-between gap-2 pb-1.5 border-b bdr-line">
+            <div class="flex items-center gap-2">
+              <span class="px-2 py-0.5 rounded-md bg-acc-soft border bdr-acc text-acc text-[10px] font-black uppercase tracking-wider">Sektion 3</span>
+              <h3 class="text-sm font-black tracking-tight">Fertigkeiten (Ränge, Boni &amp; SP-Kostenmatrix)</h3>
+            </div>
+          </div>
+          <div class="subcard rounded-xl p-3 border bdr-line flex flex-wrap items-center justify-center gap-1.5 sm:gap-2 tabular">
+            ${skRanks.map(([rn,rb],i)=>`<span class="px-2.5 py-1 rounded-lg border ${i===4?'border-amber-400/60 bg-amber-500/15 text-amber-200':i===0?'bdr-line bg-black/20 t-mut':'bdr-acc bg-acc-soft/40 text-acc'} text-xs font-extrabold">${rn} <strong class="${i===4?'text-amber-300':i===0?'':'text-emerald-300'}">${rb}</strong></span>${i<skRanks.length-1?'<span class="t-mut font-black text-xs">→</span>':''}`).join('')}
+          </div>
+          <div class="subcard rounded-xl p-3 border bdr-line overflow-x-auto">
+            <table class="tbl tabular text-xs min-w-[540px]">
+              <thead>
+                <tr>
+                  <th class="text-left">Kategorie</th>
+                  <th class="text-center">Novize (+10)</th>
+                  <th class="text-center">Geselle (+15)</th>
+                  <th class="text-center">Experte (+20)</th>
+                  <th class="text-center text-amber-300">Meister (+30)</th>
+                  <th class="text-right text-acc">Gesamt bis Meister</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${skMatrix.map(([cat,r1,r2,r3,r4,tot])=>`<tr>
+                  <td class="font-black text-acc">${cat}</td>
+                  <td class="text-center font-semibold">${r1}</td>
+                  <td class="text-center font-semibold">${r2}</td>
+                  <td class="text-center font-semibold">${r3}</td>
+                  <td class="text-center font-bold text-amber-300">${r4}</td>
+                  <td class="text-right font-black text-emerald-300">${tot}</td>
+                </tr>`).join('')}
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="space-y-2.5">
+          <div class="flex flex-wrap items-center justify-between gap-2 pb-1.5 border-b bdr-line">
+            <div class="flex items-center gap-2">
+              <span class="px-2 py-0.5 rounded-md bg-acc-soft border bdr-acc text-acc text-[10px] font-black uppercase tracking-wider">Sektion 4</span>
+              <h3 class="text-sm font-black tracking-tight">Kräfte, Basisaktionen &amp; Augmente</h3>
+            </div>
+          </div>
+          <div class="subcard rounded-xl p-3 border bdr-line overflow-x-auto">
+            <table class="tbl tabular text-xs">
+              <thead>
+                <tr>
+                  <th class="text-left">Stufe / Typ</th>
+                  <th class="text-center">SP-Kosten</th>
+                  <th class="text-center">MsP-Kosten</th>
+                  <th class="text-left">Verwendung</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${pwRows.map(([tier,sp,msp,useTxt,isGrand])=>`<tr class="${isGrand?'bg-amber-500/15':''}">
+                  <td class="font-black ${isGrand?'text-amber-300':'text-acc'}">${tier}</td>
+                  <td class="text-center font-bold">${sp}</td>
+                  <td class="text-center font-black ${isGrand?'text-amber-300':'t-mut'}">${msp}</td>
+                  <td class="t-mut">${useTxt}</td>
+                </tr>`).join('')}
+              </tbody>
+            </table>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div class="subcard rounded-xl p-3.5 border border-sky-500/45 bg-sky-500/10 space-y-1">
+              <div class="font-black text-xs text-sky-300">🧩 Augment-Slots pro Kraft</div>
+              <p class="text-xs t-mut leading-relaxed">Pro Kraft können bis zu <strong class="text-sky-200 tabular">3 Augmente</strong> direkt verknüpft werden.</p>
+            </div>
+            <div class="subcard rounded-xl p-3.5 border border-amber-400/55 bg-amber-500/10 space-y-1">
+              <div class="font-black text-xs text-amber-300">👑 MsP-Limit pro Kraft-Gruppe</div>
+              <p class="text-xs t-mut leading-relaxed">Eine Kraft und ihre verknüpften Augmente dürfen zusammen <strong class="text-amber-200">maximal 1 MsP</strong> kosten (also höchstens einen grandiosen Eintrag in der gesamten Gruppe).</p>
+            </div>
+          </div>
+        </section>
+
+        <section class="subcard rounded-xl p-3.5 border border-sky-500/40 bg-sky-500/10 flex items-start gap-2.5">
+          <span class="text-base leading-none shrink-0 mt-0.5">ℹ️</span>
+          <div class="space-y-0.5 text-xs leading-relaxed">
+            <div class="font-black text-sky-300">Hinweis zur Steigerungschronik</div>
+            <p class="t-mut">Im Tab <strong class="text-acc">„4. Steigerungschronik &amp; Log“</strong> werden alle SP- und MsP-Ausgaben automatisch summiert. Einzelkosten (z. B. für geschenkte Trainings oder Spielleiter-Boni) können dort bei Bedarf jederzeit manuell überschrieben werden.</p>
+          </div>
+        </section>
+      </div>`;
+    }
+
+    function buildInfoGlossaryGridState(rawQuery=UI.glossSearch){
+      const raw=String(rawQuery||''), q=raw.trim().toLowerCase();
+      const total=GLOSSARY.length;
+      const filtered=GLOSSARY.map(item=>[item[0]||'',item[1]||'',item[2]||'',item[3]||'Sonstiges']).filter(([a,n,d,c])=>{
+        if(!q) return true;
+        return (`${a} ${n} ${d} ${c}`).toLowerCase().includes(q);
+      });
+      const extraCats=[...new Set(filtered.map(x=>x[3]).filter(c=>!GLOSSARY_CATS.includes(c)))];
+      const catOrder=[...GLOSSARY_CATS,...extraCats];
+      const sectionsHtml=catOrder.map(cat=>{
+        const items=filtered.filter(x=>x[3]===cat);
+        if(!items.length) return '';
+        return `<section class="space-y-2">
+          <div class="flex items-center justify-between gap-2 pb-1 border-b bdr-line">
+            <h3 class="text-[11px] font-extrabold uppercase tracking-wider text-acc">${esc(cat)}</h3>
+            <span class="text-[10px] font-bold t-mut tabular">${items.length}</span>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-2.5">${items.map(([a,n,d])=>`<div class="subcard p-2.5 flex gap-2.5 min-w-0"><span class="px-2 py-0.5 rounded bg-acc-soft border bdr-acc text-acc font-black text-xs shrink-0 self-start">${esc(a)}</span><div class="min-w-0"><div class="font-extrabold text-xs">${esc(n)}</div><div class="text-xs t-mut leading-snug">${esc(d)}</div></div></div>`).join('')}</div>
+        </section>`;
+      }).filter(Boolean).join('');
+      const gridHtml=sectionsHtml||`<div class="subcard border-dashed p-5 text-center text-xs t-mut">Keine Glossar-Einträge für „${esc(raw.trim())}“ gefunden.</div>`;
+      return {total,count:filtered.length,gridHtml};
+    }
+    function renderInfoGlossaryHtml(){
+      const st=buildInfoGlossaryGridState(UI.glossSearch);
+      return `<div class="space-y-3">
+        <div class="subcard p-2.5 flex flex-wrap items-center gap-2 bg-black/20">
+          <div class="relative flex-1 min-w-[200px]">
+            <input type="search" data-gloss-search="1" value="${esc(UI.glossSearch||'')}" placeholder="Glossar durchsuchen (Kürzel, Begriff, Beschreibung, Kategorie)..." class="inp w-full text-xs py-1.5 px-2.5"/>
+          </div>
+          <span id="glossCount" class="pill cursor-default text-[11px] py-0.5 px-2.5 tabular shrink-0">${st.count} / ${st.total} Begriffe</span>
+        </div>
+        <div id="glossGrid" class="space-y-4">${st.gridHtml}</div>
+      </div>`;
+    }
+    function updateInfoGlossaryGridDOM(){
+      const grid=$('glossGrid'), cnt=$('glossCount');
+      if(!grid&&!cnt) return;
+      const st=buildInfoGlossaryGridState(UI.glossSearch);
+      if(grid) grid.innerHTML=st.gridHtml;
+      if(cnt) cnt.textContent=`${st.count} / ${st.total} Begriffe`;
     }
 
     function renderAll(userSave=true){applyTheme();renderHeader();renderMain();renderDice();renderLiveDice();renderCampNotes();renderModal(true);save(userSave);}
@@ -9483,7 +10031,8 @@
         UI.openPwMenu='';
         document.querySelectorAll('.pw-dd-menu').forEach(m=>m.remove());
         document.querySelectorAll('[data-action="toggle-pw-dd"][aria-expanded="true"]').forEach(b=>{b.setAttribute('aria-expanded','false');b.classList.remove('bdr-acc');});
-        if(tipOpen) hideTooltip();
+        document.querySelectorAll('.card,.subcard').forEach(c=>{if(c.classList.contains('z-[25]'))c.classList.remove('z-[25]','!overflow-visible','relative');});
+        hideTooltip();
       }
       const el=e.target.closest('[data-action]'); if(!el) return;
       const btn=el, act=el.dataset.action; if(act==='close-modal-bg'&&e.target!==el) return;
@@ -10088,7 +10637,7 @@
         case 'toggle-pw-dd': {
           const k=String(el.dataset.ddkey||'');
           UI.openPwMenu=(UI.openPwMenu===k)?'':k;
-          if(tipOpen) hideTooltip();
+          hideTooltip();
           renderMain();
           break;
         }
@@ -10099,7 +10648,7 @@
             it.art=rawV?findMainArt(rawV):'';
             it.artManual=false;
             UI.openPwMenu='';
-            if(tipOpen) hideTooltip();
+            hideTooltip();
             save(); renderMain();
           }
           break;
@@ -10112,7 +10661,7 @@
             if(cur.has(asub)) cur.delete(asub);
             else cur.add(asub);
             it.actionSubs=DEF_ACTION_SUBS.filter(a=>cur.has(a));
-            if(tipOpen) hideTooltip();
+            hideTooltip();
             save(); renderMain();
           }
           break;
@@ -10246,7 +10795,7 @@
           if(arr){const i=arr.findIndex(x=>x.id===el.dataset.id),ni=i+Number(el.dataset.dir);if(i>-1&&ni>=0&&ni<arr.length){const [it]=arr.splice(i,1);arr.splice(ni,0,it);renderMain();save();}}
           break;
         }
-        case 'add-weapon': S.weapons.push(makeWeapon(el.dataset.wtype||WEAPON_SUBTYPES[0].key)); if(S.equipSecMeta?.weapons)S.equipSecMeta.weapons.collapsed=false; UI.openPwMenu=''; if(tipOpen) hideTooltip(); renderMain(); save(); break;
+        case 'add-weapon': S.weapons.push(makeWeapon(el.dataset.wtype||WEAPON_SUBTYPES[0].key)); if(S.equipSecMeta?.weapons)S.equipSecMeta.weapons.collapsed=false; UI.openPwMenu=''; hideTooltip(); renderMain(); save(); break;
         case 'del-weapon': S.weapons=S.weapons.filter(w=>w.id!==el.dataset.id); if(D.weaponId===el.dataset.id){D.weaponId=null;D.wRollCat='Normaler Test';D.sitActive={};applyDiceAutoAdvDis(true);if(D.open)renderDice();} renderMain(); save(); break;
         case 'add-weapon-dmg': {
           const w=S.weapons.find(x=>x.id===el.dataset.id);
@@ -11292,6 +11841,10 @@
           return;
         }
           if(nkind==='patchnote'){
+            if(nid){
+              if(!PATCHNOTES.collapsedIds||typeof PATCHNOTES.collapsedIds!=='object') PATCHNOTES.collapsedIds={};
+              PATCHNOTES.collapsedIds[nid]=false;
+            }
             UI.modal='info'; UI.infoTab='patchnotes';
             if(CLOUD.currentUser&&PATCHNOTES.entries.length) PATCHNOTES.entries.forEach(e=>markNotifRead('patchnote',String(e.id)));
             renderModal(); fetchPatchnotes(false);
@@ -11572,6 +12125,8 @@
           const found=(PATCHNOTES.entries||[]).find(x=>x&&x.id===id);
           if(!found) return;
           PATCHNOTES.editingId=found.id;
+          if(!PATCHNOTES.collapsedIds||typeof PATCHNOTES.collapsedIds!=='object') PATCHNOTES.collapsedIds={};
+          PATCHNOTES.collapsedIds[found.id]=false;
           PATCHNOTES.draft=clone(found);
           if(!Array.isArray(PATCHNOTES.draft.items)||!PATCHNOTES.draft.items.length){
             PATCHNOTES.draft.items=[{id:uid(),heading:'',text:''}];
@@ -11647,6 +12202,7 @@
             title:cleanTitle||'Patchnotes',
             version:String(PATCHNOTES.draft.version??'').trim(),
             ts:cleanTs,
+            tsMs:parsePatchnoteTsMs(cleanTs,Date.now()),
             updatedAt:isNew?cleanTs:nowTs,
             intro:String(PATCHNOTES.draft.intro??'').trim(),
             items:cleanItems
@@ -11669,15 +12225,32 @@
           })();
           break;
         }
-        case 'pn-move': {
-          if(!CLOUD.isAdmin) return;
-          const id=String(el.dataset.id||'').trim(), dir=toInt(el.dataset.dir,0);
-          const list=clone(PATCHNOTES.entries||[]), idx=list.findIndex(e=>e&&e.id===id), nxt=idx+dir;
-          if(idx>=0&&nxt>=0&&idx<list.length&&nxt<list.length){
-            const [it]=list.splice(idx,1);
-            list.splice(nxt,0,it);
-            savePatchnotesToServer(list,'☁️ Reihenfolge der Patchnotes aktualisiert.');
-          }
+        case 'pn-toggle-sort': {
+          PATCHNOTES.sortOrder=PATCHNOTES.sortOrder==='asc'?'desc':'asc';
+          renderModal();
+          break;
+        }
+        case 'pn-toggle-collapse': {
+          const id=String(el.dataset.id||'').trim();
+          if(!id) return;
+          const entry=(PATCHNOTES.entries||[]).find(e=>e&&e.id===id);
+          const edId=CLOUD.isAdmin?PATCHNOTES.editingId:null;
+          const cur=isPatchnoteCollapsed(entry||{id},getNewestPatchnoteId(),edId);
+          if(!PATCHNOTES.collapsedIds||typeof PATCHNOTES.collapsedIds!=='object') PATCHNOTES.collapsedIds={};
+          PATCHNOTES.collapsedIds[id]=!cur;
+          renderModal();
+          break;
+        }
+        case 'pn-toggle-all-collapse': {
+          const entries=Array.isArray(PATCHNOTES.entries)?PATCHNOTES.entries:[];
+          if(!entries.length) return;
+          const newestId=getNewestPatchnoteId(entries);
+          const edId=CLOUD.isAdmin?PATCHNOTES.editingId:null;
+          const anyCol=entries.some(e=>isPatchnoteCollapsed(e,newestId,edId));
+          const nextState=!anyCol;
+          if(!PATCHNOTES.collapsedIds||typeof PATCHNOTES.collapsedIds!=='object') PATCHNOTES.collapsedIds={};
+          entries.forEach(e=>{if(e&&e.id) PATCHNOTES.collapsedIds[e.id]=nextState;});
+          renderModal();
           break;
         }
         case 'pn-ask-del': {
@@ -11958,6 +12531,11 @@
     document.addEventListener('focusin',e=>{if(e.target.dataset?.cres==='name') e.target.dataset.prevCres=cresName();if(e.target.dataset?.exsec?.endsWith(':name')){const id=e.target.dataset.exsec.split(':')[0],ex=(S.extraSecList||[]).find(x=>x.id===id);if(ex)e.target.dataset.prevExName=getExtraSecName(ex);}if(e.target.dataset?.sk?.endsWith(':name')){const id=e.target.dataset.sk.split(':')[0],sk=S.skills.find(x=>x.id===id);if(sk)e.target.dataset.prevSkName=String(sk.name||'').trim();}if(e.target.dataset?.pwf?.endsWith(':name')){const [kind,id]=e.target.dataset.pwf.split(':'),it=findPwItem(kind,id);if(it)e.target.dataset.prevName=String(it.name||'');}});
 
     document.addEventListener('input',e=>{
+      if(e.target?.dataset?.glossSearch){
+        UI.glossSearch=e.target.value;
+        updateInfoGlossaryGridDOM();
+        return;
+      }
       if(e.target?.dataset?.pnField){
         if(!CLOUD.isAdmin||!PATCHNOTES.draft) return;
         const f=e.target.dataset.pnField;
@@ -13663,19 +14241,6 @@
         }
       }
     }, { passive: true });
-    document.addEventListener('click',e=>{
-      if(Date.now()<tipSuppressClickUntil){
-        e.preventDefault(); e.stopPropagation();
-        tipSuppressClickUntil=0;
-      }
-    },true);
-    document.addEventListener('contextmenu',e=>{
-      if(tipLongPressFired||Date.now()<tipSuppressClickUntil) e.preventDefault();
-    });
-    document.addEventListener('scroll',()=>{
-      clearTimeout(tipTouchTimer); tipTouchTimer=null; tipTouchTarget=null;
-      if(tipOpen) hideTooltip();
-    },{capture:true,passive:true});
     function placeCaretAtStart(el){
       const r=document.createRange(), s=window.getSelection();
       r.selectNodeContents(el); r.collapse(true);
