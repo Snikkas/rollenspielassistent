@@ -983,9 +983,76 @@
       const cnt=String(getCampaignFilteredDiceFeed().length);
       document.querySelectorAll('[data-live-dice-cnt]').forEach(el=>{if(el.textContent!==cnt) el.textContent=cnt;});
     }
+    function captureScrollState(root){
+      const snap={winX:window.scrollX,winY:window.scrollY,rootTop:root?root.scrollTop:0,rootLeft:root?root.scrollLeft:0,byKey:new Map(),yList:[],xList:[]};
+      if(!root) return snap;
+      root.querySelectorAll('[data-scroll-key],[data-pwlib-scroll],[data-fb-minichat],[data-lobby-dice-body],[data-lobby-camp-tabs],[data-dice-scroll-body]').forEach(el=>{
+        const key=el.dataset.scrollKey
+          ||(el.dataset.pwlibScroll?'pwlib:'+el.dataset.pwlibScroll:'')
+          ||(el.dataset.fbMinichat?'fbchat:'+el.dataset.fbMinichat:'')
+          ||(el.dataset.lobbyDiceBody?'lobbyDiceBody':'')
+          ||(el.dataset.lobbyCampTabs?'lobbyCampTabs':'')
+          ||(el.dataset.diceScrollBody?'diceScrollBody':'');
+        if(!key) return;
+        const scroller=el.dataset.fbMinichat?(el.querySelector('.overflow-y-auto')||el):el;
+        snap.byKey.set(key,{top:scroller.scrollTop,left:scroller.scrollLeft});
+      });
+      root.querySelectorAll('.overflow-y-auto').forEach(el=>{snap.yList.push(el.scrollTop);});
+      root.querySelectorAll('.overflow-x-auto').forEach(el=>{snap.xList.push(el.scrollLeft);});
+      return snap;
+    }
+    function restoreScrollState(root,snap,opts={}){
+      if(!snap) return;
+      const keepY=opts.preserveY!==false, keepX=opts.preserveX!==false, keepWin=opts.preserveWindow!==false;
+      const applyOnce=()=>{
+        if(root){
+          if(keepY) root.scrollTop=snap.rootTop;
+          if(keepX) root.scrollLeft=snap.rootLeft;
+          if(keepY){
+            const yEls=root.querySelectorAll('.overflow-y-auto');
+            for(let i=0;i<Math.min(snap.yList.length,yEls.length);i++){
+              if(snap.yList[i]>0) yEls[i].scrollTop=snap.yList[i];
+            }
+          }
+          if(keepX){
+            const xEls=root.querySelectorAll('.overflow-x-auto');
+            for(let i=0;i<Math.min(snap.xList.length,xEls.length);i++){
+              if(snap.xList[i]>0) xEls[i].scrollLeft=snap.xList[i];
+            }
+          }
+          if(snap.byKey.size){
+            root.querySelectorAll('[data-scroll-key],[data-pwlib-scroll],[data-fb-minichat],[data-lobby-dice-body],[data-lobby-camp-tabs],[data-dice-scroll-body]').forEach(el=>{
+              const key=el.dataset.scrollKey
+                ||(el.dataset.pwlibScroll?'pwlib:'+el.dataset.pwlibScroll:'')
+                ||(el.dataset.fbMinichat?'fbchat:'+el.dataset.fbMinichat:'')
+                ||(el.dataset.lobbyDiceBody?'lobbyDiceBody':'')
+                ||(el.dataset.lobbyCampTabs?'lobbyCampTabs':'')
+                ||(el.dataset.diceScrollBody?'diceScrollBody':'');
+              const saved=key?snap.byKey.get(key):null;
+              if(!saved) return;
+              const scroller=el.dataset.fbMinichat?(el.querySelector('.overflow-y-auto')||el):el;
+              if(keepY) scroller.scrollTop=saved.top;
+              if(keepX) scroller.scrollLeft=saved.left;
+            });
+          }
+        }
+        if(keepWin&&(window.scrollY!==snap.winY||window.scrollX!==snap.winX)){
+          window.scrollTo(snap.winX,snap.winY);
+        }
+      };
+      applyOnce();
+      requestAnimationFrame(applyOnce);
+    }
     function updateLobbyLiveDiceDOM(){
       const el=$('lobbyLiveDiceMount');
-      if(el) el.innerHTML=renderLobbyLiveDiceHtml();
+      if(el){
+        const campId=getActiveLiveCampaignId();
+        const sameCamp=el.childElementCount>0&&el.dataset.lastCampId===campId;
+        const snap=sameCamp?captureScrollState(el):null;
+        el.innerHTML=renderLobbyLiveDiceHtml();
+        el.dataset.lastCampId=campId;
+        if(snap) restoreScrollState(el,snap,{preserveWindow:false});
+      }
       if(LD.open) renderLiveDice();
       updateLiveDiceBadges();
     }
@@ -4836,6 +4903,8 @@
       if(!CLOUD.isAdmin) FBW.open=false;
       const mount=$('fbAdminMount'), bd=$('fbAdminBackdrop');
       if(!mount) return;
+      const hadContent=mount.childElementCount>0;
+      const snap=hadContent?captureScrollState(mount):null;
       applyWinFrame('fbadmin',mount,bd,'xl:w-[540px]');
       if(!FBW.open){mount.innerHTML='';return;}
       mount.innerHTML=`<div class="card relative space-y-3 border-2 bdr-acc shadow-2xl">
@@ -4852,6 +4921,7 @@
         ${renderFbAdminPanelHtml(true)}
         ${renderWinResizeHandles('fbadmin')}
       </div>`;
+      if(snap) restoreScrollState(mount,snap);
     }
     function renderFbStatusBadge(b, activeItem=null){
       const hasAdminReply=Boolean(activeItem&&((toInt(activeItem.lastAdminReplyMs,0)>0)||(Array.isArray(activeItem.messages)&&activeItem.messages.some(m=>m&&m.isAdmin))));
@@ -7514,18 +7584,21 @@
       </div>`;
     }
     function renderMain(){
+      const mainEl=$('mainMount');
+      if(!mainEl) return;
+      const viewKey=UI.inLobby?'lobby':('sheet:'+S.activeTab);
+      const sameView=mainEl.childElementCount>0&&mainEl.dataset.lastViewKey===viewKey;
+      const snap=sameView?captureScrollState(mainEl):null;
       if(UI.inLobby){
-        const prevCampTabsEl=$('mainMount')?.querySelector('[data-lobby-camp-tabs]');
-        const prevCampLeft=prevCampTabsEl?prevCampTabsEl.scrollLeft:null;
-        $('mainMount').innerHTML=tplLobbyScreen();
-        if(prevCampLeft!==null){
-          const newCampTabsEl=$('mainMount')?.querySelector('[data-lobby-camp-tabs]');
-          if(newCampTabsEl) newCampTabsEl.scrollLeft=prevCampLeft;
-        }
+        mainEl.innerHTML=tplLobbyScreen();
+        mainEl.dataset.lastViewKey=viewKey;
+        if(snap) restoreScrollState(mainEl,snap);
         return;
       }
-      $('mainMount').innerHTML=S.activeTab==='attributes'?tplAttributes():S.activeTab==='skills'?tplSkills():S.activeTab==='powers'?tplPowers():S.activeTab==='chronicle'?tplChronicle():tplEquipment();
+      mainEl.innerHTML=S.activeTab==='attributes'?tplAttributes():S.activeTab==='skills'?tplSkills():S.activeTab==='powers'?tplPowers():S.activeTab==='chronicle'?tplChronicle():tplEquipment();
+      mainEl.dataset.lastViewKey=viewKey;
       if(S.activeTab==='powers'||S.activeTab==='equipment') autoSizeAllTextareas();
+      if(snap) restoreScrollState(mainEl,snap);
     }
 
     function buildAdvDisInnerHtml(T){
@@ -7572,10 +7645,7 @@
     function renderDice(){
       const mount=$('diceMount'), p=mount, bd=$('diceBackdrop'), xl=window.innerWidth>=1280;
       if(!mount||!bd) return;
-      const prevScroll = mount.scrollTop;
-      const prevBodyScroll = mount.querySelector('[data-dice-scroll-body]')?.scrollTop || 0;
-      const prevWinY = window.scrollY;
-      const prevWinX = window.scrollX;
+      const snap = mount.childElementCount>0 ? captureScrollState(mount) : null;
       applyWinFrame('dice', mount, bd, 'xl:w-[430px] 2xl:w-[470px]'); if(!D.open){mount.innerHTML='';return;}
       const isNeutral=isLobbyNeutralDice(), secAct=isSecretRollActive();
       const T=calcThreshold(), ci=CRIT_SEQ.indexOf(D.crit), cs=getCSkVal(), ds=getDSkVal();
@@ -7682,26 +7752,20 @@
         ${secretListHtml}
         <div class="border-t bdr-line pt-2.5"><div class="flex justify-between mb-1.5"><span class="text-xs font-extrabold t-mut">Würfel-Log (${diceLogs.length})</span><button type="button" data-action="clear-dice-log" class="text-[11px] font-bold t-mut hover:text-rose-500">Leeren</button></div><div class="space-y-1 max-h-36 overflow-y-auto text-xs">${diceLogs.map(l=>`<div class="subcard py-1 px-2.5 space-y-0.5 min-w-0"><div class="flex justify-between gap-2 min-w-0"><span class="truncate"><strong>${esc(l.lbl)}</strong>${l.isCustomDice?`: ${esc(l.sum)}`:` [≤${l.th}]: ${l.sum}`}</span><span class="text-[10px] t-mut tabular shrink-0">${l.t}</span></div>${l.advSrc?`<div class="text-[10px] t-mut break-words">↳ ${esc(l.advSrc)}</div>`:''}</div>`).join('')}</div></div>
       </div>${renderWinResizeHandles('dice')}</div>`;
-      mount.scrollTop = prevScroll;
-      const nextDiceBody = mount.querySelector('[data-dice-scroll-body]');
-      if(nextDiceBody) nextDiceBody.scrollTop = prevBodyScroll;
-      if(window.scrollY !== prevWinY) window.scrollTo(prevWinX, prevWinY);
-      requestAnimationFrame(() => {
-        mount.scrollTop = prevScroll;
-        const rafDiceBody = mount.querySelector('[data-dice-scroll-body]');
-        if(rafDiceBody) rafDiceBody.scrollTop = prevBodyScroll;
-        if(window.scrollY !== prevWinY) window.scrollTo(prevWinX, prevWinY);
-      });
+      if(snap) restoreScrollState(mount, snap);
       if(LD.open) renderLiveDice();
     }
 
     function renderLiveDice(){
       const mount=$('liveDiceMount'), p=mount, bd=$('liveDiceBackdrop'), xl=window.innerWidth>=1280;
       if(!mount||!bd) return;
-      applyWinFrame('livedice', mount, bd, 'xl:w-[420px] 2xl:w-[460px]'); if(!LD.open){mount.innerHTML='';return;}
+      const hadContent=mount.childElementCount>0;
+      const snap=hadContent?captureScrollState(mount):null;
+      applyWinFrame('livedice', mount, bd, 'xl:w-[420px] 2xl:w-[460px]'); if(!LD.open){mount.innerHTML='';mount.dataset.lastCampId='';return;}
       const allCamps=getCampaigns();
       const visCamps=CLOUD.isAdmin?allCamps:(CLOUD.currentUser?allCamps.filter(c=>isUserInCampaign(c,CLOUD.currentUser)):allCamps);
       const activeCampId=getActiveLiveCampaignId();
+      const sameCamp=hadContent&&mount.dataset.lastCampId===activeCampId;
       const activeCampObj=allCamps.find(c=>c.id===activeCampId)||allCamps[0];
       p.innerHTML=`<div class="card p-0 rounded-none md:rounded-2xl h-full flex flex-col min-h-0 overflow-hidden shadow-2xl relative"><div data-win-drag="livedice" class="shrink-0 z-10 flex items-center justify-between gap-2 px-3 sm:px-4 py-2.5 sm:py-3 border-b bdr-line win-drag-hdr" style="background:var(--surf2)">
         <div class="min-w-0 flex-1">
@@ -7724,6 +7788,8 @@
         </div>
         ${renderLobbyLiveDiceHtml(true)}
       </div>${renderWinResizeHandles('livedice')}</div>`;
+      mount.dataset.lastCampId=activeCampId;
+      if(snap) restoreScrollState(mount,snap,{preserveY:sameCamp});
     }
 
     function ensureCampNotesStructure(){
@@ -7790,6 +7856,7 @@
     function renderCampNotes(){
       const mount=$('notesMount'), bd=$('notesBackdrop');
       if(!mount) return;
+      const snap=mount.childElementCount>0?captureScrollState(mount):null;
       if(!CN.open){
         applyWinFrame('cnotes',mount,bd,'w-[500px] xl:w-[540px]');
         mount.innerHTML='';
@@ -7937,6 +8004,7 @@
         </div>
         ${renderWinResizeHandles('cnotes')}
       </div>`;
+      if(snap) restoreScrollState(mount,snap);
     }
     const renderCNotes=renderCampNotes;
 
@@ -8530,15 +8598,38 @@
         ${cardsHtml}
       </div>`;
     }
-    function renderModal(fromRenderAll=false){
+    function getActiveModalScrollKey(){
+      if(!UI.modal) return '';
+      if(UI.modal==='info') return `info:${UI.infoTab||''}`;
+      if(UI.modal==='feedback') return `feedback:${FEEDBACK.activeTab||''}`;
+      if(UI.modal==='powerLibrary') return `powerLibrary:${PWLIB.tab||''}`;
+      if(UI.modal==='list') return `list:${UI.listType||''}`;
+      if(UI.modal==='userProfile') return `userProfile:${UI.profileUser||''}`;
+      return String(UI.modal);
+    }
+    function renderModal(fromRenderAll=false,resetScroll=false){
       hideTooltip();
       const m=$('modalMount');
       syncBodyScrollLock();
       if(!UI.modal){
-        m.innerHTML='';
+        if(m){m.innerHTML=''; m.dataset.lastModalKey='';}
         if(UI.inLobby&&!fromRenderAll){renderHeader();renderMain();}
         return;
       }
+      const nextKey=getActiveModalScrollKey();
+      const sameModalCtx=!resetScroll&&Boolean(m&&m.childElementCount>0&&m.dataset.lastModalKey&&m.dataset.lastModalKey===nextKey);
+      const snap=sameModalCtx?captureScrollState(m):{winX:window.scrollX,winY:window.scrollY,rootTop:0,rootLeft:0,byKey:new Map(),yList:[],xList:[]};
+      renderModalBody(m,fromRenderAll);
+      if(m){
+        m.dataset.lastModalKey=UI.modal?getActiveModalScrollKey():'';
+        if(sameModalCtx&&UI.modal){
+          restoreScrollState(m,snap);
+        }else if(window.scrollY!==snap.winY||window.scrollX!==snap.winX){
+          window.scrollTo(snap.winX,snap.winY);
+        }
+      }
+    }
+    function renderModalBody(m,fromRenderAll=false){
       if(UI.modal==='userProfile'){
         if(ensureAllRegistryUsers()) saveRegistryLocal();
         const rawTarget=String(UI.profileUser||'').trim();
@@ -8986,14 +9077,7 @@
             </div>
           </div>`;
         }
-        const prevScrolls=Array.from(m.querySelectorAll('.overflow-y-auto')).map(el=>el.scrollTop);
         m.innerHTML=modalShell('📚 Kräfte-Bibliothek, Import &amp; Export','Pakete vom Server laden, lokale .json-Dateien importieren oder eigene Kräfte teilen.',`${modalTabs}${tabBody}`,`<button type="button" data-action="close-modal" class="btn btn-pri px-6">Schließen</button>`,'max-w-4xl');
-        if(prevScrolls.length){
-          const nextScrollEls=m.querySelectorAll('.overflow-y-auto');
-          for(let i=0;i<Math.min(prevScrolls.length,nextScrollEls.length);i++){
-            nextScrollEls[i].scrollTop=prevScrolls[i];
-          }
-        }
         return;
       }
       if(UI.modal==='feedback'){
@@ -12116,7 +12200,7 @@
           PATCHNOTES.editingId='__new__';
           PATCHNOTES.draft={id:uid(),title:'',version:'',ts:stamp(),updatedAt:'',intro:'',items:[{id:uid(),heading:'',text:''}]};
           PATCHNOTES.confirmDelId=null;
-          renderModal();
+          renderModal(false,true);
           break;
         }
         case 'pn-edit': {
@@ -12132,7 +12216,7 @@
             PATCHNOTES.draft.items=[{id:uid(),heading:'',text:''}];
           }
           PATCHNOTES.confirmDelId=null;
-          renderModal();
+          renderModal(false,true);
           break;
         }
         case 'pn-cancel': {
