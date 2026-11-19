@@ -119,7 +119,7 @@
   <button type="button" data-action="open-info" data-tip="Scherbensturm Regelreferenz, Tabellen &amp; Glossar" class="fixed bottom-5 left-5 z-40 w-12 h-12 rounded-2xl btn-pri font-serif italic font-black text-2xl shadow-xl">i</button>
   <div id="toast" class="fixed bottom-5 left-1/2 -translate-x-1/2 z-[90] px-4 py-2 rounded-xl bg-slate-900 text-white border border-slate-700 text-xs font-bold shadow-xl opacity-0 transition-opacity duration-200"></div>
   <div id="tooltip" class="fixed z-[90] max-w-[calc(100vw-24px)] sm:max-w-xs px-3 py-2 rounded-xl text-xs font-medium bg-slate-950/95 text-slate-100 border border-slate-700 shadow-2xl opacity-0 transition-opacity duration-150" style="top:-9999px;left:-9999px"></div>
-  <input id="fileAvatar" type="file" accept="image/*" class="hidden" /><input id="fileBg" type="file" accept="image/*" class="hidden" /><input id="fileItemImg" type="file" accept="image/*" class="hidden" /><input id="fileBioImg" type="file" accept="image/*" class="hidden" /><input id="fileImport" type="file" accept=".json,application/json" class="hidden" /><input id="filePwImport" type="file" accept=".json,application/json" class="hidden" /><input id="fileLobbyLogo" type="file" accept="image/*" class="hidden" /><input id="fileCampImg" type="file" accept="image/*" class="hidden" />
+  <input id="fileAvatar" type="file" accept="image/*" class="hidden" /><input id="fileBg" type="file" accept="image/*" class="hidden" /><input id="fileItemImg" type="file" accept="image/*" class="hidden" /><input id="fileBioImg" type="file" accept="image/*" class="hidden" /><input id="fileImport" type="file" accept=".json,application/json" class="hidden" /><input id="filePwImport" type="file" accept=".json,application/json" class="hidden" /><input id="fileLobbyLogo" type="file" accept="image/*" class="hidden" /><input id="fileCampImg" type="file" accept="image/*" class="hidden" /><input id="fileUserAvatar" type="file" accept="image/*" class="hidden" />
   <script>
   (function(){
     'use strict';
@@ -499,7 +499,7 @@
     function renderWinResizeHandles(k){return '<div data-win-resize-w="'+k+'" title="Breite ziehen" class="win-resize-w"></div><div data-win-resize="'+k+'" title="Größe ziehen" class="win-resize-h">◢</div>';}
     let dragMouseY=null, dragScrollRaf=null;
     const savedEffRanges={};
-    let UI={inLobby:true,sheetLoaded:false,modal:null,mobileHdrOpen:false,mobileLobbyMenuOpen:false,infoTab:'dice',listType:'art',ammoModalWeaponId:'',skSort:{col:'',asc:true},editSkNameId:null,imgTargetKind:'',imgTargetId:'',imgZoomOpen:false,imgReturnModal:'',confirmNew:false,confirmLog:false,confirmDelId:null,confirmDelSecId:null,confirmSecPullId:null,confirmDelSkSecId:null,confirmSkSecPullId:null,confirmDelInvSecId:null,confirmDelExSecId:null,confirmHzStep:1,openPwMenu:'',dupPwWarn:null,pwFilterOpen:false,pwFilterMode:'or',pwFilterTypes:[],pwFilterIncludeLinkedAugs:true,pwFilterArts:[],pwFilterActionSubs:[],pwFilterTags:[],pwFilterTiers:[],statusIniPromptKey:'',lastRollHtml:'',lastBlockBaseHtml:'',lastBlockFollowRes:null,lastSecretRollId:'',secretRollsCollapsed:false,colTarget:'cres',colMode:'text',colPwKind:'power',colPwId:'',colDraft:'#c084fc',attrGroupSel:'ST_KO',savedOnce:true,palBuilderOpen:false,palDraft:{name:'',isLt:false,bg:'#020617',acc:'#0ea5e9',acc2:'#6366f1',txt:'#f1f5f9',mut:'#94a3b8',btnTxt:'#ffffff'}};
+    let UI={inLobby:true,sheetLoaded:false,modal:null,profileUser:'',mobileHdrOpen:false,mobileLobbyMenuOpen:false,infoTab:'dice',listType:'art',ammoModalWeaponId:'',skSort:{col:'',asc:true},editSkNameId:null,imgTargetKind:'',imgTargetId:'',imgZoomOpen:false,imgReturnModal:'',confirmNew:false,confirmLog:false,confirmDelId:null,confirmDelSecId:null,confirmSecPullId:null,confirmDelSkSecId:null,confirmSkSecPullId:null,confirmDelInvSecId:null,confirmDelExSecId:null,confirmHzStep:1,openPwMenu:'',dupPwWarn:null,pwFilterOpen:false,pwFilterMode:'or',pwFilterTypes:[],pwFilterIncludeLinkedAugs:true,pwFilterArts:[],pwFilterActionSubs:[],pwFilterTags:[],pwFilterTiers:[],statusIniPromptKey:'',lastRollHtml:'',lastBlockBaseHtml:'',lastBlockFollowRes:null,lastSecretRollId:'',secretRollsCollapsed:false,colTarget:'cres',colMode:'text',colPwKind:'power',colPwId:'',colDraft:'#c084fc',attrGroupSel:'ST_KO',savedOnce:true,palBuilderOpen:false,palDraft:{name:'',isLt:false,bg:'#020617',acc:'#0ea5e9',acc2:'#6366f1',txt:'#f1f5f9',mut:'#94a3b8',btnTxt:'#ffffff'}};
     const REGISTRY_ID='_lobby_meta_registry_', LIVE_TAB_ID=uid();
     const LIBRARY_ID='_power_library_';
     const REPO_LIBRARY_URL='./data/powers-library.json';
@@ -535,6 +535,7 @@
     }
     let CLOUD={serverUrl:'',list:[],loading:false,syncing:false,error:'',lastSyncTs:'',viewingRemote:false,remoteCharId:'',confirmDelCloudId:null,confirmDelCampPageId:null,filterMine:false,currentUser:'',isAdmin:false,showAdminBar:false,userMgmtOpen:false,showPwChange:false,activeCampaignId:'default',campAction:'',newCharOpen:false,newCharName:'',newCharAncestry:'',newCharConcept:'',newCharCampId:'default',publicNotesOpen:true,activePublicPageKey:'',registryLoaded:false,diceFeed:[],secretRolls:[],diceConnected:false,diceToast:true,diceCollapsed:false,lobbyDiceH:340,galleryCollapsed:false,confirmClearDice:false,registry:{users:{},claims:{},charCampaigns:{},publicNotes:{},campaignSharedNotes:{},deletedCharIds:[],campaigns:[{id:'default',name:'Ohne Kampagne / Allgemein',allowedUsers:[],gmUsers:[],img:''}],gmUsers:[],lobbyLogo:'',adminHash:'',diceFeed:[],diceClearedAt:0,diceClearedByCamp:{}}}, cloudSyncTimer=null, liveDiceES=null, liveDiceBC=null, liveDiceTopicCur='', liveDicePollTimer=null, registryPushInFlight=0, lastRegistryPushMs=0;
     let PWLIB={loaded:false,loading:false,saving:false,error:'',repoPacks:[],cloudPacks:[],tab:'server',search:'',filterCat:'',filterTier:'',selectedPackId:'',openCats:{},openPacks:{},openAugFolders:{},selSecIds:{},selPwIds:{},selAugIds:{},targetSecId:'',dedupeMode:'skipExisting',lastLoadedTs:'',adminSrc:'all',adminName:'',adminCat:'Allgemein',adminDesc:'',adminIsBasis:false,confirmDelPackId:''}, pwLibFetchPromise=null;
+    const simpleHash=str=>{let h=2166136261;const s=String(str||'');for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619);}return (h>>>0).toString(36);};
     try{
       CLOUD.serverUrl=localStorage.getItem('scherbensturm_cloud_url')||'';
       CLOUD.currentUser=localStorage.getItem('scherbensturm_cloud_user')||'';
@@ -559,6 +560,7 @@
           diceClearedByCamp:(parsedReg.diceClearedByCamp&&typeof parsedReg.diceClearedByCamp==='object')?parsedReg.diceClearedByCamp:{}
         };
       }
+      if(ensureAllRegistryUsers()) saveRegistryLocal();
       const locDice=localStorage.getItem('scherbensturm_live_dice_feed');
       if(locDice) CLOUD.diceFeed=JSON.parse(locDice)||[];
       if(Array.isArray(CLOUD.registry.diceFeed)&&CLOUD.registry.diceFeed.length&&!CLOUD.diceFeed.length) CLOUD.diceFeed=CLOUD.registry.diceFeed;
@@ -602,7 +604,178 @@
       if(!username&&!CLOUD.isAdmin) return [];
       return getAccessibleCampaigns(username);
     }
-    const simpleHash=str=>{let h=2166136261;const s=String(str||'');for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619);}return (h>>>0).toString(36);};
+    function makeLegacyUserId(username,createdAt,usedIds){
+      const base='usr_'+simpleHash('legacy:'+String(username||'').trim().toLowerCase()+':'+String(createdAt||''));
+      let taken=usedIds instanceof Set?usedIds:null;
+      if(!taken){
+        taken=new Set();
+        Object.values(CLOUD.registry?.users||{}).forEach(u=>{
+          if(u&&typeof u==='object'&&!u._deleted){
+            const eid=String(u.userId||'').trim();
+            if(eid) taken.add(eid);
+          }
+        });
+      }
+      if(!taken.has(base)) return base;
+      let suffix=2;
+      while(taken.has(`${base}_${suffix}`)) suffix++;
+      return `${base}_${suffix}`;
+    }
+    function ensureUserRecord(username,rawObj,usedIds){
+      if(rawObj&&typeof rawObj==='object'&&rawObj._deleted) return rawObj;
+      const src=(rawObj&&typeof rawObj==='object')?rawObj:{};
+      const passHash=String(src.passHash||'');
+      const createdAt=String(src.createdAt||'');
+      const avatar=String(src.avatar||'');
+      const nameHistory=Array.isArray(src.nameHistory)
+        ?src.nameHistory
+          .filter(h=>h&&typeof h==='object')
+          .map(h=>({
+            from:String(h.from||'').trim(),
+            to:String(h.to||'').trim(),
+            at:String(h.at||''),
+            atMs:toInt(h.atMs,0)
+          }))
+          .filter(h=>h.from||h.to)
+        :[];
+      let userId=String(src.userId||'').trim();
+      if(!userId||(usedIds instanceof Set&&usedIds.has(userId))){
+        userId=makeLegacyUserId(username,createdAt,usedIds);
+      }
+      if(usedIds instanceof Set) usedIds.add(userId);
+      const out={...src,userId,passHash,createdAt,avatar,nameHistory};
+      delete out._deleted;
+      return out;
+    }
+    function ensureAllRegistryUsers(){
+      if(!CLOUD.registry||typeof CLOUD.registry!=='object') return false;
+      if(!CLOUD.registry.users||typeof CLOUD.registry.users!=='object') CLOUD.registry.users={};
+      const users=CLOUD.registry.users;
+      const keys=Object.keys(users).sort((a,b)=>a.localeCompare(b,'de'));
+      const usedIds=new Set();
+      let changed=false;
+      keys.forEach(k=>{
+        const raw=users[k];
+        if(!raw||typeof raw!=='object'||raw._deleted) return;
+        const eid=String(raw.userId||'').trim();
+        if(eid&&!usedIds.has(eid)) usedIds.add(eid);
+      });
+      const assignedIds=new Set();
+      keys.forEach(k=>{
+        const raw=users[k];
+        if(!raw||typeof raw!=='object'){
+          delete users[k];
+          changed=true;
+          return;
+        }
+        if(raw._deleted) return;
+        const existingId=String(raw.userId||'').trim();
+        if(existingId&&!assignedIds.has(existingId)){
+          assignedIds.add(existingId);
+          const norm=ensureUserRecord(k,raw,null);
+          if(norm.userId!==raw.userId||norm.passHash!==raw.passHash||norm.createdAt!==raw.createdAt||norm.avatar!==raw.avatar||!Array.isArray(raw.nameHistory)||norm.nameHistory.length!==raw.nameHistory.length){
+            changed=true;
+          }
+          users[k]=norm;
+        }else{
+          const combinedUsed=new Set([...usedIds,...assignedIds]);
+          const norm=ensureUserRecord(k,{...raw,userId:''},combinedUsed);
+          usedIds.add(norm.userId);
+          assignedIds.add(norm.userId);
+          users[k]=norm;
+          changed=true;
+        }
+      });
+      return changed;
+    }
+    function findUserKeyByName(name){
+      const low=String(name||'').trim().toLowerCase();
+      if(!low) return '';
+      const users=CLOUD.registry?.users;
+      if(!users||typeof users!=='object') return '';
+      return Object.keys(users).find(k=>{
+        const u=users[k];
+        return u&&typeof u==='object'&&!u._deleted&&k.toLowerCase()===low;
+      })||'';
+    }
+    function findUserKeyById(userId){
+      const target=String(userId||'').trim();
+      if(!target) return '';
+      const users=CLOUD.registry?.users;
+      if(!users||typeof users!=='object') return '';
+      return Object.keys(users).find(k=>{
+        const u=users[k];
+        return u&&typeof u==='object'&&!u._deleted&&String(u.userId||'').trim()===target;
+      })||'';
+    }
+    function getUserAvatar(username){
+      const key=findUserKeyByName(username);
+      if(!key) return '';
+      return String(CLOUD.registry?.users?.[key]?.avatar||'');
+    }
+    function canViewUserProfile(targetUser){
+      const raw=String(targetUser||'').trim();
+      if(!raw) return false;
+      if(CLOUD.isAdmin===true) return true;
+      const cur=String(CLOUD.currentUser||'').trim();
+      if(!cur) return false;
+      if(cur.toLowerCase()===raw.toLowerCase()) return true;
+      const resolved=findUserKeyById(raw)||findUserKeyByName(raw);
+      return Boolean(resolved&&cur.toLowerCase()===resolved.toLowerCase());
+    }
+    function openUserProfile(targetUser){
+      if(ensureAllRegistryUsers()) saveRegistryLocal();
+      const raw=String(targetUser||'').trim();
+      let key=findUserKeyByName(raw)||findUserKeyById(raw)||raw;
+      if(!key||!canViewUserProfile(key)){
+        toast('🔒 Du kannst nur dein eigenes Profil öffnen.');
+        return false;
+      }
+      const curUser=String(CLOUD.currentUser||'').trim();
+      if((!CLOUD.registry?.users?.[key]||CLOUD.registry.users[key]._deleted)&&curUser&&key.toLowerCase()===curUser.toLowerCase()){
+        if(!CLOUD.registry.users||typeof CLOUD.registry.users!=='object') CLOUD.registry.users={};
+        key=curUser;
+        CLOUD.registry.users[key]=ensureUserRecord(key,{userId:'usr_'+uid(),passHash:'',createdAt:stamp(),avatar:'',nameHistory:[]},null);
+        ensureAllRegistryUsers();
+        saveRegistryLocal();
+      }
+      const rec=CLOUD.registry?.users?.[key];
+      if(!rec||typeof rec!=='object'||rec._deleted){
+        toast(`⚠️ Benutzerprofil „${key}“ nicht gefunden.`);
+        return false;
+      }
+      UI.profileUser=key;
+      UI.modal='userProfile';
+      renderModal();
+      return true;
+    }
+    function ensureProfileModalAccess(){
+      if(UI.modal==='userProfile'){
+        const raw=String(UI.profileUser||'').trim();
+        const key=findUserKeyByName(raw)||findUserKeyById(raw);
+        if(!key||!canViewUserProfile(key)||!CLOUD.registry?.users?.[key]||CLOUD.registry.users[key]._deleted){
+          UI.modal=null;
+          UI.profileUser='';
+        }
+      }
+    }
+    function renderUserNamePill(username, opts={}){
+      const raw=String(username||'').trim();
+      if(!raw) return '';
+      const cls=String(opts.cls||'px-2 py-0.5 rounded-md text-[11px] font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-400/40');
+      const avUrl=opts.showAvatar?getUserAvatar(raw):'';
+      const icon=avUrl?`<img src="${avUrl}" class="w-5 h-5 rounded-full object-cover shrink-0 border border-white/20" alt=""/>`:(opts.icon!==undefined?opts.icon:'👤 ');
+      const key=findUserKeyByName(raw)||findUserKeyById(raw);
+      const isSelf=Boolean(CLOUD.currentUser&&CLOUD.currentUser.trim().toLowerCase()===raw.toLowerCase());
+      const canOpen=Boolean(canViewUserProfile(raw)&&(key||isSelf));
+      const label=`${icon}${esc(raw)}`;
+      if(!canOpen){
+        return `<span class="inline-flex items-center gap-1 ${cls}">${label}</span>`;
+      }
+      const target=key||raw;
+      const tip=opts.tip||(isSelf?'Eigenes Profil öffnen (Name, Passwort, User-ID, Profilbild)':`Benutzerprofil von „${target}“ öffnen`);
+      return `<button type="button" data-action="open-user-profile" data-user="${esc(target)}" data-tip="${esc(tip)}" class="inline-flex items-center gap-1 cursor-pointer hover:brightness-110 hover:underline transition-all ${cls}">${label}</button>`;
+    }
     function saveRegistryLocal(){try{if(!Array.isArray(CLOUD.registry.deletedCharIds))CLOUD.registry.deletedCharIds=[];localStorage.setItem('scherbensturm_lobby_registry',JSON.stringify(CLOUD.registry));}catch(e){}}
     function saveDiceFeedLocal(){try{localStorage.setItem('scherbensturm_live_dice_feed',JSON.stringify((CLOUD.diceFeed||[]).slice(0,40)));}catch(e){}}
     function saveSecretRollsLocal(){try{localStorage.setItem('scherbensturm_admin_secret_rolls',JSON.stringify((CLOUD.secretRolls||[]).slice(0,30)));}catch(e){}}
@@ -734,7 +907,7 @@
               <div class="min-w-0 flex-1">
                 <div class="flex flex-wrap items-center gap-1.5 min-w-0">
                   <span class="font-black text-xs sm:text-sm truncate max-w-full">${esc(entry.charName||'Unbenannter Held')}</span>
-                  ${entry.playerName?`<span class="px-1.5 py-0.2 rounded text-[10px] font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-400/40">👤 ${esc(entry.playerName)}</span>`:''}
+                  ${entry.playerName?renderUserNamePill(entry.playerName,{cls:'px-1.5 py-0.2 rounded text-[10px] font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-400/40'}):''}
                   ${isFirst?`<span class="px-1.5 py-0.2 rounded text-[9px] font-black uppercase bg-acc-soft text-acc border bdr-acc">Aktuellster Wurf</span>`:''}
                 </div>
                 <div class="text-xs font-extrabold text-acc truncate">${esc(entry.label||'Freie Probe')}</div>
@@ -2182,6 +2355,7 @@
       }
       const refocusPw=UI.modal==='dupPwName'?UI.dupPwWarn:null;
       UI.modal=null;
+      UI.profileUser='';
       UI.imgZoomOpen=false;
       UI.imgReturnModal='';
       UI.dupPwWarn=null;
@@ -2945,7 +3119,13 @@
             });
             const rawUsers=push?{...(rem.registry.users||{}),...srcUsers}:(rem.registry.users&&typeof rem.registry.users==='object'?rem.registry.users:srcUsers);
             const mergedUsers={};
-            Object.entries(rawUsers||{}).forEach(([uk,uv])=>{if(uv&&typeof uv==='object'&&!uv._deleted)mergedUsers[uk]=uv;});
+            Object.entries(rawUsers||{}).forEach(([uk,uv])=>{
+              if(uv&&typeof uv==='object'&&!uv._deleted){
+                const fbObj=push?rem.registry.users?.[uk]:srcUsers?.[uk];
+                const avatarVal=uv.avatar!==undefined?String(uv.avatar||''):String(fbObj?.avatar||'');
+                mergedUsers[uk]={...uv,avatar:avatarVal};
+              }
+            });
             CLOUD.registry={
               users:mergedUsers,
               claims:mergedClaims,
@@ -2961,6 +3141,7 @@
               diceClearedByCamp:mergedDiceClearedByCamp,
               diceFeed:CLOUD.diceFeed||[]
             };
+            ensureAllRegistryUsers();
             CLOUD.list=(CLOUD.list||[]).filter(ch=>ch&&!delSet.has(ch.id));
             CLOUD.list.forEach(ch=>{
               if(ch&&ch.id){
@@ -2980,6 +3161,12 @@
           }
         }
         if(push){
+          const cleanPushUsers={};
+          Object.entries(CLOUD.registry.users||{}).forEach(([uk,uv])=>{
+            if(uv&&typeof uv==='object'&&!uv._deleted) cleanPushUsers[uk]=uv;
+          });
+          CLOUD.registry.users=cleanPushUsers;
+          ensureAllRegistryUsers();
           CLOUD.registry.campaigns=normalizeCampaigns(localSnap?localSnap.campaigns:CLOUD.registry.campaigns);
           const payload={charId:REGISTRY_ID,profile:{name:'__REGISTRY__'},registry:CLOUD.registry,_summary:{updatedAt:stamp()}};
           await fetch(getCloudEndpoint(),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
@@ -2993,6 +3180,212 @@
           lastRegistryPushMs=Date.now();
         }
       }
+    }
+    async function renameUserAccount(oldName,newName){
+      ensureAllRegistryUsers();
+      const rawOld=String(oldName||'').trim();
+      const oldKey=findUserKeyByName(rawOld);
+      const isSelf=Boolean(CLOUD.currentUser&&rawOld&&CLOUD.currentUser.trim().toLowerCase()===rawOld.toLowerCase());
+      if(CLOUD.isAdmin!==true&&!isSelf){
+        toast('🔒 Keine Berechtigung zum Umbenennen dieses Accounts.');
+        return false;
+      }
+      if(!oldKey||!CLOUD.registry?.users?.[oldKey]){
+        toast(`⚠️ Account „${rawOld||String(oldName||'')}“ wurde nicht gefunden.`);
+        return false;
+      }
+      const cleanNew=String(newName??'').trim();
+      if(!cleanNew){
+        toast('⚠️ Bitte einen neuen Benutzernamen eingeben.');
+        return false;
+      }
+      if(cleanNew.length>40){
+        toast('⚠️ Benutzername darf maximal 40 Zeichen lang sein.');
+        return false;
+      }
+      if(/[\x00-\x1F\x7F]/.test(cleanNew)||!/[\p{L}\p{N}]/u.test(cleanNew)){
+        toast('⚠️ Ungültiger Benutzername (keine Steuerzeichen oder reinen Sonderzeichen erlaubt).');
+        return false;
+      }
+      const newLow=cleanNew.toLowerCase();
+      if(newLow==='__admin__'||newLow==='gast'){
+        toast(`⚠️ Der Benutzername „${cleanNew}“ ist reserviert und nicht erlaubt.`);
+        return false;
+      }
+      if(cleanNew===oldKey){
+        toast('ℹ️ Der neue Benutzername ist identisch mit dem aktuellen Namen.');
+        return false;
+      }
+      const conflictKey=findUserKeyByName(cleanNew);
+      if(conflictKey&&conflictKey.toLowerCase()!==oldKey.toLowerCase()){
+        toast(`⚠️ Der Benutzername „${conflictKey}“ ist bereits vergeben.`);
+        return false;
+      }
+      const oldLow=oldKey.toLowerCase();
+      const isOldUser=v=>String(v||'').trim().toLowerCase()===oldLow;
+      const replaceUserInArr=arr=>{
+        if(!Array.isArray(arr)) return arr;
+        const out=[], seen=new Set();
+        arr.forEach(item=>{
+          const s=String(item||'').trim();
+          if(!s) return;
+          const next=isOldUser(s)?cleanNew:s;
+          const low=next.toLowerCase();
+          if(!seen.has(low)){
+            seen.add(low);
+            out.push(next);
+          }
+        });
+        return out;
+      };
+      const existingRec=ensureUserRecord(oldKey,CLOUD.registry.users[oldKey],null);
+      const nextHistory=[...(Array.isArray(existingRec.nameHistory)?existingRec.nameHistory:[])];
+      nextHistory.push({from:oldKey,to:cleanNew,at:stamp(),atMs:Date.now()});
+      const updatedRecord={
+        ...existingRec,
+        userId:existingRec.userId,
+        passHash:existingRec.passHash,
+        createdAt:existingRec.createdAt,
+        avatar:existingRec.avatar,
+        nameHistory:nextHistory
+      };
+      if(oldKey!==cleanNew){
+        CLOUD.registry.users[cleanNew]=updatedRecord;
+        CLOUD.registry.users[oldKey]={_deleted:true};
+      }else{
+        CLOUD.registry.users[oldKey]=updatedRecord;
+      }
+      const ownedCharIds=new Set();
+      if(CLOUD.registry.claims&&typeof CLOUD.registry.claims==='object'){
+        Object.keys(CLOUD.registry.claims).forEach(cid=>{
+          if(isOldUser(CLOUD.registry.claims[cid])){
+            ownedCharIds.add(cid);
+            CLOUD.registry.claims[cid]=cleanNew;
+          }
+        });
+      }
+      if(Array.isArray(CLOUD.registry.gmUsers)){
+        CLOUD.registry.gmUsers=replaceUserInArr(CLOUD.registry.gmUsers);
+      }
+      if(Array.isArray(CLOUD.registry.campaigns)){
+        CLOUD.registry.campaigns.forEach(c=>{
+          if(!c||typeof c!=='object') return;
+          if(Array.isArray(c.allowedUsers)) c.allowedUsers=replaceUserInArr(c.allowedUsers);
+          if(Array.isArray(c.gmUsers)) c.gmUsers=replaceUserInArr(c.gmUsers);
+        });
+      }
+      if(CLOUD.registry.publicNotes&&typeof CLOUD.registry.publicNotes==='object'){
+        Object.values(CLOUD.registry.publicNotes).forEach(pn=>{
+          if(pn&&typeof pn==='object'&&isOldUser(pn.owner)) pn.owner=cleanNew;
+        });
+      }
+      if(CLOUD.registry.campaignSharedNotes&&typeof CLOUD.registry.campaignSharedNotes==='object'){
+        Object.values(CLOUD.registry.campaignSharedNotes).forEach(pages=>{
+          if(!Array.isArray(pages)) return;
+          pages.forEach(pg=>{
+            if(!pg||typeof pg!=='object') return;
+            if(isOldUser(pg.lastEditor)) pg.lastEditor=cleanNew;
+            if(isOldUser(pg.originOwner)) pg.originOwner=cleanNew;
+          });
+        });
+      }
+      const migrateDiceFeeds=()=>{
+        [CLOUD.registry.diceFeed,CLOUD.diceFeed].forEach(feed=>{
+          if(!Array.isArray(feed)) return;
+          feed.forEach(r=>{
+            if(r&&typeof r==='object'&&isOldUser(r.playerName)) r.playerName=cleanNew;
+          });
+        });
+      };
+      migrateDiceFeeds();
+      saveDiceFeedLocal();
+      (CLOUD.list||[]).forEach(ch=>{
+        if(ch&&ch.id&&isOldUser(ch.owner)){
+          ownedCharIds.add(ch.id);
+          ch.owner=cleanNew;
+        }
+      });
+      if(isOldUser(S.owner)){
+        S.owner=cleanNew;
+        save(false);
+      }
+      if(isOldUser(CLOUD.currentUser)){
+        CLOUD.currentUser=cleanNew;
+        try{
+          localStorage.setItem('scherbensturm_cloud_user',cleanNew);
+          if(oldLow!==newLow){
+            const oldStyleKey=`scherbensturm_lobby_style_${oldLow}`;
+            const newStyleKey=`scherbensturm_lobby_style_${newLow}`;
+            const oldStyleVal=localStorage.getItem(oldStyleKey);
+            if(oldStyleVal!==null){
+              localStorage.setItem(newStyleKey,oldStyleVal);
+              localStorage.removeItem(oldStyleKey);
+            }
+            const oldNotifKey=`scherbensturm_notif_seen_${oldLow}`;
+            const newNotifKey=`scherbensturm_notif_seen_${newLow}`;
+            const oldNotifVal=localStorage.getItem(oldNotifKey);
+            if(oldNotifVal!==null){
+              localStorage.setItem(newNotifKey,oldNotifVal);
+              localStorage.removeItem(oldNotifKey);
+            }
+          }
+        }catch(e){}
+      }
+      await syncCloudRegistry(true);
+      if(oldKey!==cleanNew){
+        delete CLOUD.registry.users[oldKey];
+      }
+      migrateDiceFeeds();
+      saveDiceFeedLocal();
+      saveRegistryLocal();
+      for(const cid of ownedCharIds){
+        if(!cid||cid===REGISTRY_ID||cid===LIBRARY_ID||cid===PATCHNOTES_ID||cid===FEEDBACK_ID) continue;
+        try{
+          const res=await fetch(`${getCloudEndpoint()}?id=${encodeURIComponent(cid)}`,{headers:{'Accept':'application/json'}});
+          if(!res.ok) continue;
+          const data=await res.json();
+          if(!data||data.error) continue;
+          if(isOldUser(data.owner)||isOldUser(data._summary?.owner)||!data.owner){
+            data.owner=cleanNew;
+            if(!data._summary||typeof data._summary!=='object') data._summary={};
+            data._summary.owner=cleanNew;
+            if(CLOUD.isAdmin) data._AdminOverride=true;
+            await fetch(getCloudEndpoint(),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});
+          }
+        }catch(e){}
+      }
+      if(typeof FEEDBACK==='object'&&FEEDBACK&&typeof saveFeedbackStore==='function'){
+        if(isOldUser(FEEDBACK.backlogUser)) FEEDBACK.backlogUser=cleanNew;
+        try{
+          await saveFeedbackStore(store=>{
+            let fbChanged=false;
+            (store.items||[]).forEach(it=>{
+              if(!it||typeof it!=='object') return;
+              if(isOldUser(it.author)){it.author=cleanNew;fbChanged=true;}
+              (it.messages||[]).forEach(m=>{
+                if(m&&typeof m==='object'&&!m.isAdmin&&isOldUser(m.author)){
+                  m.author=cleanNew;
+                  fbChanged=true;
+                }
+              });
+            });
+            (store.backlog||[]).forEach(b=>{
+              if(b&&typeof b==='object'&&isOldUser(b.author)){
+                b.author=cleanNew;
+                fbChanged=true;
+              }
+            });
+            return fbChanged;
+          },'');
+        }catch(e){}
+      }
+      renderHeader();
+      renderMain();
+      renderModal();
+      updateLobbyLiveDiceDOM();
+      if(typeof updateNotifBadges==='function') updateNotifBadges();
+      toast(`✅ Benutzername „${oldKey}“ wurde zu „${cleanNew}“ umbenannt.`);
+      return true;
     }
     function addCampaignAllowedUser(rawName){
       if(!canManageCampaign(CLOUD.activeCampaignId)) return;
@@ -4266,7 +4659,7 @@
           ${item.messages.length?item.messages.map(m=>{
             const isAdm=Boolean(m&&m.isAdmin);
             const bCls=isAdm?'border-amber-400/50 bg-amber-500/15':'bdr-acc bg-acc-soft/30';
-            const authorHtml=isAdm?`<span class="font-black text-amber-300">👑 Admin</span>`:`<span class="font-extrabold text-acc">👤 ${esc(m.author)}</span>`;
+            const authorHtml=isAdm?`<span class="font-black text-amber-300">👑 Admin</span>`:renderUserNamePill(m.author,{cls:'font-extrabold text-acc'});
             return `<div class="p-2 rounded-lg border ${bCls} space-y-1">
               <div class="flex flex-wrap items-center justify-between gap-2 text-[11px]">
                 ${authorHtml}
@@ -4354,7 +4747,7 @@
               <div class="min-w-0 flex-1">
                 <div class="flex flex-wrap items-center gap-1.5">
                   <span class="font-black text-sm text-acc break-words">${esc(titleTxt)}</span>
-                  <span class="px-2 py-0.5 rounded-md text-[11px] font-extrabold bg-indigo-500/20 text-indigo-300 border border-indigo-400/40">👤 ${esc(it.author||'Gast')}</span>
+                  ${renderUserNamePill(it.author||'Gast',{cls:'px-2 py-0.5 rounded-md text-[11px] font-extrabold bg-indigo-500/20 text-indigo-300 border border-indigo-400/40'})}
                   <span class="text-[11px] t-mut tabular">🕒 ${esc(it.ts||'')}</span>
                 </div>
               </div>
@@ -4450,7 +4843,7 @@
           return `<div class="subcard p-3 space-y-2 border bdr-line">
             <div class="flex flex-wrap items-center justify-between gap-2">
               <div class="flex flex-wrap items-center gap-1.5 min-w-0">
-                <span class="px-2 py-0.5 rounded-md text-[11px] font-extrabold bg-indigo-500/20 text-indigo-300 border border-indigo-400/40">👤 ${esc(b.author)}</span>
+                ${renderUserNamePill(b.author,{cls:'px-2 py-0.5 rounded-md text-[11px] font-extrabold bg-indigo-500/20 text-indigo-300 border border-indigo-400/40'})}
                 <span class="font-black text-xs sm:text-sm text-acc break-words">${esc(b.title||'Feedback')}</span>
                 <span class="text-[11px] t-mut tabular">🕒 ${esc(b.ts)}</span>
               </div>
@@ -4503,7 +4896,7 @@
           bodyHtml=`<div class="space-y-3">
             <div class="subcard p-3 flex flex-wrap items-center justify-between gap-2 bg-acc-soft/20 bdr-acc">
               <div class="flex items-center gap-2 text-xs font-bold">
-                <span class="px-2.5 py-1 rounded-lg bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 font-black">👤 ${esc(curUser)}</span>
+                ${renderUserNamePill(curUser,{cls:'px-2.5 py-1 rounded-lg bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 font-black'})}
                 <span class="t-mut">Dein Feedback wird mit Benutzername und Zeitstempel versehen und ist <strong>ausschließlich für den Admin</strong> sichtbar.</span>
               </div>
             </div>
@@ -4543,7 +4936,7 @@
               <div class="flex flex-wrap items-center justify-between gap-2">
                 <div class="min-w-0 flex-1">
                   <div class="font-black text-sm text-acc break-words">${esc(titleTxt)}</div>
-                  <div class="text-[11px] t-mut tabular mt-0.5">🕒 ${esc(b.ts||'')} • 👤 ${esc(b.author||curUser)}</div>
+                  <div class="text-[11px] t-mut tabular mt-0.5">🕒 ${esc(b.ts||'')} • ${renderUserNamePill(b.author||curUser,{cls:'font-bold'})}</div>
                 </div>
                 <div class="flex flex-wrap items-center gap-1.5 shrink-0">${stBadge}</div>
               </div>
@@ -5062,7 +5455,7 @@
             </div>
           </div>
           <div class="${UI.mobileLobbyMenuOpen ? 'flex pt-2 border-t bdr-line' : 'hidden'} lg:flex lg:pt-0 lg:border-t-0 flex-wrap items-center gap-2">
-            ${CLOUD.currentUser?`<span class="pill cursor-default border-emerald-500/50 bg-emerald-500/15 text-emerald-300">👤 ${esc(CLOUD.currentUser)}</span>`:`<span class="pill cursor-default opacity-75">🔒 Gast (Nicht angemeldet)</span>`}
+            ${CLOUD.currentUser?renderUserNamePill(CLOUD.currentUser,{cls:'pill border-emerald-500/50 bg-emerald-500/15 text-emerald-300',showAvatar:true,tip:'Eigenes Profil öffnen (Name, Passwort, User-ID, Profilbild)'}):`<span class="pill cursor-default opacity-75">🔒 Gast (Nicht angemeldet)</span>`}
             <button type="button" data-action="toggle-admin-bar" data-tip="Admin-Master-PIN &amp; Verwaltung ein-/ausblenden" class="btn py-2 px-3 text-xs font-extrabold ${CLOUD.isAdmin?'!border-amber-400 !bg-amber-500/20 text-amber-300':'bdr-acc bg-acc-soft'}">👑 ${CLOUD.isAdmin?'Admin aktiv':'Admin-Login'}</button>
             <button type="button" data-action="open-local-sheet" data-tip="Öffnet den lokal gespeicherten Charakterbogen (oder einen Test-Bogen) direkt ohne Cloud-Zwang – ideal zum lokalen Testen vor dem GitHub-Upload" class="btn btn-ok text-xs font-extrabold px-3.5 py-2">🛠️ Lokalen Bogen öffnen / testen</button>
             <button type="button" data-action="toggle-livedice" class="btn ${LD.open?'btn-pri':'bdr-acc bg-acc-soft'} text-xs font-extrabold px-3.5 py-2">📡 Live-Würfel <span data-live-dice-cnt="1" class="px-1.5 rounded-full text-[10px] bg-black/25 tabular">${liveDiceCnt}</span></button>
@@ -6623,16 +7016,17 @@
           `:`
           <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
             <div class="flex flex-wrap items-center gap-3">
-              <div class="w-12 h-12 rounded-2xl border-2 border-emerald-500/60 bg-emerald-500/15 text-emerald-300 flex items-center justify-center text-xl font-black shadow-md shrink-0">👤</div>
+              ${(()=>{const uAv=getUserAvatar(CLOUD.currentUser);return `<button type="button" data-action="open-user-avatar" data-user="${esc(CLOUD.currentUser)}" data-return="" data-tip="Profilbild ändern, vergrößern oder entfernen" class="w-12 h-12 rounded-2xl border-2 border-emerald-500/60 bg-emerald-500/15 text-emerald-300 flex items-center justify-center text-xl font-black shadow-md shrink-0 overflow-hidden cursor-pointer hover:brightness-110 transition-all">${uAv?`<img src="${uAv}" class="w-full h-full object-cover" alt=""/>`:`👤`}</button>`;})()}
               <div>
                 <div class="flex flex-wrap items-center gap-2">
-                  <span class="px-2.5 py-0.5 rounded-lg text-xs sm:text-sm font-black bg-emerald-500/20 text-emerald-300 border border-emerald-400/50">👤 ${esc(CLOUD.currentUser)}</span>
+                  ${renderUserNamePill(CLOUD.currentUser,{cls:'px-2.5 py-0.5 rounded-lg text-xs sm:text-sm font-black bg-emerald-500/20 text-emerald-300 border border-emerald-400/50',tip:'Eigenes Profil öffnen (Name, Passwort, User-ID, Profilbild)'})}
                   ${isGlobalGM(CLOUD.currentUser)?`<span class="px-2 py-0.5 rounded text-[10px] font-black bg-purple-500/25 text-purple-300 border border-purple-400/50">🎲 SPIELLEITER</span>`:''}
                   <span class="pill cursor-default text-xs py-0.5 px-2.5 tabular">${myTotalCnt} eigene ${myTotalCnt===1?'Charakter':'Charaktere'} gesamt</span>
                   ${CLOUD.isAdmin?`<span class="px-2 py-0.5 rounded text-[10px] font-black bg-amber-500/25 text-amber-300 border border-amber-400/50">👑 ADMIN AKTIV</span>`:''}
                 </div>
                 <div class="flex flex-wrap items-center gap-1.5 mt-2">
                   <button type="button" data-action="toggle-lobby-filter" class="btn py-1 px-2.5 text-xs ${CLOUD.filterMine?'btn-pri':''}">${CLOUD.filterMine?`Nur meine Charaktere (${myCampCnt})`:`Alle Charaktere (${campCharList.length})`}</button>
+                  <button type="button" data-action="open-user-profile" data-user="${esc(CLOUD.currentUser)}" data-tip="Eigenes Profil öffnen (Name, Passwort, User-ID, Profilbild)" class="btn py-1 px-2.5 text-xs bdr-acc bg-acc-soft text-acc">👤 Profil</button>
                   <button type="button" data-action="toggle-user-pw-change" class="btn py-1 px-2.5 text-xs ${CLOUD.showPwChange?'btn-pri':''}">🔑 Passwort ändern</button>
                   <button type="button" data-action="toggle-admin-bar" class="btn py-1 px-2.5 text-xs ${CLOUD.isAdmin?'!border-amber-400 !bg-amber-500/20 text-amber-300':'opacity-85'}">👑 Admin</button>
                   <button type="button" data-action="copy-share-link" data-url="${esc(lobbyUrl)}" class="btn py-1 px-2.5 text-xs">🔗 Lobby-Link</button>
@@ -6675,7 +7069,7 @@
             </div>`}
             ${CLOUD.isAdmin&&CLOUD.userMgmtOpen?`<div class="pt-2 border-t border-amber-500/25 space-y-1.5">
               <div class="text-[11px] font-bold text-amber-300">Registrierte Spieler-Accounts (${regUsers.length}):</div>
-              ${regUsers.length?`<div class="flex flex-wrap gap-1.5">${regUsers.map(u=>`<span class="subcard py-1 px-2.5 inline-flex items-center gap-2 text-xs"><strong>👤 ${esc(u)}</strong><button type="button" data-action="admin-toggle-gm" data-user="${esc(u)}" data-tip="Spielleiter-Status für „${esc(u)}“ umschalten (nur durch Admin)" class="px-1.5 py-0.5 rounded text-[10px] font-black ${isGlobalGM(u)?'bg-purple-500/30 text-purple-200 border border-purple-400/60':'bg-black/30 t-mut hover:text-purple-300'}">${isGlobalGM(u)?'🎲 Spielleiter ✓':'+ Spielleiter'}</button><button type="button" data-action="admin-reset-user-pw" data-user="${esc(u)}" data-tip="Passwort für „${esc(u)}“ auf 1234 zurücksetzen" class="text-[10px] text-amber-300 hover:underline">PW→1234</button><button type="button" data-action="admin-del-user" data-user="${esc(u)}" data-tip="Account löschen" class="text-rose-400 font-black">✕</button></span>`).join('')}</div>`:`<div class="text-[11px] t-mut">Noch keine Spieler-Accounts registriert.</div>`}
+              ${regUsers.length?`<div class="flex flex-wrap gap-1.5">${regUsers.map(u=>`<span class="subcard py-1 px-2.5 inline-flex items-center gap-2 text-xs"><button type="button" data-action="open-user-profile" data-user="${esc(u)}" data-tip="Benutzerprofil, User-ID &amp; Namenshistorie von „${esc(u)}“ öffnen" class="font-extrabold text-amber-200 hover:text-acc hover:underline cursor-pointer inline-flex items-center gap-1">${(()=>{const av=getUserAvatar(u);return av?`<img src="${av}" class="w-5 h-5 rounded-full object-cover shrink-0 border border-amber-400/40" alt=""/>`:`👤`;})()}<span>${esc(u)}</span></button><button type="button" data-action="admin-toggle-gm" data-user="${esc(u)}" data-tip="Spielleiter-Status für „${esc(u)}“ umschalten (nur durch Admin)" class="px-1.5 py-0.5 rounded text-[10px] font-black ${isGlobalGM(u)?'bg-purple-500/30 text-purple-200 border border-purple-400/60':'bg-black/30 t-mut hover:text-purple-300'}">${isGlobalGM(u)?'🎲 Spielleiter ✓':'+ Spielleiter'}</button><button type="button" data-action="admin-reset-user-pw" data-user="${esc(u)}" data-tip="Passwort für „${esc(u)}“ auf 1234 zurücksetzen" class="text-[10px] text-amber-300 hover:underline">PW→1234</button><button type="button" data-action="admin-del-user" data-user="${esc(u)}" data-tip="Account löschen" class="text-rose-400 font-black">✕</button></span>`).join('')}</div>`:`<div class="text-[11px] t-mut">Noch keine Spieler-Accounts registriert.</div>`}
             </div>`:''}
           </div>`:''}
 
@@ -6812,7 +7206,7 @@
                 </div>
               </div>
               <div class="flex flex-wrap items-center gap-1.5">
-                ${campAllowedUsers.length?campAllowedUsers.map(u=>`<span class="subcard py-0.5 px-2.5 inline-flex items-center gap-1.5 text-xs border-amber-400/40 bg-black/25"><span class="font-bold text-amber-200">👤 ${esc(u)}</span><button type="button" data-action="camp-rm-user" data-user="${esc(u)}" data-tip="Spieler „${esc(u)}“ aus „${esc(activeCamp.name)}“ entfernen" class="text-rose-400 hover:text-rose-300 font-black ml-0.5">✕</button></span>`).join(''):`<span class="text-[11px] t-mut italic">Noch keine Spieler zugeordnet – aktuell nur für Spielleitung &amp; Admin sichtbar.</span>`}
+                ${campAllowedUsers.length?campAllowedUsers.map(u=>`<span class="subcard py-0.5 px-2.5 inline-flex items-center gap-1.5 text-xs border-amber-400/40 bg-black/25">${renderUserNamePill(u,{cls:'font-bold text-amber-200'})}<button type="button" data-action="camp-rm-user" data-user="${esc(u)}" data-tip="Spieler „${esc(u)}“ aus „${esc(activeCamp.name)}“ entfernen" class="text-rose-400 hover:text-rose-300 font-black ml-0.5">✕</button></span>`).join(''):`<span class="text-[11px] t-mut italic">Noch keine Spieler zugeordnet – aktuell nur für Spielleitung &amp; Admin sichtbar.</span>`}
               </div>
               `:''}
             </div>
@@ -6854,7 +7248,7 @@
                     <div class="text-xs t-mut truncate">${esc(ch.ancestry||'Volk')} • ${esc(ch.concept||'Konzept')}</div>
                     <div class="flex flex-wrap items-center gap-1.5 pt-0.5">
                       <span class="px-2 py-0.5 rounded-md text-[11px] font-black bg-acc-soft text-acc border bdr-acc tabular">Stufe ${ch.level||1}</span>
-                      ${owner?`<span class="px-2 py-0.5 rounded-md text-[11px] font-black ${isMyClaim?'bg-emerald-500/25 text-emerald-300 border border-emerald-400/50':'bg-indigo-500/20 text-indigo-300 border border-indigo-400/40'}">👤 ${esc(owner)}</span>`:`<span class="px-2 py-0.5 rounded-md text-[11px] font-semibold bg-black/25 t-mut">⚪ Frei</span>`}
+                      ${owner?renderUserNamePill(owner,{cls:`px-2 py-0.5 rounded-md text-[11px] font-black ${isMyClaim?'bg-emerald-500/25 text-emerald-300 border border-emerald-400/50':'bg-indigo-500/20 text-indigo-300 border border-indigo-400/40'}`}):`<span class="px-2 py-0.5 rounded-md text-[11px] font-semibold bg-black/25 t-mut">⚪ Frei</span>`}
                       ${isOpenSheet?`<span class="px-2 py-0.5 rounded-md text-[11px] font-black bg-emerald-500/25 text-emerald-300 border border-emerald-400/60">Geöffnet</span>`:''}
                       ${isViewing&&!isOpenSheet?`<span class="px-2 py-0.5 rounded-md text-[11px] font-black bg-sky-500/25 text-sky-300 border border-sky-400/60">👁️ Offen</span>`:''}
                     </div>
@@ -7028,7 +7422,7 @@
                           ${activePubPage.avatar?`<img src="${activePubPage.avatar}" class="w-full h-full object-cover"/>`:`<span class="text-xs font-black text-acc">📝</span>`}
                         </div>
                         <span class="text-xs sm:text-sm font-black text-acc break-words">Von Charakterbogen: ${esc(activePubPage.charName)}</span>
-                        ${activePubPage.owner?`<span class="px-2 py-0.5 rounded-md text-[10px] font-black ${activePubPage.isMyChar?'bg-emerald-500/25 text-emerald-300 border border-emerald-400/50':'bg-indigo-500/20 text-indigo-300 border border-indigo-400/40'}">👤 ${esc(activePubPage.owner)}</span>`:`<span class="px-2 py-0.5 rounded-md text-[10px] font-semibold bg-black/25 t-mut">⚪ Frei</span>`}
+                        ${activePubPage.owner?renderUserNamePill(activePubPage.owner,{cls:`px-2 py-0.5 rounded-md text-[10px] font-black ${activePubPage.isMyChar?'bg-emerald-500/25 text-emerald-300 border border-emerald-400/50':'bg-indigo-500/20 text-indigo-300 border border-indigo-400/40'}`}):`<span class="px-2 py-0.5 rounded-md text-[10px] font-semibold bg-black/25 t-mut">⚪ Frei</span>`}
                         <span class="px-2 py-0.5 rounded-md text-[10px] font-extrabold bg-acc-soft text-acc border bdr-acc">📄 ${esc(activePubPage.pageTitle)}</span>
                         <button type="button" data-action="cloud-load-char" data-id="${esc(activePubPage.charId)}" class="btn py-1 px-2.5 text-[11px] bdr-acc bg-acc-soft text-acc font-extrabold shrink-0">🔎 Bogen öffnen</button>
                       </div>
@@ -7850,6 +8244,12 @@
         const canEd=Boolean(CLOUD.isAdmin||canManageCampaign(cid));
         return {kind,id:cid,title:`🗺️ Kampagnenbild${camp?.name?`: ${camp.name}`:''}`,subtitle:canEd?'Kampagnenbild hochladen/ändern, vergrößern oder entfernen (wird mit der Lobby synchronisiert).':'Aktuelles Kampagnenbild',url:camp?.img||'',fileInputId:'fileCampImg',maxDim:480,quality:0.82,canEdit:canEd,caption:camp?.name||'',isWide:false};
       }
+      if(kind==='userAvatar'){
+        const targetKey=findUserKeyByName(id||UI.profileUser||CLOUD.currentUser)||findUserKeyById(id||UI.profileUser||CLOUD.currentUser);
+        if(!targetKey) return null;
+        const canEdit=Boolean(targetKey&&canViewUserProfile(targetKey));
+        return {kind,id:targetKey,title:'🖼️ Profilbild: '+targetKey,subtitle:canEdit?'Benutzer-Profilbild hochladen/ändern, per Drag &amp; Drop ersetzen, vergrößern oder entfernen (kompakt gespeichert).':'Aktuelles Benutzer-Profilbild',url:getUserAvatar(targetKey),fileInputId:'fileUserAvatar',maxDim:160,quality:0.80,canEdit,caption:targetKey,isWide:false};
+      }
       if(['weapon','ammo','armor','inv'].includes(kind)){
         const k={weapon:'weapons',armor:'armors',ammo:'ammos',inv:'inventory'}[kind];
         const lbl={weapon:'Waffenbild',ammo:'Munitionsbild',armor:'Rüstungsbild',inv:'Inventarbild'}[kind];
@@ -7888,6 +8288,17 @@
       }else if(ctx.kind==='campImg'){
         const camp=getCampaigns().find(c=>c.id===(ctx.id||CLOUD.activeCampaignId));
         if(camp){camp.img=url; saveRegistryLocal(); renderMain(); syncCloudRegistry(true); toast(`🖼️ Kampagnenbild${dSfx} gespeichert!`);}
+      }else if(ctx.kind==='userAvatar'){
+        const key=findUserKeyByName(ctx.id)||findUserKeyById(ctx.id);
+        if(!key||!canViewUserProfile(key)||!CLOUD.registry?.users?.[key]||CLOUD.registry.users[key]._deleted) return;
+        CLOUD.registry.users[key].avatar=url;
+        saveRegistryLocal();
+        syncCloudRegistry(true);
+        renderHeader();
+        renderMain();
+        renderModal();
+        toast(`🖼️ Profilbild für „${key}“${dSfx} gespeichert!`);
+        return;
       }else if(['weapon','ammo','armor','inv'].includes(ctx.kind)){
         const k={weapon:'weapons',armor:'armors',ammo:'ammos',inv:'inventory'}[ctx.kind], it=(S[k]||[]).find(x=>x.id===ctx.id);
         if(it){it.img=url; renderMain(); save(); toast(`Gegenstandsbild${dSfx} gespeichert`);}
@@ -7916,6 +8327,16 @@
       }else if(ctx.kind==='campImg'){
         const camp=getCampaigns().find(c=>c.id===(ctx.id||CLOUD.activeCampaignId));
         if(camp){camp.img=''; saveRegistryLocal(); renderMain(); syncCloudRegistry(true); toast('🗑️ Kampagnenbild entfernt.');}
+      }else if(ctx.kind==='userAvatar'){
+        const key=findUserKeyByName(ctx.id)||findUserKeyById(ctx.id);
+        if(key&&canViewUserProfile(key)&&CLOUD.registry?.users?.[key]&&!CLOUD.registry.users[key]._deleted){
+          CLOUD.registry.users[key].avatar='';
+          saveRegistryLocal();
+          syncCloudRegistry(true);
+          renderHeader();
+          renderMain();
+          toast('🗑️ Profilbild entfernt.');
+        }
       }else if(['weapon','ammo','armor','inv'].includes(ctx.kind)){
         const k={weapon:'weapons',armor:'armors',ammo:'ammos',inv:'inventory'}[ctx.kind], it=(S[k]||[]).find(x=>x.id===ctx.id);
         if(it){it.img=''; renderMain(); save(); toast('🗑️ Gegenstandsbild entfernt.');}
@@ -8051,6 +8472,112 @@
       if(!UI.modal){
         m.innerHTML='';
         if(UI.inLobby&&!fromRenderAll){renderHeader();renderMain();}
+        return;
+      }
+      if(UI.modal==='userProfile'){
+        if(ensureAllRegistryUsers()) saveRegistryLocal();
+        const rawTarget=String(UI.profileUser||'').trim();
+        const targetKey=findUserKeyByName(rawTarget)||findUserKeyById(rawTarget);
+        if(!targetKey||!canViewUserProfile(targetKey)||!CLOUD.registry?.users?.[targetKey]||CLOUD.registry.users[targetKey]._deleted){
+          UI.modal=null;
+          UI.profileUser='';
+          m.innerHTML='';
+          if(UI.inLobby&&!fromRenderAll){renderHeader();renderMain();}
+          return;
+        }
+        UI.profileUser=targetKey;
+        const rec=CLOUD.registry.users[targetKey];
+        const isSelf=Boolean(CLOUD.currentUser&&CLOUD.currentUser.trim().toLowerCase()===targetKey.toLowerCase());
+        const isGm=isGlobalGM(targetKey);
+        const isTargetAdmin=Boolean(CLOUD.isAdmin===true&&isSelf);
+        const targetLow=targetKey.toLowerCase();
+        const delSet=new Set(Array.isArray(CLOUD.registry?.deletedCharIds)?CLOUD.registry.deletedCharIds:[]);
+        const ownedCharIds=new Set();
+        Object.entries(CLOUD.registry?.claims||{}).forEach(([cid,own])=>{
+          if(cid&&!delSet.has(cid)&&String(own||'').trim().toLowerCase()===targetLow) ownedCharIds.add(cid);
+        });
+        (CLOUD.list||[]).forEach(ch=>{
+          if(ch&&ch.id&&!delSet.has(ch.id)&&String(getCharOwner(ch.id)||ch.owner||'').trim().toLowerCase()===targetLow) ownedCharIds.add(ch.id);
+        });
+        const ownCharCnt=ownedCharIds.size;
+        const avatarUrl=String(rec.avatar||'');
+        const createdAt=String(rec.createdAt||'').trim();
+        const userIdVal=String(rec.userId||'').trim();
+        let adminHistoryHtml='';
+        if(CLOUD.isAdmin===true){
+          const rawHist=Array.isArray(rec.nameHistory)?rec.nameHistory:[];
+          const hist=[...rawHist].reverse().sort((a,b)=>toInt(b.atMs,0)-toInt(a.atMs,0));
+          adminHistoryHtml=`<div class="subcard p-3.5 space-y-2.5 border border-amber-400/50 bg-amber-500/10">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <div class="text-xs sm:text-sm font-black text-amber-300 flex items-center gap-1.5"><span>📜 Namenshistorie</span><span class="px-1.5 py-0.5 rounded text-[10px] font-black bg-amber-500/20 border border-amber-400/40">👑 Nur Admin</span></div>
+              <span class="text-[11px] t-mut tabular">${hist.length} ${hist.length===1?'Wechsel':'Wechsel'}</span>
+            </div>
+            ${hist.length?`<div class="space-y-1.5 max-h-52 overflow-y-auto pr-1">${hist.map(h=>`<div class="p-2 rounded-lg bg-black/25 border bdr-line flex flex-wrap items-center justify-between gap-2 text-xs">
+              <div class="flex flex-wrap items-center gap-1.5 font-bold min-w-0">
+                <span class="t-mut line-through break-all">${esc(h.from||'—')}</span>
+                <span class="text-amber-400 font-black">→</span>
+                <span class="text-emerald-300 font-black break-all">${esc(h.to||'—')}</span>
+              </div>
+              <span class="text-[11px] t-mut tabular shrink-0">🕒 ${esc(h.at||'—')}</span>
+            </div>`).join('')}</div>`:`<div class="text-xs t-mut italic py-1">Noch keine Namensänderungen protokolliert.</div>`}
+          </div>`;
+        }
+        const pwOrAdminSecHtml=isSelf?`<div class="subcard p-3.5 space-y-2.5">
+            <div class="text-xs sm:text-sm font-extrabold text-acc">🔑 Passwort ändern</div>
+            <div class="grid grid-cols-1 sm:grid-cols-12 gap-2 items-center">
+              <div class="sm:col-span-5"><input id="inpProfileNewPass" type="password" autocomplete="new-password" placeholder="Neues Passwort..." class="inp w-full text-xs font-bold py-2"/></div>
+              <div class="sm:col-span-5"><input id="inpProfileNewPass2" type="password" autocomplete="new-password" placeholder="Passwort wiederholen..." class="inp w-full text-xs font-bold py-2"/></div>
+              <div class="sm:col-span-2"><button type="button" data-action="profile-save-pw" class="btn btn-ok w-full py-2 text-xs font-extrabold">💾 Speichern</button></div>
+            </div>
+          </div>`:(CLOUD.isAdmin===true?`<div class="subcard p-3.5 space-y-2.5 border border-amber-400/45 bg-amber-500/10">
+            <div class="text-xs sm:text-sm font-extrabold text-amber-300">👑 Admin-Aktionen für „${esc(targetKey)}“</div>
+            <div class="flex flex-wrap items-center gap-2">
+              <button type="button" data-action="admin-toggle-gm" data-user="${esc(targetKey)}" class="btn py-1.5 px-3 text-xs font-extrabold ${isGm?'border-purple-400/70 bg-purple-500/25 text-purple-200':'bdr-line'}">${isGm?'🎲 Spielleiter entfernen':'🎲 Zum Spielleiter ernennen'}</button>
+              <button type="button" data-action="admin-reset-user-pw" data-user="${esc(targetKey)}" class="btn py-1.5 px-3 text-xs font-extrabold border-amber-400/60 bg-amber-500/15 text-amber-200">🔑 Passwort auf 1234 zurücksetzen</button>
+            </div>
+          </div>`:'');
+        m.innerHTML=modalShell(`👤 Benutzerprofil: ${esc(targetKey)}`,isSelf?'Dein persönlicher Account – Name, Passwort &amp; User-ID':'👑 Admin-Profilansicht &amp; Account-Verwaltung',
+          `<div class="space-y-4">
+            <div class="subcard p-4 border-2 bdr-acc bg-acc-soft/20 flex flex-col sm:flex-row items-start sm:items-center gap-4">
+              <div class="flex flex-col items-center gap-1.5 shrink-0">
+                <button type="button" data-action="open-user-avatar" data-user="${esc(targetKey)}" data-tip="Profilbild ansehen / ändern" class="w-20 h-20 rounded-2xl overflow-hidden border-2 bdr-acc bg-black/30 flex flex-col items-center justify-center shrink-0 shadow-lg cursor-pointer hover:brightness-110 transition-all">
+                  ${avatarUrl?`<img src="${avatarUrl}" class="w-full h-full object-cover" alt="${esc(targetKey)}"/>`:`<span class="text-2xl leading-none">👤</span><span class="text-[10px] font-extrabold text-acc mt-1">Profilbild</span>`}
+                </button>
+                ${canViewUserProfile(targetKey)?`<button type="button" data-action="open-user-avatar" data-user="${esc(targetKey)}" class="btn py-0.5 px-2 text-[11px] font-bold whitespace-nowrap">🖼️ Profilbild ändern</button>`:``}
+              </div>
+              <div class="min-w-0 flex-1 space-y-2">
+                <div class="flex flex-wrap items-center gap-2">
+                  <span class="text-lg sm:text-xl font-black tracking-tight break-all">${esc(targetKey)}</span>
+                  ${isGm?`<span class="px-2 py-0.5 rounded-md text-[11px] font-black bg-purple-500/25 text-purple-200 border border-purple-400/50">🎲 Spielleiter</span>`:''}
+                  ${isTargetAdmin?`<span class="px-2 py-0.5 rounded-md text-[11px] font-black bg-amber-500/25 text-amber-300 border border-amber-400/50">👑 Admin</span>`:(!isSelf&&CLOUD.isAdmin===true?`<span class="px-2 py-0.5 rounded-md text-[11px] font-black bg-amber-500/20 text-amber-300 border border-amber-400/45">👑 Admin-Ansicht</span>`:'')}
+                </div>
+                <div class="flex flex-wrap items-center gap-1.5 text-[11px]">
+                  <span class="pill cursor-default py-0.5 px-2.5 tabular">${ownCharCnt} eigene ${ownCharCnt===1?'Charakter':'Charaktere'}</span>
+                  <span class="pill cursor-default py-0.5 px-2.5 tabular">${createdAt?`Registriert seit ${esc(createdAt)}`:'Registrierter Account'}</span>
+                </div>
+                <div class="pt-1 flex flex-wrap items-center gap-2 text-xs">
+                  <span class="text-[11px] font-extrabold t-mut uppercase tracking-wider">User-ID:</span>
+                  <code class="px-2 py-0.5 rounded-md bg-black/35 border bdr-line font-mono text-[11px] sm:text-xs text-acc select-all break-all">${esc(userIdVal||'—')}</code>
+                  <button type="button" data-action="copy-user-id" data-uid="${esc(userIdVal)}" class="btn py-0.5 px-2.5 text-[11px] font-extrabold">📋 Kopieren</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="subcard p-3.5 space-y-2.5">
+              <div class="flex flex-wrap items-center justify-between gap-2">
+                <div class="text-xs sm:text-sm font-extrabold text-acc">✏️ Benutzernamen ändern</div>
+                <span class="text-[11px] t-mut">Alle Charaktere, Kampagnen &amp; Beiträge werden automatisch mitgenommen.</span>
+              </div>
+              <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                <input id="inpProfileNewName" type="text" maxlength="40" value="${esc(targetKey)}" placeholder="Neuer Benutzername..." class="inp flex-1 min-w-0 text-sm font-bold py-2 px-3"/>
+                <button type="button" data-action="profile-rename-user" class="btn btn-pri py-2 px-4 text-xs font-extrabold shrink-0">✏️ Namen ändern</button>
+              </div>
+            </div>
+
+            ${pwOrAdminSecHtml}
+            ${adminHistoryHtml}
+          </div>`,
+          `<button type="button" data-action="close-modal" class="btn btn-pri px-6">Schließen</button>`,'max-w-xl');
         return;
       }
       if(UI.modal==='imgMenu'||UI.modal==='avatar'){
@@ -10342,6 +10869,19 @@
           if(CLOUD.isAdmin||canManageCampaign(CLOUD.activeCampaignId)||c?.img) openImgMenu('campImg',CLOUD.activeCampaignId);
           break;
         }
+        case 'open-user-avatar': {
+          const raw=el.dataset.user||UI.profileUser||CLOUD.currentUser||'';
+          const targetKey=findUserKeyByName(raw)||findUserKeyById(raw);
+          if(!targetKey) break;
+          if(!canViewUserProfile(targetKey)&&!getUserAvatar(targetKey)){
+            toast('🔒 Du kannst nur dein eigenes Profilbild bearbeiten.');
+            break;
+          }
+          const retModal=el.dataset.return!==undefined?el.dataset.return:'userProfile';
+          if(retModal==='userProfile') UI.profileUser=targetKey;
+          openImgMenu('userAvatar',targetKey,retModal);
+          break;
+        }
         case 'img-menu-upload': {
           const ctx=getImgMenuContext();
           if(ctx&&ctx.canEdit&&ctx.fileInputId) $(ctx.fileInputId)?.click();
@@ -10532,9 +11072,10 @@
           const u=($('inpLobbyUser')?.value||'').trim(), p=($('inpLobbyPass')?.value||'').trim(), p2=($('inpLobbyPass2')?.value||'').trim();
           if(!u||!p){toast('⚠️ Bitte Spielername und Passwort eingeben.');break;}
           if(p!==p2){toast('⚠️ Die beiden Passwörter stimmen nicht überein!');break;}
-          const exKey=Object.keys(CLOUD.registry.users||{}).find(k=>k.toLowerCase()===u.toLowerCase());
+          const exKey=findUserKeyByName(u);
           if(exKey){toast(`⚠️ Account „${exKey}“ existiert bereits – bitte auf „Anmelden“ klicken.`);break;}
-          CLOUD.registry.users[u]={passHash:simpleHash(p),createdAt:stamp()};
+          CLOUD.registry.users[u]={userId:'usr_'+uid(),passHash:simpleHash(p),createdAt:stamp(),avatar:'',nameHistory:[]};
+          ensureAllRegistryUsers();
           CLOUD.currentUser=u;
           try{loadLobbyStyleForCurrentUser();applyTheme();localStorage.setItem('scherbensturm_cloud_user',u);}catch(e){}
           renderHeader(); refreshUserNotificationsBg(false);
@@ -10544,7 +11085,8 @@
         case 'user-login': {
           const u=($('inpLobbyUser')?.value||'').trim(), p=($('inpLobbyPass')?.value||'').trim();
           if(!u||!p){toast('⚠️ Bitte Spielername und Passwort eingeben.');break;}
-          const exKey=Object.keys(CLOUD.registry.users||{}).find(k=>k.toLowerCase()===u.toLowerCase());
+          ensureAllRegistryUsers();
+          const exKey=findUserKeyByName(u);
           if(!exKey){toast(`⚠️ Account „${u}“ noch nicht gefunden – klicke auf „Registrieren“, um ihn neu anzulegen.`);break;}
           if(CLOUD.registry.users[exKey].passHash!==simpleHash(p)&&!(CLOUD.registry.adminHash&&simpleHash(p)===CLOUD.registry.adminHash)){
             toast('🔒 Passwort stimmt nicht.');break;
@@ -10560,13 +11102,14 @@
           const np1=($('inpUserNewPass')?.value||'').trim(), np2=($('inpUserNewPass2')?.value||'').trim();
           if(!np1||!np2){toast('⚠️ Bitte beide Passwortfelder ausfüllen.');break;}
           if(np1!==np2){toast('⚠️ Die beiden Passwörter stimmen nicht überein!');break;}
-          if(!CLOUD.registry.users[CLOUD.currentUser]) CLOUD.registry.users[CLOUD.currentUser]={createdAt:stamp()};
+          if(!CLOUD.registry.users[CLOUD.currentUser]) CLOUD.registry.users[CLOUD.currentUser]={userId:'usr_'+uid(),passHash:'',createdAt:stamp(),avatar:'',nameHistory:[]};
           CLOUD.registry.users[CLOUD.currentUser].passHash=simpleHash(np1);
+          ensureAllRegistryUsers();
           CLOUD.showPwChange=false;
           syncCloudRegistry(true); renderModal(); toast('🔑 Passwort erfolgreich geändert!');
           break;
         }
-        case 'user-logout': CLOUD.currentUser=''; CLOUD.showPwChange=false; CLOUD.filterMine=false; try{localStorage.removeItem('scherbensturm_cloud_user');loadLobbyStyleForCurrentUser();applyTheme();}catch(e){} renderHeader(); renderMain(); renderModal(); toast('Abgemeldet'); break;
+        case 'user-logout': CLOUD.currentUser=''; CLOUD.showPwChange=false; CLOUD.filterMine=false; ensureProfileModalAccess(); try{localStorage.removeItem('scherbensturm_cloud_user');loadLobbyStyleForCurrentUser();applyTheme();}catch(e){} renderHeader(); renderMain(); renderModal(); toast('Abgemeldet'); break;
         case 'toggle-admin-bar': CLOUD.showAdminBar=!CLOUD.showAdminBar; renderHeader(); renderMain(); renderModal(); if(CLOUD.showAdminBar) setTimeout(()=>{const p=$('inpAdminMasterPin');if(p){p.scrollIntoView({behavior:'smooth',block:'center'});p.focus();}},40); break;
         case 'toggle-user-mgmt': CLOUD.userMgmtOpen=!CLOUD.userMgmtOpen; renderModal(); break;
         case 'admin-unlock': {
@@ -10594,7 +11137,7 @@
           syncCloudRegistry(true); renderModal(); toast('👑 Neue Admin-Master-PIN im Backend gespeichert!');
           break;
         }
-        case 'admin-logout': CLOUD.isAdmin=false; CLOUD.showAdminBar=false; CLOUD.userMgmtOpen=false; D.secretMode=false; UI.lastSecretRollId=''; try{localStorage.removeItem('scherbensturm_cloud_admin');}catch(e){} renderHeader(); renderMain(); renderModal(); if(D.open) renderDice(); updateLobbyLiveDiceDOM(); toast('🔒 Admin-Modus gesperrt'); break;
+        case 'admin-logout': CLOUD.isAdmin=false; CLOUD.showAdminBar=false; CLOUD.userMgmtOpen=false; D.secretMode=false; UI.lastSecretRollId=''; ensureProfileModalAccess(); try{localStorage.removeItem('scherbensturm_cloud_admin');}catch(e){} renderHeader(); renderMain(); renderModal(); if(D.open) renderDice(); updateLobbyLiveDiceDOM(); toast('🔒 Admin-Modus gesperrt'); break;
         case 'admin-del-user': {
           if(!CLOUD.isAdmin) break;
           const u=el.dataset.user;
@@ -10615,6 +11158,7 @@
             syncCloudRegistry(true);
             delete CLOUD.registry.users[u];
             saveRegistryLocal();
+            ensureProfileModalAccess();
             renderHeader(); renderMain(); renderModal();
             toast(`🗑️ Account „${u}“ dauerhaft entfernt`);
           }
@@ -10627,6 +11171,74 @@
             CLOUD.registry.users[u].passHash=simpleHash('1234');
             syncCloudRegistry(true); renderModal(); toast(`🔑 Passwort für „${u}“ auf 1234 zurückgesetzt`);
           }
+          break;
+        }
+        case 'open-user-profile': {
+          const u=el.dataset.user||CLOUD.currentUser||'';
+          openUserProfile(u);
+          break;
+        }
+        case 'open-user-avatar': {
+          const u=el.dataset.user||UI.profileUser||'';
+          if(!canViewUserProfile(u)){toast('🔒 Du kannst nur dein eigenes Profil öffnen.');break;}
+          toast('🖼️ Profilbild-Upload wird in Phase 3 freigeschaltet.');
+          break;
+        }
+        case 'copy-user-id': {
+          const targetKey=findUserKeyByName(UI.profileUser)||findUserKeyById(UI.profileUser);
+          if(!targetKey||!canViewUserProfile(targetKey)){toast('🔒 Keine Berechtigung.');break;}
+          const idToCopy=String(el.dataset.uid||CLOUD.registry?.users?.[targetKey]?.userId||'').trim();
+          if(!idToCopy){toast('⚠️ Keine User-ID vorhanden.');break;}
+          if(navigator.clipboard?.writeText){
+            navigator.clipboard.writeText(idToCopy).then(()=>toast('📋 User-ID kopiert!')).catch(()=>toast(`User-ID: ${idToCopy}`));
+          }else{
+            try{
+              const ta=document.createElement('textarea');
+              ta.value=idToCopy;ta.style.position='fixed';ta.style.opacity='0';
+              document.body.appendChild(ta);ta.select();document.execCommand('copy');ta.remove();
+              toast('📋 User-ID kopiert!');
+            }catch(e){toast(`User-ID: ${idToCopy}`);}
+          }
+          break;
+        }
+        case 'profile-rename-user': {
+          const targetKey=findUserKeyByName(UI.profileUser)||findUserKeyById(UI.profileUser);
+          if(!targetKey||!canViewUserProfile(targetKey)){
+            toast('🔒 Du kannst nur dein eigenes Profil bearbeiten.');
+            break;
+          }
+          const newName=($('inpProfileNewName')?.value||'').trim();
+          if(!newName){toast('⚠️ Bitte einen neuen Benutzernamen eingeben.');break;}
+          el.disabled=true;
+          (async()=>{
+            try{
+              const ok=await renameUserAccount(targetKey,newName);
+              if(ok){
+                UI.profileUser=findUserKeyByName(newName)||newName;
+              }
+            }finally{
+              if(UI.modal==='userProfile') renderModal();
+            }
+          })();
+          break;
+        }
+        case 'profile-save-pw': {
+          const targetKey=findUserKeyByName(UI.profileUser)||findUserKeyById(UI.profileUser);
+          const isSelf=Boolean(targetKey&&CLOUD.currentUser&&CLOUD.currentUser.trim().toLowerCase()===targetKey.toLowerCase());
+          if(!targetKey||!isSelf||!canViewUserProfile(targetKey)){
+            toast('🔒 Du kannst hier nur dein eigenes Passwort ändern.');
+            break;
+          }
+          const np1=($('inpProfileNewPass')?.value||'').trim(), np2=($('inpProfileNewPass2')?.value||'').trim();
+          if(!np1||!np2){toast('⚠️ Bitte beide Passwortfelder ausfüllen.');break;}
+          if(np1!==np2){toast('⚠️ Die beiden Passwörter stimmen nicht überein!');break;}
+          if(!CLOUD.registry.users[targetKey]) CLOUD.registry.users[targetKey]={userId:'usr_'+uid(),passHash:'',createdAt:stamp(),avatar:'',nameHistory:[]};
+          CLOUD.registry.users[targetKey].passHash=simpleHash(np1);
+          ensureAllRegistryUsers();
+          saveRegistryLocal();
+          syncCloudRegistry(true);
+          renderModal();
+          toast('🔑 Passwort erfolgreich geändert!');
           break;
         }
         case 'claim-char': {
@@ -11979,6 +12591,15 @@
       const cid=UI.imgTargetKind==='campImg'&&UI.imgTargetId?UI.imgTargetId:CLOUD.activeCampaignId;
       if(!f||!(CLOUD.isAdmin||canManageCampaign(cid))) return;
       const ctx=getImgMenuContext('campImg',cid);
+      compressImg(f,ctx.maxDim,ctx.quality,dataUrl=>applyImgUrlForContext(ctx,dataUrl,false));
+    });
+    $('fileUserAvatar')?.addEventListener('change',e=>{
+      const f=e.target.files?.[0]; e.target.value='';
+      const rawTarget=(UI.imgTargetKind==='userAvatar'&&UI.imgTargetId)?UI.imgTargetId:(UI.profileUser||CLOUD.currentUser);
+      const targetKey=findUserKeyByName(rawTarget)||findUserKeyById(rawTarget);
+      if(!f||!targetKey||!canViewUserProfile(targetKey)) return;
+      const ctx=getImgMenuContext('userAvatar',targetKey);
+      if(!ctx||!ctx.canEdit) return;
       compressImg(f,ctx.maxDim,ctx.quality,dataUrl=>applyImgUrlForContext(ctx,dataUrl,false));
     });
     document.addEventListener('change',e=>{
