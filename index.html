@@ -533,7 +533,7 @@
       }
       return list;
     }
-    let CLOUD={serverUrl:'',list:[],loading:false,syncing:false,error:'',lastSyncTs:'',viewingRemote:false,remoteCharId:'',confirmDelCloudId:null,confirmDelCampPageId:null,filterMine:false,currentUser:'',isAdmin:false,showAdminBar:false,userMgmtOpen:false,showPwChange:false,activeCampaignId:'default',campAction:'',newCharOpen:false,newCharName:'',newCharAncestry:'',newCharConcept:'',newCharCampId:'default',publicNotesOpen:true,activePublicPageKey:'',registryLoaded:false,diceFeed:[],secretRolls:[],diceConnected:false,diceToast:true,diceCollapsed:false,lobbyDiceH:340,galleryCollapsed:false,confirmClearDice:false,registry:{users:{},claims:{},charCampaigns:{},publicNotes:{},campaignSharedNotes:{},deletedCharIds:[],campaigns:[{id:'default',name:'Ohne Kampagne / Allgemein',allowedUsers:[],gmUsers:[],img:''}],gmUsers:[],lobbyLogo:'',adminHash:'',diceFeed:[],diceClearedAt:0,diceClearedByCamp:{}}}, cloudSyncTimer=null, liveDiceES=null, liveDiceBC=null, liveDiceTopicCur='', liveDicePollTimer=null, registryPushInFlight=0, lastRegistryPushMs=0;
+    let CLOUD={serverUrl:'',list:[],loading:false,syncing:false,error:'',lastSyncTs:'',viewingRemote:false,remoteCharId:'',confirmDelCloudId:null,confirmDelCampPageId:null,filterMine:false,currentUser:'',isAdmin:false,showAdminBar:false,userMgmtOpen:false,activeCampaignId:'default',campAction:'',newCharOpen:false,newCharName:'',newCharAncestry:'',newCharConcept:'',newCharCampId:'default',publicNotesOpen:true,activePublicPageKey:'',registryLoaded:false,diceFeed:[],secretRolls:[],diceConnected:false,diceToast:true,diceCollapsed:false,lobbyDiceH:340,galleryCollapsed:false,confirmClearDice:false,registry:{users:{},claims:{},charCampaigns:{},publicNotes:{},campaignSharedNotes:{},deletedCharIds:[],campaigns:[{id:'default',name:'Ohne Kampagne / Allgemein',allowedUsers:[],gmUsers:[],img:''}],gmUsers:[],lobbyLogo:'',adminHash:'',diceFeed:[],diceClearedAt:0,diceClearedByCamp:{}}}, cloudSyncTimer=null, liveDiceES=null, liveDiceBC=null, liveDiceTopicCur='', liveDicePollTimer=null, registryPushInFlight=0, lastRegistryPushMs=0;
     let PWLIB={loaded:false,loading:false,saving:false,error:'',repoPacks:[],cloudPacks:[],tab:'server',search:'',filterCat:'',filterTier:'',selectedPackId:'',openCats:{},openPacks:{},openAugFolders:{},selSecIds:{},selPwIds:{},selAugIds:{},targetSecId:'',dedupeMode:'skipExisting',lastLoadedTs:'',adminSrc:'all',adminName:'',adminCat:'Allgemein',adminDesc:'',adminIsBasis:false,confirmDelPackId:''}, pwLibFetchPromise=null;
     const simpleHash=str=>{let h=2166136261;const s=String(str||'');for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619);}return (h>>>0).toString(36);};
     try{
@@ -3379,6 +3379,7 @@
           },'');
         }catch(e){}
       }
+      if(UI.profileUser&&isOldUser(UI.profileUser)) UI.profileUser=cleanNew;
       renderHeader();
       renderMain();
       renderModal();
@@ -7027,7 +7028,6 @@
                 <div class="flex flex-wrap items-center gap-1.5 mt-2">
                   <button type="button" data-action="toggle-lobby-filter" class="btn py-1 px-2.5 text-xs ${CLOUD.filterMine?'btn-pri':''}">${CLOUD.filterMine?`Nur meine Charaktere (${myCampCnt})`:`Alle Charaktere (${campCharList.length})`}</button>
                   <button type="button" data-action="open-user-profile" data-user="${esc(CLOUD.currentUser)}" data-tip="Eigenes Profil öffnen (Name, Passwort, User-ID, Profilbild)" class="btn py-1 px-2.5 text-xs bdr-acc bg-acc-soft text-acc">👤 Profil</button>
-                  <button type="button" data-action="toggle-user-pw-change" class="btn py-1 px-2.5 text-xs ${CLOUD.showPwChange?'btn-pri':''}">🔑 Passwort ändern</button>
                   <button type="button" data-action="toggle-admin-bar" class="btn py-1 px-2.5 text-xs ${CLOUD.isAdmin?'!border-amber-400 !bg-amber-500/20 text-amber-300':'opacity-85'}">👑 Admin</button>
                   <button type="button" data-action="copy-share-link" data-url="${esc(lobbyUrl)}" class="btn py-1 px-2.5 text-xs">🔗 Lobby-Link</button>
                   <button type="button" data-action="user-logout" class="btn btn-err py-1 px-2.5 text-xs">Abmelden</button>
@@ -7039,11 +7039,6 @@
               <button type="button" data-action="open-local-sheet" data-tip="Öffnet den lokal gespeicherten Charakterbogen (oder einen Test-Bogen) direkt ohne Cloud-Zwang – ideal zum lokalen Testen vor dem GitHub-Upload" class="btn py-2.5 px-4 text-xs sm:text-sm font-extrabold border-emerald-500/60 bg-emerald-500/15 text-emerald-300">🛠️ Lokalen Bogen öffnen / testen</button>
             </div>
           </div>
-          ${CLOUD.showPwChange?`<div class="grid grid-cols-1 sm:grid-cols-12 gap-2 pt-3 border-t bdr-line items-center">
-            <div class="sm:col-span-5"><input id="inpUserNewPass" type="password" placeholder="Neues Passwort..." class="inp w-full text-xs font-bold"/></div>
-            <div class="sm:col-span-5"><input id="inpUserNewPass2" type="password" placeholder="Neues Passwort wiederholen..." class="inp w-full text-xs font-bold"/></div>
-            <div class="sm:col-span-2 flex gap-1.5"><button type="button" data-action="user-save-new-pw" class="btn btn-ok py-1.5 px-3 text-xs w-full">💾 Speichern</button></div>
-          </div>`:''}
           `}
 
           ${CLOUD.showAdminBar||CLOUD.isAdmin?`<div class="p-3.5 rounded-xl border border-amber-400/50 bg-amber-500/10 space-y-2.5 text-xs">
@@ -8607,7 +8602,7 @@
               ${hasImg?`<button type="button" data-action="img-menu-zoom" class="btn bdr-acc bg-acc-soft text-acc py-1.5 px-4 text-xs">🔍 Großansicht öffnen</button>`:''}
             </div>
           </div>`,
-          `${ctx.canEdit&&hasImg?`<button type="button" data-action="img-menu-remove" class="btn btn-err mr-auto">🗑️ Bild entfernen</button>`:''}<button type="button" data-action="close-modal" class="btn px-5">${UI.imgReturnModal==='settings'?'Zurück':'Schließen'}</button>`,'max-w-md');
+          `${ctx.canEdit&&hasImg?`<button type="button" data-action="img-menu-remove" class="btn btn-err mr-auto">🗑️ Bild entfernen</button>`:''}<button type="button" data-action="close-modal" class="btn px-5">${UI.imgReturnModal?'Zurück':'Schließen'}</button>`,'max-w-md');
         return;
       }
       if(UI.modal==='dupPwName'&&UI.dupPwWarn){
@@ -11097,19 +11092,7 @@
           renderModal(); toast(`🔑 Willkommen zurück, ${exKey}!`);
           break;
         }
-        case 'toggle-user-pw-change': CLOUD.showPwChange=!CLOUD.showPwChange; renderModal(); break;
-        case 'user-save-new-pw': {
-          const np1=($('inpUserNewPass')?.value||'').trim(), np2=($('inpUserNewPass2')?.value||'').trim();
-          if(!np1||!np2){toast('⚠️ Bitte beide Passwortfelder ausfüllen.');break;}
-          if(np1!==np2){toast('⚠️ Die beiden Passwörter stimmen nicht überein!');break;}
-          if(!CLOUD.registry.users[CLOUD.currentUser]) CLOUD.registry.users[CLOUD.currentUser]={userId:'usr_'+uid(),passHash:'',createdAt:stamp(),avatar:'',nameHistory:[]};
-          CLOUD.registry.users[CLOUD.currentUser].passHash=simpleHash(np1);
-          ensureAllRegistryUsers();
-          CLOUD.showPwChange=false;
-          syncCloudRegistry(true); renderModal(); toast('🔑 Passwort erfolgreich geändert!');
-          break;
-        }
-        case 'user-logout': CLOUD.currentUser=''; CLOUD.showPwChange=false; CLOUD.filterMine=false; ensureProfileModalAccess(); try{localStorage.removeItem('scherbensturm_cloud_user');loadLobbyStyleForCurrentUser();applyTheme();}catch(e){} renderHeader(); renderMain(); renderModal(); toast('Abgemeldet'); break;
+        case 'user-logout': CLOUD.currentUser=''; CLOUD.filterMine=false; ensureProfileModalAccess(); try{localStorage.removeItem('scherbensturm_cloud_user');loadLobbyStyleForCurrentUser();applyTheme();}catch(e){} renderHeader(); renderMain(); renderModal(); toast('Abgemeldet'); break;
         case 'toggle-admin-bar': CLOUD.showAdminBar=!CLOUD.showAdminBar; renderHeader(); renderMain(); renderModal(); if(CLOUD.showAdminBar) setTimeout(()=>{const p=$('inpAdminMasterPin');if(p){p.scrollIntoView({behavior:'smooth',block:'center'});p.focus();}},40); break;
         case 'toggle-user-mgmt': CLOUD.userMgmtOpen=!CLOUD.userMgmtOpen; renderModal(); break;
         case 'admin-unlock': {
@@ -11176,12 +11159,6 @@
         case 'open-user-profile': {
           const u=el.dataset.user||CLOUD.currentUser||'';
           openUserProfile(u);
-          break;
-        }
-        case 'open-user-avatar': {
-          const u=el.dataset.user||UI.profileUser||'';
-          if(!canViewUserProfile(u)){toast('🔒 Du kannst nur dein eigenes Profil öffnen.');break;}
-          toast('🖼️ Profilbild-Upload wird in Phase 3 freigeschaltet.');
           break;
         }
         case 'copy-user-id': {
