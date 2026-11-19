@@ -119,7 +119,7 @@
   <button type="button" data-action="open-info" data-tip="Regel-Wiki (Würfelsystem, Steigerung, Glossar) &amp; Patchnotes" class="fixed bottom-5 left-5 z-40 w-12 h-12 rounded-2xl btn-pri font-serif italic font-black text-2xl shadow-xl">i</button>
   <div id="toast" class="fixed bottom-5 left-1/2 -translate-x-1/2 z-[90] px-4 py-2 rounded-xl bg-slate-900 text-white border border-slate-700 text-xs font-bold shadow-xl opacity-0 transition-opacity duration-200"></div>
   <div id="tooltip" class="fixed z-[90] max-w-[calc(100vw-24px)] sm:max-w-xs px-3 py-2 rounded-xl text-xs font-medium bg-slate-950/95 text-slate-100 border border-slate-700 shadow-2xl opacity-0 transition-opacity duration-150" style="top:-9999px;left:-9999px"></div>
-  <input id="fileAvatar" type="file" accept="image/*" class="hidden" /><input id="fileBg" type="file" accept="image/*" class="hidden" /><input id="fileItemImg" type="file" accept="image/*" class="hidden" /><input id="fileBioImg" type="file" accept="image/*" class="hidden" /><input id="fileImport" type="file" accept=".json,application/json" class="hidden" /><input id="filePwImport" type="file" accept=".json,application/json" class="hidden" /><input id="fileLobbyLogo" type="file" accept="image/*" class="hidden" /><input id="fileCampImg" type="file" accept="image/*" class="hidden" /><input id="fileUserAvatar" type="file" accept="image/*" class="hidden" />
+  <input id="fileAvatar" type="file" accept="image/*" class="hidden" /><input id="fileBg" type="file" accept="image/*" class="hidden" /><input id="fileItemImg" type="file" accept="image/*" class="hidden" /><input id="fileBioImg" type="file" accept="image/*" class="hidden" /><input id="fileImport" type="file" accept=".json,application/json" class="hidden" /><input id="filePwImport" type="file" accept=".json,application/json" class="hidden" /><input id="fileLobbyLogo" type="file" accept="image/*" class="hidden" /><input id="fileCampImg" type="file" accept="image/*" class="hidden" /><input id="fileUserAvatar" type="file" accept="image/*" class="hidden" /><input id="fileAdminIcon" type="file" accept="image/png,image/webp,image/svg+xml,image/jpeg,image/gif,image/*" class="hidden" />
   <script>
   (function(){
     'use strict';
@@ -172,6 +172,33 @@
       {k:'entschlossen',name:'Entschlossen',isPos:true,group:'AU_WK',attrs:['AU','WK'],statKey:'mlp',statLbl:'akt. & max. mLP',baseStat:2,baseAdv:1,hasIniChoice:false,desc:'Deine aktuellen und maximalen mLP sind um 2 pro Stapel erhöht. Du hast +1 Vorteil pro Stapel auf alle AU- und WK-Tests.'},
       {k:'verunsichert',name:'Verunsichert',isPos:false,group:'AU_WK',attrs:['AU','WK'],statKey:'mlp',statLbl:'akt. & max. mLP',baseStat:-2,baseAdv:1,hasIniChoice:false,desc:'Deine aktuellen und maximalen mLP sind um 2 pro Stapel verringert. Du hast +1 Nachteil pro Stapel auf alle AU- und WK-Tests.'}
     ];
+    const SYSTEM_ICON_DEFS=[
+      {key:'phase_ebbe',group:'phase',groupLabel:'Kampfphasen',label:'Ebbephase'},
+      {key:'phase_flut',group:'phase',groupLabel:'Kampfphasen',label:'Flutphase'},
+      ...STATUS_DEFS.map(d=>({key:`status_${d.k}`,group:'status',groupLabel:'Statuseffekte',label:d.name,statusKey:d.k,isPos:Boolean(d.isPos)}))
+    ];
+    let CUSTOM_ICONS = { loaded:false, loading:false, saving:false, error:'', lastLoadedTs:'', icons:{} };
+    const DEFAULT_SYSTEM_ICON_SVGS={
+      phase_ebbe:(cls)=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="${cls} shrink-0 pointer-events-none"><path d="M16.5 4.2a5 5 0 1 0 3.3 7.6 4 4 0 0 1-3.3-7.6z" fill="currentColor" fill-opacity=".24"/><path d="M2.5 15.5c2 0 2.5-1.4 4.5-1.4s2.5 1.4 4.5 1.4 2.5-1.4 4.5-1.4 2.5 1.4 5.5 1.4"/><path d="M4 19.5c2 0 2.5-1.2 4.5-1.2s2.5 1.2 4.5 1.2 2.5-1.2 4.5-1.2 1.8.8 2.5 1.2" opacity=".7"/></svg>`,
+      phase_flut:(cls)=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="${cls} shrink-0 pointer-events-none"><path d="M2.5 16.5c2.2-5 6.4-9.5 12-9.5 2.7 0 4.5 1.3 4.5 3.3 0 1.8-1.4 2.8-2.9 2.8-1.4 0-2.3-.9-2.1-2.2" fill="currentColor" fill-opacity=".2"/><path d="M2.5 16.5c2.3 0 3.2-1.8 5.5-1.8s3.2 1.8 5.5 1.8 3.2-1.8 5.5-1.8c1 0 1.8.4 2.5 1"/><path d="M4.5 20c2.2 0 3-1.4 5-1.4s2.8 1.4 5 1.4 2.8-1.4 5-1.4" opacity=".75"/><path d="M18.5 3.5l.6 1.5 1.4.6-1.4.6-.6 1.5-.6-1.5-1.4-.6 1.4-.6z" fill="currentColor" stroke="none"/></svg>`,
+      status_gestaerkt:(cls)=>`<svg viewBox="0 0 24 24" fill="none" stroke="#34d399" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="${cls} shrink-0 pointer-events-none"><path d="M12 3l7 3v5.5c0 4.5-3 7.8-7 9.5-4-1.7-7-5-7-9.5V6l7-3z" fill="#34d399" fill-opacity=".18"/><path d="M9 13l3-3 3 3M12 10v6"/></svg>`,
+      status_geschwaecht:(cls)=>`<svg viewBox="0 0 24 24" fill="none" stroke="#fb7185" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="${cls} shrink-0 pointer-events-none"><path d="M12 3l7 3v5.5c0 4.5-3 7.8-7 9.5-4-1.7-7-5-7-9.5V6l7-3z" fill="#fb7185" fill-opacity=".16"/><path d="M13 6l-2.5 4.5H14L11 16"/></svg>`,
+      status_beweglich:(cls)=>`<svg viewBox="0 0 24 24" fill="none" stroke="#34d399" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="${cls} shrink-0 pointer-events-none"><path d="M13.5 2.5L5.5 13h6l-1 8.5L18.5 11h-6l1-8.5z" fill="#34d399" fill-opacity=".2"/></svg>`,
+      status_eingeschraenkt:(cls)=>`<svg viewBox="0 0 24 24" fill="none" stroke="#fb7185" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="${cls} shrink-0 pointer-events-none"><rect x="3.5" y="9.5" width="7" height="5" rx="2.5" fill="#fb7185" fill-opacity=".16"/><rect x="13.5" y="9.5" width="7" height="5" rx="2.5" fill="#fb7185" fill-opacity=".16"/><path d="M9 12h6M5 5l14 14"/></svg>`,
+      status_konzentriert:(cls)=>`<svg viewBox="0 0 24 24" fill="none" stroke="#34d399" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="${cls} shrink-0 pointer-events-none"><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6z" fill="#34d399" fill-opacity=".16"/><circle cx="12" cy="12" r="2.8" fill="#34d399"/></svg>`,
+      status_abgelenkt:(cls)=>`<svg viewBox="0 0 24 24" fill="none" stroke="#fb7185" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="${cls} shrink-0 pointer-events-none"><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6z" fill="#fb7185" fill-opacity=".14"/><circle cx="12" cy="12" r="2.3"/><path d="M4 4l16 16"/></svg>`,
+      status_entschlossen:(cls)=>`<svg viewBox="0 0 24 24" fill="none" stroke="#34d399" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="${cls} shrink-0 pointer-events-none"><path d="M3.5 17.5L5 7.5l4.5 4 2.5-5.5 2.5 5.5 4.5-4 1.5 10z" fill="#34d399" fill-opacity=".2"/><path d="M4.5 20h15"/></svg>`,
+      status_verunsichert:(cls)=>`<svg viewBox="0 0 24 24" fill="none" stroke="#fb7185" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="${cls} shrink-0 pointer-events-none"><path d="M3.5 17.5L5 8l4 3.5L12 6l3 5.5L19 8l1.5 9.5z" fill="#fb7185" fill-opacity=".16"/><path d="M12 10.5v3.5M12 16.6h.01M4.5 20h15"/></svg>`
+    };
+    function renderSystemIconHtml(iconKey, sizeCls = 'w-4 h-4'){
+      const url=String(CUSTOM_ICONS?.icons?.[iconKey]||'').trim();
+      if(url&&/^(?:data:image\/|https?:\/\/|\/|\.\/)/i.test(url)){
+        return `<img src="${esc(url)}" alt="" class="${sizeCls} object-contain shrink-0 rounded-sm pointer-events-none"/>`;
+      }
+      const fn=DEFAULT_SYSTEM_ICON_SVGS[iconKey];
+      if(fn) return fn(sizeCls);
+      return `<span aria-hidden="true" class="${sizeCls} inline-flex items-center justify-center shrink-0 pointer-events-none">✦</span>`;
+    }
     const DEF_SEC_COLS={lp:'#f43f5e',ini:'#f59e0b',mlp:'#818cf8',ap:'#fde047',map:'#38bdf8'};
     const SEC_META={lp:'LP • Lebenspunkte',ini:'Ini • Initiative',mlp:'mLP • Mentale LP',ap:'AP • Ausdauerpunkte',map:'mAP • Mentale Ausdauerpunkte',cres:'Benutzerdefinierte Ressource'};
     const DEF_MAIN_ARTS=['Freiaktion','Schnellaktion','Grundaktion','Einsatz'];
@@ -422,7 +449,7 @@
       ATTRS.forEach(a=>{attributes[a.k]={vw:20,pot:0,mod:0,tr:[false,false,false,false,false],trNotes:['','','','',''],trSp:[null,null,null,null,null],trMsp:[null,null,null,null,null]};});
       TABS.forEach(t=>{tabStyles[t.id]=makeStyleSlot();});
       return {
-        version:11,charId:uid(),owner:'',campaignId:'default',cloudAutoSync:false,activeTab:'attributes',quickTab:'bestehen',
+        version:11,charId:uid(),owner:'',campaignId:'default',cloudAutoSync:false,activeTab:'attributes',quickTab:'bestehen',phase:'ebbe',
         profile:{name:'',ancestry:'',concept:'',avatar:''},
         appearance:{dark:true,mode:'global',editScope:'attributes',global:makeStyleSlot(),lobby:makeStyleSlot(),tabs:tabStyles},
         attrColors:{...DEF_ATTR_COLS},secColors:{...DEF_SEC_COLS},
@@ -513,7 +540,7 @@
     function renderWinResizeHandles(k){return '<div data-win-resize-w="'+k+'" title="Breite ziehen" class="win-resize-w"></div><div data-win-resize="'+k+'" title="Größe ziehen" class="win-resize-h">◢</div>';}
     let dragMouseY=null, dragScrollRaf=null;
     const savedEffRanges={};
-    let UI={inLobby:true,sheetLoaded:false,modal:null,profileUser:'',mobileHdrOpen:false,mobileLobbyMenuOpen:false,infoTab:'dice',glossSearch:'',listType:'art',ammoModalWeaponId:'',skSort:{col:'',asc:true},editSkNameId:null,imgTargetKind:'',imgTargetId:'',imgZoomOpen:false,imgReturnModal:'',confirmNew:false,confirmLog:false,confirmDelId:null,confirmDelSecId:null,confirmSecPullId:null,confirmDelSkSecId:null,confirmSkSecPullId:null,confirmDelInvSecId:null,confirmDelExSecId:null,confirmHzStep:1,openPwMenu:'',dupPwWarn:null,pwFilterOpen:false,pwFilterMode:'or',pwFilterTypes:[],pwFilterIncludeLinkedAugs:true,pwFilterArts:[],pwFilterActionSubs:[],pwFilterTags:[],pwFilterTiers:[],statusIniPromptKey:'',lastRollHtml:'',lastBlockBaseHtml:'',lastBlockFollowRes:null,lastSecretRollId:'',secretRollsCollapsed:false,colTarget:'cres',colMode:'text',colPwKind:'power',colPwId:'',colDraft:'#c084fc',attrGroupSel:'ST_KO',palBuilderOpen:false,palDraft:{name:'',isLt:false,bg:'#020617',acc:'#0ea5e9',acc2:'#6366f1',txt:'#f1f5f9',mut:'#94a3b8',btnTxt:'#ffffff'}};
+    let UI={inLobby:true,sheetLoaded:false,modal:null,profileUser:'',adminIconTargetKey:'',confirmResetAllIcons:false,mobileHdrOpen:false,mobileLobbyMenuOpen:false,infoTab:'dice',glossSearch:'',listType:'art',ammoModalWeaponId:'',skSort:{col:'',asc:true},editSkNameId:null,imgTargetKind:'',imgTargetId:'',imgZoomOpen:false,imgReturnModal:'',confirmNew:false,confirmLog:false,confirmDelId:null,confirmDelSecId:null,confirmSecPullId:null,confirmDelSkSecId:null,confirmSkSecPullId:null,confirmDelInvSecId:null,confirmDelExSecId:null,confirmHzStep:1,openPwMenu:'',dupPwWarn:null,pwFilterOpen:false,pwFilterMode:'or',pwFilterTypes:[],pwFilterIncludeLinkedAugs:true,pwFilterArts:[],pwFilterActionSubs:[],pwFilterTags:[],pwFilterTiers:[],statusIniPromptKey:'',lastRollHtml:'',lastBlockBaseHtml:'',lastBlockFollowRes:null,lastSecretRollId:'',secretRollsCollapsed:false,colTarget:'cres',colMode:'text',colPwKind:'power',colPwId:'',colDraft:'#c084fc',attrGroupSel:'ST_KO',palBuilderOpen:false,palDraft:{name:'',isLt:false,bg:'#020617',acc:'#0ea5e9',acc2:'#6366f1',txt:'#f1f5f9',mut:'#94a3b8',btnTxt:'#ffffff'}};
     const REGISTRY_ID='_lobby_meta_registry_', LIVE_TAB_ID=uid();
     const LIBRARY_ID='_power_library_';
     const REPO_LIBRARY_URL='./data/powers-library.json';
@@ -525,6 +552,8 @@
     const FEEDBACK_CACHE_KEY = 'scherbensturm_feedback_cache';
     const DEF_FB_FOLDERS = [{ id:'fb_inbox', name:'📥 Posteingang', isSystem:true }, { id:'fb_saved', name:'⭐ Aufbewahrt', isSystem:false }];
     let FEEDBACK = { loaded:false, loading:false, saving:false, error:'', lastLoadedTs:'', folders: clone(DEF_FB_FOLDERS), items:[], backlog:[], activeTab:'write', activeFolderId:'all', sortBy:'newest', selectedId:'', backlogUser:'all', draftTitle:'', draftHtml:'', replyDrafts:{}, confirmDelId:null, confirmDelFolderId:null, newFolderName:'' };
+    const ICON_STORE_ID = '_custom_icons_';
+    const CUSTOM_ICONS_CACHE_KEY = 'scherbensturm_custom_icons_cache';
     function normalizeCampaigns(rawCamps){
       const list=Array.isArray(rawCamps)?rawCamps.filter(c=>c&&typeof c==='object'&&String(c.id||'').trim()).map(c=>{
         const id=String(c.id).trim();
@@ -2936,7 +2965,7 @@
     function mergeLoaded(raw){
       if(!raw||typeof raw!=='object') return;
       const def=defaultState(), cid=String(raw.charId||def.charId), restoredTab=getSavedTabForChar(cid,raw.activeTab);
-      const rawCampId=String(raw.campaignId||raw._summary?.campaignId||CLOUD.registry?.charCampaigns?.[cid]||'default').trim()||'default'; S={...def,...raw,version:11,charId:cid,activeTab:restoredTab,owner:String(raw.owner||''),campaignId:rawCampId,cloudAutoSync:Boolean(raw.cloudAutoSync),profile:{...def.profile,...(raw.profile||{})},secondary:{...def.secondary,...(raw.secondary||{})},customRes:{...def.customRes,...(raw.customRes||{})},statusCollapsed:Boolean(raw.statusCollapsed),statusEffects:normStatusEffects(raw.statusEffects),inspiration:Math.max(0,toInt(raw.inspiration,0)),inspirationActive:Boolean(raw.inspirationActive),thresholds:{...def.thresholds,...(raw.thresholds||{})},combatNotes:{...def.combatNotes,...(raw.combatNotes||{})},progression:{...def.progression,...(raw.progression||{})},bio:{...def.bio,...(raw.bio||{})},equipNotes:raw.equipNotes??raw.equipFreeNotes??''};
+      const rawCampId=String(raw.campaignId||raw._summary?.campaignId||CLOUD.registry?.charCampaigns?.[cid]||'default').trim()||'default'; S={...def,...raw,version:11,charId:cid,activeTab:restoredTab,phase:raw.phase==='flut'?'flut':'ebbe',owner:String(raw.owner||''),campaignId:rawCampId,cloudAutoSync:Boolean(raw.cloudAutoSync),profile:{...def.profile,...(raw.profile||{})},secondary:{...def.secondary,...(raw.secondary||{})},customRes:{...def.customRes,...(raw.customRes||{})},statusCollapsed:Boolean(raw.statusCollapsed),statusEffects:normStatusEffects(raw.statusEffects),inspiration:Math.max(0,toInt(raw.inspiration,0)),inspirationActive:Boolean(raw.inspirationActive),thresholds:{...def.thresholds,...(raw.thresholds||{})},combatNotes:{...def.combatNotes,...(raw.combatNotes||{})},progression:{...def.progression,...(raw.progression||{})},bio:{...def.bio,...(raw.bio||{})},equipNotes:raw.equipNotes??raw.equipFreeNotes??''};
       if(!isHex(S.customRes.color)) S.customRes.color='#c084fc';
       S.secondary.lpRegenOvr=S.secondary.lpRegenOvr!==undefined&&S.secondary.lpRegenOvr!==null&&String(S.secondary.lpRegenOvr).trim()!==''?String(Math.max(0,toInt(S.secondary.lpRegenOvr,5))):'';
       S.secondary.mlpRegenOvr=S.secondary.mlpRegenOvr!==undefined&&S.secondary.mlpRegenOvr!==null&&String(S.secondary.mlpRegenOvr).trim()!==''?String(Math.max(0,toInt(S.secondary.mlpRegenOvr,5))):'';
@@ -3420,7 +3449,7 @@
       saveDiceFeedLocal();
       saveRegistryLocal();
       for(const cid of ownedCharIds){
-        if(!cid||cid===REGISTRY_ID||cid===LIBRARY_ID||cid===PATCHNOTES_ID||cid===FEEDBACK_ID) continue;
+        if(!cid||cid===REGISTRY_ID||cid===LIBRARY_ID||cid===PATCHNOTES_ID||cid===FEEDBACK_ID||cid===ICON_STORE_ID) continue;
         try{
           const res=await fetch(`${getCloudEndpoint()}?id=${encodeURIComponent(cid)}`,{headers:{'Accept':'application/json'}});
           if(!res.ok) continue;
@@ -3662,7 +3691,7 @@
         if(!CLOUD.registry.charCampaigns||typeof CLOUD.registry.charCampaigns!=='object') CLOUD.registry.charCampaigns={};
         if(!Array.isArray(CLOUD.registry.deletedCharIds)) CLOUD.registry.deletedCharIds=[];
         const delSet=new Set(CLOUD.registry.deletedCharIds);
-        CLOUD.list=(Array.isArray(data)?data:[]).filter(ch=>ch&&ch.id!==REGISTRY_ID&&ch.name!=='__REGISTRY__'&&ch.id!==LIBRARY_ID&&ch.name!=='__POWER_LIBRARY__'&&ch.id!==PATCHNOTES_ID&&ch.name!=='__PATCHNOTES__'&&ch.id!==FEEDBACK_ID&&ch.name!=='__FEEDBACK__'&&!delSet.has(ch.id));
+        CLOUD.list=(Array.isArray(data)?data:[]).filter(ch=>ch&&ch.id!==REGISTRY_ID&&ch.name!=='__REGISTRY__'&&ch.id!==LIBRARY_ID&&ch.name!=='__POWER_LIBRARY__'&&ch.id!==PATCHNOTES_ID&&ch.name!=='__PATCHNOTES__'&&ch.id!==FEEDBACK_ID&&ch.name!=='__FEEDBACK__'&&ch.id!==ICON_STORE_ID&&ch.name!=='__CUSTOM_ICONS__'&&!delSet.has(ch.id));
         CLOUD.list.forEach(ch=>{
           if(ch.owner&&CLOUD.registry.claims[ch.id]===undefined) CLOUD.registry.claims[ch.id]=ch.owner;
           if(CLOUD.registry.charCampaigns[ch.id]===undefined){
@@ -4522,6 +4551,142 @@
         if (UI.modal==='feedback') renderModal();
         if (typeof renderFbAdminWin==='function' && FBW?.open) renderFbAdminWin();
         if (typeof updateNotifBadges==='function') updateNotifBadges();
+      }
+    }
+    function normalizeCustomIconsMap(raw){
+      const out={};
+      if(!raw||typeof raw!=='object') return out;
+      const validKeys=new Set(SYSTEM_ICON_DEFS.map(d=>d.key));
+      Object.entries(raw).forEach(([k,v])=>{
+        if(!validKeys.has(k)||typeof v!=='string') return;
+        const val=v.trim();
+        if(/^(?:data:image\/|https?:\/\/)/i.test(val)) out[k]=val;
+      });
+      return out;
+    }
+    function loadCustomIconsCache(){
+      try{
+        const raw=localStorage.getItem(CUSTOM_ICONS_CACHE_KEY);
+        if(!raw) return null;
+        const parsed=JSON.parse(raw);
+        if(!parsed||typeof parsed!=='object') return null;
+        return {
+          icons:normalizeCustomIconsMap(parsed.icons),
+          lastLoadedTs:String(parsed.lastLoadedTs||'')
+        };
+      }catch(e){return null;}
+    }
+    function saveCustomIconsCache(){
+      try{
+        localStorage.setItem(CUSTOM_ICONS_CACHE_KEY,JSON.stringify({
+          icons:normalizeCustomIconsMap(CUSTOM_ICONS.icons),
+          lastLoadedTs:CUSTOM_ICONS.lastLoadedTs||stamp()
+        }));
+      }catch(e){}
+    }
+    {
+      const _initIconsCache=loadCustomIconsCache();
+      if(_initIconsCache){
+        CUSTOM_ICONS.icons=_initIconsCache.icons;
+        if(_initIconsCache.lastLoadedTs) CUSTOM_ICONS.lastLoadedTs=_initIconsCache.lastLoadedTs;
+      }
+    }
+    async function fetchCustomIcons(force=false){
+      if((CUSTOM_ICONS.loaded||CUSTOM_ICONS.loading)&&!force) return CUSTOM_ICONS.icons;
+      const prevJson=JSON.stringify(CUSTOM_ICONS.icons||{});
+      CUSTOM_ICONS.loading=true;
+      CUSTOM_ICONS.error='';
+      if(UI.modal==='adminIcons') renderModal();
+      try{
+        const res=await fetch(`${getCloudEndpoint()}?id=${encodeURIComponent(ICON_STORE_ID)}`,{headers:{'Accept':'application/json'}});
+        if(res.status===404){
+          CUSTOM_ICONS.icons={};
+          CUSTOM_ICONS.loaded=true;
+          CUSTOM_ICONS.lastLoadedTs=stamp();
+          CUSTOM_ICONS.error='';
+          saveCustomIconsCache();
+          return CUSTOM_ICONS.icons;
+        }
+        if(!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data=await res.json().catch(()=>null);
+        if(data&&data.error&&/not\s*found|nicht\s*gefunden/i.test(String(data.error))){
+          CUSTOM_ICONS.icons={};
+          CUSTOM_ICONS.loaded=true;
+          CUSTOM_ICONS.lastLoadedTs=stamp();
+          CUSTOM_ICONS.error='';
+          saveCustomIconsCache();
+          return CUSTOM_ICONS.icons;
+        }
+        const rawIcons=(data&&typeof data.icons==='object'&&data.icons)?data.icons:{};
+        CUSTOM_ICONS.icons=normalizeCustomIconsMap(rawIcons);
+        CUSTOM_ICONS.loaded=true;
+        CUSTOM_ICONS.lastLoadedTs=stamp();
+        CUSTOM_ICONS.error='';
+        saveCustomIconsCache();
+        return CUSTOM_ICONS.icons;
+      }catch(err){
+        const cache=loadCustomIconsCache();
+        if(cache){
+          CUSTOM_ICONS.icons=cache.icons;
+          CUSTOM_ICONS.loaded=true;
+          CUSTOM_ICONS.lastLoadedTs=cache.lastLoadedTs||CUSTOM_ICONS.lastLoadedTs;
+          CUSTOM_ICONS.error='Offline-Modus: Lokaler Icon-Cache wird angezeigt.';
+        }else{
+          CUSTOM_ICONS.loaded=false;
+          CUSTOM_ICONS.error='Standard-Icons derzeit nicht vom Server erreichbar.';
+        }
+        return CUSTOM_ICONS.icons;
+      }finally{
+        CUSTOM_ICONS.loading=false;
+        const changed=JSON.stringify(CUSTOM_ICONS.icons||{})!==prevJson;
+        if(changed){
+          renderHeader();
+          if(!UI.inLobby && S.activeTab==='attributes') renderMain();
+        }
+        if(UI.modal==='adminIcons') renderModal();
+      }
+    }
+    async function saveCustomIconsToServer(nextIcons, successMsg = ''){
+      if(!CLOUD.isAdmin) { toast('🔒 Nur der Admin kann Standard-Icons ändern.'); return false; }
+      const cleaned=normalizeCustomIconsMap(nextIcons);
+      CUSTOM_ICONS.saving=true;
+      CUSTOM_ICONS.error='';
+      if(UI.modal==='adminIcons') renderModal();
+      try{
+        const payload={
+          charId: ICON_STORE_ID,
+          profile: { name: '__CUSTOM_ICONS__' },
+          _AdminOverride: true,
+          icons: cleaned,
+          _summary: { updatedAt: stamp() }
+        };
+        const res=await fetch(getCloudEndpoint(),{
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body:JSON.stringify(payload)
+        });
+        const data=await res.json().catch(()=>({}));
+        if(!res.ok||data.error) throw new Error(data.error||`HTTP ${res.status}`);
+        CUSTOM_ICONS.icons=cleaned;
+        CUSTOM_ICONS.loaded=true;
+        CUSTOM_ICONS.lastLoadedTs=stamp();
+        CUSTOM_ICONS.error='';
+        saveCustomIconsCache();
+        toast(successMsg||'☁️ Standard-Icons auf dem Server gespeichert!');
+        return true;
+      }catch(err){
+        CUSTOM_ICONS.icons=cleaned;
+        CUSTOM_ICONS.loaded=true;
+        CUSTOM_ICONS.lastLoadedTs=stamp();
+        CUSTOM_ICONS.error='Lokal im Cache gespeichert (Server nicht erreichbar).';
+        saveCustomIconsCache();
+        toast('⚠️ Server nicht erreichbar – Standard-Icons lokal im Browser-Cache gespeichert.');
+        return true;
+      }finally{
+        CUSTOM_ICONS.saving=false;
+        renderHeader();
+        if(!UI.inLobby && S.activeTab==='attributes') renderMain();
+        if(UI.modal==='adminIcons') renderModal();
       }
     }
     function getNotifSeenKey(user=CLOUD.currentUser){
@@ -5563,6 +5728,30 @@
       </div>`;
     }
 
+    function renderPhaseToggleHtml(compact = false){
+      const isFlut=S.phase==='flut';
+      const ebbeTip='Ebbephase aktivieren (Standard)\nIn einer Ebbephase können keine Kraftaktionen eingesetzt werden.';
+      const flutTip='Flutphase aktivieren\nKraftaktionen können nur innerhalb einer Flutphase eingesetzt werden (danach folgt automatisch eine Ebbephase).';
+      if(compact){
+        const actTip=isFlut
+          ?'Aktuell: Flutphase (Tippen zum Wechseln auf Ebbephase)\nKraftaktionen können nur innerhalb einer Flutphase eingesetzt werden (danach folgt automatisch eine Ebbephase).'
+          :'Aktuell: Ebbephase (Tippen zum Wechseln auf Flutphase)\nIn einer Ebbephase können keine Kraftaktionen eingesetzt werden.';
+        const cls=isFlut
+          ?'bg-gradient-to-r from-cyan-500 to-sky-500 text-slate-950 border-cyan-300 shadow-sm ring-1 ring-cyan-200/70 font-black'
+          :'bg-gradient-to-r from-indigo-600 to-slate-700 text-white border-indigo-400 shadow-sm ring-1 ring-indigo-300/60 font-black';
+        return `<button type="button" data-action="toggle-phase" data-tip="${esc(actTip)}" aria-label="Kampfphase umschalten (aktuell ${isFlut?'Flutphase':'Ebbephase'})" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg border text-[11px] leading-tight shrink-0 cursor-pointer transition-all active:scale-95 ${cls}">${renderSystemIconHtml(isFlut?'phase_flut':'phase_ebbe','w-3.5 h-3.5')}<span>${isFlut?'Flut':'Ebbe'}</span></button>`;
+      }
+      const ebbeCls=!isFlut
+        ?'bg-gradient-to-r from-indigo-600 to-slate-700 text-white border-indigo-400 shadow-md ring-1 ring-indigo-300/60 font-black'
+        :'border-transparent bg-transparent text-indigo-300 opacity-60 hover:opacity-100 hover:bg-indigo-500/10 font-bold';
+      const flutCls=isFlut
+        ?'bg-gradient-to-r from-cyan-500 to-sky-500 text-slate-950 border-cyan-300 shadow-md ring-1 ring-cyan-200/70 font-black'
+        :'border-transparent bg-transparent text-cyan-300 opacity-60 hover:opacity-100 hover:bg-cyan-500/10 font-bold';
+      return `<div role="radiogroup" aria-label="Kampfphase" class="inline-flex items-center p-0.5 rounded-xl border bdr-line bg-black/25 gap-1 shadow-inner shrink-0">
+        <button type="button" role="radio" aria-checked="${!isFlut?'true':'false'}" data-action="set-phase" data-phase="ebbe" data-tip="${esc(ebbeTip)}" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs whitespace-nowrap cursor-pointer transition-all active:scale-95 ${ebbeCls}">${renderSystemIconHtml('phase_ebbe','w-4 h-4')}<span>Ebbephase</span></button>
+        <button type="button" role="radio" aria-checked="${isFlut?'true':'false'}" data-action="set-phase" data-phase="flut" data-tip="${esc(flutTip)}" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs whitespace-nowrap cursor-pointer transition-all active:scale-95 ${flutCls}">${renderSystemIconHtml('phase_flut','w-4 h-4')}<span>Flutphase</span></button>
+      </div>`;
+    }
     function renderHeader(){
       const liveDiceCnt=getCampaignFilteredDiceFeed().length;
       if(UI.inLobby){
@@ -5604,6 +5793,7 @@
             <div class="min-w-0 flex-1 flex items-center gap-1.5">
               <span class="font-black text-sm truncate">${esc(charDispName)}</span>
               <span class="px-1.5 py-0.5 rounded-md bg-acc-soft border bdr-acc text-acc text-[10px] font-black tabular shrink-0">St. ${P.lvl}</span>
+              ${renderPhaseToggleHtml(true)}
             </div>
           </div>
           <div class="flex items-center gap-1.5 shrink-0">
@@ -5634,14 +5824,16 @@
                   <button type="button" data-action="toggle-cnotes" data-tip="Kampagnennotizen öffnen/schließen (frei andockbar wie der Würfelassistent)" class="btn ${CN.open?'btn-pri':'bdr-acc bg-acc-soft'} text-xs font-extrabold px-3.5 py-2">📝 Kampagnennotizen</button>
                 </div>
                 <div class="flex flex-wrap items-center gap-2">
-                  <button type="button" data-action="open-lobby" data-tip="Zurück zur zentralen Lobby (?lobby=1)" class="btn py-2 px-3.5 text-xs font-extrabold ${CLOUD.viewingRemote?'!border-sky-400 !bg-sky-500/20 text-sky-300':S.cloudAutoSync?'!border-emerald-500/60 !bg-emerald-500/15 text-emerald-300':'bdr-acc bg-acc-soft'}">🏠 Lobby${CLOUD.syncing?' ⏳':S.cloudAutoSync?' ●':''}</button>${!CLOUD.viewingRemote?`<button type="button" data-action="cloud-push-now" data-tip="${esc('Charakterbogen dauerhaft in der Lobby auf dem Server speichern und für alle Geräte synchronisieren.'+(CLOUD.lastSyncTs?'
-Zuletzt in Lobby gespeichert: '+CLOUD.lastSyncTs:''))}" class="btn btn-ok min-w-[165px] py-2 px-4 text-xs sm:text-sm font-black shadow-md whitespace-nowrap">${CLOUD.syncing?'⏳ Speichert...':'☁️ In Lobby speichern'}</button>`:''}
+                  <button type="button" data-action="open-lobby" data-tip="Zurück zur zentralen Lobby (?lobby=1)" class="btn py-2 px-3.5 text-xs font-extrabold ${CLOUD.viewingRemote?'!border-sky-400 !bg-sky-500/20 text-sky-300':S.cloudAutoSync?'!border-emerald-500/60 !bg-emerald-500/15 text-emerald-300':'bdr-acc bg-acc-soft'}">🏠 Lobby${CLOUD.syncing?' ⏳':S.cloudAutoSync?' ●':''}</button>${!CLOUD.viewingRemote?`<button type="button" data-action="cloud-push-now" data-tip="${esc('Charakterbogen dauerhaft in der Lobby auf dem Server speichern und für alle Geräte synchronisieren.'+(CLOUD.lastSyncTs?'\nZuletzt in Lobby gespeichert: '+CLOUD.lastSyncTs:''))}" class="btn btn-ok min-w-[165px] py-2 px-4 text-xs sm:text-sm font-black shadow-md whitespace-nowrap">${CLOUD.syncing?'⏳ Speichert...':'☁️ In Lobby speichern'}</button>`:''}
                 </div>
               </div>
-              <div class="shrink-0 self-end xl:self-center ml-auto flex flex-wrap items-center gap-2">
-                <button type="button" data-action="open-info" data-tip="Regel-Wiki (Würfelsystem, Steigerung, Glossar) &amp; Patchnotes öffnen" class="btn py-2 px-3 text-xs font-extrabold bdr-acc bg-acc-soft whitespace-nowrap">📖 Regeln & News</button>
-                ${renderNotifBellBtnHtml()}
-                <button type="button" data-action="open-settings" data-tip="Optionen &amp; Design (JSON Export/Import, Themen, Hintergrund)" class="btn py-2 px-3.5 text-xs font-extrabold bdr-acc bg-acc-soft">⚙️ Optionen</button>
+              <div class="flex flex-col items-end gap-2 shrink-0 self-end xl:self-center ml-auto">
+                <div class="flex flex-wrap items-center justify-end gap-2">
+                  <button type="button" data-action="open-info" data-tip="Regel-Wiki (Würfelsystem, Steigerung, Glossar) &amp; Patchnotes öffnen" class="btn py-2 px-3 text-xs font-extrabold bdr-acc bg-acc-soft whitespace-nowrap">📖 Regeln & News</button>
+                  ${renderNotifBellBtnHtml()}
+                  <button type="button" data-action="open-settings" data-tip="Optionen &amp; Design (JSON Export/Import, Themen, Hintergrund)" class="btn py-2 px-3.5 text-xs font-extrabold bdr-acc bg-acc-soft">⚙️ Optionen</button>
+                </div>
+                ${renderPhaseToggleHtml(false)}
               </div>
             </div>
           </div>
@@ -5679,6 +5871,7 @@ Zuletzt in Lobby gespeichert: '+CLOUD.lastSyncTs:''))}" class="btn btn-ok min-w-
           <div class="flex flex-wrap items-center gap-2 min-w-0">
             <button type="button" data-action="toggle-status-eff" data-key="${def.k}" data-tip="${esc(def.desc+'\nKlicken zum '+(on?'Deaktivieren':'Aktivieren'))}" class="btn py-1 px-2.5 text-xs font-black shrink-0 ${on?(isPos?'btn-ok':'bg-rose-600 text-white border-rose-500'):''}">
               <span>${on?'☑':'☐'}</span>
+              ${renderSystemIconHtml('status_' + def.k, 'w-4 h-4')}
               <span>${esc(def.name)}</span>
               ${on&&v.stacks>1?`<span class="px-1.5 py-0.2 rounded bg-black/30 text-[10px] tabular">${v.stacks}×</span>`:''}
             </button>
@@ -5800,7 +5993,7 @@ Zuletzt in Lobby gespeichert: '+CLOUD.lastSyncTs:''))}" class="btn btn-ok min-w-
             <button type="button" data-action="toggle-status-sec" data-tip="${S.statusCollapsed?'Statuseffekte ausklappen':'Statuseffekte einklappen'}" class="btn w-7 h-7 p-0 text-xs font-black shrink-0">${S.statusCollapsed?'▸':'▾'}</button>
             <h3 class="text-sm sm:text-base font-extrabold cursor-help" data-tip="Positive & negative Standard-Statuseffekte.\n• Stapel-Stufe (1×, 2×, 3×...) skaliert LP/mLP/BSt/Ini und Vor-/Nachteile automatisch.\n• Werte sind jederzeit manuell überschreibbar.\n• Verrechnet live mit aktuellen/maximalen LP & mLP, Initiative, BSt, Tooltips und Würfelassistent.">⚡ Statuseffekte</h3>
             <span class="pill cursor-default text-[11px] py-0.5 px-2 tabular ${actList.length?'bdr-acc bg-acc-soft text-acc':''}">${actList.length} aktiv</span>
-            ${actList.map(v=>`<button type="button" data-action="toggle-status-eff" data-key="${v.def.k}" data-tip="${esc(v.def.name+' ('+v.stacks+'×): '+fmtSign(v.effStat)+' '+v.def.statLbl+', +'+v.effAdv+' '+(v.def.isPos?'Vort.':'Nacht.')+' auf '+v.def.attrs.join('/')+'\nKlicken zum Deaktivieren')}" class="tag ${v.def.isPos?'!border-emerald-500/50 !bg-emerald-500/15 !text-emerald-300':'!border-rose-500/50 !bg-rose-500/15 !text-rose-300'} tabular cursor-pointer">${v.def.isPos?'✨':'💀'} ${esc(v.def.name)}${v.stacks>1?` ${v.stacks}×`:''}: ${fmtSign(v.effStat)} ${v.def.statKey==='lp'?'LP':v.def.statKey==='mlp'?'mLP':v.def.statKey==='bst'?'BSt':'Ini'} | +${v.effAdv}${v.def.isPos?'V':'N'} (${v.def.attrs.join('/')}) ✕</button>`).join('')}
+            ${actList.map(v=>`<button type="button" data-action="toggle-status-eff" data-key="${v.def.k}" data-tip="${esc(v.def.name+' ('+v.stacks+'×): '+fmtSign(v.effStat)+' '+v.def.statLbl+', +'+v.effAdv+' '+(v.def.isPos?'Vort.':'Nacht.')+' auf '+v.def.attrs.join('/')+'\nKlicken zum Deaktivieren')}" class="tag inline-flex items-center gap-1 ${v.def.isPos?'!border-emerald-500/50 !bg-emerald-500/15 !text-emerald-300':'!border-rose-500/50 !bg-rose-500/15 !text-rose-300'} tabular cursor-pointer">${renderSystemIconHtml('status_' + v.def.k, 'w-3.5 h-3.5')}<span>${esc(v.def.name)}${v.stacks>1?` ${v.stacks}×`:''}: ${fmtSign(v.effStat)} ${v.def.statKey==='lp'?'LP':v.def.statKey==='mlp'?'mLP':v.def.statKey==='bst'?'BSt':'Ini'} | +${v.effAdv}${v.def.isPos?'V':'N'} (${v.def.attrs.join('/')}) ✕</span></button>`).join('')}
           </div>
           <div class="flex items-center gap-1.5">
             ${actList.length?`<button type="button" data-action="reset-all-status" data-tip="Alle aktiven Statuseffekte deaktivieren" class="btn btn-err py-1 px-2.5 text-xs">↺ Alle deaktivieren</button>`:''}
@@ -7175,6 +7368,7 @@ Zuletzt in Lobby gespeichert: '+CLOUD.lastSyncTs:''))}" class="btn btn-ok min-w-
               </div>
               ${CLOUD.isAdmin?`<div class="flex flex-wrap items-center gap-1.5">
                 <button type="button" data-action="toggle-user-mgmt" class="btn py-0.5 px-2.5 text-[11px] border-amber-400/50 text-amber-200">👥 Accounts verwalten (${regUsers.length})</button>
+                <button type="button" data-action="open-admin-icons" data-tip="Globale Standard-Icons für Ebbephase, Flutphase &amp; alle Statuseffekte zentral auf dem Server verwalten" class="btn py-0.5 px-2.5 text-[11px] border-amber-400/50 text-amber-200">🎨 Standard-Icons</button>
                 <button type="button" data-action="admin-logout" class="btn btn-err py-0.5 px-2.5 text-[11px]">🔒 Admin sperren</button>
               </div>`:''}
             </div>
@@ -8601,6 +8795,7 @@ Zuletzt in Lobby gespeichert: '+CLOUD.lastSyncTs:''))}" class="btn btn-ok min-w-
       if(UI.modal==='powerLibrary') return `powerLibrary:${PWLIB.tab||''}`;
       if(UI.modal==='list') return `list:${UI.listType||''}`;
       if(UI.modal==='userProfile') return `userProfile:${UI.profileUser||''}`;
+      if(UI.modal==='adminIcons') return 'adminIcons';
       return String(UI.modal);
     }
     function renderModal(fromRenderAll=false,resetScroll=false){
@@ -8625,7 +8820,115 @@ Zuletzt in Lobby gespeichert: '+CLOUD.lastSyncTs:''))}" class="btn btn-ok min-w-
         }
       }
     }
+    function renderAdminIconsModalHtml(){
+      if(!CLOUD.isAdmin){
+        const lockBody=`<div class="subcard p-6 border-2 border-rose-500/40 bg-rose-500/10 text-center space-y-2">
+          <div class="text-2xl">🔒</div>
+          <div class="text-sm font-black text-rose-300">Zugriff verweigert – Die Verwaltung globaler Standard-Icons ist strikt dem Admin vorbehalten.</div>
+        </div>`;
+        const lockFoot=`<button type="button" data-action="close-modal" class="btn btn-pri">Schließen</button>`;
+        return modalShell('👑 Standard-Icons verwalten','Globale Icons für Phasen &amp; Statuseffekte zentral auf dem Server hinterlegen – gilt automatisch für alle Spieler.',lockBody,lockFoot,'max-w-4xl');
+      }
+      const iconsMap=CUSTOM_ICONS?.icons||{};
+      const totalSlots=SYSTEM_ICON_DEFS.length;
+      const customCount=SYSTEM_ICON_DEFS.filter(d=>Boolean(iconsMap[d.key])).length;
+      const phaseDefs=SYSTEM_ICON_DEFS.filter(d=>d.group==='phase');
+      const statusDefs=SYSTEM_ICON_DEFS.filter(d=>d.group==='status');
+      const busy=Boolean(CUSTOM_ICONS.loading||CUSTOM_ICONS.saving);
+      const renderTile=def=>{
+        const hasCustom=Boolean(iconsMap[def.key]);
+        const stDef=def.statusKey?STATUS_DEFS.find(x=>x.k===def.statusKey):null;
+        const grpCol=stDef?(S.attrColors?.[stDef.group]||'#38bdf8'):(def.key==='phase_flut'?'#38bdf8':'#818cf8');
+        const pillCls=def.group==='phase'
+          ?(def.key==='phase_flut'?'bg-gradient-to-r from-cyan-500 to-sky-500 text-slate-950 border-cyan-300 font-black':'bg-gradient-to-r from-indigo-600 to-slate-700 text-white border-indigo-400 font-black')
+          :(stDef?.isPos?'bg-emerald-500/20 text-emerald-200 border-emerald-500/45 font-bold':'bg-rose-500/20 text-rose-200 border-rose-500/45 font-bold');
+        const statusBadge=hasCustom
+          ?`<span class="px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-500/20 text-emerald-300 border border-emerald-400/50">✨ Custom aktiv</span>`
+          :`<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-white/5 t-mut border bdr-line">Standard</span>`;
+        const posNegBadge=stDef
+          ?(stDef.isPos
+            ?`<span class="px-1.5 py-0.5 rounded text-[10px] font-extrabold bg-emerald-500/15 text-emerald-300 border border-emerald-500/35">Positiv</span>`
+            :`<span class="px-1.5 py-0.5 rounded text-[10px] font-extrabold bg-rose-500/15 text-rose-300 border border-rose-500/35">Negativ</span>`)
+          :'';
+        const attrTags=stDef
+          ?stDef.attrs.map(ak=>`<span class="px-1.5 py-0.5 rounded text-[9px] font-black border" style="color:${esc(grpCol)};border-color:color-mix(in srgb,${esc(grpCol)} 45%,transparent);background:color-mix(in srgb,${esc(grpCol)} 14%,transparent)">${ak}</span>`).join('')
+          :'';
+        return `<div data-admin-icon-drop="${esc(def.key)}" class="subcard p-3 flex items-start gap-3 border transition-all ${hasCustom?'border-amber-400/50 bg-amber-500/5':'bdr-line'}" style="border-left:4px solid ${esc(grpCol)}">
+          <div class="flex flex-col items-center gap-1.5 shrink-0">
+            <div class="w-14 h-14 rounded-xl border bdr-line bg-black/35 flex items-center justify-center shadow-inner overflow-hidden" style="background-image:linear-gradient(45deg,rgba(255,255,255,.05) 25%,transparent 25%,transparent 75%,rgba(255,255,255,.05) 75%),linear-gradient(45deg,rgba(255,255,255,.05) 25%,transparent 25%,transparent 75%,rgba(255,255,255,.05) 75%);background-size:12px 12px;background-position:0 0,6px 6px">
+              ${renderSystemIconHtml(def.key,'w-10 h-10')}
+            </div>
+            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg border text-[10px] leading-none max-w-[116px] truncate ${pillCls}" data-tip="Vorschau in Originalgröße (16×16 px)">
+              ${renderSystemIconHtml(def.key,'w-4 h-4')}
+              <span class="truncate">${esc(def.label)}</span>
+            </span>
+          </div>
+          <div class="min-w-0 flex-1 space-y-2">
+            <div class="flex flex-wrap items-center justify-between gap-1.5">
+              <div class="flex flex-wrap items-center gap-1.5 min-w-0">
+                <span class="font-black text-sm truncate">${esc(def.label)}</span>
+                ${posNegBadge}
+                ${attrTags}
+              </div>
+              ${statusBadge}
+            </div>
+            <div class="text-[10px] t-mut font-mono truncate opacity-75">Key: ${esc(def.key)}</div>
+            <div class="flex flex-wrap items-center gap-1.5 pt-0.5">
+              <button type="button" data-action="admin-icon-pick" data-ikey="${esc(def.key)}" ${busy?'disabled':''} class="btn btn-pri py-1 px-2.5 text-xs font-extrabold">📁 Bild hochladen</button>
+              ${hasCustom?`<button type="button" data-action="admin-icon-reset" data-ikey="${esc(def.key)}" ${busy?'disabled':''} data-tip="Custom-Icon entfernen und Standard-SVG wiederherstellen" class="btn btn-err py-1 px-2.5 text-xs font-bold">↺ Standard</button>`:''}
+            </div>
+          </div>
+        </div>`;
+      };
+      const body=`<div class="space-y-4">
+        <div class="subcard p-3 space-y-2.5 border bdr-acc/50 bg-black/20">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <div class="flex flex-wrap items-center gap-2">
+              <span class="pill cursor-default text-xs py-1 px-2.5 border-amber-400/60 bg-amber-500/15 text-amber-200 font-black tabular">🎨 ${customCount} / ${totalSlots} Custom-Icons aktiv</span>
+              ${CUSTOM_ICONS.lastLoadedTs?`<span class="text-[11px] t-mut tabular">Stand: ${esc(CUSTOM_ICONS.lastLoadedTs)}</span>`:''}
+              ${CUSTOM_ICONS.saving?`<span class="text-xs font-extrabold text-amber-300 animate-pulse">⏳ Speichert auf Server...</span>`:CUSTOM_ICONS.loading?`<span class="text-xs font-extrabold text-sky-300 animate-pulse">⏳ Lädt vom Server...</span>`:''}
+            </div>
+            <div class="flex flex-wrap items-center gap-1.5">
+              <button type="button" data-action="admin-icons-refresh" ${busy?'disabled':''} class="btn py-1 px-2.5 text-xs font-bold">🔄 Vom Server laden</button>
+              ${customCount>0?(UI.confirmResetAllIcons
+                ?`<span class="inline-flex items-center gap-1"><button type="button" data-action="admin-icons-confirm-reset-all" ${busy?'disabled':''} class="btn bg-rose-600 text-white border-rose-600 py-1 px-2.5 text-xs font-black">Alle auf Standard? (2/2)</button><button type="button" data-action="admin-icons-cancel-reset-all" class="btn py-1 px-2 text-xs">✕</button></span>`
+                :`<button type="button" data-action="admin-icons-ask-reset-all" ${busy?'disabled':''} class="btn btn-err py-1 px-2.5 text-xs font-bold">↺ Alle zurücksetzen</button>`
+              ):''}
+            </div>
+          </div>
+          <p class="text-[11px] t-mut leading-relaxed">Empfohlen: Quadratische PNG-, WebP- oder SVG-Icons mit transparentem Hintergrund (werden automatisch kompakt auf 128×128 px skaliert und auf dem Server gespeichert). Bilder können direkt auf eine Kachel gezogen werden.</p>
+          ${CUSTOM_ICONS.error?`<div class="p-2 rounded-lg border border-amber-400/50 bg-amber-500/10 text-amber-200 text-xs font-semibold">⚠️ ${esc(CUSTOM_ICONS.error)}</div>`:''}
+        </div>
+        <section class="space-y-2.5">
+          <div class="flex items-center justify-between gap-2 border-b bdr-line pb-1.5">
+            <h4 class="text-xs sm:text-sm font-black text-acc uppercase tracking-wider">🌊 Kampfphasen (${phaseDefs.length})</h4>
+            <span class="text-[11px] t-mut">Header &amp; Phasen-Umschalter</span>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-3">${phaseDefs.map(renderTile).join('')}</div>
+        </section>
+        <section class="space-y-2.5">
+          <div class="flex items-center justify-between gap-2 border-b bdr-line pb-1.5">
+            <h4 class="text-xs sm:text-sm font-black text-acc uppercase tracking-wider">⚡ Statuseffekte (${statusDefs.length})</h4>
+            <span class="text-[11px] t-mut">Attributbogen &amp; Status-Karten</span>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-3">${statusDefs.map(renderTile).join('')}</div>
+        </section>
+      </div>`;
+      const foot=`<button type="button" data-action="close-modal" class="btn btn-pri">Schließen</button>`;
+      return modalShell('👑 Standard-Icons verwalten','Globale Icons für Phasen &amp; Statuseffekte zentral auf dem Server hinterlegen – gilt automatisch für alle Spieler.',body,foot,'max-w-4xl');
+    }
     function renderModalBody(m,fromRenderAll=false){
+      if(UI.modal==='adminIcons'){
+        if(!CLOUD.isAdmin){
+          UI.modal=null;
+          UI.confirmResetAllIcons=false;
+          m.innerHTML='';
+          if(UI.inLobby&&!fromRenderAll){renderHeader();renderMain();}
+          return;
+        }
+        m.innerHTML=renderAdminIconsModalHtml();
+        return;
+      }
       if(UI.modal==='userProfile'){
         if(ensureAllRegistryUsers()) saveRegistryLocal();
         const rawTarget=String(UI.profileUser||'').trim();
@@ -8880,7 +9183,11 @@ Zuletzt in Lobby gespeichert: '+CLOUD.lastSyncTs:''))}" class="btn btn-ok min-w-
           ['btnTxt','Button-Text',d.btnTxt||'#ffffff']
         ];
         m.innerHTML=modalShell('⚙️ Optionen, Datei &amp; Design','Kompletter Export &amp; Import inkl. eigenen Farbpaletten, Listen, Box-Größen &amp; Bildern.',
-          `<div class="subcard space-y-2.5"><h3 class="text-xs font-extrabold text-acc">1. EXPORT, IMPORT &amp; RESET</h3><div class="flex flex-wrap items-center gap-2"><button type="button" data-action="export-json" class="btn btn-pri">⬇ Charakter exportieren (.json)</button><button type="button" data-action="import-json" class="btn">⬆ Charakter importieren (.json)</button>${UI.confirmNew?`<div class="flex gap-1.5 ml-auto"><button type="button" data-action="new-sheet-yes" class="btn bg-rose-600 text-white">Alles leeren!</button><button type="button" data-action="new-sheet-no" class="btn">Abbrechen</button></div>`:`<button type="button" data-action="new-sheet-ask" class="btn btn-err ml-auto">Neuer Charakterbogen</button>`}</div></div>
+          `${CLOUD.isAdmin===true?`<div class="subcard p-2.5 border-amber-400/50 bg-amber-500/10 flex flex-wrap items-center justify-between gap-2">
+          <div class="text-xs font-extrabold text-amber-200">👑 Admin-Verwaltung (Server)</div>
+          <button type="button" data-action="open-admin-icons" data-tip="Globale Standard-Icons für Ebbephase, Flutphase &amp; alle Statuseffekte zentral auf dem Server verwalten" class="btn py-1 px-3 text-xs font-extrabold border-amber-400/60 bg-amber-500/20 text-amber-200">👑 🎨 Standard-Icons verwalten (Server)</button>
+        </div>`:''}
+        <div class="subcard space-y-2.5"><h3 class="text-xs font-extrabold text-acc">1. EXPORT, IMPORT &amp; RESET</h3><div class="flex flex-wrap items-center gap-2"><button type="button" data-action="export-json" class="btn btn-pri">⬇ Charakter exportieren (.json)</button><button type="button" data-action="import-json" class="btn">⬆ Charakter importieren (.json)</button>${UI.confirmNew?`<div class="flex gap-1.5 ml-auto"><button type="button" data-action="new-sheet-yes" class="btn bg-rose-600 text-white">Alles leeren!</button><button type="button" data-action="new-sheet-no" class="btn">Abbrechen</button></div>`:`<button type="button" data-action="new-sheet-ask" class="btn btn-err ml-auto">Neuer Charakterbogen</button>`}</div></div>
           <div class="subcard space-y-3"><div class="flex flex-wrap items-center justify-between gap-2"><h3 class="text-xs font-extrabold text-acc">2. MODUS &amp; REITER-DESIGN</h3><button type="button" data-action="toggle-dark" class="btn">🌓 ${S.appearance.dark?'Dunkles Design':'Helles Design'}</button></div>${isLobbyScope
           ?`<div class="pt-2 border-t bdr-line flex flex-wrap items-center justify-between gap-2 text-xs"><span class="text-acc font-extrabold">🏠 Eigenes Farbschema für deine Lobby${CLOUD.currentUser?` (${esc(CLOUD.currentUser)})`:''} – unabhängig von deinen Charakter-Reitern.</span>${!UI.inLobby?`<button type="button" data-action="edit-scope" data-scope="${esc(S.activeTab||'attributes')}" class="btn py-1 px-2.5 text-[11px]">← Charakter-Reiter bearbeiten</button>`:''}</div>`
           :`<div class="flex flex-wrap items-center justify-between gap-2 pt-2 border-t bdr-line"><span class="text-xs font-bold">Design-Modus:</span><div class="inline-flex flex-wrap rounded-xl p-1 bg-black/20 border bdr-line"><button type="button" data-action="app-mode" data-mode="global" class="px-3 py-1 rounded-lg text-xs font-extrabold ${!isPer?'bg-acc-soft text-acc':''}">Global</button><button type="button" data-action="app-mode" data-mode="perTab" class="px-3 py-1 rounded-lg text-xs font-extrabold ${isPer?'bg-acc-soft text-acc':''}">Pro Reiter</button><button type="button" data-action="edit-scope" data-scope="lobby" class="px-3 py-1 rounded-lg text-xs font-extrabold hover:text-acc">🏠 Lobby-Design</button></div></div>${isPer?`<div class="flex flex-wrap gap-1.5">${TABS.map(t=>`<button type="button" data-action="edit-scope" data-scope="${t.id}" class="btn text-xs ${S.appearance.editScope===t.id?'btn-pri':''}">${t.l}</button>`).join('')}</div>`:''}`}</div>
@@ -10070,6 +10377,36 @@ Zuletzt in Lobby gespeichert: '+CLOUD.lastSyncTs:''))}" class="btn btn-ok min-w-
       rd.onload=ev=>{const im=new Image();im.onload=()=>{let w=im.width||1,h=im.height||1;if(w>maxDim||h>maxDim){if(w>h){h=Math.round(h*maxDim/w);w=maxDim;}else{w=Math.round(w*maxDim/h);h=maxDim;}}const cv=document.createElement('canvas');cv.width=w;cv.height=h;cv.getContext('2d').drawImage(im,0,0,w,h);let out=cv.toDataURL('image/webp',q);if(!out.startsWith('data:image/webp'))out=cv.toDataURL('image/jpeg',q);cb(out);};im.onerror=()=>cb(String(ev.target.result||''));im.src=String(ev.target.result||'');};
       rd.readAsDataURL(file);
     }
+    function compressIconImg(file, maxDim = 128, q = 0.86, cb){
+      if(!file) return;
+      const rd=new FileReader();
+      rd.onload=ev=>{
+        const rawUrl=String(ev.target.result||'');
+        if(file.type==='image/svg+xml' && file.size<=32768){
+          cb(rawUrl);
+          return;
+        }
+        const im=new Image();
+        im.onload=()=>{
+          let w=im.width||1, h=im.height||1;
+          if(w>maxDim||h>maxDim){
+            if(w>h){h=Math.max(1,Math.round(h*maxDim/w));w=maxDim;}
+            else{w=Math.max(1,Math.round(w*maxDim/h));h=maxDim;}
+          }
+          const cv=document.createElement('canvas');
+          cv.width=w; cv.height=h;
+          const ctx=cv.getContext('2d');
+          ctx.clearRect(0,0,w,h);
+          ctx.drawImage(im,0,0,w,h);
+          let out=cv.toDataURL('image/webp',q);
+          if(!out.startsWith('data:image/webp')) out=cv.toDataURL('image/png');
+          cb(out);
+        };
+        im.onerror=()=>cb(rawUrl);
+        im.src=rawUrl;
+      };
+      rd.readAsDataURL(file);
+    }
 
     function upsertSkill(name,linkedAttr,cat,rank,src,bonusOvr='',secId=''){
       const clean=String(name||'').trim(); if(!clean){toast('Bitte Fertigkeitsnamen eingeben.');return;}
@@ -10125,6 +10462,18 @@ Zuletzt in Lobby gespeichert: '+CLOUD.lastSyncTs:''))}" class="btn btn-ok min-w-
         case 'switch-tab': S.activeTab=el.dataset.tab; UI.openPwMenu=''; UI.confirmDelId=null; UI.confirmDelExSecId=null; saveLastActiveTab(S.charId,S.activeTab); applyTheme(); renderHeader(); renderMain(); save(false); break;
         case 'rest-simple': performSimpleRest(); break;
         case 'rest-full': performFullRest(); break;
+        case 'set-phase':{
+          if(CLOUD.viewingRemote){toast('👁️ Im Ansichtsmodus kann die Phase nicht geändert werden.');break;}
+          const next=el.dataset.phase==='flut'?'flut':'ebbe';
+          if(S.phase!==next){S.phase=next;renderHeader();save();}
+          break;
+        }
+        case 'toggle-phase':{
+          if(CLOUD.viewingRemote){toast('👁️ Im Ansichtsmodus kann die Phase nicht geändert werden.');break;}
+          S.phase=S.phase==='flut'?'ebbe':'flut';
+          renderHeader();save();
+          break;
+        }
         case 'reset-regen-ovr':{
           const k=el.dataset.key;
           if(k==='lp') S.secondary.lpRegenOvr='';
@@ -11936,6 +12285,54 @@ Zuletzt in Lobby gespeichert: '+CLOUD.lastSyncTs:''))}" class="btn btn-ok min-w-
           }
           break;
         }
+        case 'open-admin-icons': {
+          if(!CLOUD.isAdmin){toast('🔒 Nur für den Admin zugänglich.');break;}
+          UI.confirmResetAllIcons=false;
+          UI.modal='adminIcons';
+          renderModal();
+          fetchCustomIcons(true);
+          break;
+        }
+        case 'admin-icons-refresh': {
+          if(!CLOUD.isAdmin){toast('🔒 Nur für den Admin zugänglich.');break;}
+          fetchCustomIcons(true);
+          break;
+        }
+        case 'admin-icon-pick': {
+          if(!CLOUD.isAdmin){toast('🔒 Nur für den Admin zugänglich.');break;}
+          UI.adminIconTargetKey=btn.dataset.ikey||'';
+          const inp=$('fileAdminIcon');
+          if(inp){inp.value='';inp.click();}
+          break;
+        }
+        case 'admin-icon-reset': {
+          if(!CLOUD.isAdmin){toast('🔒 Nur für den Admin zugänglich.');break;}
+          const ikey=btn.dataset.ikey||'';
+          if(!ikey) break;
+          const next={...(CUSTOM_ICONS.icons||{})};
+          delete next[ikey];
+          UI.confirmResetAllIcons=false;
+          saveCustomIconsToServer(next,'↺ Standard-Icon wiederhergestellt.');
+          break;
+        }
+        case 'admin-icons-ask-reset-all': {
+          if(!CLOUD.isAdmin){toast('🔒 Nur für den Admin zugänglich.');break;}
+          UI.confirmResetAllIcons=true;
+          renderModal();
+          break;
+        }
+        case 'admin-icons-cancel-reset-all': {
+          if(!CLOUD.isAdmin){toast('🔒 Nur für den Admin zugänglich.');break;}
+          UI.confirmResetAllIcons=false;
+          renderModal();
+          break;
+        }
+        case 'admin-icons-confirm-reset-all': {
+          if(!CLOUD.isAdmin){toast('🔒 Nur für den Admin zugänglich.');break;}
+          UI.confirmResetAllIcons=false;
+          saveCustomIconsToServer({},'↺ Alle Icons auf Standard zurückgesetzt.');
+          break;
+        }
         case 'open-feedback': UI.modal='feedback'; FEEDBACK.activeTab=CLOUD.isAdmin?'admin':'write'; renderModal(); fetchFeedback(true); break;
         case 'fb-tab': {
           const nextTab=String(btn.dataset.tab||'write').trim();
@@ -13237,6 +13634,28 @@ Zuletzt in Lobby gespeichert: '+CLOUD.lastSyncTs:''))}" class="btn btn-ok min-w-
       if(!ctx||!ctx.canEdit) return;
       compressImg(f,ctx.maxDim,ctx.quality,dataUrl=>applyImgUrlForContext(ctx,dataUrl,false));
     });
+    function handleAdminIconFileUpload(file, ikey){
+      if(!CLOUD.isAdmin){toast('🔒 Nur der Admin kann Standard-Icons ändern.');return;}
+      const key=String(ikey||'').trim();
+      if(!key||!SYSTEM_ICON_DEFS.some(d=>d.key===key)) return;
+      if(!file) return;
+      const isImg=Boolean((file.type&&/^image\//i.test(file.type))||/\.(png|webp|svg|jpe?g|gif)$/i.test(file.name||''));
+      if(!isImg){toast('⚠️ Bitte eine gültige Bilddatei (PNG, WebP, SVG, JPG, GIF) wählen.');return;}
+      compressIconImg(file,128,0.86,url=>{
+        if(!url){toast('⚠️ Bild konnte nicht verarbeitet werden.');return;}
+        const next={...(CUSTOM_ICONS.icons||{}),[key]:url};
+        UI.confirmResetAllIcons=false;
+        saveCustomIconsToServer(next,'🎨 Custom-Icon auf dem Server gespeichert!');
+      });
+    }
+    $('fileAdminIcon')?.addEventListener('change',e=>{
+      const f=e.target.files?.[0];
+      e.target.value='';
+      if(!CLOUD.isAdmin||!UI.adminIconTargetKey||!f) return;
+      const targetKey=UI.adminIconTargetKey;
+      UI.adminIconTargetKey='';
+      handleAdminIconFileUpload(f,targetKey);
+    });
     document.addEventListener('change',e=>{
       {const el=e.target;if(el&&el.matches&&el.matches('[data-fb-backlog-user]')){if(!CLOUD.isAdmin)return;FEEDBACK.backlogUser=el.value||'all';renderModal();return;}}
       if(e.target&&e.target.dataset?.inspInp){renderMain();save();return;}
@@ -13744,6 +14163,14 @@ Zuletzt in Lobby gespeichert: '+CLOUD.lastSyncTs:''))}" class="btn btn-ok min-w-
       dragPwId=null; dragAugId=null; dragSecId=null; dragSkSecId=null; dragSkId=null; dragChrPw=null; dragChrSec=null; dragEqSec=null; dragEqItem=null; dragInvSecId=null; dragInvItemId=null; dragCampId=null; dragToken='';
     });
     document.addEventListener('dragover',e=>{
+      const adminIconDrop=e.target?.closest?.('[data-admin-icon-drop]');
+      if(adminIconDrop && UI.modal==='adminIcons' && CLOUD.isAdmin){
+        e.preventDefault();
+        if(e.dataTransfer) e.dataTransfer.dropEffect='copy';
+        document.querySelectorAll('[data-admin-icon-drop].ring-2').forEach(el=>{if(el!==adminIconDrop) el.classList.remove('ring-2','ring-amber-400');});
+        adminIconDrop.classList.add('ring-2','ring-amber-400');
+        return;
+      }
       if(dragCnPageId&&(e.target.closest('[data-drop-cnpage]')||e.target.closest('[data-drop-cnfolder]'))){e.preventDefault();return;}
       if(dragCnFolderId&&e.target.closest('[data-drop-cnfolder]')){e.preventDefault();return;}
       if(isAnyDragging()){
@@ -13889,6 +14316,10 @@ Zuletzt in Lobby gespeichert: '+CLOUD.lastSyncTs:''))}" class="btn btn-ok min-w-
       }
     });
     document.addEventListener('dragleave',e=>{
+      const adminIconDrop=e.target?.closest?.('[data-admin-icon-drop]');
+      if(adminIconDrop && (!e.relatedTarget || !adminIconDrop.contains(e.relatedTarget))){
+        adminIconDrop.classList.remove('ring-2','ring-amber-400');
+      }
       if(dragSecId){
         const tgt=e.target&&e.target.nodeType===1?e.target:e.target?.parentElement;
         const sl=tgt?.closest?.('[data-pw-sec-slot]');
@@ -13917,6 +14348,17 @@ Zuletzt in Lobby gespeichert: '+CLOUD.lastSyncTs:''))}" class="btn btn-ok min-w-
       ['[data-sk-row]','[data-chr-pw]','[data-drop-cnpage]'].forEach(sel=>{const x=e.target.closest?.(sel);if(x)x.classList.remove('sk-drop-over');});
     });
     document.addEventListener('drop',e=>{
+      const adminIconDrop=e.target?.closest?.('[data-admin-icon-drop]');
+      if(adminIconDrop && UI.modal==='adminIcons'){
+        e.preventDefault();
+        e.stopPropagation();
+        document.querySelectorAll('[data-admin-icon-drop].ring-2').forEach(el=>el.classList.remove('ring-2','ring-amber-400'));
+        if(!CLOUD.isAdmin){toast('🔒 Nur der Admin kann Standard-Icons ändern.');return;}
+        const ikey=adminIconDrop.dataset.adminIconDrop||'';
+        const f=e.dataTransfer?.files?.[0];
+        if(f&&ikey) handleAdminIconFileUpload(f,ikey);
+        return;
+      }
       stopDragAutoScroll();
       clearPwSecDropIndicators();
       document.querySelectorAll('.sk-drop-over').forEach(x=>x.classList.remove('sk-drop-over'));
@@ -14714,6 +15156,7 @@ Zuletzt in Lobby gespeichert: '+CLOUD.lastSyncTs:''))}" class="btn btn-ok min-w-
     load();
     initLiveDiceChannel();
     refreshUserNotificationsBg(false);
+    fetchCustomIcons(false);
     const params=new URLSearchParams(window.location.search);
     const reqCharId=(params.get('char')||'').trim();
     const forceSheet=params.get('sheet')==='1';
