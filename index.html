@@ -496,7 +496,7 @@
       });
     };
     const makePower=(secId='')=>({id:uid(),templateId:'',name:'',color:'',bgColor:'',sectionId:secId,collapsed:false,req:'',tier:'marginal',manualCost:false,sp:1,msp:0,showManual:false,art:'Grundaktion',artManual:false,actionSubs:[],tags:[],useCosts:[],useAmt:0,useRes:'',reserved:false,reservedCosts:[],desc:'',effects:'',rules:'',applyMods:true,bldAmt:'+1',bldStat:'LP-Max',bldMode:'stat',bldSkCnt:'1',bldSkKind:'adv',bldSkId:'',boxH:{desc:0,effects:0,rules:0}});
-    const makeAugment=(pid='')=>({...makePower(''),id:uid(),parentPowerId:pid,art:'',actionSubs:[],tags:['Eigenschaft'],useCosts:[],useAmt:0,useRes:''});
+    const makeAugment=(pid='',secId='')=>({...makePower(pid?'':String(secId||'')),id:uid(),parentPowerId:String(pid||''),art:'',actionSubs:[],tags:['Eigenschaft'],useCosts:[],useAmt:0,useRes:''});
     function syncPwUseCostsLegacy(it){
       if(!it) return;
       if(!Array.isArray(it.useCosts)) it.useCosts=[];
@@ -2933,7 +2933,9 @@
       const actionSubs=DEF_ACTION_SUBS.filter(s=>actionSubSet.has(s));
       const reserved=Boolean(raw?.reserved);
       const reservedCosts=Array.isArray(raw?.reservedCosts)?raw.reservedCosts.filter(c=>c&&String(c.res||'').trim()&&toInt(c.amt,0)>0).map(c=>({res:String(c.res).trim(),amt:Math.max(0,toInt(c.amt,0))})):[];
-      return {...base,...(raw||{}),id:raw?.id||uid(),templateId:String(raw?.templateId||''),color:col,bgColor:bgCol,sectionId:String(raw?.sectionId||''),collapsed:Boolean(raw?.collapsed),tier,manualCost:manual,sp:manual?toInt(raw.sp,def.sp):def.sp,msp:manual?toInt(raw.msp,def.msp):def.msp,showManual:Boolean(raw?.showManual),art,artManual:Boolean(raw?.artManual),actionSubs,tags,useCosts,useAmt,useRes,reserved,reservedCosts,desc:String(raw?.desc||''),effects:String(raw?.effects??raw?.extraEffects??''),rules:String(raw?.rules||''),applyMods,bldAmt:String(raw?.bldAmt||'+1'),bldStat:String(raw?.bldStat||'LP-Max'),bldMode,bldSkCnt,bldSkKind,bldSkId,boxH:bh};
+      const normParentId=isAug?String(raw?.parentPowerId||''):'';
+      const normSecId=(isAug&&normParentId)?'':String(raw?.sectionId||'');
+      return {...base,...(raw||{}),id:raw?.id||uid(),templateId:String(raw?.templateId||''),color:col,bgColor:bgCol,sectionId:normSecId,...(isAug?{parentPowerId:normParentId}:{}),collapsed:Boolean(raw?.collapsed),tier,manualCost:manual,sp:manual?toInt(raw.sp,def.sp):def.sp,msp:manual?toInt(raw.msp,def.msp):def.msp,showManual:Boolean(raw?.showManual),art,artManual:Boolean(raw?.artManual),actionSubs,tags,useCosts,useAmt,useRes,reserved,reservedCosts,desc:String(raw?.desc||''),effects:String(raw?.effects??raw?.extraEffects??''),rules:String(raw?.rules||''),applyMods,bldAmt:String(raw?.bldAmt||'+1'),bldStat:String(raw?.bldStat||'LP-Max'),bldMode,bldSkCnt,bldSkKind,bldSkId,boxH:bh};
     }
 
     const POWER_PACK_SCHEMA='scherbensturm_power_pack_v1';
@@ -3057,7 +3059,7 @@
         name:String(n.name||''),
         color:isHex(n.color)?n.color:'',
         bgColor:isHex(n.bgColor)?n.bgColor:'',
-        sectionId:isAug?'':String(n.sectionId||''),
+        sectionId:isAug?(!n.parentPowerId?String(n.sectionId||''):''):String(n.sectionId||''),
         collapsed:Boolean(n.collapsed),
         req:String(n.req||''),
         tier:n.tier,
@@ -3112,7 +3114,7 @@
           const matchedPowers=(S.powers||[]).filter(p=>p&&secIdSet.has(p.sectionId));
           const pwIdSet=new Set(matchedPowers.map(p=>p.id));
           powers=matchedPowers.map(p=>cleanPwForPowerExport(p,false));
-          augments=(S.augments||[]).filter(a=>a&&a.parentPowerId&&pwIdSet.has(a.parentPowerId)).map(a=>cleanPwForPowerExport(a,true));
+          augments=(S.augments||[]).filter(a=>a&&((a.parentPowerId&&pwIdSet.has(a.parentPowerId))||(!a.parentPowerId&&a.sectionId&&secIdSet.has(a.sectionId)))).map(a=>cleanPwForPowerExport(a,true));
         }
       }else if(mode==='item'){
         const kind=opts.kind==='augment'?'augment':'power';
@@ -3329,6 +3331,12 @@
               const pid=String(p.id||''), sid=String(p.sectionId||'');
               if(sid&&secSet.has(sid)&&pid) pwSet.add(pid);
             });
+            if(!hasOnlyAug){
+              incAugs.forEach(a=>{
+                const aid=String(a.id||''), ppid=String(a.parentPowerId||''), sid=String(a.sectionId||'');
+                if(aid&&((ppid&&pwSet.has(ppid))||(!ppid&&sid&&secSet.has(sid)))) augSet.add(aid);
+              });
+            }
           }
           incSecs=incSecs.filter(s=>secSet.has(String(s.id||'')));
           incPws=incPws.filter(p=>pwSet.has(String(p.id||'')));
@@ -3460,7 +3468,11 @@
               const finalParentId=existing.parentPowerId||((mappedParentId&&getLinkedAugs(mappedParentId).length<3)?mappedParentId:'');
               if(!hadParent&&!finalParentId&&fullSlotParentName) recordFullSlot(rawAug.name,fullSlotParentName);
               if(!hadParent&&finalParentId&&autoLinkedByName) summary.autoLinkedAugs++;
-              const norm=normPwEntry({...clone(rawAug),id:existing.id,parentPowerId:finalParentId,sectionId:'',showManual:false},true);
+              const oldAugSecId=String(rawAug.sectionId||'');
+              const mappedAugSecId=(oldAugSecId&&secIdMap.has(oldAugSecId))?secIdMap.get(oldAugSecId):targetSectionId;
+              const existingFreeSec=(!hadParent&&existing.sectionId&&S.powerSections.some(s=>s.id===existing.sectionId))?existing.sectionId:'';
+              const finalAugSecId=finalParentId?'':(mappedAugSecId||existingFreeSec||'');
+              const norm=normPwEntry({...clone(rawAug),id:existing.id,parentPowerId:finalParentId,sectionId:finalAugSecId,showManual:false},true);
               norm.templateId=norm.templateId||existing.templateId||'';
               norm.collapsed=existing.collapsed;
               Object.assign(existing,norm);
@@ -3481,8 +3493,10 @@
           }
           if(!mappedParentId&&fullSlotParentName) recordFullSlot(rawAug.name,fullSlotParentName);
           if(mappedParentId&&autoLinkedByName) summary.autoLinkedAugs++;
+          const oldAugSecId=String(rawAug.sectionId||'');
+          const finalAugSecId=mappedParentId?'':((oldAugSecId&&secIdMap.has(oldAugSecId))?secIdMap.get(oldAugSecId):targetSectionId);
           const newId=uid();
-          const norm=normPwEntry({...clone(rawAug),id:newId,parentPowerId:mappedParentId,sectionId:'',showManual:false},true);
+          const norm=normPwEntry({...clone(rawAug),id:newId,parentPowerId:mappedParentId,sectionId:finalAugSecId,showManual:false},true);
           S.augments.push(norm);
           trackMeta(norm);
           summary.addedAug++;
@@ -3595,6 +3609,8 @@
         if(!ag.parentPowerId&&ag.parentPower){const m=S.powers.find(p=>p.name&&p.name.toLowerCase()===String(ag.parentPower).toLowerCase());if(m)ag.parentPowerId=m.id;}
         if(ag.parentPowerId&&!S.powers.some(p=>p.id===ag.parentPowerId)) ag.parentPowerId='';
         if(ag.parentPowerId){slotCnt[ag.parentPowerId]=(slotCnt[ag.parentPowerId]||0)+1;if(slotCnt[ag.parentPowerId]>3)ag.parentPowerId='';}
+        if(ag.parentPowerId){ag.sectionId='';}
+        else{ag.sectionId=(ag.sectionId&&S.powerSections.some(s=>s.id===ag.sectionId))?String(ag.sectionId):'';}
       });
       if(!Array.isArray(S.movements)||!S.movements.length) S.movements=def.movements;
       S.movements=S.movements.map(mv=>({id:mv?.id||uid(),type:String(mv?.type||'Bewegung'),base:mv?.base??5,ovr:mv?.ovr!==undefined&&mv?.ovr!==null?String(mv.ovr):''}));
@@ -6388,6 +6404,22 @@
     const findEqItem=(kind,id)=>{const m={weapon:S.weapons,ammo:S.ammos,armor:S.armors,inv:S.inventory}[kind];return (m||[]).find(x=>x.id===id);};
     const getLinkedAugs=pid=>S.augments.filter(a=>a.parentPowerId===pid);
     const getUnlinkedAugs=()=>S.augments.filter(a=>!a.parentPowerId||!S.powers.some(p=>p.id===a.parentPowerId));
+    const getValidPwSecId=secId=>(secId&&S.powerSections.some(s=>s.id===secId))?String(secId):'';
+    const getUnlinkedAugsInSec=secId=>getUnlinkedAugs().filter(a=>getValidPwSecId(a.sectionId)===secId);
+    const getRootUnlinkedAugs=()=>getUnlinkedAugs().filter(a=>!getValidPwSecId(a.sectionId));
+    function linkAugToPower(ag,powerId){
+      if(!ag) return;
+      ag.parentPowerId=String(powerId||'');
+      ag.sectionId='';
+    }
+    function unlinkAugFromPower(ag){
+      if(!ag) return;
+      if(ag.parentPowerId){
+        const prevPar=S.powers.find(p=>p.id===ag.parentPowerId);
+        ag.sectionId=getValidPwSecId(prevPar?.sectionId);
+        ag.parentPowerId='';
+      }
+    }
 
     function calcPwCost(it){const t=PW_TIERS[it.tier]||PW_TIERS.marginal;if(it.tier==='basisaktion'&&!it.manualCost)return {sp:0,msp:0};return it.manualCost?{sp:toInt(it.sp,t.sp),msp:toInt(it.msp,t.msp)}:{sp:t.sp,msp:t.msp};}
     function getGroupMspInfo(kind,it){
@@ -6934,10 +6966,7 @@
             <span id="inspBadgeCnt" class="pill cursor-default text-[11px] py-0.5 px-2 tabular ${stacks>0?'border-amber-400/60 bg-amber-500/15 text-amber-300':''}">${stacks} Stapel</span>
             ${isAct?`<span class="px-2 py-0.5 rounded-lg bg-amber-500 text-slate-950 font-black text-[11px] tabular animate-pulse">✨ Aktiv (+1V)</span>`:''}
           </div>
-          <div class="flex items-center gap-1.5 shrink-0">
-            ${isCol&&stacks>0&&!isAct?`<button type="button" data-action="use-inspiration" data-tip="1 Inspirations-Stapel für +1 Vorteil einsetzen" class="btn btn-pri py-1 px-2 text-xs font-black">✨ Einsetzen</button>`:''}
-            <button type="button" data-action="toggle-t1-sec" data-sec="insp" class="btn py-1 px-2 text-xs">${isCol?'▾':'▴'}</button>
-          </div>
+          ${isCol&&stacks>0&&!isAct?`<div class="flex items-center gap-1.5 shrink-0"><button type="button" data-action="use-inspiration" data-tip="1 Inspirations-Stapel für +1 Vorteil einsetzen" class="btn btn-pri py-1 px-2 text-xs font-black">✨ Einsetzen</button></div>`:''}
         </div>
         ${!isCol?`<div class="subcard p-3 flex items-center justify-between gap-2 tabular">
           <span class="text-xs font-extrabold t-mut">Inspirations-Stapel:</span>
@@ -6972,7 +7001,6 @@
             <span class="pill cursor-default text-[11px] py-0.5 px-2 tabular ${hasAct?'border-amber-400/60 bg-amber-500/15 text-amber-300':''}">${entries.length} aktiv</span>
             ${isCol&&hasAct?sumKeys.map(k=>{const amt=R.byRes[k]||0,col=getSecCol(k)||'#f59e0b';return `<span class="px-1.5 py-0.5 rounded-md border border-amber-400/50 bg-amber-500/15 text-[11px] font-black tabular" style="color:${esc(col)}">−${amt} ${esc(getResLabel(k))}</span>`;}).join(''):''}
           </div>
-          <button type="button" data-action="toggle-t1-sec" data-sec="res" class="btn py-1 px-2 text-xs shrink-0">${isCol?'▾':'▴'}</button>
         </div>
         ${!isCol?(!hasAct
           ?`<div class="subcard p-3 text-xs t-mut leading-relaxed">Kräfte &amp; Augmente können im Tab „3. Kräfte &amp; Augmente“ über <strong class="text-amber-300">„🔒 Reservieren“</strong> Ressourcen dauerhaft binden.</div>`
@@ -7020,10 +7048,7 @@
             ${actList.map(v=>`<button type="button" data-action="toggle-status-eff" data-key="${v.def.k}" data-tip="${esc(v.def.name+' ('+v.stacks+'×): '+fmtSign(v.effStat)+' '+v.def.statLbl+', +'+v.effAdv+' '+(v.def.isPos?'Vort.':'Nacht.')+' auf '+v.def.attrs.join('/')+'\nKlicken zum Deaktivieren')}" class="tag inline-flex items-center gap-1 ${v.def.isPos?'!border-emerald-500/50 !bg-emerald-500/15 !text-emerald-300':'!border-rose-500/50 !bg-rose-500/15 !text-rose-300'} tabular cursor-pointer">${renderSystemIconHtml('status_' + v.def.k, 'w-3.5 h-3.5')}<span>${esc(v.def.name)}${v.stacks>1?` ${v.stacks}×`:''}${isCol?'':`: ${fmtSign(v.effStat)} ${v.def.statKey==='lp'?'LP':v.def.statKey==='mlp'?'mLP':v.def.statKey==='bst'?'BSt':'Ini'} | +${v.effAdv}${v.def.isPos?'V':'N'} (${v.def.attrs.join('/')})`} ✕</span></button>`).join('')}
             ${inspMiniChip}
           </div>
-          <div class="flex items-center gap-1.5 shrink-0">
-            ${actList.length?`<button type="button" data-action="reset-all-status" data-tip="Alle aktiven Statuseffekte deaktivieren" class="btn btn-err py-1 px-2 sm:px-2.5 text-xs">↺ <span class="hidden sm:inline">Alle deaktivieren</span></button>`:''}
-            <button type="button" data-action="toggle-status-sec" class="btn py-1 px-2.5 text-xs">${isCol?'▾ Ausklappen':'▴ Einklappen'}</button>
-          </div>
+          ${actList.length?`<div class="flex items-center gap-1.5 shrink-0"><button type="button" data-action="reset-all-status" data-tip="Alle aktiven Statuseffekte deaktivieren" class="btn btn-err py-1 px-2 sm:px-2.5 text-xs">↺ <span class="hidden sm:inline">Alle deaktivieren</span></button></div>`:''}
         </div>
         ${!isCol?`<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <div class="space-y-2.5">
@@ -7196,7 +7221,6 @@
               <span id="t1Prev_ini" class="px-1.5 py-0.5 rounded-md border bg-black/20" style="color:${esc(iniCol)};border-color:color-mix(in srgb,${esc(iniCol)} 45%,var(--bdr))">Ini ${fmtSign(ini)}</span>
             </div>
           </div>
-          <button type="button" data-action="toggle-t1-sec" data-sec="sec" class="btn py-1 px-2.5 text-xs shrink-0">${secCol?'▾ Ausklappen':'▴ Einklappen'}</button>
         </div>
         ${!secCol?`<div class="grid grid-cols-1 md:grid-cols-12 gap-3 sm:gap-4 tabular">
           ${pool('lp',SEC_META.lp,'(KO + ST) / 5','lpCurrent','lpMod','val_lpMax',getLpBase(),lpMax)}
@@ -7220,7 +7244,6 @@
             <span id="t1Prev_wound" class="px-2 py-0.5 rounded-md border text-[11px] font-black bg-black/20 tabular" style="color:${esc(getSecCol('lp'))};border-color:color-mix(in srgb,${esc(getSecCol('lp'))} 45%,var(--bdr))">Verw. ${wL}/${wM}/${wH}</span>
             <span id="t1Prev_trauma" class="px-2 py-0.5 rounded-md border text-[11px] font-black bg-black/20 tabular" style="color:${esc(getSecCol('mlp'))};border-color:color-mix(in srgb,${esc(getSecCol('mlp'))} 45%,var(--bdr))">Trauma ${tL}/${tM}/${tH}</span>
           </div>
-          <button type="button" data-action="toggle-t1-sec" data-sec="thresholds" class="btn py-1 px-2.5 text-xs shrink-0">${thCol?'▾ Ausklappen':'▴ Einklappen'}</button>
         </div>
         ${!thCol?`<div class="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4 tabular">${[['VERWUNDUNGSSCHWELLEN',getSecCol('lp'),[['woundLight','leicht','t-mut'],['woundMedium','mittel','text-amber-500'],['woundHeavy','schwer','text-rose-500']]],['TRAUMASCHWELLEN',getSecCol('mlp'),[['traumaLight','leicht','t-mut'],['traumaMedium','mittel','text-amber-500'],['traumaHeavy','schwer','text-indigo-400']]]].map(([h,hc,arr])=>`<div class="subcard p-3"><h4 class="text-xs font-extrabold tracking-wider mb-2" style="color:${esc(hc)}">${h}</h4><div class="grid grid-cols-3 gap-2 text-center">${arr.map(([k,l,c])=>{const b=toInt(S.thresholds[k],0),em=M[k]||0,eff=b+em,thTip=esc(buildSecTip(k,M));return `<div id="thBox_${k}" data-tip="${thTip}" class="rounded-lg border bdr-line bg-black/20 p-2 cursor-help min-w-0"><label class="block text-[11px] font-bold ${c} mb-1">${l} <span id="thEff_${k}" class="text-[10px] text-emerald-400 ${em?'':'hidden'}">(${b})</span></label><input id="thInp_${k}" data-th="${k}" type="text" inputmode="numeric" value="${eff}" class="inp w-full min-w-0 text-center text-lg font-black py-1 sm:py-0.5 ${em?'!border-emerald-500/60 text-emerald-300':''}"/></div>`;}).join('')}</div></div>`).join('')}</div>`:''}
       </section>
@@ -7234,7 +7257,6 @@
             <span id="t1Prev_bst" data-tip="${bstTip}" class="px-2 py-0.5 rounded-md border text-[11px] font-black cursor-help tabular ${hasBstOvr()?'border-amber-400/60 bg-amber-500/15 text-amber-300':'bdr-acc bg-acc-soft text-acc'}">BSt ${bst}</span>
             ${mv0?`<span id="t1Prev_move0" class="px-2 py-0.5 rounded-md border bdr-line bg-black/20 text-[11px] font-bold tabular">${esc(mv0.type)}: <strong>${fmtN(mv0Bew)} m</strong>${S.movements.length>1?` <span class="t-mut">(+${S.movements.length-1})</span>`:''}</span>`:''}
           </div>
-          <button type="button" data-action="toggle-t1-sec" data-sec="move" class="btn py-1 px-2.5 text-xs shrink-0">${mvCol?'▾ Ausklappen':'▴ Einklappen'}</button>
         </div>
         ${!mvCol?`<div class="flex flex-wrap items-center justify-between gap-2">
           <div id="bstBox" data-tip="${bstTip}" class="subcard py-1.5 px-2.5 flex flex-wrap items-center gap-1.5 sm:gap-2 cursor-help max-w-full"><span class="text-xs font-extrabold text-acc">BSt:</span><button type="button" data-action="bst-step" data-delta="-1" class="btn w-9 h-9 md:w-7 md:h-7 p-0">−</button><input id="val_bstEff" data-bst-inp="1" type="text" inputmode="numeric" value="${bst}" class="inp w-16 md:w-12 text-center font-black text-sm tabular py-1 md:py-0.5 px-1 ${hasBstOvr()?'!border-amber-400 text-amber-300':'text-acc'}"/><button type="button" id="rst_bstOvr" data-action="reset-bst-ovr" data-tip="Manueller Overwrite aktiv – Klicken für Standardberechnung (${getBstAuto()})" class="text-[10px] font-black text-amber-400 hover:underline ${hasBstOvr()?'':'hidden'}">(${getBstAuto()})</button><span id="val_bstOrig" class="text-xs font-black text-acc ${M.bst?'':'hidden'}">(${getBstBase()})</span><span id="chip_bstMod">${modChip(M.bst)}</span><button type="button" data-action="bst-step" data-delta="1" class="btn w-9 h-9 md:w-7 md:h-7 p-0">+</button></div>
@@ -7255,7 +7277,6 @@
             </div>
             <div class="flex flex-wrap items-center gap-1.5 shrink-0">
               <button type="button" data-action="roll-hz" data-tip="Sofort einen W100-Trefferzonenwurf auslösen" class="btn border-amber-400/60 text-amber-400 py-1.5 sm:py-1 px-2.5 text-xs font-extrabold">🎯 W100</button>
-              <button type="button" data-action="toggle-t1-sec" data-sec="hz" class="btn py-1.5 sm:py-1 px-2 text-xs">${hzCol?'▾':'▴'}</button>
             </div>
           </div>
           ${!hzCol?`<div class="flex flex-wrap justify-end gap-1.5">
@@ -7273,10 +7294,7 @@
               </button>
               ${qkCol?`<span class="pill cursor-default text-[11px] py-0.5 px-2">${esc(activeQTabObj.l)}</span>`:''}
             </div>
-            <div class="flex items-center gap-1.5 shrink-0">
-              ${!qkCol?renderRtfToolbarHtml(true):''}
-              <button type="button" data-action="toggle-t1-sec" data-sec="quick" class="btn py-1.5 sm:py-1 px-2 text-xs">${qkCol?'▾':'▴'}</button>
-            </div>
+            ${!qkCol?`<div class="flex items-center gap-1.5 shrink-0">${renderRtfToolbarHtml(true)}</div>`:''}
           </div>
           ${!qkCol?`<div class="flex flex-wrap gap-1.5">${QTABS.map(q=>`<button type="button" data-action="switch-qtab" data-qtab="${q.k}" class="btn text-xs py-1.5 sm:py-1 px-2.5 ${S.quickTab===q.k?'btn-pri':''}">${q.l}</button>`).join('')}</div>${QTABS.filter(q=>q.k===S.quickTab).map(q=>`<div contenteditable="true" data-qnote="${q.k}" data-ph="${esc(q.ph)}" class="inp w-full flex-1 resize-y text-xs sm:text-sm rtf-box min-h-[140px]">${toRtfHtml(S.combatNotes[q.k])}</div>`).join('')}`:''}
         </div>
@@ -7843,23 +7861,34 @@
       return tok;
     }
 
-    function openPwCardSecPicker(anchorEl,pwId){
-      const p=S.powers.find(x=>x.id===pwId); if(!p) return;
+    function openPwCardSecPicker(anchorEl,kindOrPwId,maybeId){
+      const isAug=kindOrPwId==='augment';
+      const kind=isAug?'augment':'power';
+      const id=maybeId!==undefined?maybeId:kindOrPwId;
+      const it=findPwItem(kind,id); if(!it) return;
+      if(isAug&&it.parentPowerId) return;
+      const curSecId=getValidPwSecId(it.sectionId);
+      const flatSecs=getPwSecOptionsFlat();
       const items=[
-        {icon:'📁',label:'Ohne Sektion',active:!p.sectionId,onClick:()=>{p.sectionId='';renderMain();save();}},
-        ...S.powerSections.map(s=>({
+        {icon:'📁',label:'Keine Sektion / Allgemein',active:!curSecId,onClick:()=>{it.sectionId='';renderMain();save();}},
+        ...flatSecs.map(fs=>({
           icon:'📁',
-          label:s.name||'Sektion',
-          active:p.sectionId===s.id,
-          onClick:()=>{p.sectionId=s.id;s.collapsed=false;renderMain();save();}
+          label:`${'↳ '.repeat(Math.min(3,fs.depth))}${fs.name}`,
+          active:curSecId===fs.id,
+          onClick:()=>{
+            it.sectionId=fs.id;
+            const secObj=S.powerSections.find(s=>s.id===fs.id);
+            if(secObj) secObj.collapsed=false;
+            renderMain();save();
+          }
         }))
       ];
-      openCtxMenu({key:`pw-sec-picker:${pwId}`,title:'Sektion zuordnen',anchorEl,align:'right',minWidth:225,items});
+      openCtxMenu({key:`pw-sec-picker:${kind}:${id}`,title:'Sektion zuordnen',anchorEl,align:'right',minWidth:235,items});
     }
     function openAugParentPicker(anchorEl,augId){
       const ag=S.augments.find(a=>a.id===augId); if(!ag) return;
       const items=[
-        {icon:'🔓',label:'Freies Augment (keine Kraft)',active:!ag.parentPowerId,onClick:()=>{ag.parentPowerId='';renderMain();save();}},
+        {icon:'🔓',label:'Freies Augment (keine Kraft)',active:!ag.parentPowerId,onClick:()=>{unlinkAugFromPower(ag);renderMain();save();}},
         ...S.powers.map(p=>{
           const cnt=getLinkedAugs(p.id).length, full=cnt>=3&&ag.parentPowerId!==p.id;
           return {
@@ -7870,7 +7899,7 @@
             disabled:full,
             onClick:()=>{
               if(getLinkedAugs(p.id).length>=3&&ag.parentPowerId!==p.id){toast('Maximal 3 Augmente pro Kraft!');return;}
-              ag.parentPowerId=p.id;renderMain();save();
+              linkAugToPower(ag,p.id);renderMain();save();
             }
           };
         })
@@ -7903,7 +7932,9 @@
     }
     function getPwAugSiblings(ag){
       const hasPar=Boolean(ag?.parentPowerId&&S.powers.some(p=>p.id===ag.parentPowerId));
-      return hasPar?getLinkedAugs(ag.parentPowerId):getUnlinkedAugs();
+      if(hasPar) return getLinkedAugs(ag.parentPowerId);
+      const secId=getValidPwSecId(ag?.sectionId);
+      return secId?getUnlinkedAugsInSec(secId):getRootUnlinkedAugs();
     }
     function moveAugOrder(augId,dir){
       const ag=S.augments.find(a=>a.id===augId); if(!ag) return false;
@@ -7950,8 +7981,8 @@
         items.push({
           icon:'📁',
           label:'Sektion zuordnen',
-          badge:curSec?(curSec.name||'Sektion'):'Ohne Sektion',
-          onClick:()=>{openPwCardSecPicker(anchorEl,id);}
+          badge:curSec?(curSec.name||'Sektion'):'Keine Sektion',
+          onClick:()=>{openPwCardSecPicker(anchorEl,'power',id);}
         });
         items.push({sep:true});
       }else if(isAug){
@@ -7965,6 +7996,14 @@
         });
         if(curPar){
           items.push({icon:'🔓',label:'Aus Kraft-Slot lösen',action:'unlink-aug',dataset:{id}});
+        }else if(S.powerSections.length){
+          const curSec=S.powerSections.find(s=>s.id===it.sectionId);
+          items.push({
+            icon:'📁',
+            label:'Sektion zuordnen',
+            badge:curSec?(curSec.name||'Sektion'):'Keine Sektion',
+            onClick:()=>{openPwCardSecPicker(anchorEl,'augment',id);}
+          });
         }
         items.push({sep:true});
       }
@@ -8037,7 +8076,7 @@
       const viaParentBadgeHtml=viaParentPower?`<span data-tip="Mitangezeigt, weil die übergeordnete Hauptkraft dem Filter entspricht (erfüllt den Filter selbst nicht direkt)" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md border border-amber-500/35 bg-amber-500/10 text-amber-300/85 text-[10px] font-bold shrink-0">↳ an Kraft gebunden</span>`:'';
       const curArtTipHdr=getPwTermTip(it.art);
       const hdrLeft=`<div class="flex flex-wrap sm:flex-nowrap items-center gap-1.5 sm:gap-2 flex-1 min-w-0 w-full sm:w-auto sm:min-w-[200px]"><button type="button" data-action="toggle-pw-collapse" data-kind="${kind}" data-id="${it.id}" data-tip="${it.collapsed?'Ausklappen':'Einklappen (nur Titel anzeigen)'}" class="btn w-8 h-8 sm:w-7 sm:h-7 p-0 text-xs font-black shrink-0">${it.collapsed?'▸':'▾'}</button>
-        ${!isAug?`<span draggable="true" data-drag-pw="${it.id}" data-tip="Ziehen zum Verschieben der Kraft (inkl. gebundener Augmente)" class="w-7 h-7 rounded bg-acc-soft border bdr-acc text-acc text-xs font-black cursor-grab select-none shrink-0 inline-flex items-center justify-center">⠿</span>`:`<span draggable="true" data-drag-aug="${it.id}" data-tip="Ziehen oder ▲/▼ nutzen zum Sortieren des Augments" class="w-7 h-7 rounded text-xs font-black bg-amber-500/15 text-amber-400 border border-amber-500/40 cursor-grab select-none shrink-0 inline-flex items-center justify-center">⠿</span>`}
+        ${!isAug?`<span draggable="true" data-drag-pw="${it.id}" data-tip="Ziehen zum Verschieben der Kraft (inkl. gebundener Augmente)" class="w-7 h-7 rounded bg-acc-soft border bdr-acc text-acc text-xs font-black cursor-grab select-none shrink-0 inline-flex items-center justify-center">⠿</span>`:`<span draggable="true" data-drag-aug="${it.id}" data-tip="Ziehen zum Sortieren, in eine Sektion verschieben oder auf eine Kraft verknüpfen" class="w-7 h-7 rounded text-xs font-black bg-amber-500/15 text-amber-400 border border-amber-500/40 cursor-grab select-none shrink-0 inline-flex items-center justify-center">⠿</span>`}
         <input data-pwf="${kind}:${it.id}:name" type="text" value="${esc(it.name)}" ${colStyle} placeholder="Name ${isAug?'des Augments':'der Kraft'}..." class="inp-line flex-1 min-w-0 sm:min-w-[140px] ${it.collapsed?'text-sm':'text-base'} font-extrabold"/>
         ${parentBadgeHtml}${viaParentBadgeHtml}</div>`;
       const stToksInCard=parseStatusTokens(it.effects), uCosts=Array.isArray(it.useCosts)?it.useCosts:(it.useRes&&toInt(it.useAmt,0)>0?[{res:it.useRes,amt:toInt(it.useAmt,0)}]:[]), costSummary=formatPwUseCosts(it), hasUseCost=Boolean(costSummary), canSpendPw=hasUseCost||stToksInCard.length>0;
@@ -8070,8 +8109,19 @@
       const artOpen=UI.openPwMenu===artDdKey, asubOpen=UI.openPwMenu===asubDdKey;
       const curArtTip=getPwTermTip(it.art);
       const linked=!isAug?getLinkedAugs(it.id):[], unlinked=!isAug?getUnlinkedAugs():[];
+      const canChooseSec=(!isAug||!linkedParent)&&S.powerSections.length>0;
+      const flatSecs=canChooseSec?(Array.isArray(opts.flatSecs)?opts.flatSecs:getPwSecOptionsFlat()):[];
+      const curSecId=canChooseSec?getValidPwSecId(it.sectionId):'';
+      const secSelectBarHtml=canChooseSec?`<div class="flex flex-wrap items-center gap-2 text-xs">
+          <label class="font-bold t-mut shrink-0">📁 Sektion</label>
+          <select ${isAug?`data-aug-sec-sel="${it.id}"`:`data-pw-sec-sel="${it.id}"`} class="inp py-1 px-2 text-xs font-semibold flex-1 min-w-0 sm:max-w-xs">
+            <option value="">📁 Keine Sektion / Allgemein</option>
+            ${flatSecs.map(fs=>`<option value="${esc(fs.id)}" ${curSecId===fs.id?'selected':''}>${'↳ '.repeat(Math.min(3,fs.depth))}📁 ${esc(fs.name)}</option>`).join('')}
+          </select>
+        </div>`:'';
       return `<div ${isAug?`data-aug-card="${it.id}"`:""} class="card space-y-3 ${isAug?'border-amber-500/45':''}${viaParentPower?' opacity-75 hover:opacity-100 transition-opacity':''}" ${winStyle}>
         <div class="flex flex-wrap items-center justify-between gap-2 border-b bdr-line pb-2">${hdrLeft}${hdrRight}</div>
+        ${secSelectBarHtml}
         <div class="grid grid-cols-1 md:grid-cols-12 gap-2.5 text-xs">
           <div class="md:col-span-4"><label class="font-bold t-mut block mb-1">Voraussetzungen</label><input data-pwf="${kind}:${it.id}:req" type="text" value="${esc(it.req)}" placeholder="z.B. ST 30..." class="inp w-full"/></div>
           <div class="md:col-span-4">
@@ -8183,7 +8233,8 @@
       const linkedParent=isAug&&it.parentPowerId?S.powers.find(p=>p.id===it.parentPowerId):null;
       const showParentBadge=Boolean(opts.showParentBadge&&linkedParent);
       const viaParentPower=Boolean(opts.viaParentPower&&isAug);
-      const parentBadgeHtml=showParentBadge?`<span data-tip="${esc(`Verknüpft mit Kraft „${linkedParent.name||'Unbenannte Kraft'}“ (Zuordnung bleibt beim Filtern unverändert)`)}" class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border border-amber-400/60 bg-amber-500/20 text-amber-300 text-[10px] font-extrabold shrink-0 max-w-full sm:max-w-[220px] truncate">↳ ${esc(linkedParent.name||'Unbenannte Kraft')}</span>`:'';
+      const augSecObj=(isAug&&!linkedParent&&opts.showSecBadge&&it.sectionId)?S.powerSections.find(s=>s.id===it.sectionId):null;
+      const parentBadgeHtml=showParentBadge?`<span data-tip="${esc(`Verknüpft mit Kraft „${linkedParent.name||'Unbenannte Kraft'}“ (Zuordnung bleibt beim Filtern unverändert)`)}" class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border border-amber-400/60 bg-amber-500/20 text-amber-300 text-[10px] font-extrabold shrink-0 max-w-full sm:max-w-[220px] truncate">↳ ${esc(linkedParent.name||'Unbenannte Kraft')}</span>`:(augSecObj?`<span data-tip="${esc(`Freies Augment in Sektion „${augSecObj.name||'Sektion'}“`)}" class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border bdr-acc bg-acc-soft text-acc text-[10px] font-extrabold shrink-0 max-w-full sm:max-w-[200px] truncate">📁 ${esc(augSecObj.name||'Sektion')}</span>`:'');
       const viaParentBadgeHtml=viaParentPower?`<span data-tip="Mitangezeigt, weil die übergeordnete Hauptkraft dem Filter entspricht (erfüllt den Filter selbst nicht direkt)" class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border border-amber-500/35 bg-amber-500/10 text-amber-300/85 text-[10px] font-bold shrink-0">↳ gebunden</span>`:'';
       const stToksInCard=parseStatusTokens(it.effects), costSummary=formatPwUseCosts(it), hasUseCost=Boolean(costSummary), canSpendPw=hasUseCost||stToksInCard.length>0;
       const reservableCosts=getReservablePwCosts(it), isReserved=Boolean(it.reserved), activeResCosts=(isReserved&&Array.isArray(it.reservedCosts)&&it.reservedCosts.length)?it.reservedCosts:reservableCosts, resTxt=activeResCosts.map(rc=>`${rc.amt} ${getResLabel(rc.res)}`).join(' + ');
@@ -8196,6 +8247,7 @@
       const headerRow=`<div class="flex flex-wrap sm:flex-nowrap items-center justify-between gap-1.5 min-w-0">
         <div class="flex items-center gap-1.5 min-w-0 flex-1">
           <button type="button" data-action="toggle-pw-collapse" data-kind="${kind}" data-id="${it.id}" data-tip="${it.collapsed?'Ausklappen':'Einklappen (nur Kopfzeile anzeigen)'}" aria-label="${it.collapsed?'Ausklappen':'Einklappen'}" class="btn w-7 h-7 p-0 text-xs font-black shrink-0">${it.collapsed?'▸':'▾'}</button>
+          ${(isAug&&!linkedParent&&!isMobileLayout())?`<span draggable="true" data-drag-aug="${it.id}" data-tip="Ziehen zum Sortieren, in eine Sektion verschieben oder auf eine Kraft verknüpfen" class="w-7 h-7 rounded text-xs font-black bg-amber-500/15 text-amber-400 border border-amber-500/40 cursor-grab select-none shrink-0 inline-flex items-center justify-center">⠿</span>`:''}
           <span class="font-extrabold text-sm sm:text-[15px] leading-tight truncate min-w-0 ${dispName?'':'t-mut italic font-semibold'}" ${dispName?colStyle:''}>${dispName?esc(dispName):(isAug?'Unbenanntes Augment':'Unbenannte Kraft')}</span>
           ${parentBadgeHtml}${viaParentBadgeHtml}
         </div>
@@ -8230,11 +8282,11 @@
         }).join('')}${modInactive?`<button type="button" data-action="toggle-apply-mods" data-kind="${kind}" data-id="${it.id}" data-tip="Mods dieser Karte sind derzeit deaktiviert (nicht auf Bogen/Würfelassistent angerechnet) – klicken zum Aktivieren" class="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-extrabold border border-amber-400/60 bg-amber-500/15 text-amber-300 cursor-pointer">⏸️ Mods inaktiv</button>`:''}</div>`:'';
         const prDef=UI.statusIniPromptKey&&stToksInCard.some(t=>t.statusKey===UI.statusIniPromptKey)?STATUS_DEFS.find(d=>d.k===UI.statusIniPromptKey):null;
         const iniPromptHtml=prDef?(()=>{const pv=getStatusEffValues(prDef.k);return `<div class="mt-1.5 p-2 rounded-lg border border-amber-400/70 bg-amber-500/15 flex flex-wrap items-center justify-between gap-2 text-xs"><span class="font-extrabold text-amber-300">⚡ ${esc(prDef.name)} aktiviert: Initiative +${10*pv.stacks} oder −${10*pv.stacks} wählen?</span><div class="flex items-center gap-1.5"><button type="button" data-action="confirm-status-inidir" data-key="${prDef.k}" data-dir="1" class="btn py-0.5 px-2.5 text-xs font-black ${pv.iniDir>0?'bg-amber-500 text-slate-950 border-amber-400':'border-amber-400/50 text-amber-200'}">⚡ +${10*pv.stacks} Ini</button><button type="button" data-action="confirm-status-inidir" data-key="${prDef.k}" data-dir="-1" class="btn py-0.5 px-2.5 text-xs font-black ${pv.iniDir<0?'bg-amber-500 text-slate-950 border-amber-400':'border-amber-400/50 text-amber-200'}">⚡ −${10*pv.stacks} Ini</button></div></div>`;})():'';
-        effectsRow=`<div class="text-xs leading-snug"><div class="rtf-box cursor-auto">${toRtfHtml(it.effects)}</div>${modBadgesHtml}${iniPromptHtml}</div>`;
+        effectsRow=`<div class="text-xs leading-snug${hasDesc?' pt-1 border-t border-white/10':''}"><div class="rtf-box cursor-auto">${toRtfHtml(it.effects)}</div>${modBadgesHtml}${iniPromptHtml}</div>`;
       }
       const rulesHtml=hasRules?toRtfHtml(it.rules):'';
       const rulesIsBlock=hasRules&&/<(ul|ol|div|p|h1|h2|h3|br)/i.test(rulesHtml);
-      const rulesRow=hasRules?`<div class="text-[11px] leading-snug pt-1 border-t border-white/10 t-mut"><span class="font-extrabold text-acc mr-1">Zusatzinfos:</span>${rulesIsBlock?`<div class="rtf-box cursor-auto mt-0.5">${rulesHtml}</div>`:`<span class="rtf-box cursor-auto">${rulesHtml}</span>`}</div>`:'';
+      const rulesRow=hasRules?`<div class="text-[11px] leading-snug${(hasDesc||hasEffects)?' pt-1 border-t border-white/10':''} t-mut"><span class="font-extrabold text-acc mr-1">Zusatzinfos:</span>${rulesIsBlock?`<div class="rtf-box cursor-auto mt-0.5">${rulesHtml}</div>`:`<span class="rtf-box cursor-auto">${rulesHtml}</span>`}</div>`:'';
       const hasBody=hasDesc||hasEffects||hasRules;
       return `<div ${isAug?`data-aug-card="${it.id}"`:''} class="card py-2 px-2.5 sm:px-3 space-y-1.5 ${isAug?'border-amber-500/45':''}${viaParentPower?' opacity-75 hover:opacity-100 transition-opacity':''}" ${winStyle}>
         ${headerRow}
@@ -8312,6 +8364,7 @@
 
     function secHasFilteredPowers(secId){
       if(S.powers.filter(p=>p.sectionId===secId).some(matchesPwGroupFilter)) return true;
+      if(getUnlinkedAugsInSec(secId).some(ag=>matchesPwItemFilter(ag,'augment'))) return true;
       return S.powerSections.filter(s=>(s.parentSectionId||'')===secId).some(cs=>secHasFilteredPowers(cs.id));
     }
     function renderPwSecSlot(parentId,beforeSecId){
@@ -8356,6 +8409,7 @@
       const sibs=getPwSecSiblings(sec);
       const sIdx=sibs.findIndex(s=>s.id===secId);
       const allSecPowers=S.powers.filter(p=>p.sectionId===sec.id);
+      const allSecFreeAugs=getUnlinkedAugsInSec(sec.id);
       const curPar=sec.parentSectionId?S.powerSections.find(s=>s.id===sec.parentSectionId):null;
       const isPullConfirm=UI.confirmSecPullId===secId, isDelConfirm=UI.confirmDelSecId===secId;
       const items=[
@@ -8390,11 +8444,12 @@
         });
       }
       items.push({icon:'➕',label:'Untersektion erstellen',action:'add-pw-section',dataset:{parent:secId}});
+      items.push({icon:'🧩',label:'Freies Augment in Sektion',action:'add-augment',dataset:{sec:secId}});
       items.push({icon:'📤',label:'Sektion als .json exportieren',action:'export-pw-sec',dataset:{id:secId}});
       items.push({sep:true});
       items.push({type:'label',label:'Sortieren & Sammeln'});
-      if(allSecPowers.length>1){
-        items.push({icon:'⇅',label:'Kräfte A–Z sortieren',action:'sort-sec-az',dataset:{id:secId}});
+      if(allSecPowers.length>1||allSecFreeAugs.length>1){
+        items.push({icon:'⇅',label:'Einträge A–Z sortieren',action:'sort-sec-az',dataset:{id:secId}});
       }
       items.push({
         icon:'🔍',
@@ -8407,7 +8462,7 @@
           items.push({
             icon:'⚠️',
             label:`Alle „${sec.filterArt}“ sammeln? (2/2)`,
-            sub:'Verschiebt passende Kräfte inkl. Augmente hierher & sortiert A–Z',
+            sub:'Verschiebt passende Kräfte & freie Augmente hierher & sortiert A–Z',
             action:'confirm-sec-pull',
             dataset:{id:secId}
           });
@@ -8436,7 +8491,7 @@
         items.push({
           icon:'⚠️',
           label:'Sektion wirklich löschen? (2/2)',
-          sub:'Enthaltene Kräfte & Untersektionen bleiben erhalten',
+          sub:'Enthaltene Kräfte, freie Augmente & Untersektionen bleiben erhalten',
           danger:true,
           action:'confirm-del-sec',
           dataset:{id:secId}
@@ -8473,15 +8528,26 @@
 
     function renderPwSection(sec,sIdx,sibLen=1,depth=0,pwCtx={}){
       const allSecPowers=S.powers.filter(p=>p.sectionId===sec.id), fAct=hasActivePwFilter(), secPowers=fAct?allSecPowers.filter(matchesPwGroupFilter):allSecPowers;
+      const allSecFreeAugs=getUnlinkedAugsInSec(sec.id), secFreeAugs=fAct?allSecFreeAugs.filter(ag=>matchesPwItemFilter(ag,'augment')):allSecFreeAugs;
       if(fAct&&!secHasFilteredPowers(sec.id)) return '';
       const rawChildSecs=S.powerSections.filter(s=>(s.parentSectionId||'')===sec.id);
       const childSecs=fAct?rawChildSecs.filter(cs=>secHasFilteredPowers(cs.id)):rawChildSecs;
       const colStyle=sec.color?`style="color:${esc(sec.color)}"`:'', winStyle=cardColorStyle(sec);
       const showBody=!sec.collapsed||fAct;
       const secDirectPwCnt=fAct?allSecPowers.filter(p=>matchesPwItemFilter(p,'power')).length:allSecPowers.length;
-      const secDirectAugCnt=fAct?allSecPowers.reduce((s,p)=>s+getLinkedAugs(p.id).filter(ag=>matchesPwItemFilter(ag,'augment')).length,0):0;
-      const secPillTxt=fAct?(secDirectPwCnt===0&&secDirectAugCnt>0?`${secDirectAugCnt} ${secDirectAugCnt===1?'Augment':'Augmente'}`:`${secDirectPwCnt}/${allSecPowers.length} Kräfte${secDirectAugCnt?` • ${secDirectAugCnt} Aug.`:''}`):`${secPowers.length} ${allSecPowers.length===1?'Kraft':'Kräfte'}`;
+      const secLinkedAugCnt=fAct?allSecPowers.reduce((s,p)=>s+getLinkedAugs(p.id).filter(ag=>matchesPwItemFilter(ag,'augment')).length,0):0;
+      const secTotalAugMatchCnt=secLinkedAugCnt+secFreeAugs.length;
+      let secPillTxt;
+      if(fAct){
+        if(secDirectPwCnt===0&&secTotalAugMatchCnt>0) secPillTxt=`${secTotalAugMatchCnt} ${secTotalAugMatchCnt===1?'Augment':'Augmente'}`;
+        else secPillTxt=`${secDirectPwCnt}/${allSecPowers.length} Kräfte${secTotalAugMatchCnt?` • ${secTotalAugMatchCnt} Aug.`:''}`;
+      }else{
+        if(allSecPowers.length&&allSecFreeAugs.length) secPillTxt=`${allSecPowers.length} ${allSecPowers.length===1?'Kraft':'Kräfte'} • ${allSecFreeAugs.length} ${allSecFreeAugs.length===1?'Augment':'Augmente'}`;
+        else if(!allSecPowers.length&&allSecFreeAugs.length) secPillTxt=`${allSecFreeAugs.length} ${allSecFreeAugs.length===1?'Augment':'Augmente'}`;
+        else secPillTxt=`${allSecPowers.length} ${allSecPowers.length===1?'Kraft':'Kräfte'}`;
+      }
       const isViewMode=UI.pwMode!=='edit';
+      const freeAugListCls=isViewMode?'space-y-1.5':'space-y-2.5';
       return `<section data-pw-sec="${sec.id}" class="card ${isViewMode?'py-2.5 px-3 space-y-2':'space-y-3'} border-2 bdr-acc ${depth>0?'bg-black/15':''}" ${winStyle}>
         <div class="flex flex-wrap items-center justify-between gap-2 ${showBody?(isViewMode?'border-b bdr-line pb-1.5':'border-b bdr-line pb-2.5'):''}">
           <div class="flex items-center gap-1.5 flex-1 min-w-0 ${isViewMode?'':'w-full sm:w-auto sm:min-w-[180px]'}">
@@ -8493,12 +8559,12 @@
           <div class="flex flex-wrap items-center gap-1.5 shrink-0 max-w-full">
             <span class="pill cursor-default text-[11px] py-0.5 px-2 tabular shrink-0">${secPillTxt}${childSecs.length?` • ${childSecs.length}📁`:''}</span>
             ${sec.filterArt?`<span class="tag text-[10px] py-0.5 px-1.5 shrink-0" data-tip="Hauptaktionsart-Sammler aktiv – im ⋮-Menü ausführbar">🔍 ${esc(sec.filterArt)}</span>`:''}
-            ${!isViewMode?`<button type="button" data-action="add-power" data-sec="${sec.id}" class="btn btn-pri py-1.5 sm:py-1 px-2.5 text-xs shrink-0">+ Kraft</button>`:''}
+            ${!isViewMode?`<button type="button" data-action="add-power" data-sec="${sec.id}" class="btn btn-pri py-1.5 sm:py-1 px-2.5 text-xs shrink-0">+ Kraft</button><button type="button" data-action="add-augment" data-sec="${sec.id}" data-tip="Neues alleinstehendes Augment direkt in dieser Sektion anlegen" class="btn border-amber-400 text-amber-500 py-1.5 sm:py-1 px-2.5 text-xs shrink-0">+ Augment</button>`:''}
             ${!isViewMode&&sibLen>1?`<button type="button" data-action="move-sec" data-id="${sec.id}" data-dir="-1" ${sIdx===0?'disabled':''} data-tip="Sektion nach oben" class="hidden md:inline-flex btn py-1 px-2 text-xs">▲</button><button type="button" data-action="move-sec" data-id="${sec.id}" data-dir="1" ${sIdx===sibLen-1?'disabled':''} data-tip="Sektion nach unten" class="hidden md:inline-flex btn py-1 px-2 text-xs">▼</button>`:''}
             <button type="button" data-action="open-pw-sec-menu" data-id="${sec.id}" aria-haspopup="menu" aria-expanded="false" aria-label="Sektions-Aktionen für ${esc(sec.name||'Sektion')}" data-tip="Verschachteln, Sammler, A–Z, Export, Farben &amp; Löschen" class="btn ${isViewMode?'w-7 h-7 text-sm':'w-9 h-9 sm:w-8 sm:h-8 text-base'} p-0 font-black shrink-0">⋮</button>
           </div>
         </div>
-        ${showBody?((secPowers.length||childSecs.length)?`<div class="${isViewMode?'space-y-2':'space-y-4 pt-1'}">${secPowers.length?renderPwGroupList(secPowers,pwCtx):''}${childSecs.length?`<div class="pl-2.5 sm:pl-5 border-l-2 bdr-acc ${isViewMode?'space-y-2':''}">${childSecs.map((cs,ci)=>(isViewMode?'':renderPwSecSlot(sec.id,cs.id))+renderPwSection(cs,ci,childSecs.length,depth+1,pwCtx)).join('')}${isViewMode?'':renderPwSecSlot(sec.id,'')}</div>`:''}</div>`:`<div class="subcard border-dashed text-center py-4 text-xs t-mut">${isViewMode?'Keine Kräfte in dieser Sektion.':'Klicke auf „+ Kraft“ oder nutze das ⋮-Menü (Sammler / Untersektion). Auf dem Desktop klappt auch Drag &amp; Drop an ⠿.'}</div>`):''}
+        ${showBody?((secPowers.length||secFreeAugs.length||childSecs.length)?`<div class="${isViewMode?'space-y-2':'space-y-4 pt-1'}">${secPowers.length?renderPwGroupList(secPowers,pwCtx):''}${secFreeAugs.length?`<div class="${freeAugListCls}">${secFreeAugs.map((ag,ai)=>renderPwItem('augment',ag,ai,secFreeAugs.length,pwCtx)).join('')}</div>`:''}${childSecs.length?`<div class="pl-2.5 sm:pl-5 border-l-2 bdr-acc ${isViewMode?'space-y-2':''}">${childSecs.map((cs,ci)=>(isViewMode?'':renderPwSecSlot(sec.id,cs.id))+renderPwSection(cs,ci,childSecs.length,depth+1,pwCtx)).join('')}${isViewMode?'':renderPwSecSlot(sec.id,'')}</div>`:''}</div>`:`<div class="subcard border-dashed text-center py-4 text-xs t-mut">${isViewMode?'Keine Kräfte oder Augmente in dieser Sektion.':'Klicke auf „+ Kraft“, „+ Augment“ oder nutze das ⋮-Menü (Sammler / Untersektion). Auf dem Desktop klappt auch Drag &amp; Drop an ⠿.'}</div>`):''}
       </section>`;
     }
 
@@ -8506,10 +8572,12 @@
       const P=calcProg(), fAct=hasActivePwFilter(), fCnt=getPwFilterCnt();
       const pwCtx={
         statGroups:getStatGroups(),
-        sortedSkills:[...(S.skills||[])].filter(s=>s&&String(s.name||'').trim()).sort((a,b)=>String(a.name).trim().localeCompare(String(b.name).trim(),'de'))
+        sortedSkills:[...(S.skills||[])].filter(s=>s&&String(s.name||'').trim()).sort((a,b)=>String(a.name).trim().localeCompare(String(b.name).trim(),'de')),
+        flatSecs:getPwSecOptionsFlat()
       };
       const onlyPw=isOnlyPowersFilter(), onlyAugs=isOnlyAugsFilter();
       const allUnlinked=getUnlinkedAugs(), unlinked=fAct?allUnlinked.filter(ag=>matchesPwItemFilter(ag,'augment')):allUnlinked;
+      const allRootUnlinked=getRootUnlinkedAugs(), rootUnlinked=fAct?allRootUnlinked.filter(ag=>matchesPwItemFilter(ag,'augment')):allRootUnlinked;
       const allUnsecPowers=S.powers.filter(p=>!p.sectionId||!S.powerSections.some(s=>s.id===p.sectionId)), unsecPowers=fAct?allUnsecPowers.filter(matchesPwGroupFilter):allUnsecPowers;
       const hasAny=S.powers.length>0||S.augments.length>0||S.powerSections.length>0;
       const allPwTags=sortAlpha([...(S.pwTagList||DEF_PW_TAGS),...S.powers.flatMap(p=>p.tags||[]),...S.augments.flatMap(a=>a.tags||[])].filter(t=>!isReservedPwTerm(t)));
@@ -8586,14 +8654,14 @@
           const sibs=getLinkedAugs(ag.parentPowerId);
           return renderPwItem('augment',ag,sibs.indexOf(ag),sibs.length,{...pwCtx,showParentBadge:true});
         }).join('')}</div>`:''}
-        ${unlinked.length?`<div class="${listSpaceCls} ${onlyAugsLinked.length?'pt-2':''}">${onlyAugsLinked.length?`<div class="text-xs font-extrabold text-amber-400/90 px-1">Ungebundene Augmente (${unlinked.length})</div>`:''}${unlinked.map((ag,ai)=>renderPwItem('augment',ag,ai,unlinked.length,pwCtx)).join('')}</div>`:''}
+        ${unlinked.length?`<div class="${listSpaceCls} ${onlyAugsLinked.length?'pt-2':''}">${onlyAugsLinked.length?`<div class="text-xs font-extrabold text-amber-400/90 px-1">Ungebundene Augmente (${unlinked.length})</div>`:''}${unlinked.map((ag,ai)=>renderPwItem('augment',ag,ai,unlinked.length,{...pwCtx,showSecBadge:true})).join('')}</div>`:''}
       </section>`:'';
       return `<section class="card space-y-3"><div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3"><div class="flex flex-wrap items-center gap-3 min-w-0"><div><h2 class="text-base sm:text-lg font-extrabold cursor-help" data-tip="Erstelle beliebige Sektionen (Ordner), ziehe Kräfte am Viereck ⠿ hinein oder sammle Kräfte nach Art.\nÜber 🎨 (Textfarbe) und 🪟 (Fensterfarbe) lassen sich Kräfte, Augmente und Sektionen frei einfärben.">Kräfte &amp; Augmente</h2><p class="text-xs t-mut">Aktuelle Kosten: <strong id="pwSummaryHdr" class="text-acc">${P.pwSp} SP${P.pwMsp?` + ${P.pwMsp} MsP`:''}</strong></p></div>${modeToggleHtml}</div><div class="flex flex-wrap items-center gap-2"><button type="button" data-action="toggle-pw-filter" data-tip="Kräfte &amp; Augmente nach Typ, Hauptaktionsart, Aktionsunterarten, Lernkosten-Stufe oder Tags live filtern" class="btn py-1 px-2.5 text-xs ${(UI.pwFilterOpen||fAct)?'bdr-acc bg-acc-soft text-acc font-extrabold':''}">🔍 Filter${fAct?` (${fCnt})`:''} ${UI.pwFilterOpen?'▴':'▾'}</button>${fAct&&!UI.pwFilterOpen?`<button type="button" data-action="reset-pw-filter" data-tip="Aktiven Kräfte-Filter zurücksetzen" class="btn btn-err py-1 px-2 text-xs">✕</button>`:''}${hasAny?`<button type="button" data-action="collapse-all-pw" data-val="1" class="btn py-1 px-2.5 text-xs">▸ Alle einklappen</button><button type="button" data-action="collapse-all-pw" data-val="0" class="btn py-1 px-2.5 text-xs">▾ Alle ausklappen</button>`:''}<button type="button" data-action="open-pw-library" data-tip="Server-Bibliothek durchsuchen, Basisaktionen abrufen oder lokale .json-Pakete importieren" class="btn bg-acc-soft bdr-acc text-acc">📚 Bibliothek / Import</button><button type="button" data-action="export-pw-all" data-tip="Alle Kräfte, Augmente &amp; Sektionen als .json-Paket herunterladen" class="btn">📤 Export</button><button type="button" data-action="add-pw-section" class="btn bg-acc-soft bdr-acc text-acc">+ Sektion</button><button type="button" data-action="add-power" class="btn btn-pri">+ Kraft</button><button type="button" data-action="add-augment" class="btn border-amber-400 text-amber-500">+ Freies Augment</button></div></div>${filterMenuHtml}${activeTagsHtml}</section>
       ${!hasAny?`<div class="card text-center py-8 space-y-2.5 text-xs t-mut"><div class="font-extrabold text-sm text-acc">Noch keine Sektionen, Kräfte oder Augmente vorhanden.</div><div>Über die Bibliothek kannst du bei Bedarf Basisaktionen, Vorlagen vom Server oder eigene .json-Pakete importieren.</div><div class="pt-1"><button type="button" data-action="open-pw-library" class="btn btn-pri py-1.5 px-3.5 text-xs">📚 Bibliothek / Import öffnen</button></div></div>`:''}
       ${fAct&&totalMatchedCnt===0?`<div class="card text-center py-8 space-y-2 text-xs t-mut"><div class="font-extrabold text-sm text-acc">Keine Kräfte oder Augmente mit Überschneidung zum gewählten Filter gefunden.</div><div>Passe die Filterauswahl oben an oder setze den Filter zurück.</div><div><button type="button" data-action="reset-pw-filter" class="btn btn-pri py-1 px-3 text-xs mt-1">↺ Filter zurücksetzen</button></div></div>`:''}
       ${onlyAugs?onlyAugsListHtml:`${rootSecs.length?`<div class="${isViewMode?'space-y-2.5':'pw-sec-list'}">${rootSecs.map((sec,sIdx)=>(isViewMode?'':renderPwSecSlot('',sec.id))+renderPwSection(sec,sIdx,rootSecs.length,0,pwCtx)).join('')}${isViewMode?'':renderPwSecSlot('','')}</div>`:''}
-      ${unsecPowers.length?`<div data-pw-sec="" class="${isViewMode?'space-y-2':'space-y-5'} ${rootSecs.length?'pt-2':''}">${S.powerSections.length?`<div class="flex items-center justify-between px-1"><h3 class="text-sm font-extrabold t-mut">Kräfte ohne Sektion (${fAct?`${unsecPowers.length}/${allUnsecPowers.length}`:unsecPowers.length})</h3>${isViewMode?'':'<span class="text-[11px] t-mut">Hierher ziehen zum Herauslösen aus einer Sektion</span>'}</div>`:''}${renderPwGroupList(unsecPowers,pwCtx)}</div>`:(S.powerSections.length&&S.powers.length&&!fAct&&!isViewMode?`<div data-pw-sec="" class="subcard border-dashed text-center py-3 text-xs t-mut">Hierher ziehen, um eine Kraft aus einer Sektion herauszulösen</div>`:'')}
-      ${unlinked.length?`<section class="${isViewMode?'space-y-1.5':'space-y-3'} pt-2"><h3 class="text-sm font-extrabold text-amber-400 px-1">Ungebundene Augmente (${fAct?`${unlinked.length}/${allUnlinked.length}`:unlinked.length})</h3>${unlinked.map((ag,ai)=>renderPwItem('augment',ag,ai,unlinked.length,pwCtx)).join('')}</section>`:''}`}`;
+      ${unsecPowers.length?`<div data-pw-sec="" class="${isViewMode?'space-y-2':'space-y-5'} ${rootSecs.length?'pt-2':''}">${S.powerSections.length?`<div class="flex items-center justify-between px-1"><h3 class="text-sm font-extrabold t-mut">Kräfte ohne Sektion (${fAct?`${unsecPowers.length}/${allUnsecPowers.length}`:unsecPowers.length})</h3>${isViewMode?'':'<span class="text-[11px] t-mut">Hierher ziehen zum Herauslösen aus einer Sektion</span>'}</div>`:''}${renderPwGroupList(unsecPowers,pwCtx)}</div>`:(S.powerSections.length&&(S.powers.length||S.augments.length)&&!fAct&&(!isViewMode||(!rootUnlinked.length&&allUnlinked.length&&!isMobileLayout()))?`<div data-pw-sec="" class="subcard border-dashed text-center py-3 text-xs t-mut">Hierher ziehen, um eine Kraft oder ein freies Augment aus einer Sektion herauszulösen</div>`:'')}
+      ${rootUnlinked.length?`<section data-pw-sec="" class="${isViewMode?'space-y-1.5':'space-y-3'} pt-2"><h3 class="text-sm font-extrabold text-amber-400 px-1">${S.powerSections.length?'Freie Augmente ohne Sektion':'Ungebundene Augmente'} (${fAct?`${rootUnlinked.length}/${allRootUnlinked.length}`:rootUnlinked.length})</h3>${rootUnlinked.map((ag,ai)=>renderPwItem('augment',ag,ai,rootUnlinked.length,pwCtx)).join('')}</section>`:''}`}`;
     }
 
     function buildPwCatPillsHtml(){
@@ -11516,21 +11584,26 @@
             if(!sid||visitedSec.has(sid)) return '';
             visitedSec.add(sid);
             const secPws=pws.filter(p=>String(p.sectionId||'')===sid);
+            const secFreeAugs=augs.filter(a=>(!a.parentPowerId||!pwIds.has(String(a.parentPowerId)))&&String(a.sectionId||'')===sid).filter(a=>(!fTier||itemMatchesTier(a))&&(!q||hits.metaHit||hits.secHit||itemMatchesQuery(a)));
             const childSecs=secs.filter(s=>String(s.parentSectionId||'')===sid);
             const pwHtml=secPws.map(renderPowerWithAugs).filter(Boolean).join('');
+            const freeAugHtml=secFreeAugs.map(a=>renderItemRow(a,true,false)).filter(Boolean).join('');
             const childHtml=childSecs.map(cs=>renderPackSec(cs,depth+1)).filter(Boolean).join('');
-            if((fTier||q)&&!pwHtml&&!childHtml) return '';
+            if((fTier||q)&&!pwHtml&&!freeAugHtml&&!childHtml) return '';
             const secChecked=Boolean(PWLIB.selSecIds?.[sid]);
+            const rawSecFreeAugCnt=augs.filter(a=>(!a.parentPowerId||!pwIds.has(String(a.parentPowerId)))&&String(a.sectionId||'')===sid).length;
+            const secCountLbl=secPws.length&&rawSecFreeAugCnt?`${secPws.length} ${secPws.length===1?'Kraft':'Kräfte'} • ${rawSecFreeAugCnt} Augm.`:(!secPws.length&&rawSecFreeAugCnt?`${rawSecFreeAugCnt} ${rawSecFreeAugCnt===1?'Augment':'Augmente'}`:`${secPws.length} ${secPws.length===1?'Kraft':'Kräfte'}`);
             return `<div class="subcard p-2.5 space-y-2 border bdr-acc/60 ${depth>0?'bg-black/20':''} min-w-0">
               <div class="flex flex-wrap items-center justify-between gap-2 min-w-0">
                 <button type="button" data-action="pwlib-toggle-sel" data-kind="section" data-pack="${esc(pk.id)}" data-id="${esc(sid)}" class="flex items-center gap-2 min-w-0 flex-1 text-left">
                   <span class="text-sm leading-none shrink-0 ${secChecked?'text-acc':'t-mut'}">${secChecked?'☑':'☐'}</span>
                   <span class="font-extrabold text-xs sm:text-sm truncate">${depth>0?'↳ ':''}📁 ${esc(sec.name||'Sektion')}</span>
-                  <span class="pill cursor-default text-[10px] py-0.5 px-1.5 tabular shrink-0">${secPws.length} ${secPws.length===1?'Kraft':'Kräfte'}</span>
+                  <span class="pill cursor-default text-[10px] py-0.5 px-1.5 tabular shrink-0">${secCountLbl}</span>
                 </button>
-                <button type="button" data-action="pwlib-import-sec" data-pack="${esc(pk.id)}" data-sec="${esc(sid)}" data-tip="Diese Sektion inkl. Untersektionen &amp; Kräften importieren" class="btn bg-acc-soft bdr-acc text-acc py-1 px-2.5 text-[11px] shrink-0">📥 Ganze Sektion</button>
+                <button type="button" data-action="pwlib-import-sec" data-pack="${esc(pk.id)}" data-sec="${esc(sid)}" data-tip="Diese Sektion inkl. Untersektionen, Kräften &amp; Augmenten importieren" class="btn bg-acc-soft bdr-acc text-acc py-1 px-2.5 text-[11px] shrink-0">📥 Ganze Sektion</button>
               </div>
               ${pwHtml?`<div class="space-y-1.5">${pwHtml}</div>`:''}
+              ${freeAugHtml?`<div class="space-y-1.5">${freeAugHtml}</div>`:''}
               ${childHtml?`<div class="pl-2.5 sm:pl-4 border-l-2 bdr-acc space-y-2 pt-1">${childHtml}</div>`:''}
             </div>`;
           };
@@ -11538,7 +11611,7 @@
           const secsHtml=rootPackSecs.map(s=>renderPackSec(s,0)).filter(Boolean).join('');
           const loosePws=pws.filter(p=>!p.sectionId||!secIds.has(String(p.sectionId)));
           const loosePwsHtml=loosePws.map(renderPowerWithAugs).filter(Boolean).join('');
-          const looseAugs=augs.filter(a=>!a.parentPowerId||!pwIds.has(String(a.parentPowerId))).filter(a=>!q||hits.metaHit||itemMatchesQuery(a));
+          const looseAugs=augs.filter(a=>(!a.parentPowerId||!pwIds.has(String(a.parentPowerId)))&&(!a.sectionId||!secIds.has(String(a.sectionId)))).filter(a=>!q||hits.metaHit||itemMatchesQuery(a));
           const looseAugsHtml=looseAugs.map(a=>renderItemRow(a,true,false)).filter(Boolean).join('');
           detailHtml=`<div class="pt-2.5 border-t bdr-line space-y-3 min-w-0">
             ${renderPwLibImportOptsHtml()}
@@ -14257,18 +14330,20 @@
         case 'confirm-del-sec': {
           const sid=el.dataset.id, delSec=S.powerSections.find(s=>s.id===sid), upPar=delSec?.parentSectionId||''; UI.confirmDelSecId=null;
           S.powers.forEach(p=>{if(p.sectionId===sid)p.sectionId=upPar;});
+          S.augments.forEach(a=>{if(!a.parentPowerId&&a.sectionId===sid)a.sectionId=upPar;});
           S.powerSections.forEach(s=>{if(s.parentSectionId===sid)s.parentSectionId=upPar;});
           S.powerSections=S.powerSections.filter(s=>s.id!==sid);
           sanitizeSecHierarchy(S.powerSections);
-          renderMain(); save(); toast('Sektion entfernt (Kräfte & Untersektionen wurden behalten)'); break;
+          renderMain(); save(); toast('Sektion entfernt (Kräfte, freie Augmente & Untersektionen wurden behalten)'); break;
         }
-        case 'ask-sec-pull': {const sec=S.powerSections.find(s=>s.id===el.dataset.id);UI.confirmSecPullId=el.dataset.id;renderMain();if(sec&&sec.filterArt)toast(`⚠️ Sicherheitsabfrage (1/2): Alle Kräfte mit „${sec.filterArt}“ hierher verschieben? Bitte (2/2) bestätigen.`);break;}
+        case 'ask-sec-pull': {const sec=S.powerSections.find(s=>s.id===el.dataset.id);UI.confirmSecPullId=el.dataset.id;renderMain();if(sec&&sec.filterArt)toast(`⚠️ Sicherheitsabfrage (1/2): Alle Kräfte & freien Augmente mit „${sec.filterArt}“ hierher verschieben? Bitte (2/2) bestätigen.`);break;}
         case 'cancel-sec-pull': UI.confirmSecPullId=null; renderMain(); break;
         case 'confirm-sec-pull': {
           const sec=S.powerSections.find(s=>s.id===el.dataset.id); UI.confirmSecPullId=null;
           if(sec&&sec.filterArt){
             const targetArt=sec.filterArt.toLowerCase();
             S.powers.forEach(p=>{if(String(p.art||'').trim().toLowerCase()===targetArt) p.sectionId=sec.id;});
+            S.augments.forEach(a=>{if(!a.parentPowerId&&String(a.art||'').trim().toLowerCase()===targetArt) a.sectionId=sec.id;});
             const inSec=S.powers.filter(p=>p.sectionId===sec.id).sort((a,b)=>String(a.name||'').localeCompare(String(b.name||''),'de'));
             const outSec=S.powers.filter(p=>p.sectionId!==sec.id);
             S.powers=[...inSec,...outSec];
@@ -14278,8 +14353,12 @@
               linked.sort((a,b)=>String(a.name||'').localeCompare(String(b.name||''),'de'));
               idxs.forEach((pos,k)=>{S.augments[pos]=linked[k];});
             });
+            const augIdxs=[], secFreeAugs=[];
+            S.augments.forEach((a,i)=>{if(!a.parentPowerId&&a.sectionId===sec.id){augIdxs.push(i);secFreeAugs.push(a);}});
+            secFreeAugs.sort((a,b)=>String(a.name||'').localeCompare(String(b.name||''),'de'));
+            augIdxs.forEach((pos,k)=>{S.augments[pos]=secFreeAugs[k];});
             sec.collapsed=false;
-            renderMain(); save(); toast(`Alle Kräfte der Art „${sec.filterArt}“ gesammelt & A–Z sortiert!`);
+            renderMain(); save(); toast(`Alle Kräfte & freien Augmente der Art „${sec.filterArt}“ gesammelt & A–Z sortiert!`);
           }
           break;
         }
@@ -14295,6 +14374,10 @@
               linked.sort((a,b)=>String(a.name||'').localeCompare(String(b.name||''),'de'));
               idxs.forEach((pos,k)=>{S.augments[pos]=linked[k];});
             });
+            const augIdxs=[], secFreeAugs=[];
+            S.augments.forEach((a,i)=>{if(!a.parentPowerId&&a.sectionId===sec.id){augIdxs.push(i);secFreeAugs.push(a);}});
+            secFreeAugs.sort((a,b)=>String(a.name||'').localeCompare(String(b.name||''),'de'));
+            augIdxs.forEach((pos,k)=>{S.augments[pos]=secFreeAugs[k];});
             renderMain(); save(); toast(`Sektion „${sec.name}“ A–Z sortiert`);
           }
           break;
@@ -14317,7 +14400,7 @@
           break;
         }
         case 'add-power': {const np=makePower(el.dataset.sec||''); S.powers.push(np); if(UI.pwMode!=='edit'){if(!(UI.pwQuickEditIds instanceof Set))UI.pwQuickEditIds=new Set();UI.pwQuickEditIds.add(pwQuickKey('power',np.id));} logChron('Neue Kraft angelegt.'); renderAll(); break;}
-        case 'add-augment': {const na=makeAugment(''); S.augments.push(na); if(UI.pwMode!=='edit'){if(!(UI.pwQuickEditIds instanceof Set))UI.pwQuickEditIds=new Set();UI.pwQuickEditIds.add(pwQuickKey('augment',na.id));} logChron('Neues freies Augment angelegt.'); renderAll(); break;}
+        case 'add-augment': {const secId=getValidPwSecId(el.dataset.sec||''); const na=makeAugment('',secId); S.augments.push(na); if(secId){const sec=S.powerSections.find(s=>s.id===secId);if(sec)sec.collapsed=false;} if(UI.pwMode!=='edit'){if(!(UI.pwQuickEditIds instanceof Set))UI.pwQuickEditIds=new Set();UI.pwQuickEditIds.add(pwQuickKey('augment',na.id));} logChron(secId?'Neues freies Augment in Sektion angelegt.':'Neues freies Augment angelegt.'); renderAll(); break;}
         case 'new-linked-aug': if(getLinkedAugs(el.dataset.pid).length<3){const na=makeAugment(el.dataset.pid); S.augments.push(na); if(UI.pwMode!=='edit'){if(!(UI.pwQuickEditIds instanceof Set))UI.pwQuickEditIds=new Set();UI.pwQuickEditIds.add(pwQuickKey('augment',na.id));} logChron('Neues Augment in Kraft-Slot angelegt.'); renderAll();} break;
         case 'dup-pw': {
           const kind=el.dataset.kind==='augment'?'augment':'power', id=String(el.dataset.id||''), it=findPwItem(kind,id);
@@ -14339,6 +14422,8 @@
               else S.powers.push(copy);
             }else{
               if(copy.parentPowerId&&getLinkedAugs(copy.parentPowerId).length>=3){
+                const parPw=S.powers.find(p=>p.id===copy.parentPowerId);
+                copy.sectionId=getValidPwSecId(parPw?.sectionId);
                 copy.parentPowerId='';
                 slotFullNotice=true;
               }
@@ -14361,7 +14446,7 @@
           }
           break;
         }
-        case 'unlink-aug': {const ag=S.augments.find(a=>a.id===el.dataset.id);if(ag){ag.parentPowerId='';renderMain();save();toast('Augment aus Slot gelöst');}break;}
+        case 'unlink-aug': {const ag=S.augments.find(a=>a.id===el.dataset.id);if(ag){unlinkAugFromPower(ag);renderMain();save();toast('Augment aus Slot gelöst');}break;}
         case 'toggle-pw-collapse': {const it=findPwItem(el.dataset.kind,el.dataset.id);if(it){it.collapsed=!it.collapsed;renderMain();save(false);}break;}
         case 'toggle-pw-filter': UI.pwFilterOpen=!UI.pwFilterOpen; renderMain(); break;
         case 'toggle-pw-filter-mode': UI.pwFilterMode=UI.pwFilterMode==='and'?'or':'and'; renderMain(); break;
@@ -14385,7 +14470,7 @@
           if(UI.pwQuickEditIds instanceof Set) UI.pwQuickEditIds.delete(pwQuickKey(isAug?'augment':'power',id));
           withPoolSync(()=>{
             if(isAug){const a=S.augments.find(x=>x.id===id);S.augments=S.augments.filter(x=>x.id!==id);logChron(`Augment gelöscht${a?.name?`: "${a.name}"`:''}.`);}
-            else{const p=S.powers.find(x=>x.id===id);S.augments.forEach(a=>{if(a.parentPowerId===id)a.parentPowerId='';});S.powers=S.powers.filter(x=>x.id!==id);logChron(`Kraft gelöscht${p?.name?`: "${p.name}"`:''}.`);}
+            else{const p=S.powers.find(x=>x.id===id);const inheritedSec=getValidPwSecId(p?.sectionId);S.augments.forEach(a=>{if(a.parentPowerId===id){a.parentPowerId='';a.sectionId=inheritedSec;}});S.powers=S.powers.filter(x=>x.id!==id);logChron(`Kraft gelöscht${p?.name?`: "${p.name}"`:''}.`);}
           });
           syncDiceFromSheet(); renderAll(); toast('Eintrag gelöscht'); break;
         }
@@ -16263,8 +16348,11 @@
               const cur=queue.shift();
               secs.forEach(s=>{if(s&&String(s.parentSectionId||'')===cur&&!secIdSet.has(String(s.id||''))){secIdSet.add(String(s.id));queue.push(String(s.id));}});
             }
+            const augs=Array.isArray(pk.augments)?pk.augments:[];
+            const pwIdSet=new Set();
             secIdSet.forEach(sid=>{if(next)PWLIB.selSecIds[sid]=true;else delete PWLIB.selSecIds[sid];});
-            pws.forEach(p=>{if(p&&secIdSet.has(String(p.sectionId||''))){const pid=String(p.id||'');if(next)PWLIB.selPwIds[pid]=true;else delete PWLIB.selPwIds[pid];}});
+            pws.forEach(p=>{if(p&&secIdSet.has(String(p.sectionId||''))){const pid=String(p.id||'');pwIdSet.add(pid);if(next)PWLIB.selPwIds[pid]=true;else delete PWLIB.selPwIds[pid];}});
+            augs.forEach(a=>{if(!a)return;const aid=String(a.id||''),ppid=String(a.parentPowerId||''),sid=String(a.sectionId||'');if(aid&&((ppid&&pwIdSet.has(ppid))||(!ppid&&sid&&secIdSet.has(sid)))){if(next)PWLIB.selAugIds[aid]=true;else delete PWLIB.selAugIds[aid];}});
           }else if(kind==='power'){
             if(PWLIB.selPwIds[id]) delete PWLIB.selPwIds[id]; else PWLIB.selPwIds[id]=true;
           }else if(kind==='augment'){
@@ -17133,7 +17221,8 @@
       }
       if(el.dataset.secArt){const sec=S.powerSections.find(s=>s.id===el.dataset.secArt);if(sec){sec.filterArt=el.value;UI.confirmSecPullId=null;renderMain();save();}return;}
       if(el.dataset.sksecFilter){const sec=S.skillSections.find(s=>s.id===el.dataset.sksecFilter);if(sec){sec.filterAttr=el.value;UI.confirmSkSecPullId=null;renderMain();save();}return;}
-      if(el.dataset.pwSecSel){const p=S.powers.find(x=>x.id===el.dataset.pwSecSel);if(p){p.sectionId=el.value;renderMain();save();}return;}
+      if(el.dataset.pwSecSel){const p=S.powers.find(x=>x.id===el.dataset.pwSecSel);if(p){p.sectionId=getValidPwSecId(el.value);if(p.sectionId){const tSec=S.powerSections.find(s=>s.id===p.sectionId);if(tSec)tSec.collapsed=false;}renderMain();save();}return;}
+      if(el.dataset.augSecSel){const ag=S.augments.find(a=>a.id===el.dataset.augSecSel);if(ag&&!ag.parentPowerId){ag.sectionId=getValidPwSecId(el.value);if(ag.sectionId){const tSec=S.powerSections.find(s=>s.id===ag.sectionId);if(tSec)tSec.collapsed=false;}renderMain();save();}return;}
       if(el.dataset.skSecSel){const sk=S.skills.find(x=>x.id===el.dataset.skSecSel);if(sk){sk.sectionId=el.value;renderMain();save();}return;}
       if(el.dataset.invsecParent){
         const sec=(S.invSections||[]).find(s=>s.id===el.dataset.invsecParent), pid=el.value;
@@ -17213,8 +17302,8 @@
         }
         return;
       }
-      if(el.dataset.agLink){const ag=S.augments.find(a=>a.id===el.dataset.agLink);if(ag){if(el.value&&getLinkedAugs(el.value).length>=3){toast('Maximal 3 Augmente pro Kraft!');renderMain();return;}ag.parentPowerId=el.value;renderMain();save();}return;}
-      if(el.dataset.linkSlot){const pid=el.dataset.linkSlot,ag=S.augments.find(a=>a.id===el.value);if(ag&&getLinkedAugs(pid).length<3){ag.parentPowerId=pid;renderMain();save();toast('Augment in Slot verknüpft');}return;}
+      if(el.dataset.agLink){const ag=S.augments.find(a=>a.id===el.dataset.agLink);if(ag){if(el.value&&getLinkedAugs(el.value).length>=3){toast('Maximal 3 Augmente pro Kraft!');renderMain();return;}if(el.value)linkAugToPower(ag,el.value);else unlinkAugFromPower(ag);renderMain();save();}return;}
+      if(el.dataset.linkSlot){const pid=el.dataset.linkSlot,ag=S.augments.find(a=>a.id===el.value);if(ag&&getLinkedAugs(pid).length<3){linkAugToPower(ag,pid);renderMain();save();toast('Augment in Slot verknüpft');}return;}
       if(el.dataset.campAddUserSel){
         if(!canManageCampaign(CLOUD.activeCampaignId)) return;
         const val=el.value.trim();
@@ -17739,10 +17828,49 @@
         }
         return;
       }
+      if(dragAugId){
+        clearPwSecDropIndicators();
+        const tgt=e.target&&e.target.nodeType===1?e.target:e.target?.parentElement;
+        const srcAug=S.augments.find(a=>a.id===dragAugId);
+        const agCard=tgt?.closest?.('[data-aug-card]');
+        if(agCard&&srcAug){
+          const targetAugId=agCard.dataset.augCard||'';
+          if(targetAugId===dragAugId){e.stopPropagation();return;}
+          const targetAug=S.augments.find(a=>a.id===targetAugId);
+          if(targetAug){
+            const targetIsFree=!targetAug.parentPowerId;
+            const sameParent=Boolean(srcAug.parentPowerId&&targetAug.parentPowerId&&srcAug.parentPowerId===targetAug.parentPowerId);
+            if(targetIsFree||sameParent){
+              e.stopPropagation();
+              const rect=agCard.getBoundingClientRect();
+              const relY=rect.height>0?(e.clientY-rect.top)/rect.height:0.5;
+              agCard.classList.add(relY<0.5?'pw-drop-before':'pw-drop-after');
+              return;
+            }
+          }
+        }
+        const pwGrp=tgt?.closest?.('[data-pw-group]');
+        if(pwGrp&&srcAug){
+          e.stopPropagation();
+          if(srcAug.parentPowerId!==(pwGrp.dataset.pwGroup||'')){
+            pwGrp.classList.add('pw-drop-over');
+          }
+          return;
+        }
+        const pwSec=tgt?.closest?.('[data-pw-sec]');
+        if(pwSec&&srcAug){
+          e.stopPropagation();
+          const targetSecId=getValidPwSecId(pwSec.dataset.pwSec||'');
+          if(Boolean(srcAug.parentPowerId)||getValidPwSecId(srcAug.sectionId)!==targetSecId){
+            pwSec.classList.add('pw-drop-over');
+          }
+        }
+        return;
+      }
       const grp=dragPwId?e.target.closest('[data-pw-group]'):null;
       const secBox=dragPwId?e.target.closest('[data-pw-sec]'):null;
       const skSecBox=(dragSkId||dragSkSecId)?e.target.closest('[data-sk-sec]'):null;
-      const agCard=dragAugId?e.target.closest('[data-aug-card]'):null;
+      const agCard=null;
       const skRow=dragSkId?e.target.closest('[data-sk-row]'):null;
       const cpwRow=dragChrPw?e.target.closest('[data-chr-pw]'):null;
       const chrSecBox=dragChrSec?e.target.closest('[data-chrsec]'):null;
@@ -17799,6 +17927,16 @@
         if(sl&&(!e.relatedTarget||!sl.contains(e.relatedTarget))) sl.classList.remove('active');
         const sb=tgt?.closest?.('[data-inv-sec]');
         if(sb&&(!e.relatedTarget||!sb.contains(e.relatedTarget))) sb.classList.remove('pw-drop-before','pw-drop-after','pw-drop-over');
+        return;
+      }
+      if(dragAugId){
+        const tgt=e.target&&e.target.nodeType===1?e.target:e.target?.parentElement;
+        const ac=tgt?.closest?.('[data-aug-card]');
+        if(ac&&(!e.relatedTarget||!ac.contains(e.relatedTarget))) ac.classList.remove('pw-drop-before','pw-drop-after','pw-drop-over');
+        const pg=tgt?.closest?.('[data-pw-group]');
+        if(pg&&(!e.relatedTarget||!pg.contains(e.relatedTarget))) pg.classList.remove('pw-drop-over');
+        const ps=tgt?.closest?.('[data-pw-sec]');
+        if(ps&&(!e.relatedTarget||!ps.contains(e.relatedTarget))) ps.classList.remove('pw-drop-over');
         return;
       }
       if(dragInvItemId){
@@ -17955,18 +18093,94 @@
           }
         }
       }else if(dragAugId){
-        const agCard=e.target.closest('[data-aug-card]');
-        if(agCard&&agCard.dataset.augCard!==dragAugId){
-          e.preventDefault();
-          const i1=S.augments.findIndex(a=>a.id===dragAugId), i2=S.augments.findIndex(a=>a.id===agCard.dataset.augCard);
-          if(i1>-1&&i2>-1){
-            const a1=S.augments[i1], a2=S.augments[i2];
-            if((a1.parentPowerId||'')===(a2.parentPowerId||'')){
-              const [it]=S.augments.splice(i1,1);S.augments.splice(i2,0,it);renderMain();save();
+        const srcId=dragAugId;
+        dragAugId=null;
+        const tgt=e.target&&e.target.nodeType===1?e.target:e.target?.parentElement;
+        const srcIdx=S.augments.findIndex(a=>a.id===srcId);
+        const srcAug=srcIdx>-1?S.augments[srcIdx]:null;
+        if(srcAug){
+          const agCard=tgt?.closest?.('[data-aug-card]');
+          const pwGrp=tgt?.closest?.('[data-pw-group]');
+          const pwSec=tgt?.closest?.('[data-pw-sec]');
+          let handled=false;
+          if(agCard){
+            const targetAugId=agCard.dataset.augCard||'';
+            if(targetAugId===srcId){
+              e.preventDefault();
+              e.stopPropagation();
+              handled=true;
+            }else{
+              const targetAug=S.augments.find(a=>a.id===targetAugId);
+              const targetIsFree=Boolean(targetAug&&!targetAug.parentPowerId);
+              const sameParent=Boolean(targetAug&&srcAug.parentPowerId&&targetAug.parentPowerId&&srcAug.parentPowerId===targetAug.parentPowerId);
+              if(targetAug&&(targetIsFree||sameParent)){
+                e.preventDefault();
+                e.stopPropagation();
+                const rect=agCard.getBoundingClientRect();
+                const insertAfter=rect.height>0?((e.clientY-rect.top)/rect.height)>=0.5:false;
+                const prevSec=getValidPwSecId(srcAug.sectionId), prevPar=String(srcAug.parentPowerId||'');
+                const [moved]=S.augments.splice(srcIdx,1);
+                if(targetIsFree){
+                  moved.parentPowerId='';
+                  moved.sectionId=getValidPwSecId(targetAug.sectionId);
+                }
+                const newTargetIdx=S.augments.findIndex(a=>a.id===targetAugId);
+                const insIdx=newTargetIdx>-1?(insertAfter?newTargetIdx+1:newTargetIdx):S.augments.length;
+                S.augments.splice(insIdx,0,moved);
+                save();
+                renderMain();
+                if(targetIsFree&&(prevPar||prevSec!==moved.sectionId)){
+                  const secObj=moved.sectionId?S.powerSections.find(s=>s.id===moved.sectionId):null;
+                  toast(secObj?`Augment in Sektion „${secObj.name||'Sektion'}“ einsortiert`:'Augment in „Ohne Sektion“ einsortiert');
+                }
+                handled=true;
+              }
             }
           }
+          if(!handled&&pwGrp){
+            const targetPid=pwGrp.dataset.pwGroup||'';
+            const targetPw=S.powers.find(p=>p.id===targetPid);
+            if(targetPw){
+              e.preventDefault();
+              e.stopPropagation();
+              if(srcAug.parentPowerId!==targetPid){
+                const linked=getLinkedAugs(targetPid);
+                if(linked.length>=3){
+                  toast('⚠️ Maximal 3 Augmente pro Kraft!');
+                }else{
+                  const grpMsp=calcPwCost(targetPw).msp+linked.reduce((s,a)=>s+calcPwCost(a).msp,0);
+                  const augMsp=calcPwCost(srcAug).msp;
+                  if(grpMsp+augMsp>1){
+                    toast('⚠️ Kollektives Limit: Maximal 1 MsP pro Kraft-Gruppe erlaubt!');
+                  }else{
+                    linkAugToPower(srcAug,targetPid);
+                    save();
+                    renderMain();
+                    toast(`Augment mit „${targetPw.name||'Unbenannte Kraft'}“ verknüpft`);
+                  }
+                }
+              }
+              handled=true;
+            }
+          }
+          if(!handled&&pwSec){
+            e.preventDefault();
+            e.stopPropagation();
+            const targetSecId=getValidPwSecId(pwSec.dataset.pwSec||'');
+            const changed=Boolean(srcAug.parentPowerId)||getValidPwSecId(srcAug.sectionId)!==targetSecId;
+            srcAug.parentPowerId='';
+            srcAug.sectionId=targetSecId;
+            if(targetSecId){
+              const secObj=S.powerSections.find(s=>s.id===targetSecId);
+              if(secObj) secObj.collapsed=false;
+              if(changed) toast(`Augment in Sektion „${secObj?.name||'Sektion'}“ verschoben`);
+            }else if(changed){
+              toast('Augment aus Sektion herausgelöst');
+            }
+            save();
+            renderMain();
+          }
         }
-        dragAugId=null;
       }else if(dragSkSecId){
         const skSecBox=e.target.closest('[data-sk-sec]');
         if(skSecBox){
