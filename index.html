@@ -49,7 +49,7 @@
     .sk-drop-over{background:var(--accS)!important;outline:2px dashed var(--acc)}
     .autogrow{min-height:58px;resize:vertical;overflow-y:auto;line-height:1.45}
     .rtf-box{white-space:pre-wrap;word-break:break-word;cursor:text;color:var(--txt);font-weight:400}
-    .rtf-box *:not(h1):not(h2):not(h3){color:inherit!important;background-color:transparent!important;font-family:inherit!important;font-size:inherit!important;line-height:inherit!important}
+    .rtf-box *:not(h1):not(h2):not(h3):not(.dyn-val-pill):not(.dyn-val-pill *){color:inherit!important;background-color:transparent!important;font-family:inherit!important;font-size:inherit!important;line-height:inherit!important}
     .rtf-box h1,.rtf-box h2,.rtf-box h3{background-color:transparent!important;font-family:inherit!important;white-space:pre-wrap}
     .rtf-box h1 { font-size: 1.25rem !important; line-height: 1.35 !important; font-weight: 900 !important; color: var(--accT) !important; margin: .35rem 0 .15rem; border-bottom: 1px solid var(--bdr); padding-bottom: .1rem; }
     .rtf-box h2 { font-size: 1.08rem !important; line-height: 1.35 !important; font-weight: 800 !important; margin: .3rem 0 .1rem; }
@@ -188,6 +188,12 @@
       .cn-shell:not(.cn-is-mobile) .cn-editor-pane{flex:1 1 auto;overflow:hidden;min-height:0}
       .cn-shell:not(.cn-is-mobile) .cn-editor-box{min-height:0;overflow-y:auto;overscroll-behavior:contain}
     }
+    .dyn-val-pill,.rtf-box .dyn-val-pill{display:inline-flex;align-items:baseline;gap:.18rem;padding:.02rem .34rem;margin:0 .04rem;border-radius:.38rem;border:1px solid var(--accB);background-color:var(--accS);color:var(--accT);font-style:normal;font-weight:800;font-variant-numeric:tabular-nums;line-height:1.25;vertical-align:baseline;cursor:help;transition:background-color .14s,border-color .14s}
+    .dyn-val-pill:hover,.rtf-box .dyn-val-pill:hover{background-color:color-mix(in srgb,var(--acc) 26%,transparent);border-color:var(--acc)}
+    .dyn-val-pill.dyn-val-err,.rtf-box .dyn-val-pill.dyn-val-err{border-color:rgba(244,63,94,.52);background-color:rgba(244,63,94,.14);color:#e11d48}
+    .dark .dyn-val-pill.dyn-val-err,.dark .rtf-box .dyn-val-pill.dyn-val-err{color:#fda4af}
+    .dyn-prev-bar{display:flex;flex-wrap:wrap;align-items:center;gap:.35rem;padding:.35rem .55rem;border-radius:.6rem;border:1px solid var(--accB);background:color-mix(in srgb,var(--accS) 55%,var(--surf2));font-size:.7rem;line-height:1.3}
+    .dyn-prev-chip{font-size:.7rem;padding:.08rem .4rem}
   </style>
 </head>
 <body class="min-h-screen">
@@ -312,7 +318,9 @@
     const TR_DEFS=[{i:0,b:5,sp:2,msp:0},{i:1,b:5,sp:2,msp:0},{i:2,b:5,sp:3,msp:0},{i:3,b:5,sp:3,msp:0},{i:4,b:10,sp:5,msp:1}];
     const SK_CATS={marginal:{l:'Marginal',s:[0,1,1,2,2]},fundamental:{l:'Fundamental',s:[0,2,2,3,3]},grandios:{l:'Grandios',s:[0,3,2,3,4]}};
     const SK_RANKS=[{r:0,n:'Ungelernt',b:0},{r:1,n:'Novize',b:10},{r:2,n:'Geselle',b:15},{r:3,n:'Experte',b:20},{r:4,n:'Meister',b:30}];
-    const PW_TIERS={basisaktion:{l:'Basisaktion',full:'Basisaktion: 0 SP',sp:0,msp:0},marginal:{l:'Marginal',full:'Marginal: 1 SP',sp:1,msp:0},fundamental:{l:'Fundamental',full:'Fundamental: 2 SP',sp:2,msp:0},grandios:{l:'Grandios',full:'Grandios: 2 SP + 1 MsP',sp:2,msp:1}};
+    const PW_TIERS={basisaktion:{l:'Basisaktion',full:'Basisaktion: 0 SP',sp:0,msp:0},marginal:{l:'Marginal (Options)',full:'Marginal (Options): 1 SP',sp:1,msp:0},fundamental:{l:'Fundamental (Core)',full:'Fundamental (Core): 2 SP',sp:2,msp:0},exzeptionell:{l:'Exzeptionell (Ace)',full:'Exzeptionell (Ace): 3 SP',sp:3,msp:0},grandios:{l:'Grandios (Game Changer)',full:'Grandios (Game Changer): 3 SP + 1 MsP',sp:3,msp:1}};
+    const PW_TIER_BADGE_CLS={basisaktion:'border-slate-400/50 bg-slate-500/15 text-slate-600 dark:text-slate-300',marginal:'border-emerald-500/45 bg-emerald-500/15 text-emerald-700 dark:text-emerald-300',fundamental:'border-sky-500/50 bg-sky-500/15 text-sky-700 dark:text-sky-300',exzeptionell:'border-fuchsia-500/55 bg-fuchsia-500/15 text-fuchsia-700 dark:text-fuchsia-300',grandios:'border-amber-500/60 bg-amber-500/15 text-amber-700 dark:text-amber-300'};
+    const getPwTierKey=(it,isAug=false)=>{const isLeg=!isAug&&!it?.parentPowerId&&it?.tier==='marginal'&&it?.manualCost&&toInt(it?.sp,0)===0&&toInt(it?.msp,0)===0;return isLeg?'basisaktion':(PW_TIERS[it?.tier]?it.tier:'marginal');};
     const DEF_HZ=[{id:'hz1',range:'01 - 10',zone:'Kopf',size:'klein',armor:''},{id:'hz2',range:'11 - 50',zone:'Rumpf',size:'groß',armor:''},{id:'hz3',range:'51 - 62',zone:'Arm links',size:'normal',armor:''},{id:'hz4',range:'63 - 74',zone:'Arm rechts',size:'normal',armor:''},{id:'hz5',range:'75 - 87',zone:'Bein links',size:'normal',armor:''},{id:'hz6',range:'88 - 100',zone:'Bein rechts',size:'normal',armor:''}];
     const TABS=[{id:'attributes',icon:'⚡',short:'Attr.',l:'1. Attribute & Status'},{id:'skills',icon:'🎯',short:'Fert.',l:'2. Fertigkeiten'},{id:'powers',icon:'✨',short:'Kräfte',l:'3. Kräfte & Augmente'},{id:'chronicle',icon:'📜',short:'Chronik',l:'4. Steigerungschronik & Log'},{id:'equipment',icon:'🎒',short:'Ausr.',l:'5. Ausrüstung & Bio'}];
     const QTABS=[{k:'bestehen',l:'Testen / Bestehen',ph:'Notizen zu Proben, Vorteilen & Bestehen...'},{k:'schaden',l:'Schaden',ph:'Waffenschaden, Schadenscodes & Effekte...'},{k:'ruestung',l:'Rüstung / Widerstände',ph:'Rüstungsschutz, Resistenzen & Immunitäten...'}];
@@ -360,7 +368,7 @@
       ["Reservierung","🔒 Gebundene Ressourcen","Kräfte/Augmente können LP, mLP, AP, mAP oder eigene Ressourcen dauerhaft reservieren; das senkt das freie Maximum bei Pause und Rast bis zur Aufhebung.","Aktionen, Zustände & Ressourcen"],
       ["Pause / Rast","Erholung & Regeneration","Pause stellt AP & mAP wieder her (keine ausgebrannten Sekundärattribute). Erholsame Rast heilt 2× LP- & mLP-Regenerationsrate und stellt AP, mAP sowie ausgebrannte Sekundärattribute wieder her.","Aktionen, Zustände & Ressourcen"],
       ["EP / SP / MsP","Erfahrung, Steigerung & Meisterschaft","100 EP = +1 Stufe (mit Rest-Übertrag). Pro Stufe +5 SP; jede 10. Stufe +1 MsP.","Fortschritt & Kräfte"],
-      ["Kräfte / Augm.","Basisaktionen, Kräfte & Augmente","Basisaktionen kosten 0 SP; Kräfte/Augmente kosten Marginal 1 SP, Fundamental 2 SP oder Grandios 2 SP + 1 MsP. Bis zu 3 Augmente pro Kraft, kollektiv max. 1 MsP pro Kraft-Gruppe.","Fortschritt & Kräfte"]
+      ["Kräfte / Augm.","Basisaktionen, Kräfte & Augmente","Basisaktionen kosten 0 SP; Kräfte/Augmente kosten Marginal (Options) 1 SP, Fundamental (Core) 2 SP, Exzeptionell (Ace) 3 SP oder Grandios (Game Changer) 3 SP + 1 MsP. Bis zu 3 Augmente pro Kraft, kollektiv max. 1 MsP pro Kraft-Gruppe.","Fortschritt & Kräfte"]
     ];
 
     const $=id=>document.getElementById(id), uid=()=>'u'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
@@ -495,7 +503,7 @@
         if(s.parentSectionId&&!canSetSecParent(secList,s.id,s.parentSectionId)) s.parentSectionId='';
       });
     };
-    const makePower=(secId='')=>({id:uid(),templateId:'',name:'',color:'',bgColor:'',sectionId:secId,collapsed:false,req:'',tier:'marginal',manualCost:false,sp:1,msp:0,showManual:false,art:'Grundaktion',artManual:false,actionSubs:[],tags:[],useCosts:[],useAmt:0,useRes:'',reserved:false,reservedCosts:[],desc:'',effects:'',rules:'',applyMods:true,bldAmt:'+1',bldStat:'LP-Max',bldMode:'stat',bldSkCnt:'1',bldSkKind:'adv',bldSkId:'',boxH:{desc:0,effects:0,rules:0}});
+    const makePower=(secId='')=>({id:uid(),templateId:'',name:'',color:'',bgColor:'',sectionId:secId,collapsed:false,req:'',tier:'marginal',manualCost:false,sp:1,msp:0,showManual:false,art:'Grundaktion',artManual:false,actionSubs:[],tags:[],useCosts:[],useAmt:0,useRes:'',reserved:false,reservedCosts:[],desc:'',effects:'',rules:'',applyMods:true,bldAmt:'+1',bldStat:'LP-Max',bldMode:'stat',bldSkCnt:'1',bldSkKind:'adv',bldSkId:'',bldDynVar:'WA',bldDynFactor:'/2',bldDynRound:'',bldDynTarget:'desc',boxH:{desc:0,effects:0,rules:0}});
     const makeAugment=(pid='',secId='')=>({...makePower(pid?'':String(secId||'')),id:uid(),parentPowerId:String(pid||''),art:'',actionSubs:[],tags:['Eigenschaft'],useCosts:[],useAmt:0,useRes:''});
     function syncPwUseCostsLegacy(it){
       if(!it) return;
@@ -1013,7 +1021,7 @@
     }
     function renderWinResizeHandles(k){return '<div data-win-resize-w="'+k+'" title="Breite ziehen" class="win-resize-w"></div><div data-win-resize="'+k+'" title="Größe ziehen" class="win-resize-h">◢</div>';}
     let dragMouseY=null, dragScrollRaf=null;
-    const savedEffRanges={};
+    const savedEffRanges={}, savedPwRanges={}, lastPwFieldById={};
     let modalSwipeCleanup=null;
     function cleanupModalSwipe(){if(typeof modalSwipeCleanup==='function'){try{modalSwipeCleanup();}catch(_){}}modalSwipeCleanup=null;}
     const PW_MODE_KEY='scherbensturm_pw_mode';
@@ -1065,6 +1073,249 @@
       }
       return list;
     }
+    const GUEST_THEME_KEY='scherbensturm_guest_theme_v1';
+    const USER_BG_LOCAL_PREFIX='scherbensturm_user_bg_local_';
+    const THEME_BG_SYNC_LIMIT=180000;
+    const THEME_SYNC_DEBOUNCE_MS=750;
+    let themeSyncTimer=null, themeSyncPending=false, lastThemeBgWarnMs=0;
+
+    function normalizeCustomPalettesList(rawList){
+      const map=new Map();
+      (Array.isArray(rawList)?rawList:[]).forEach(cp=>{
+        if(cp&&typeof cp==='object'&&cp.id&&isHex(cp.bg)&&isHex(cp.acc)&&isHex(cp.acc2)){
+          const id=String(cp.id).trim();
+          if(!id) return;
+          const isLt=Boolean(cp.isLt);
+          map.set(id,{
+            id,
+            name:String(cp.name||'Eigene Palette').trim()||'Eigene Palette',
+            isLt,
+            bg:String(cp.bg).trim(),
+            acc:String(cp.acc).trim(),
+            acc2:String(cp.acc2).trim(),
+            txt:isHex(cp.txt)?String(cp.txt).trim():(isLt?'#0f172a':'#f1f5f9'),
+            mut:isHex(cp.mut)?String(cp.mut).trim():(isLt?'#64748b':'#94a3b8'),
+            btnTxt:isHex(cp.btnTxt)?String(cp.btnTxt).trim():'#ffffff'
+          });
+        }
+      });
+      return [...map.values()];
+    }
+    function normalizeThemeSlot(rawSlot,customPals=[]){
+      const s=(rawSlot&&typeof rawSlot==='object')?rawSlot:{};
+      const palId=String(s.palette||'azur');
+      const isValidPal=Boolean(PALETTES[palId]||(Array.isArray(customPals)&&customPals.some(cp=>cp&&cp.id===palId)));
+      let cc=null;
+      if(s.customColors&&typeof s.customColors==='object'&&isHex(s.customColors.bg)){
+        const isLt=Boolean(s.customColors.isLt);
+        cc={
+          name:String(s.customColors.name||''),
+          isLt,
+          bg:String(s.customColors.bg).trim(),
+          acc:isHex(s.customColors.acc)?String(s.customColors.acc).trim():'#0ea5e9',
+          acc2:isHex(s.customColors.acc2)?String(s.customColors.acc2).trim():'#6366f1',
+          txt:isHex(s.customColors.txt)?String(s.customColors.txt).trim():(isLt?'#0f172a':'#f1f5f9'),
+          mut:isHex(s.customColors.mut)?String(s.customColors.mut).trim():(isLt?'#64748b':'#94a3b8'),
+          btnTxt:isHex(s.customColors.btnTxt)?String(s.customColors.btnTxt).trim():'#ffffff'
+        };
+      }
+      return {
+        palette:isValidPal?palId:'azur',
+        bg:typeof s.bg==='string'?s.bg:'',
+        overlay:Math.max(0,Math.min(95,toInt(s.overlay,75))),
+        blur:Math.max(0,Math.min(20,toInt(s.blur,0))),
+        fit:['cover','contain'].includes(s.fit)?s.fit:'cover',
+        pos:['top','center','bottom'].includes(s.pos)?s.pos:'center',
+        customColors:cc
+      };
+    }
+    function normalizeThemeSheet(rawSheet,customPals=[]){
+      const sh=(rawSheet&&typeof rawSheet==='object')?rawSheet:{};
+      const tabs={};
+      TABS.forEach(t=>{tabs[t.id]=normalizeThemeSlot(sh.tabs?.[t.id],customPals);});
+      return {
+        mode:sh.mode==='perTab'?'perTab':'global',
+        global:normalizeThemeSlot(sh.global,customPals),
+        tabs
+      };
+    }
+    function normalizeThemePrefs(raw){
+      if(!raw||typeof raw!=='object') return null;
+      const customPalettes=normalizeCustomPalettesList(raw.customPalettes);
+      const dark=raw.dark!==undefined?Boolean(raw.dark):true;
+      const lobby=normalizeThemeSlot(raw.lobby,customPalettes);
+      const sheet=normalizeThemeSheet(raw.sheet,customPalettes);
+      const sheetByChar={};
+      if(raw.sheetByChar&&typeof raw.sheetByChar==='object'){
+        Object.entries(raw.sheetByChar).forEach(([cid,entry])=>{
+          const id=String(cid||'').trim();
+          if(!id||!entry||typeof entry!=='object') return;
+          const normSh=normalizeThemeSheet(entry,customPalettes);
+          sheetByChar[id]={
+            dark:entry.dark!==undefined?Boolean(entry.dark):dark,
+            mode:normSh.mode,
+            global:normSh.global,
+            tabs:normSh.tabs,
+            updatedAtMs:Math.max(0,toInt(entry.updatedAtMs,0))
+          };
+        });
+      }
+      const isSlotNonDefault=sl=>Boolean(sl&&(sl.palette!=='azur'||sl.bg||sl.customColors||sl.overlay!==75||sl.blur!==0||sl.fit!=='cover'||sl.pos!=='center'));
+      const inferredSheetCustomized=Boolean(
+        sheet.mode==='perTab'||
+        isSlotNonDefault(sheet.global)||
+        TABS.some(t=>isSlotNonDefault(sheet.tabs[t.id]))||
+        Object.keys(sheetByChar).length>0
+      );
+      return {
+        dark,
+        lobby,
+        sheet,
+        sheetByChar,
+        customPalettes,
+        sheetCustomized:raw.sheetCustomized!==undefined?Boolean(raw.sheetCustomized):inferredSheetCustomized,
+        updatedAtMs:Math.max(0,toInt(raw.updatedAtMs,0))
+      };
+    }
+    function createDefaultThemePrefs(){
+      return normalizeThemePrefs({dark:true,lobby:makeStyleSlot(),sheet:{mode:'global',global:makeStyleSlot(),tabs:{}},sheetByChar:{},customPalettes:[],sheetCustomized:false,updatedAtMs:0});
+    }
+    function mergeThemePrefs(localRaw,remoteRaw,preferLocalOnTie=false){
+      const loc=normalizeThemePrefs(localRaw), rem=normalizeThemePrefs(remoteRaw);
+      if(!loc&&!rem) return null;
+      if(!loc) return rem;
+      if(!rem) return loc;
+      const locTs=toInt(loc.updatedAtMs,0), remTs=toInt(rem.updatedAtMs,0);
+      const locWins=(locTs>remTs)||(locTs===remTs&&preferLocalOnTie);
+      const win=locWins?loc:rem, lose=locWins?rem:loc;
+      const mergedByChar={};
+      const allCids=new Set([...Object.keys(lose.sheetByChar||{}),...Object.keys(win.sheetByChar||{})]);
+      allCids.forEach(cid=>{
+        const eW=win.sheetByChar?.[cid], eL=lose.sheetByChar?.[cid];
+        if(eW&&!eL) mergedByChar[cid]=clone(eW);
+        else if(eL&&!eW) mergedByChar[cid]=clone(eL);
+        else if(eW&&eL){
+          const wTs=toInt(eW.updatedAtMs,win.updatedAtMs), lTs=toInt(eL.updatedAtMs,lose.updatedAtMs);
+          mergedByChar[cid]=clone(lTs>wTs?eL:eW);
+        }
+      });
+      return normalizeThemePrefs({
+        dark:win.dark,
+        lobby:clone(win.lobby),
+        sheet:clone(win.sheet),
+        sheetByChar:mergedByChar,
+        customPalettes:clone(win.customPalettes),
+        sheetCustomized:Boolean(win.sheetCustomized||Object.keys(mergedByChar).length>0),
+        updatedAtMs:Math.max(locTs,remTs)
+      });
+    }
+    function isOversizedBgDataUrl(bg){
+      return typeof bg==='string'&&bg.startsWith('data:')&&bg.length>THEME_BG_SYNC_LIMIT;
+    }
+    function getUserBgLocalKey(userKey){
+      const low=String(userKey||'').trim().toLowerCase();
+      return low?(USER_BG_LOCAL_PREFIX+low):'';
+    }
+    function loadUserLocalBgMap(userKey){
+      const k=getUserBgLocalKey(userKey);
+      if(!k) return {};
+      try{
+        const raw=localStorage.getItem(k);
+        if(!raw) return {};
+        const parsed=JSON.parse(raw);
+        return (parsed&&typeof parsed==='object')?parsed:{};
+      }catch(e){return {};}
+    }
+    function saveUserLocalBgMap(userKey,map){
+      const k=getUserBgLocalKey(userKey);
+      if(!k) return;
+      try{
+        const clean={};
+        Object.entries(map||{}).forEach(([sk,val])=>{
+          if(sk&&typeof val==='string'&&val) clean[sk]=val;
+        });
+        if(!Object.keys(clean).length) localStorage.removeItem(k);
+        else localStorage.setItem(k,JSON.stringify(clean));
+      }catch(e){}
+    }
+    function migrateUserLocalBgMap(oldUserKey,newUserKey){
+      const oldK=getUserBgLocalKey(oldUserKey), newK=getUserBgLocalKey(newUserKey);
+      if(!oldK||!newK||oldK===newK) return;
+      try{
+        const val=localStorage.getItem(oldK);
+        if(val!==null){
+          localStorage.setItem(newK,val);
+          localStorage.removeItem(oldK);
+        }
+      }catch(e){}
+    }
+    function sanitizeThemePrefsForRegistry(rawTp,userKey){
+      const tp=normalizeThemePrefs(rawTp);
+      if(!tp) return {cleanPrefs:null,hadOversized:false};
+      let hadOversized=false;
+      const canStoreLocal=Boolean(userKey);
+      const localMap=canStoreLocal?loadUserLocalBgMap(userKey):{};
+      let localMapChanged=false;
+      const cleanSlot=(sl,slotPath)=>{
+        if(!sl||typeof sl!=='object') return sl;
+        if(isOversizedBgDataUrl(sl.bg)){
+          hadOversized=true;
+          if(canStoreLocal&&localMap[slotPath]!==sl.bg){
+            localMap[slotPath]=sl.bg;
+            localMapChanged=true;
+          }
+          sl.bg='';
+        }else if(sl.bg&&canStoreLocal&&localMap[slotPath]){
+          delete localMap[slotPath];
+          localMapChanged=true;
+        }
+        return sl;
+      };
+      cleanSlot(tp.lobby,'lobby');
+      cleanSlot(tp.sheet.global,'sheet:global');
+      TABS.forEach(t=>cleanSlot(tp.sheet.tabs[t.id],`sheet:tab:${t.id}`));
+      Object.entries(tp.sheetByChar||{}).forEach(([cid,entry])=>{
+        cleanSlot(entry.global,`char:${cid}:global`);
+        TABS.forEach(t=>cleanSlot(entry.tabs[t.id],`char:${cid}:tab:${t.id}`));
+      });
+      if(localMapChanged&&canStoreLocal) saveUserLocalBgMap(userKey,localMap);
+      return {cleanPrefs:tp,hadOversized};
+    }
+    function hydrateThemeSlotBg(slot,localBgMap,slotPath){
+      const out=clone(slot||makeStyleSlot());
+      if(!out.bg&&localBgMap&&typeof localBgMap[slotPath]==='string'&&localBgMap[slotPath]){
+        out.bg=localBgMap[slotPath];
+      }
+      return out;
+    }
+    function compressBgDataUrlForProfile(dataUrl,maxChars,cb){
+      const lim=maxChars||THEME_BG_SYNC_LIMIT;
+      if(!isOversizedBgDataUrl(dataUrl)){cb(String(dataUrl||''),false);return;}
+      const im=new Image();
+      im.onload=()=>{
+        const steps=[[1200,0.72],[1024,0.64],[880,0.56],[740,0.48],[620,0.42],[500,0.35]];
+        const ow=im.width||1, oh=im.height||1;
+        for(const [maxD,q] of steps){
+          let w=ow, h=oh;
+          if(w>maxD||h>maxD){
+            if(w>h){h=Math.max(1,Math.round(h*maxD/w));w=maxD;}
+            else{w=Math.max(1,Math.round(w*maxD/h));h=maxD;}
+          }
+          const cv=document.createElement('canvas');
+          cv.width=w; cv.height=h;
+          cv.getContext('2d').drawImage(im,0,0,w,h);
+          let out=cv.toDataURL('image/webp',q);
+          if(!out.startsWith('data:image/webp')) out=cv.toDataURL('image/jpeg',q);
+          if(out.length<=lim){cb(out,true);return;}
+          const outJpg=cv.toDataURL('image/jpeg',Math.max(0.3,q-0.06));
+          if(outJpg.length<=lim){cb(outJpg,true);return;}
+        }
+        cb(dataUrl,false);
+      };
+      im.onerror=()=>cb(dataUrl,false);
+      im.src=dataUrl;
+    }
+
     let CLOUD={serverUrl:'',list:[],loading:false,syncing:false,error:'',lastSyncTs:'',viewingRemote:false,remoteCharId:'',confirmDelCloudId:null,confirmDelCampPageId:null,filterMine:false,currentUser:'',isAdmin:false,showAdminBar:false,userMgmtOpen:false,activeCampaignId:'default',campAction:'',newCharOpen:false,newCharName:'',newCharAncestry:'',newCharConcept:'',newCharCampId:'default',publicNotesOpen:true,activePublicPageKey:'',registryLoaded:false,diceFeed:[],secretRolls:[],diceConnected:false,diceToast:true,diceCollapsed:false,lobbyDiceH:340,galleryCollapsed:false,confirmClearDice:false,registry:{users:{},claims:{},charCampaigns:{},publicNotes:{},campaignSharedNotes:{},deletedCharIds:[],campaigns:[{id:'default',name:'Ohne Kampagne / Allgemein',allowedUsers:[],gmUsers:[],img:''}],gmUsers:[],lobbyLogo:'',adminHash:'',diceFeed:[],diceClearedAt:0,diceClearedByCamp:{}}}, cloudSyncTimer=null, liveDiceES=null, liveDiceBC=null, liveDiceTopicCur='', liveDicePollTimer=null, registryPushInFlight=0, lastRegistryPushMs=0;
     const CLOUD_SYNC_DEBOUNCE_MS=1100;
     const CLOUD_SYNC_RETRY_DELAYS=[5000,15000,30000];
@@ -1180,7 +1431,10 @@
         userId=makeLegacyUserId(username,createdAt,usedIds);
       }
       if(usedIds instanceof Set) usedIds.add(userId);
+      const normThemePrefs=(src.themePrefs&&typeof src.themePrefs==='object')?normalizeThemePrefs(src.themePrefs):null;
       const out={...src,userId,passHash,createdAt,avatar,nameHistory};
+      if(normThemePrefs) out.themePrefs=normThemePrefs;
+      else delete out.themePrefs;
       delete out._deleted;
       return out;
     }
@@ -2055,8 +2309,66 @@
       }
       return `[${String(amtRaw||'+1').trim().replace(/^(\d)/,'+$1')} ${st}]`;
     }
-    function getPwBuilderToken(it,sortedSkillsOpt=null){
-      if(!it||it.bldMode!=='skill') return formatBldToken(it?.bldAmt,it?.bldStat);
+    const DYN_FACTOR_PRESETS=[
+      {v:'',l:'direkt (×1)'},
+      {v:'/2',l:'/2'},
+      {v:'/3',l:'/3'},
+      {v:'/4',l:'/4'},
+      {v:'/5',l:'/5'},
+      {v:'/10',l:'/10'},
+      {v:'×2',l:'×2'},
+      {v:'×3',l:'×3'},
+      {v:'+1',l:'+1'},
+      {v:'-1',l:'-1'}
+    ];
+    const DYN_ROUND_OPTS=[
+      {v:'',l:'Exakt'},
+      {v:'floor',l:'⌊ Abrunden'},
+      {v:'ceil',l:'⌈ Aufrunden'},
+      {v:'round',l:'≈ Runden'}
+    ];
+    const DYN_TARGET_OPTS=[
+      {v:'desc',l:'Beschreibung'},
+      {v:'effects',l:'Effekte'},
+      {v:'rules',l:'Zusatzinfos'}
+    ];
+    function getDynVarGroups(){
+      const cn=cresName();
+      const ownRes=[`${cn}-Max`,...(S.extraSecList||[]).map(x=>`${getExtraSecName(x)}-Max`)];
+      return [
+        ['Attribute',ATTRS.map(a=>a.k)],
+        ['Sekundärwerte',['LP-Max','mLP-Max','AP-Max','mAP-Max','Ini','BSt','Stufe','Bew']],
+        ['Eigene Ressourcen',ownRes]
+      ];
+    }
+    function buildDynFormulaSpec(it,M=calcActiveMods()){
+      const v=String(it?.bldDynVar||'WA').trim()||'WA';
+      const facRaw=it?.bldDynFactor!==undefined&&it?.bldDynFactor!==null?String(it.bldDynFactor):'/2';
+      const fac=facRaw.trim();
+      let core=v;
+      if(fac){
+        if(/^[+\-*/×÷·:]/.test(fac)) core=`${v}${fac}`;
+        else if(/^[xX]\s*[0-9.(]/.test(fac)) core=/^[xX]\s+/.test(fac)?`${v} ${fac}`:`${v}${fac}`;
+        else if(/^[0-9.]/.test(fac)) core=`${v}*${fac}`;
+        else core=`${v} ${fac}`;
+      }
+      const rnd=['floor','ceil','round'].includes(it?.bldDynRound)?it.bldDynRound:'';
+      const expr=rnd?`${rnd}(${core})`:core;
+      const token=`{{${expr}}}`;
+      const evalRes=evalDynamicFormula(expr,M);
+      return {varName:v,factor:facRaw,round:rnd,expr,token,evalRes};
+    }
+    function getDynPresetSelectVal(factorRaw){
+      const f=String(factorRaw??'').trim();
+      return DYN_FACTOR_PRESETS.some(p=>p.v===f)?f:'__custom__';
+    }
+    function getPwBuilderToken(it,sortedSkillsOpt=null,M=null){
+      if(!it) return formatBldToken('+1','LP-Max');
+      if(it.bldMode==='dyn'){
+        const spec=buildDynFormulaSpec(it,M||calcActiveMods());
+        return spec.evalRes.ok?spec.token:'';
+      }
+      if(it.bldMode!=='skill') return formatBldToken(it?.bldAmt,it?.bldStat);
       const digits=String(it.bldSkCnt??'').replace(/\D/g,'');
       const parsed=digits?parseInt(digits,10):0;
       const n=parsed>=1?parsed:1;
@@ -2076,9 +2388,317 @@
       const cl=String(rawName||'').trim().toLowerCase().replace(/ä/g,'ae').replace(/ö/g,'oe').replace(/ü/g,'ue');
       return STATUS_DEFS.find(d=>d.k===cl||d.name.toLowerCase()===String(rawName||'').trim().toLowerCase()||d.name.toLowerCase().replace(/ä/g,'ae').replace(/ö/g,'oe').replace(/ü/g,'ue')===cl)||null;
     }
+    const RE_DYN_FORMULA=/\{\{([^{}]*)\}\}/g;
+    const maskDynFormulas=s=>String(s??'').replace(RE_DYN_FORMULA,m=>' '.repeat(m.length));
+    function decodeDynEntities(s){
+      return String(s??'')
+        .replace(/&nbsp;|&#160;/gi,' ')
+        .replace(/&times;|&#215;/gi,'×')
+        .replace(/&divide;|&#247;/gi,'/')
+        .replace(/&minus;|&#8722;|[−–]/g,'-')
+        .replace(/&amp;/gi,'&')
+        .replace(/&lt;/gi,'<')
+        .replace(/&gt;/gi,'>')
+        .replace(/&quot;/gi,'"')
+        .replace(/&#39;|&apos;/gi,"'");
+    }
+    function getPrimaryMoveBew(M=calcActiveMods()){
+      const mv0=S.movements?.[0];
+      const bstDelta=getEffBst(M)-getBstAuto();
+      const autoBew=Math.max(0,toFlt(mv0?.base,5)+(M.moveBase||0)+bstDelta);
+      const hasOvr=mv0&&mv0.ovr!==undefined&&mv0.ovr!==null&&String(mv0.ovr).trim()!=='';
+      return hasOvr?Math.max(0,toFlt(mv0.ovr,autoBew)):autoBew;
+    }
+    function getDynamicVarEntries(M=calcActiveMods()){
+      const entries=[], seen=new Set();
+      const addVar=(name,val)=>{
+        const k=String(name||'').trim();
+        if(!k) return;
+        const low=k.toLowerCase();
+        if(seen.has(low)) return;
+        seen.add(low);
+        entries.push({name:k,low,val:Number.isFinite(val)?val:0});
+      };
+      ATTRS.forEach(a=>addVar(a.k,getAttrTot(a.k,M)));
+      addVar('LP-Max',getLpMax(M));
+      addVar('LP',getLpMax(M));
+      addVar('mLP-Max',getMlpMax(M));
+      addVar('mLP',getMlpMax(M));
+      addVar('AP-Max',getApMax(M));
+      addVar('AP',getApMax(M));
+      addVar('mAP-Max',getMapMax(M));
+      addVar('mAP',getMapMax(M));
+      addVar('Ini',getIniTot(M));
+      addVar('Initiative',getIniTot(M));
+      addVar('BSt',getEffBst(M));
+      addVar('Stufe',toInt(S.progression?.level,1));
+      addVar('Level',toInt(S.progression?.level,1));
+      addVar('Basis-Bewegung',getPrimaryMoveBew(M));
+      addVar('Bewegung',getPrimaryMoveBew(M));
+      addVar('Bew',getPrimaryMoveBew(M));
+      addVar('LP-Regeneration',getLpRegen(M));
+      addVar('LP-Reg',getLpRegen(M));
+      addVar('mLP-Regeneration',getMlpRegen(M));
+      addVar('mLP-Reg',getMlpRegen(M));
+      const cn=cresName(), cnMax=getCresMax(M);
+      addVar(`${cn}-Max`,cnMax);
+      addVar(cn,cnMax);
+      (S.extraSecList||[]).forEach(ex=>{
+        const nm=getExtraSecName(ex), mx=getExtraSecMax(ex,M);
+        addVar(`${nm}-Max`,mx);
+        addVar(nm,mx);
+      });
+      entries.sort((a,b)=>b.low.length-a.low.length);
+      return entries;
+    }
+    const DYN_FUNCS={
+      floor:{arity:1,fn:a=>Math.floor(a[0])},
+      abrunden:{arity:1,fn:a=>Math.floor(a[0])},
+      ceil:{arity:1,fn:a=>Math.ceil(a[0])},
+      aufrunden:{arity:1,fn:a=>Math.ceil(a[0])},
+      round:{arity:1,fn:a=>Math.round(a[0])},
+      runden:{arity:1,fn:a=>Math.round(a[0])},
+      min:{arity:-2,fn:a=>Math.min(...a)},
+      max:{arity:-2,fn:a=>Math.max(...a)}
+    };
+    const DYN_FUNC_NAMES=Object.keys(DYN_FUNCS).sort((a,b)=>b.length-a.length);
+    const isDynWordChar=ch=>/[a-zA-Z0-9äöüÄÖÜß_]/.test(ch||'');
+    function evalDynamicFormula(expr,M=calcActiveMods()){
+      const rawExpr=decodeDynEntities(expr).replace(/\s+/g,' ').trim();
+      const fail=err=>({ok:false,value:null,formatted:'',breakdown:'',rawExpr,error:err||'Ungültige Formel'});
+      if(!rawExpr) return fail('Leere Formel');
+      if(rawExpr.length>240) return fail('Formel zu lang');
+      const vars=getDynamicVarEntries(M);
+      const lowSrc=rawExpr.toLowerCase();
+      const tokens=[];
+      let i=0;
+      const prevType=()=>tokens.length?tokens[tokens.length-1].t:'';
+      const prevIsVal=()=>['num','var','rparen'].includes(prevType());
+      const startsWithKnownTerm=pos=>{
+        const rest=lowSrc.slice(pos);
+        if(!rest) return false;
+        for(const fn of DYN_FUNC_NAMES){
+          if(rest.startsWith(fn)){
+            const after=rest.slice(fn.length);
+            if(/^\s*\(/.test(after)) return true;
+          }
+        }
+        for(const v of vars){
+          if(rest.startsWith(v.low)){
+            const ch=rest[v.low.length]||'';
+            if(!isDynWordChar(ch)||((ch==='x'||ch==='X')&&/^[0-9(]/.test(rest.slice(v.low.length+1)))) return true;
+          }
+        }
+        return false;
+      };
+      while(i<rawExpr.length){
+        const ch=rawExpr[i];
+        if(/\s/.test(ch)){i++;continue;}
+        if(ch==='('){tokens.push({t:'lparen'});i++;continue;}
+        if(ch===')'){tokens.push({t:'rparen'});i++;continue;}
+        if(ch===';'){tokens.push({t:'sep'});i++;continue;}
+        if(ch===','){tokens.push({t:'comma'});i++;continue;}
+        if(ch==='+'){tokens.push({t:'op',op:'+'});i++;continue;}
+        if(ch==='-'){tokens.push({t:'op',op:'-'});i++;continue;}
+        if(ch==='*'||ch==='×'||ch==='·'){tokens.push({t:'op',op:'*'});i++;continue;}
+        if(ch==='/'||ch===':'||ch==='÷'){tokens.push({t:'op',op:'/'});i++;continue;}
+        if(/[0-9]/.test(ch)||(ch==='.'&&/[0-9]/.test(rawExpr[i+1]||''))){
+          const start=i;
+          while(i<rawExpr.length&&/[0-9]/.test(rawExpr[i])) i++;
+          let splitPair=null;
+          if(rawExpr[i]==='.'&&/[0-9]/.test(rawExpr[i+1]||'')){
+            i++;
+            while(i<rawExpr.length&&/[0-9]/.test(rawExpr[i])) i++;
+          }else if(rawExpr[i]===','&&/[0-9]/.test(rawExpr[i+1]||'')){
+            const leftPart=rawExpr.slice(start,i);
+            const cPos=i;
+            i++;
+            while(i<rawExpr.length&&/[0-9]/.test(rawExpr[i])) i++;
+            const rightPart=rawExpr.slice(cPos+1,i);
+            splitPair=[Number(leftPart),Number(rightPart)];
+          }
+          const rawNum=rawExpr.slice(start,i);
+          const numVal=Number(rawNum.replace(',','.'));
+          if(!Number.isFinite(numVal)) return fail(`Ungültige Zahl „${rawNum}“`);
+          tokens.push({t:'num',val:numVal,raw:rawNum,splitPair});
+          continue;
+        }
+        if((ch==='x'||ch==='X')&&prevIsVal()){
+          const nxt=rawExpr[i+1]||'';
+          if(!isDynWordChar(nxt)||/[0-9(]/.test(nxt)||((prevType()==='num'||prevType()==='rparen')&&startsWithKnownTerm(i+1))){
+            tokens.push({t:'op',op:'*'});
+            i++;
+            continue;
+          }
+        }
+        let matchedFn='';
+        for(const fn of DYN_FUNC_NAMES){
+          if(lowSrc.startsWith(fn,i)){
+            const afterPos=i+fn.length;
+            const afterCh=rawExpr[afterPos]||'';
+            if(!isDynWordChar(afterCh)&&/^\s*\(/.test(rawExpr.slice(afterPos))){
+              matchedFn=fn;
+              break;
+            }
+          }
+        }
+        if(matchedFn){
+          tokens.push({t:'func',name:matchedFn,raw:rawExpr.slice(i,i+matchedFn.length)});
+          i+=matchedFn.length;
+          continue;
+        }
+        let matchedVar=null;
+        for(const v of vars){
+          if(lowSrc.startsWith(v.low,i)){
+            const afterPos=i+v.low.length;
+            const afterCh=rawExpr[afterPos]||'';
+            const okBoundary=!isDynWordChar(afterCh)||((afterCh==='x'||afterCh==='X')&&/^[0-9(]/.test(rawExpr.slice(afterPos+1)));
+            if(okBoundary){
+              matchedVar=v;
+              break;
+            }
+          }
+        }
+        if(matchedVar){
+          tokens.push({t:'var',name:matchedVar.name,val:matchedVar.val,raw:rawExpr.slice(i,i+matchedVar.low.length)});
+          i+=matchedVar.low.length;
+          continue;
+        }
+        const unkM=rawExpr.slice(i).match(/^[a-zA-ZäöüÄÖÜß_][a-zA-Z0-9äöüÄÖÜß_-]*/);
+        if(unkM) return fail(`Unbekannte Variable „${unkM[0]}“`);
+        return fail(`Unerwartetes Zeichen „${ch}“`);
+      }
+      if(!tokens.length) return fail('Leere Formel');
+      let pos=0, depth=0, hasOpOrFn=false;
+      const peek=()=>tokens[pos]||null;
+      const next=()=>tokens[pos++]||null;
+      const parseExpr=()=>{
+        let left=parseTerm();
+        if(!left.ok) return left;
+        while(peek()&&peek().t==='op'&&(peek().op==='+'||peek().op==='-')){
+          const op=next().op;
+          hasOpOrFn=true;
+          const right=parseTerm();
+          if(!right.ok) return right;
+          left={ok:true,val:op==='+'?(left.val+right.val):(left.val-right.val),txt:`${left.txt} ${op} ${right.txt}`};
+        }
+        return left;
+      };
+      const parseTerm=()=>{
+        let left=parseUnary();
+        if(!left.ok) return left;
+        while(peek()&&peek().t==='op'&&(peek().op==='*'||peek().op==='/')){
+          const op=next().op;
+          hasOpOrFn=true;
+          const right=parseUnary();
+          if(!right.ok) return right;
+          if(op==='/'&&right.val===0) return fail('Division durch 0');
+          left={ok:true,val:op==='*'?(left.val*right.val):(left.val/right.val),txt:`${left.txt} ${op} ${right.txt}`};
+        }
+        return left;
+      };
+      const parseUnary=()=>{
+        if(peek()&&peek().t==='op'&&(peek().op==='+'||peek().op==='-')){
+          const op=next().op;
+          hasOpOrFn=true;
+          const inner=parseUnary();
+          if(!inner.ok) return inner;
+          return {ok:true,val:op==='-'?-inner.val:inner.val,txt:op==='-'?`-${inner.txt}`:inner.txt};
+        }
+        return parsePrimary();
+      };
+      const parsePrimary=()=>{
+        if(++depth>64) return fail('Zu tief verschachtelt');
+        try{
+          const tk=peek();
+          if(!tk) return fail('Unerwartetes Formelende');
+          if(tk.t==='num'){
+            next();
+            return {ok:true,val:tk.val,txt:fmtN(tk.val),singleNumTok:tk};
+          }
+          if(tk.t==='var'){
+            next();
+            return {ok:true,val:tk.val,txt:fmtN(tk.val),singleVarName:tk.name};
+          }
+          if(tk.t==='lparen'){
+            next();
+            const inner=parseExpr();
+            if(!inner.ok) return inner;
+            if(!peek()||peek().t!=='rparen') return fail('Schließende Klammer „)“ fehlt');
+            next();
+            return {ok:true,val:inner.val,txt:`(${inner.txt})`};
+          }
+          if(tk.t==='func'){
+            const fnTok=next();
+            const def=DYN_FUNCS[fnTok.name];
+            if(!peek()||peek().t!=='lparen') return fail(`„(“ nach ${fnTok.raw} erwartet`);
+            next();
+            hasOpOrFn=true;
+            const args=[];
+            if(peek()&&peek().t!=='rparen'){
+              while(true){
+                const a=parseExpr();
+                if(!a.ok) return a;
+                args.push(a);
+                if(peek()&&(peek().t==='comma'||peek().t==='sep')){
+                  next();
+                  continue;
+                }
+                break;
+              }
+            }
+            if(!peek()||peek().t!=='rparen') return fail(`Schließende Klammer „)“ für ${fnTok.raw}(...) fehlt`);
+            next();
+            let effArgs=args;
+            if(def.arity<0&&effArgs.length===1&&effArgs[0].singleNumTok&&Array.isArray(effArgs[0].singleNumTok.splitPair)){
+              const [aVal,bVal]=effArgs[0].singleNumTok.splitPair;
+              effArgs=[{ok:true,val:aVal,txt:fmtN(aVal)},{ok:true,val:bVal,txt:fmtN(bVal)}];
+            }
+            if(def.arity>0&&effArgs.length!==def.arity) return fail(`${fnTok.raw}(...) erwartet ${def.arity} Argument`);
+            if(def.arity<0&&effArgs.length<Math.abs(def.arity)) return fail(`${fnTok.raw}(...) erwartet mindestens ${Math.abs(def.arity)} Argumente`);
+            const v=def.fn(effArgs.map(a=>a.val));
+            return {ok:true,val:v,txt:`${fnTok.raw}(${effArgs.map(a=>a.txt).join(', ')})`};
+          }
+          return fail('Ungültige Formelsyntax');
+        }finally{depth--;}
+      };
+      const res=parseExpr();
+      if(!res.ok) return res;
+      if(pos<tokens.length) return fail('Unerwarteter Rest in Formel');
+      if(!Number.isFinite(res.val)) return fail('Ungültiges Rechenergebnis');
+      const cleanVal=(Object.is(res.val,-0)||Math.abs(res.val)<1e-12)?0:res.val;
+      const formatted=fmtN(cleanVal);
+      const breakdown=(!hasOpOrFn&&res.singleVarName)?`${res.singleVarName} = ${formatted}`:`${res.txt} = ${formatted}`;
+      return {ok:true,value:cleanVal,formatted,breakdown,rawExpr};
+    }
+    function extractDynamicFormulas(text){
+      const plain=stripHtml(text), out=[];
+      RE_DYN_FORMULA.lastIndex=0;
+      let m;
+      while((m=RE_DYN_FORMULA.exec(plain))!==null){
+        out.push({raw:m[0],expr:m[1]});
+      }
+      return out;
+    }
+    const RE_HTML_OR_DYN=/(<[^>]*>)|(\{\{[^{}]*\}\})/g;
+    function renderDynamicRtfHtml(rawHtml,M=calcActiveMods()){
+      const html=toRtfHtml(rawHtml);
+      if(!html||!html.includes('{{')) return html;
+      return html.replace(RE_HTML_OR_DYN,(match,tag,formulaTok)=>{
+        if(tag) return tag;
+        const inner=formulaTok.slice(2,-2);
+        const res=evalDynamicFormula(inner,M);
+        if(res.ok){
+          const tip=`Formel: ${res.rawExpr}\nRechnung: ${res.breakdown}`;
+          return `<span class="dyn-val-pill tabular font-extrabold" data-tip="${esc(tip).replace(/\n/g,'&#10;')}">${esc(res.formatted)}</span>`;
+        }
+        const tip=`Ungültige Formel: ${res.rawExpr||formulaTok}\nFehler: ${res.error||'Syntaxfehler'}`;
+        return `<span class="dyn-val-pill dyn-val-err" data-tip="${esc(tip).replace(/\n/g,'&#10;')}">⚠ ${esc(formulaTok)}</span>`;
+      });
+    }
     const RE_STATUS_TOK=/\[(?:([+-]?\d+)\s*(?:x|×)?\s+)?status\s*:\s*([a-zA-ZäöüÄÖÜß]+)(?:\s*(?:\(\s*(\d+)\s*(?:x|×)?\s*\)|(\d+)\s*(?:x|×)?))?\s*\]/gi;
     function parseStatusTokens(text){
-      const plain=stripHtml(text), out=[];
+      const plain=maskDynFormulas(stripHtml(text)), out=[];
       RE_STATUS_TOK.lastIndex=0;
       let m;
       while((m=RE_STATUS_TOK.exec(plain))!==null){
@@ -2092,7 +2712,7 @@
     const RE_EFF_BRACKET=/\[([+-]?\d+)\s+([^\]]+)\]/g;
     const RE_CRIT_NAT=/kritische[n]?\s+ziffer(?:\s*\(([^)]+)\)|\s+(?:bei|für|auf|mit)\s+(trefferw(?:ü|ue)rfe?n?|trefferwurf|angriffe?n?|alle[n]?\s+tests?|alle[n]?\s+proben?))?[^.!;\n\]]*?(?:um\s+([+-]?\d+|\bein\w*\b|\bzwei\b|\bdrei\b|\bvier\b|\bfünf\b)\s*(?:erh[öo]ht|gesteigert|verbessert)|([+-]\d+))/gi;
     function parseEffectTokens(text){
-      const plain=stripHtml(text), out=[], used=[];
+      const plain=maskDynFormulas(stripHtml(text)), out=[], used=[];
       RE_EFF_BRACKET.lastIndex=0; let m;
       while((m=RE_EFF_BRACKET.exec(plain))!==null){
         used.push([m.index,m.index+m[0].length]);
@@ -2235,7 +2855,7 @@
     const RE_NAT=/([+-]?\d+|\bein(?:en|em)?\b|\bzwei\b|\bdrei\b|\bvier\b|\bfünf\b)\s+(Vorteil(?:e|en)?|Nachteil(?:e|en)?)(?:(\s*\()((?:[^()\n]|\([^()\n]*\))+)(\))|(\s+(?:auf|mit|bei|beim|für|gegen|in|im|zu)\s+)([^.,;!\n\r\]]+))?/gi;
     const RE_ADV_REV=/(?:(?:auf|bei|beim|für|mit)\s+)?([A-Za-zÄÖÜäöüß][A-Za-zÄÖÜäöüß0-9()/ -]{1,34}?)\s+(?:haben|hat|erhalten|erhält|erhaelt|erhältst|bekommen|bekommt|bekommst|gewähren|gewährt)\s+(?:du\s+)?([+-]?\d+|\bein(?:en)?\b|\bzwei\b|\bdrei\b|\bvier\b|\bfünf\b)\s+(Vorteil(?:e|en)?|Nachteil(?:e|en)?)\b/gi;
     function parseAdvDisTokens(text){
-      const plain=stripHtml(text), out=[], used=[];
+      const plain=maskDynFormulas(stripHtml(text)), out=[], used=[];
       const overlaps=(s,e)=>used.some(([u1,u2])=>s<u2&&e>u1);
       RE_ADV_BR.lastIndex=0;
       let m;
@@ -2830,6 +3450,9 @@
         const bs=String(it.bldStat||'').trim().toLowerCase();
         if(bs===`${oLow}-max`) it.bldStat=`${n}-Max`;
         else if(bs===oLow) it.bldStat=n;
+        const dv=String(it.bldDynVar||'').trim().toLowerCase();
+        if(dv===`${oLow}-max`) it.bldDynVar=`${n}-Max`;
+        else if(dv===oLow) it.bldDynVar=n;
       });
     }
     function syncSkillRenameInTokens(oldName,newName){
@@ -2852,6 +3475,8 @@
         if(o){
           const bs=String(it.bldStat||'').trim().toLowerCase();
           if(bs===`${oLow}-max`||bs===oLow) it.bldStat='LP-Max';
+          const dv=String(it.bldDynVar||'').trim().toLowerCase();
+          if(dv===`${oLow}-max`||dv===oLow) it.bldDynVar='WA';
         }
         if(exId){
           if(Array.isArray(it.useCosts)) it.useCosts=it.useCosts.filter(c=>c&&c.res!=='ex_'+exId);
@@ -2883,12 +3508,16 @@
       const bh=raw?.boxH&&typeof raw.boxH==='object'?{desc:toInt(raw.boxH.desc,0),effects:toInt(raw.boxH.effects,0),rules:toInt(raw.boxH.rules,0)}:{desc:0,effects:0,rules:0};
       const col=isHex(raw?.color)?raw.color:'', bgCol=isHex(raw?.bgColor)?raw.bgColor:'';
       const applyMods=raw?.applyMods!==undefined?Boolean(raw.applyMods):true;
-      const bldMode=raw?.bldMode==='skill'?'skill':'stat';
+      const bldMode=raw?.bldMode==='skill'?'skill':(raw?.bldMode==='dyn'?'dyn':'stat');
       const rawSkCntDigits=String(raw?.bldSkCnt??'').replace(/\D/g,'');
       const rawSkCntNum=rawSkCntDigits?parseInt(rawSkCntDigits,10):0;
       const bldSkCnt=String(rawSkCntNum>=1?rawSkCntNum:1);
       const bldSkKind=raw?.bldSkKind==='dis'?'dis':'adv';
       const bldSkId=String(raw?.bldSkId||'');
+      const bldDynVar=String(raw?.bldDynVar||'WA').trim()||'WA';
+      const bldDynFactor=raw?.bldDynFactor!==undefined&&raw?.bldDynFactor!==null?String(raw.bldDynFactor):'/2';
+      const bldDynRound=['floor','ceil','round'].includes(raw?.bldDynRound)?raw.bldDynRound:'';
+      const bldDynTarget=['desc','effects','rules'].includes(raw?.bldDynTarget)?raw.bldDynTarget:'desc';
       const isLegacyFormat=raw?.actionSubs===undefined&&raw?.tags===undefined;
       const hasNewArrays=Array.isArray(raw?.actionSubs)||Array.isArray(raw?.tags);
       const actionSubSet=new Set();
@@ -2935,7 +3564,7 @@
       const reservedCosts=Array.isArray(raw?.reservedCosts)?raw.reservedCosts.filter(c=>c&&String(c.res||'').trim()&&toInt(c.amt,0)>0).map(c=>({res:String(c.res).trim(),amt:Math.max(0,toInt(c.amt,0))})):[];
       const normParentId=isAug?String(raw?.parentPowerId||''):'';
       const normSecId=(isAug&&normParentId)?'':String(raw?.sectionId||'');
-      return {...base,...(raw||{}),id:raw?.id||uid(),templateId:String(raw?.templateId||''),color:col,bgColor:bgCol,sectionId:normSecId,...(isAug?{parentPowerId:normParentId}:{}),collapsed:Boolean(raw?.collapsed),tier,manualCost:manual,sp:manual?toInt(raw.sp,def.sp):def.sp,msp:manual?toInt(raw.msp,def.msp):def.msp,showManual:Boolean(raw?.showManual),art,artManual:Boolean(raw?.artManual),actionSubs,tags,useCosts,useAmt,useRes,reserved,reservedCosts,desc:String(raw?.desc||''),effects:String(raw?.effects??raw?.extraEffects??''),rules:String(raw?.rules||''),applyMods,bldAmt:String(raw?.bldAmt||'+1'),bldStat:String(raw?.bldStat||'LP-Max'),bldMode,bldSkCnt,bldSkKind,bldSkId,boxH:bh};
+      return {...base,...(raw||{}),id:raw?.id||uid(),templateId:String(raw?.templateId||''),color:col,bgColor:bgCol,sectionId:normSecId,...(isAug?{parentPowerId:normParentId}:{}),collapsed:Boolean(raw?.collapsed),tier,manualCost:manual,sp:manual?toInt(raw.sp,def.sp):def.sp,msp:manual?toInt(raw.msp,def.msp):def.msp,showManual:Boolean(raw?.showManual),art,artManual:Boolean(raw?.artManual),actionSubs,tags,useCosts,useAmt,useRes,reserved,reservedCosts,desc:String(raw?.desc||''),effects:String(raw?.effects??raw?.extraEffects??''),rules:String(raw?.rules||''),applyMods,bldAmt:String(raw?.bldAmt||'+1'),bldStat:String(raw?.bldStat||'LP-Max'),bldMode,bldSkCnt,bldSkKind,bldSkId,bldDynVar,bldDynFactor,bldDynRound,bldDynTarget,boxH:bh};
     }
 
     const POWER_PACK_SCHEMA='scherbensturm_power_pack_v1';
@@ -3082,10 +3711,14 @@
         applyMods:Boolean(n.applyMods),
         bldAmt:String(n.bldAmt||'+1'),
         bldStat:String(n.bldStat||'LP-Max'),
-        bldMode:n.bldMode==='skill'?'skill':'stat',
+        bldMode:n.bldMode==='skill'?'skill':(n.bldMode==='dyn'?'dyn':'stat'),
         bldSkCnt:String(n.bldSkCnt||'1'),
         bldSkKind:n.bldSkKind==='dis'?'dis':'adv',
         bldSkId:String(n.bldSkId||''),
+        bldDynVar:String(n.bldDynVar||'WA'),
+        bldDynFactor:n.bldDynFactor!==undefined&&n.bldDynFactor!==null?String(n.bldDynFactor):'/2',
+        bldDynRound:['floor','ceil','round'].includes(n.bldDynRound)?n.bldDynRound:'',
+        bldDynTarget:['desc','effects','rules'].includes(n.bldDynTarget)?n.bldDynTarget:'desc',
         boxH:{desc:toInt(n.boxH?.desc,0),effects:toInt(n.boxH?.effects,0),rules:toInt(n.boxH?.rules,0)}
       };
       if(isAug) out.parentPowerId=String(n.parentPowerId||'');
@@ -3555,29 +4188,18 @@
       S.weaponTagList=mergeDefTags(raw.weaponTagList,DEF_WEAPON_TAGS);
       S.armorTagList=mergeDefTags(raw.armorTagList,DEF_ARMOR_TAGS);
       S.ammoTagList=Array.isArray(raw.ammoTagList)?sortTagDefs(raw.ammoTagList):[];
-      let storedCustomPals=[];
-      try{const sp=localStorage.getItem('scherbensturm_custom_palettes');if(sp)storedCustomPals=JSON.parse(sp)||[];}catch(e){}
-      const rawCustomPals=Array.isArray(raw.customPalettes)?raw.customPalettes:[];
-      const mergedPalsMap=new Map();
-      [...storedCustomPals,...rawCustomPals].forEach(cp=>{
-        if(cp&&cp.id&&isHex(cp.bg)&&isHex(cp.acc)&&isHex(cp.acc2)){
-          mergedPalsMap.set(String(cp.id),{
-            id:String(cp.id),
-            name:String(cp.name||'Eigene Palette').trim()||'Eigene Palette',
-            isLt:Boolean(cp.isLt),
-            bg:cp.bg,acc:cp.acc,acc2:cp.acc2,
-            txt:isHex(cp.txt)?cp.txt:(cp.isLt?'#0f172a':'#f1f5f9'),
-            mut:isHex(cp.mut)?cp.mut:(cp.isLt?'#64748b':'#94a3b8'),
-            btnTxt:isHex(cp.btnTxt)?cp.btnTxt:'#ffffff'
-          });
-        }
-      });
-      S.customPalettes=[...mergedPalsMap.values()];
-      const isValidPal=k=>Boolean(PALETTES[k]||S.customPalettes.some(cp=>cp.id===k));
-      const ap=raw.appearance||{}, normSlot=s=>({...makeStyleSlot(),...(s||{}),palette:isValidPal(s?.palette)?s.palette:'azur',customColors:s?.customColors&&isHex(s.customColors.bg)?{...s.customColors}:null});
-      const savedLobbyAp=(()=>{try{const u=String(CLOUD.currentUser||'').trim().toLowerCase();return JSON.parse(localStorage.getItem(u?`scherbensturm_lobby_style_${u}`:'scherbensturm_lobby_style')||localStorage.getItem('scherbensturm_lobby_style')||'null');}catch(e){return null;}})();
-      S.appearance={dark:ap.dark!==undefined?Boolean(ap.dark):true,mode:ap.mode==='perTab'?'perTab':'global',editScope:(ap.editScope==='lobby'||TABS.some(t=>t.id===ap.editScope))?ap.editScope:'attributes',global:normSlot(ap.global),lobby:normSlot(savedLobbyAp||ap.lobby),tabs:{}};
-      TABS.forEach(t=>{S.appearance.tabs[t.id]=normSlot(ap.tabs?.[t.id]);});
+      const sheetFallbackPalettes=normalizeCustomPalettesList(Array.isArray(raw.customPalettes)?raw.customPalettes:[]);
+      const ap=(raw.appearance&&typeof raw.appearance==='object')?raw.appearance:{};
+      const sheetFallbackAppearance={
+        dark:ap.dark!==undefined?Boolean(ap.dark):true,
+        mode:ap.mode==='perTab'?'perTab':'global',
+        editScope:(ap.editScope==='lobby'||TABS.some(t=>t.id===ap.editScope))?ap.editScope:'attributes',
+        global:normalizeThemeSlot(ap.global,sheetFallbackPalettes),
+        lobby:normalizeThemeSlot(ap.lobby,sheetFallbackPalettes),
+        tabs:{}
+      };
+      TABS.forEach(t=>{sheetFallbackAppearance.tabs[t.id]=normalizeThemeSlot(ap.tabs?.[t.id],sheetFallbackPalettes);});
+      applySessionTheme({allowSheetFallback:true,sheetFallbackAppearance,sheetFallbackPalettes,forSheet:true});
       ATTRS.forEach(a=>{
         const inc=raw.attributes?.[a.k]||{}, hi=Array.isArray(inc.tr)?inc.tr.lastIndexOf(true):-1;
         const trSp=Array.isArray(inc.trSp)&&inc.trSp.length===5?inc.trSp.map(x=>x===null||x===undefined||x===''?null:toInt(x,0)):[null,null,null,null,null];
@@ -3756,6 +4378,8 @@
               diceClearedByCamp:reg?.diceClearedByCamp||{}
             });
             const prevSig=!push?_regSig(CLOUD.registry,CLOUD.diceFeed):'';
+            const curUserKeyPre=!push&&CLOUD.currentUser?findUserKeyByName(CLOUD.currentUser):'';
+            const prevUserThemeSig=!push&&curUserKeyPre?JSON.stringify(CLOUD.registry.users?.[curUserKeyPre]?.themePrefs||null):'';
             const clrAt=Math.max(toInt(rem.registry.diceClearedAt,0),toInt(localSnap?localSnap.diceClearedAt:CLOUD.registry.diceClearedAt,0));
             const mergedDiceClearedByCamp={};
             const remByCamp=(rem.registry.diceClearedByCamp&&typeof rem.registry.diceClearedByCamp==='object')?rem.registry.diceClearedByCamp:{};
@@ -3809,9 +4433,18 @@
             const mergedUsers={};
             Object.entries(rawUsers||{}).forEach(([uk,uv])=>{
               if(uv&&typeof uv==='object'&&!uv._deleted){
-                const fbObj=push?rem.registry.users?.[uk]:srcUsers?.[uk];
+                const locUser=srcUsers?.[uk];
+                const remUser=rem.registry.users?.[uk];
+                const fbObj=push?remUser:locUser;
                 const avatarVal=uv.avatar!==undefined?String(uv.avatar||''):String(fbObj?.avatar||'');
-                mergedUsers[uk]={...uv,avatar:avatarVal};
+                const mergedTp=mergeThemePrefs(locUser?.themePrefs,remUser?.themePrefs,push);
+                const nextU={...uv,avatar:avatarVal};
+                if(mergedTp){
+                  nextU.themePrefs=sanitizeThemePrefsForRegistry(mergedTp,uk).cleanPrefs;
+                }else{
+                  delete nextU.themePrefs;
+                }
+                mergedUsers[uk]=nextU;
               }
             });
             CLOUD.registry={
@@ -3846,12 +4479,35 @@
               saveRegistryLocal();
               updateLobbyLiveDiceDOM();
             }
+            if(!push&&CLOUD.currentUser){
+              const curUserKeyPost=findUserKeyByName(CLOUD.currentUser);
+              const nextUserThemeSig=curUserKeyPost?JSON.stringify(CLOUD.registry.users?.[curUserKeyPost]?.themePrefs||null):'';
+              if(nextUserThemeSig&&nextUserThemeSig!==prevUserThemeSig){
+                const isEditingSheet=Boolean(!UI.inLobby&&UI.sheetLoaded);
+                applySessionTheme({
+                  allowSheetFallback:isEditingSheet,
+                  sheetFallbackAppearance:isEditingSheet?clone(S.appearance):null,
+                  sheetFallbackPalettes:isEditingSheet?clone(S.customPalettes||[]):null,
+                  preserveEditScope:UI.modal==='settings'
+                });
+                applyTheme();
+                if(UI.modal==='settings'){syncPalDraftFromSlot();renderModal();}
+              }
+            }
           }
         }
         if(push){
           const cleanPushUsers={};
           Object.entries(CLOUD.registry.users||{}).forEach(([uk,uv])=>{
-            if(uv&&typeof uv==='object'&&!uv._deleted) cleanPushUsers[uk]=uv;
+            if(uv&&typeof uv==='object'&&!uv._deleted){
+              const nextU={...uv};
+              if(nextU.themePrefs&&typeof nextU.themePrefs==='object'){
+                nextU.themePrefs=sanitizeThemePrefsForRegistry(nextU.themePrefs,uk).cleanPrefs;
+              }else{
+                delete nextU.themePrefs;
+              }
+              cleanPushUsers[uk]=nextU;
+            }
           });
           CLOUD.registry.users=cleanPushUsers;
           ensureAllRegistryUsers();
@@ -3935,7 +4591,8 @@
         passHash:existingRec.passHash,
         createdAt:existingRec.createdAt,
         avatar:existingRec.avatar,
-        nameHistory:nextHistory
+        nameHistory:nextHistory,
+        ...(existingRec.themePrefs?{themePrefs:clone(existingRec.themePrefs)}:{})
       };
       if(oldKey!==cleanNew){
         CLOUD.registry.users[cleanNew]=updatedRecord;
@@ -4002,6 +4659,7 @@
         try{
           localStorage.setItem('scherbensturm_cloud_user',cleanNew);
           if(oldLow!==newLow){
+            migrateUserLocalBgMap(oldKey,cleanNew);
             const oldStyleKey=`scherbensturm_lobby_style_${oldLow}`;
             const newStyleKey=`scherbensturm_lobby_style_${newLow}`;
             const oldStyleVal=localStorage.getItem(oldStyleKey);
@@ -4741,6 +5399,7 @@
       const targetCampId=allowedCamps.some(c=>c.id===reqCamp)?reqCamp:'default';
       CLOUD.viewingRemote=false; CLOUD.remoteCharId='';
       S=defaultState();
+      applySessionTheme({allowSheetFallback:false,forSheet:true});
       S.profile.name=String(opts.name??CLOUD.newCharName??'').trim();
       S.profile.ancestry=String(opts.ancestry??CLOUD.newCharAncestry??'').trim();
       S.profile.concept=String(opts.concept??CLOUD.newCharConcept??'').trim();
@@ -6290,7 +6949,7 @@
         save(true);
       },delay);
     }
-    function load(){try{let r=localStorage.getItem(STORE_KEY);if(!r){for(const k of OLD_KEYS){r=localStorage.getItem(k);if(r)break;}}if(r){const parsed=JSON.parse(r);mergeLoaded(parsed);S.activeTab=getSavedTabForChar(S.charId,parsed.activeTab);return true;}else{S=defaultState();S.activeTab=getSavedTabForChar(S.charId,S.activeTab);return false;}}catch(e){S=defaultState();return false;}}
+    function load(){try{let r=localStorage.getItem(STORE_KEY);if(!r){for(const k of OLD_KEYS){r=localStorage.getItem(k);if(r)break;}}if(r){const parsed=JSON.parse(r);mergeLoaded(parsed);S.activeTab=getSavedTabForChar(S.charId,parsed.activeTab);return true;}else{S=defaultState();applySessionTheme({allowSheetFallback:false});S.activeTab=getSavedTabForChar(S.charId,S.activeTab);return false;}}catch(e){S=defaultState();applySessionTheme({allowSheetFallback:false});return false;}}
 
     const getAttrCol=k=>{const a=ATTRS.find(x=>x.k===k);return(a&&S.attrColors[a.g])||'#6aa3d8';};
     const getSecCol=k=>{if(String(k||'').startsWith('ex_')){const ex=(S.extraSecList||[]).find(x=>'ex_'+x.id===k);return ex?.color||'#34d399';}return k==='cres'?(S.customRes.color||'#c084fc'):(S.secColors[k]||DEF_SEC_COLS[k]);};
@@ -6596,13 +7255,267 @@
       applyDiceAutoAdvDis(false);
     }
 
-    const getLobbyStyleKey=()=>{const u=String(CLOUD.currentUser||'').trim().toLowerCase();return u?`scherbensturm_lobby_style_${u}`:'scherbensturm_lobby_style';};
     const getLobbyStyleSlot=()=>(S.appearance.lobby||(S.appearance.lobby=makeStyleSlot()));
-    const saveLobbyStyleLocal=()=>{try{const json=JSON.stringify(getLobbyStyleSlot());localStorage.setItem(getLobbyStyleKey(),json);localStorage.setItem('scherbensturm_lobby_style',json);}catch(e){}};
-    const loadLobbyStyleForCurrentUser=()=>{try{const raw=JSON.parse(localStorage.getItem(getLobbyStyleKey())||'null');if(raw&&typeof raw==='object'){const isValidPal=k=>Boolean(PALETTES[k]||(S.customPalettes||[]).some(cp=>cp.id===k));S.appearance.lobby={...makeStyleSlot(),...raw,palette:isValidPal(raw.palette)?raw.palette:'azur',customColors:raw.customColors&&isHex(raw.customColors.bg)?{...raw.customColors}:null};}}catch(e){}};
     const isEditingLobbyStyle=()=>Boolean(UI.modal==='settings'&&(UI.inLobby||S.appearance.editScope==='lobby'));
     const getEditStyleSlot=()=>(UI.inLobby||S.appearance.editScope==='lobby')?getLobbyStyleSlot():(S.appearance.mode==='perTab'?(S.appearance.tabs[S.appearance.editScope]||(S.appearance.tabs[S.appearance.editScope]=makeStyleSlot())):S.appearance.global);
     const getDisplayStyleSlot=()=>{if(isEditingLobbyStyle()||UI.inLobby)return getLobbyStyleSlot();return S.appearance.mode==='perTab'?(S.appearance.tabs[UI.modal==='settings'?S.appearance.editScope:S.activeTab]||S.appearance.global):S.appearance.global;};
+
+    function loadGuestThemePrefs(){
+      try{
+        const raw=localStorage.getItem(GUEST_THEME_KEY);
+        if(raw){
+          const norm=normalizeThemePrefs(JSON.parse(raw));
+          if(norm) return norm;
+        }
+        // Einmalige Migration alter lokaler Gast-Keys (ohne eingeloggte Profile zu berühren)
+        let legLobby=null, legPals=[];
+        try{legLobby=JSON.parse(localStorage.getItem('scherbensturm_lobby_style')||'null');}catch(e){}
+        try{legPals=JSON.parse(localStorage.getItem('scherbensturm_custom_palettes')||'[]')||[];}catch(e){}
+        const hasLegacy=Boolean((legLobby&&typeof legLobby==='object')||(Array.isArray(legPals)&&legPals.length));
+        const init=normalizeThemePrefs({
+          dark:true,
+          lobby:legLobby||makeStyleSlot(),
+          sheet:{mode:'global',global:makeStyleSlot(),tabs:{}},
+          sheetByChar:{},
+          customPalettes:legPals,
+          sheetCustomized:false,
+          updatedAtMs:hasLegacy?Date.now():0
+        })||createDefaultThemePrefs();
+        if(hasLegacy) saveGuestThemePrefs(init);
+        return init;
+      }catch(e){
+        return createDefaultThemePrefs();
+      }
+    }
+    function saveGuestThemePrefs(tp){
+      const norm=normalizeThemePrefs(tp)||createDefaultThemePrefs();
+      try{localStorage.setItem(GUEST_THEME_KEY,JSON.stringify(norm));}catch(e){}
+      return norm;
+    }
+    function getLegacyUserLobbySlot(userKey){
+      const low=String(userKey||'').trim().toLowerCase();
+      if(!low) return null;
+      try{
+        const raw=localStorage.getItem(`scherbensturm_lobby_style_${low}`);
+        if(!raw) return null;
+        const parsed=JSON.parse(raw);
+        return (parsed&&typeof parsed==='object')?parsed:null;
+      }catch(e){return null;}
+    }
+    function scheduleThemePrefsSync(immediate=false){
+      if(!CLOUD.currentUser) return;
+      themeSyncPending=true;
+      clearTimeout(themeSyncTimer);
+      themeSyncTimer=null;
+      if(immediate){
+        themeSyncPending=false;
+        syncCloudRegistry(true);
+        return;
+      }
+      themeSyncTimer=setTimeout(()=>{
+        themeSyncTimer=null;
+        if(!themeSyncPending||!CLOUD.currentUser) return;
+        themeSyncPending=false;
+        syncCloudRegistry(true);
+      },THEME_SYNC_DEBOUNCE_MS);
+    }
+    function flushThemePrefsSync(){
+      if(themeSyncTimer!==null){
+        clearTimeout(themeSyncTimer);
+        themeSyncTimer=null;
+      }
+      if(themeSyncPending&&CLOUD.currentUser){
+        themeSyncPending=false;
+        syncCloudRegistry(true);
+      }
+    }
+    function cancelThemePrefsSync(){
+      clearTimeout(themeSyncTimer);
+      themeSyncTimer=null;
+      themeSyncPending=false;
+    }
+    function applySessionTheme(opts={}){
+      const allowSheetFallback=Boolean(opts.allowSheetFallback);
+      const forSheet=opts.forSheet!==undefined?Boolean(opts.forSheet):!UI.inLobby;
+      const fbAp=(opts.sheetFallbackAppearance&&typeof opts.sheetFallbackAppearance==='object')?opts.sheetFallbackAppearance:null;
+      const fbPals=Array.isArray(opts.sheetFallbackPalettes)?normalizeCustomPalettesList(opts.sheetFallbackPalettes):[];
+      const prevScope=S.appearance?.editScope;
+      const defaultScope=forSheet?(S.activeTab||'attributes'):'lobby';
+      const nextScope=(opts.preserveEditScope&&(prevScope==='lobby'||TABS.some(t=>t.id===prevScope)))?prevScope:defaultScope;
+      const isLoggedIn=Boolean(CLOUD.currentUser);
+      const cid=String(S.charId||'').trim();
+
+      if(isLoggedIn){
+        const uk=findUserKeyByName(CLOUD.currentUser);
+        const userKey=uk||String(CLOUD.currentUser).trim();
+        const tp=uk?normalizeThemePrefs(CLOUD.registry?.users?.[uk]?.themePrefs):null;
+        const localBgMap=loadUserLocalBgMap(userKey);
+        if(tp){
+          const customPals=clone(tp.customPalettes||[]);
+          S.customPalettes=customPals;
+          const lobbySlot=hydrateThemeSlotBg(tp.lobby,localBgMap,'lobby');
+          const charEntry=(cid&&tp.sheetByChar?.[cid])?tp.sheetByChar[cid]:null;
+          let darkVal=tp.dark, modeVal='global', globalSlot=makeStyleSlot(), tabsObj={};
+          if(charEntry){
+            darkVal=forSheet?charEntry.dark:tp.dark;
+            modeVal=charEntry.mode;
+            globalSlot=hydrateThemeSlotBg(charEntry.global,localBgMap,`char:${cid}:global`);
+            TABS.forEach(t=>{tabsObj[t.id]=hydrateThemeSlotBg(charEntry.tabs?.[t.id],localBgMap,`char:${cid}:tab:${t.id}`);});
+          }else if(tp.sheetCustomized||!allowSheetFallback||!fbAp){
+            darkVal=tp.dark;
+            modeVal=tp.sheet.mode;
+            globalSlot=hydrateThemeSlotBg(tp.sheet.global,localBgMap,'sheet:global');
+            TABS.forEach(t=>{tabsObj[t.id]=hydrateThemeSlotBg(tp.sheet.tabs?.[t.id],localBgMap,`sheet:tab:${t.id}`);});
+          }else{
+            darkVal=tp.dark;
+            modeVal=fbAp.mode==='perTab'?'perTab':'global';
+            globalSlot=normalizeThemeSlot(fbAp.global,customPals);
+            TABS.forEach(t=>{tabsObj[t.id]=normalizeThemeSlot(fbAp.tabs?.[t.id],customPals);});
+          }
+          S.appearance={dark:darkVal,mode:modeVal,editScope:nextScope,global:globalSlot,lobby:lobbySlot,tabs:tabsObj};
+        }else{
+          const legLobby=getLegacyUserLobbySlot(userKey);
+          const customPals=allowSheetFallback?fbPals:[];
+          S.customPalettes=clone(customPals);
+          const lobbySlot=hydrateThemeSlotBg(normalizeThemeSlot(legLobby||makeStyleSlot(),customPals),localBgMap,'lobby');
+          let darkVal=true, modeVal='global', globalSlot=makeStyleSlot(), tabsObj={};
+          if(allowSheetFallback&&fbAp){
+            darkVal=fbAp.dark!==undefined?Boolean(fbAp.dark):true;
+            modeVal=fbAp.mode==='perTab'?'perTab':'global';
+            globalSlot=normalizeThemeSlot(fbAp.global,customPals);
+            TABS.forEach(t=>{tabsObj[t.id]=normalizeThemeSlot(fbAp.tabs?.[t.id],customPals);});
+          }else{
+            TABS.forEach(t=>{tabsObj[t.id]=makeStyleSlot();});
+          }
+          S.appearance={dark:darkVal,mode:modeVal,editScope:nextScope,global:globalSlot,lobby:lobbySlot,tabs:tabsObj};
+        }
+        return;
+      }
+
+      // Gast-Modus (nicht eingeloggt): strikt über separaten lokalen Key
+      const gp=loadGuestThemePrefs();
+      const guestPals=normalizeCustomPalettesList(allowSheetFallback&&!gp.updatedAtMs?[...(gp.customPalettes||[]),...fbPals]:(gp.customPalettes||[]));
+      S.customPalettes=clone(guestPals);
+      const lobbySlot=normalizeThemeSlot(gp.lobby,guestPals);
+      const charEntry=(cid&&gp.sheetByChar?.[cid])?gp.sheetByChar[cid]:null;
+      let darkVal=gp.dark, modeVal='global', globalSlot=makeStyleSlot(), tabsObj={};
+      if(charEntry){
+        darkVal=forSheet?charEntry.dark:gp.dark;
+        modeVal=charEntry.mode;
+        globalSlot=normalizeThemeSlot(charEntry.global,guestPals);
+        TABS.forEach(t=>{tabsObj[t.id]=normalizeThemeSlot(charEntry.tabs?.[t.id],guestPals);});
+      }else if(gp.sheetCustomized||!allowSheetFallback||!fbAp){
+        darkVal=gp.dark;
+        modeVal=gp.sheet.mode;
+        globalSlot=normalizeThemeSlot(gp.sheet.global,guestPals);
+        TABS.forEach(t=>{tabsObj[t.id]=normalizeThemeSlot(gp.sheet.tabs?.[t.id],guestPals);});
+      }else{
+        darkVal=gp.updatedAtMs>0?gp.dark:(fbAp.dark!==undefined?Boolean(fbAp.dark):true);
+        modeVal=fbAp.mode==='perTab'?'perTab':'global';
+        globalSlot=normalizeThemeSlot(fbAp.global,guestPals);
+        TABS.forEach(t=>{tabsObj[t.id]=normalizeThemeSlot(fbAp.tabs?.[t.id],guestPals);});
+      }
+      S.appearance={dark:darkVal,mode:modeVal,editScope:nextScope,global:globalSlot,lobby:lobbySlot,tabs:tabsObj};
+    }
+    function persistCurrentThemeChange(opts={}){
+      const rawScope=opts.scope||'auto';
+      const isLobbyTarget=rawScope==='lobby'||(rawScope==='auto'&&(UI.inLobby||S.appearance.editScope==='lobby'));
+      const isSheetTarget=rawScope==='sheet'||(rawScope==='auto'&&!isLobbyTarget)||(!UI.inLobby&&S.appearance.editScope!=='lobby'&&rawScope==='palettes');
+      const nowMs=Date.now();
+      const curPals=normalizeCustomPalettesList(S.customPalettes||[]);
+      S.customPalettes=curPals;
+      const curLobby=normalizeThemeSlot(getLobbyStyleSlot(),curPals);
+      const curSheet=normalizeThemeSheet({mode:S.appearance.mode,global:S.appearance.global,tabs:S.appearance.tabs},curPals);
+      const cid=String(S.charId||'').trim();
+
+      if(CLOUD.currentUser){
+        let uk=findUserKeyByName(CLOUD.currentUser);
+        if(!uk){
+          uk=String(CLOUD.currentUser).trim();
+          if(!CLOUD.registry.users||typeof CLOUD.registry.users!=='object') CLOUD.registry.users={};
+          CLOUD.registry.users[uk]=ensureUserRecord(uk,{userId:'usr_'+uid(),passHash:'',createdAt:stamp(),avatar:'',nameHistory:[]},null);
+        }
+        const curRec=CLOUD.registry.users[uk];
+        const baseTp=normalizeThemePrefs(curRec?.themePrefs)||createDefaultThemePrefs();
+        const localBgMap=loadUserLocalBgMap(uk);
+        baseTp.customPalettes=clone(curPals);
+        if(rawScope==='dark'){
+          baseTp.dark=Boolean(S.appearance.dark);
+          if(!UI.inLobby&&UI.sheetLoaded&&S.appearance.editScope!=='lobby'&&cid&&baseTp.sheetByChar?.[cid]){
+            baseTp.sheetByChar[cid].dark=baseTp.dark;
+            baseTp.sheetByChar[cid].updatedAtMs=nowMs;
+          }
+        }
+        if(isLobbyTarget||rawScope==='palettes'){
+          baseTp.lobby=clone(curLobby);
+        }
+        if(isSheetTarget){
+          baseTp.sheet=clone(curSheet);
+          baseTp.sheetCustomized=true;
+          if(UI.sheetLoaded&&cid){
+            baseTp.sheetByChar[cid]={
+              dark:Boolean(S.appearance.dark),
+              mode:curSheet.mode,
+              global:clone(curSheet.global),
+              tabs:clone(curSheet.tabs),
+              updatedAtMs:nowMs
+            };
+          }
+        }
+        if(opts.clearBgSlot){
+          if(isLobbyTarget){
+            delete localBgMap.lobby;
+          }else if(S.appearance.mode==='perTab'){
+            const tid=S.appearance.editScope||S.activeTab||'attributes';
+            delete localBgMap[`sheet:tab:${tid}`];
+            if(cid) delete localBgMap[`char:${cid}:tab:${tid}`];
+          }else{
+            delete localBgMap['sheet:global'];
+            if(cid) delete localBgMap[`char:${cid}:global`];
+          }
+          saveUserLocalBgMap(uk,localBgMap);
+        }
+        baseTp.updatedAtMs=nowMs;
+        const {cleanPrefs,hadOversized}=sanitizeThemePrefsForRegistry(baseTp,uk);
+        curRec.themePrefs=cleanPrefs;
+        saveRegistryLocal();
+        scheduleThemePrefsSync(Boolean(opts.immediateSync));
+        if(hadOversized&&(Date.now()-lastThemeBgWarnMs>4000)){
+          lastThemeBgWarnMs=Date.now();
+          toast('ℹ️ Hintergrundbild zu groß für Cloud-Sync – Farben & Einstellungen werden synchronisiert, Bild bleibt lokal gespeichert.',4500);
+        }
+        return;
+      }
+
+      // Gast-Modus: ausschließlich lokal unter GUEST_THEME_KEY speichern (niemals User-Records verändern)
+      const gp=loadGuestThemePrefs();
+      gp.customPalettes=clone(curPals);
+      if(rawScope==='dark'){
+        gp.dark=Boolean(S.appearance.dark);
+        if(!UI.inLobby&&UI.sheetLoaded&&cid&&gp.sheetByChar?.[cid]){
+          gp.sheetByChar[cid].dark=gp.dark;
+          gp.sheetByChar[cid].updatedAtMs=nowMs;
+        }
+      }
+      if(isLobbyTarget||rawScope==='palettes'){
+        gp.lobby=clone(curLobby);
+      }
+      if(isSheetTarget){
+        gp.sheet=clone(curSheet);
+        gp.sheetCustomized=true;
+        if(UI.sheetLoaded&&cid){
+          gp.sheetByChar[cid]={
+            dark:Boolean(S.appearance.dark),
+            mode:curSheet.mode,
+            global:clone(curSheet.global),
+            tabs:clone(curSheet.tabs),
+            updatedAtMs:nowMs
+          };
+        }
+      }
+      gp.updatedAtMs=nowMs;
+      saveGuestThemePrefs(gp);
+    }
 
     function resolvePaletteColors(sc){
       if(sc?.customColors&&isHex(sc.customColors.bg)){
@@ -6628,10 +7541,6 @@
         mut:mut||'#94a3b8',
         btnTxt:btnTxt||'#ffffff'
       };
-    }
-
-    function saveCustomPalettesLocal(){
-      try{localStorage.setItem('scherbensturm_custom_palettes',JSON.stringify(S.customPalettes||[]));}catch(e){}
     }
 
     function applyTheme(){
@@ -7843,21 +8752,97 @@
       <button type="button" data-action="toggle-apply-mods" data-kind="${kind}" data-id="${it.id}" data-tip="Verrechnet alle Werte- &amp; Vor-/Nachteils-Effekte dieser Karte live mit Bogen und Würfelassistent" class="btn py-1 px-2.5 text-[11px] ${it.applyMods?'btn-ok':'opacity-80'}">${it.applyMods?'✓ Auf Bogen aktiv':'⚡ Auf Bogen anwenden'}</button>`;
     }
 
-    function updatePwBuilderChipDOM(kind,id){
+    function buildDynPreviewBarInnerHtml(it,M=calcActiveMods()){
+      const found=[
+        ...extractDynamicFormulas(it?.desc),
+        ...extractDynamicFormulas(it?.effects),
+        ...extractDynamicFormulas(it?.rules)
+      ];
+      if(!found.length) return '';
+      const seen=new Set(), chips=[];
+      found.forEach(f=>{
+        const res=evalDynamicFormula(f.expr,M);
+        const key=(res.rawExpr||f.raw).toLowerCase();
+        if(seen.has(key)) return;
+        seen.add(key);
+        if(res.ok){
+          const tip=`Formel: ${res.rawExpr}\nRechnung: ${res.breakdown}`;
+          chips.push(`<span class="dyn-val-pill dyn-prev-chip tabular" data-tip="${esc(tip).replace(/\n/g,'&#10;')}">🧮 ${esc(res.rawExpr)} = <strong>${esc(res.formatted)}</strong></span>`);
+        }else{
+          const tip=`Ungültige Formel: ${res.rawExpr||f.raw}\nFehler: ${res.error||'Syntaxfehler'}`;
+          chips.push(`<span class="dyn-val-pill dyn-val-err dyn-prev-chip" data-tip="${esc(tip).replace(/\n/g,'&#10;')}">⚠ ${esc(res.rawExpr||f.raw)}</span>`);
+        }
+      });
+      return chips.length?`<span class="font-extrabold text-acc shrink-0">Live-Werte:</span>${chips.join('')}`:'';
+    }
+    function updatePwDynPreviewDOM(kind,id,M=calcActiveMods()){
+      const el=$(`dynPrev_${id}`);
+      if(!el) return;
+      const it=findPwItem(kind,id);
+      const inner=it?buildDynPreviewBarInnerHtml(it,M):'';
+      el.innerHTML=inner;
+      el.classList.toggle('hidden',!inner);
+    }
+    function refreshTab3DynamicDOM(M=calcActiveMods()){
+      document.querySelectorAll('[data-dyn-prev]').forEach(el=>{
+        const [kind,id]=String(el.dataset.dynPrev||'').split(':');
+        if(!kind||!id) return;
+        const it=findPwItem(kind,id);
+        const inner=it?buildDynPreviewBarInnerHtml(it,M):'';
+        el.innerHTML=inner;
+        el.classList.toggle('hidden',!inner);
+      });
+      document.querySelectorAll('[data-pw-view-rtf]').forEach(el=>{
+        const [kind,id,field]=String(el.dataset.pwViewRtf||'').split(':');
+        if(!kind||!id||!field) return;
+        const it=findPwItem(kind,id);
+        if(!it) return;
+        el.innerHTML=renderDynamicRtfHtml(it[field],M);
+      });
+      document.querySelectorAll('[data-action="ins-token"][data-bld-mode="dyn"]').forEach(el=>{
+        if(el.dataset.kind&&el.dataset.id) updatePwBuilderChipDOM(el.dataset.kind,el.dataset.id,M);
+      });
+    }
+
+    function updatePwBuilderChipDOM(kind,id,M=null){
       const it=findPwItem(kind,id); if(!it) return '';
-      const tok=getPwBuilderToken(it);
+      const isDyn=it.bldMode==='dyn';
+      const dynSpec=isDyn?buildDynFormulaSpec(it,M||calcActiveMods()):null;
+      const tok=isDyn?(dynSpec.evalRes.ok?dynSpec.token:''):getPwBuilderToken(it);
       const ch=$(`chip_${id}`);
       if(ch){
         ch.dataset.dragTok=tok;
         ch.setAttribute('draggable',tok?'true':'false');
-        ch.textContent=tok?`⠿ ${tok}`:'⚠ Erst Fertigkeit in Tab 2 anlegen';
-        ch.dataset.tip=tok?'Ins Effektfeld ziehen oder „+ Baustein“ klicken':'Erst mindestens eine Fertigkeit in Tab 2 anlegen';
+        if(isDyn){
+          ch.textContent=dynSpec.evalRes.ok?`⠿ ${dynSpec.token} (= ${dynSpec.evalRes.formatted})`:`⚠ ${dynSpec.evalRes.error||'Ungültige Formel'}`;
+          ch.dataset.tip=dynSpec.evalRes.ok
+            ?`Formel: ${dynSpec.expr}\nRechnung: ${dynSpec.evalRes.breakdown}\nIn Beschreibung, Effekte oder Zusatzinfos ziehen oder Einfüge-Button klicken.`
+            :`Ungültige Formel: ${dynSpec.expr}\nFehler: ${dynSpec.evalRes.error||'Syntaxfehler'}`;
+        }else{
+          ch.textContent=tok?`⠿ ${tok}`:'⚠ Erst Fertigkeit in Tab 2 anlegen';
+          ch.dataset.tip=tok?'Ins Effektfeld ziehen oder „+ Baustein“ klicken':'Erst mindestens eine Fertigkeit in Tab 2 anlegen';
+        }
         ch.classList.toggle('cursor-grab',Boolean(tok));
         ch.classList.toggle('opacity-60',!tok);
         ch.classList.toggle('cursor-not-allowed',!tok);
       }
       const btn=$(`insTok_${id}`)||document.querySelector(`[data-action="ins-token"][data-kind="${kind}"][data-id="${id}"]`);
-      if(btn) btn.disabled=!tok;
+      if(btn){
+        btn.disabled=!tok;
+        if(isDyn){
+          btn.textContent=dynSpec.evalRes.ok?`+ ${dynSpec.token} (= ${dynSpec.evalRes.formatted})`:`⚠ ${dynSpec.evalRes.error||'Ungültige Formel'}`;
+          btn.dataset.tip=dynSpec.evalRes.ok
+            ?`Rechnung: ${dynSpec.evalRes.breakdown}\nFügt ${dynSpec.token} an der letzten Cursor-Position (Beschreibung/Effekte/Zusatzinfos) oder im gewählten Zielfeld ein.\nBeispiel: „Die Reichweite beträgt ${dynSpec.token} Meter.“`
+            :`Ungültige Formel: ${dynSpec.expr}\nFehler: ${dynSpec.evalRes.error||'Syntaxfehler'}`;
+        }else{
+          btn.textContent='+ Baustein';
+          btn.removeAttribute('data-tip');
+        }
+      }
+      if(isDyn){
+        const presetSel=document.querySelector(`[data-pw-dyn-preset="${kind}:${id}"]`);
+        if(presetSel) presetSel.value=getDynPresetSelectVal(it.bldDynFactor);
+      }
       return tok;
     }
 
@@ -8082,12 +9067,14 @@
       const stToksInCard=parseStatusTokens(it.effects), uCosts=Array.isArray(it.useCosts)?it.useCosts:(it.useRes&&toInt(it.useAmt,0)>0?[{res:it.useRes,amt:toInt(it.useAmt,0)}]:[]), costSummary=formatPwUseCosts(it), hasUseCost=Boolean(costSummary), canSpendPw=hasUseCost||stToksInCard.length>0;
       const reservableCosts=getReservablePwCosts(it), isReserved=Boolean(it.reserved), activeResCosts=(isReserved&&Array.isArray(it.reservedCosts)&&it.reservedCosts.length)?it.reservedCosts:reservableCosts, resTxt=activeResCosts.map(rc=>`${rc.amt} ${getResLabel(rc.res)}`).join(' + ');
       const resChipHtml=isReserved?`<button type="button" data-action="toggle-reserve-pw" data-kind="${kind}" data-id="${it.id}" data-tip="Reservierung aufheben (verbrauchte Kosten werden nicht wiederhergestellt)" class="btn py-1 sm:py-0.5 px-2 text-[11px] bg-amber-500/25 border-amber-400 text-amber-300 font-black tabular shrink-0">🔒 ${esc(resTxt)} ✕</button>`:(it.collapsed&&reservableCosts.length>0?`<button type="button" data-action="toggle-reserve-pw" data-kind="${kind}" data-id="${it.id}" data-tip="Zieht reservierbare Einsatzkosten sofort ab und sperrt den Betrag vom Maximum (${esc(resTxt)})" class="btn py-1 sm:py-0.5 px-2 text-[11px] shrink-0">🔒</button>`:'');
+      const tKey=getPwTierKey(it,isAug), tMeta=PW_TIERS[tKey]||PW_TIERS.marginal, tBadgeCls=PW_TIER_BADGE_CLS[tKey]||PW_TIER_BADGE_CLS.marginal;
+      const tierBadgeHtml=`<span class="inline-flex items-center rounded-md px-1.5 py-0.5 text-[10px] font-extrabold border shrink-0 ${tBadgeCls}" data-tip="${esc(tMeta.full)}">${esc(tMeta.l)}</span>`;
       const artBadgeHtml=it.art?`<span class="tag text-[10px] py-0.5 px-1.5 shrink-0 ${curArtTipHdr?'cursor-help':''}" ${curArtTipHdr?`data-tip="${esc(curArtTipHdr)}"`:''}>${esc(it.art)}</span>`:'';
       const costPillHtml=`<span class="pill cursor-default text-[11px] py-0.5 px-2 tabular shrink-0">${c.sp} SP${c.msp?` + ${c.msp} MsP`:''}</span>`;
       const spendBtnHtml=canSpendPw?`<button type="button" data-action="spend-pw" data-kind="${kind}" data-id="${it.id}" data-tip="${hasUseCost?`Einsatzkosten (${esc(costSummary)}) abziehen`:'Effekte / Status aktivieren'}" class="btn btn-pri py-1 sm:py-0.5 px-2 text-[11px] shrink-0">⚡ ${hasUseCost?esc(costSummary):'Einsetzen'}</button>`:'';
       const quickDoneBtnHtml=opts.isQuickEdit?`<button type="button" data-action="close-pw-quick-edit" data-kind="${kind}" data-id="${it.id}" data-tip="Einzelbearbeitung beenden und zurück in die kompakte Ansicht klappen" class="btn btn-ok py-1 sm:py-0.5 px-2.5 text-[11px] font-extrabold shrink-0">✓ Fertig</button>`:'';
       const hdrRight=`<div class="flex flex-wrap items-center gap-1.5 shrink-0 max-w-full">
-        ${quickDoneBtnHtml}${artBadgeHtml}${costPillHtml}${spendBtnHtml}${resChipHtml}
+        ${quickDoneBtnHtml}${tierBadgeHtml}${artBadgeHtml}${costPillHtml}${spendBtnHtml}${resChipHtml}
         ${listLen>1?`<button type="button" data-action="${isAug?'move-aug':'move-pw'}" data-id="${it.id}" data-dir="-1" ${idx===0?'disabled':''} data-tip="Nach oben" class="hidden md:inline-flex btn py-1 px-2 text-xs">▲</button><button type="button" data-action="${isAug?'move-aug':'move-pw'}" data-id="${it.id}" data-dir="1" ${idx===listLen-1?'disabled':''} data-tip="Nach unten" class="hidden md:inline-flex btn py-1 px-2 text-xs">▼</button>`:''}
         <button type="button" data-action="open-pw-card-menu" data-kind="${kind}" data-id="${it.id}" aria-haspopup="menu" aria-expanded="false" aria-label="Aktionen für ${esc(it.name||(isAug?'Augment':'Kraft'))}" data-tip="Farben, Zuordnung, Duplizieren, Export, Kosten &amp; Löschen" class="btn w-9 h-9 sm:w-8 sm:h-8 p-0 text-base font-black shrink-0">⋮</button>
       </div>`;
@@ -8097,10 +9084,15 @@
       }
 
       const statGroups=Array.isArray(opts.statGroups)?opts.statGroups:getStatGroups();
-      const isSkBld=it.bldMode==='skill';
+      const cardM=opts.M||calcActiveMods();
+      const isSkBld=it.bldMode==='skill', isDynBld=it.bldMode==='dyn';
       const sortedSkills=Array.isArray(opts.sortedSkills)?opts.sortedSkills:[...(S.skills||[])].filter(s=>s&&String(s.name||'').trim()).sort((a,b)=>String(a.name).trim().localeCompare(String(b.name).trim(),'de'));
       const selSkId=(it.bldSkId&&sortedSkills.some(s=>s.id===it.bldSkId))?it.bldSkId:(sortedSkills[0]?.id||'');
-      const bldToken=getPwBuilderToken(it,sortedSkills);
+      const dynGroups=isDynBld?getDynVarGroups():null;
+      const dynSpec=isDynBld?buildDynFormulaSpec(it,cardM):null;
+      const dynPresetVal=isDynBld?getDynPresetSelectVal(it.bldDynFactor):'/2';
+      const dynTargetVal=['desc','effects','rules'].includes(it.bldDynTarget)?it.bldDynTarget:'desc';
+      const bldToken=isDynBld?(dynSpec.evalRes.ok?dynSpec.token:''):getPwBuilderToken(it,sortedSkills,cardM);
       const hD=it.boxH?.desc>0?`style="height:${it.boxH.desc}px"`:'', hE=it.boxH?.effects>0?`style="height:${it.boxH.effects}px"`:'', hR=it.boxH?.rules>0?`style="height:${it.boxH.rules}px"`:'';
       const itemActionSubs=DEF_ACTION_SUBS.filter(a=>Array.isArray(it.actionSubs)&&it.actionSubs.includes(a));
       const itemTags=Array.isArray(it.tags)?it.tags.filter(t=>String(t||'').trim()&&!isReservedPwTerm(t)):[];
@@ -8192,31 +9184,44 @@
           </div>
         </div>
         <div class="space-y-2.5 text-xs">
-          <div class="rtf-wrap"><div class="flex flex-wrap items-center justify-between gap-1.5 mb-1"><label class="font-bold t-mut">Beschreibung</label>${renderRtfToolbarHtml(true)}</div><div contenteditable="true" data-pwf="${kind}:${it.id}:desc" data-boxh="${kind}:${it.id}:desc" ${hD} data-ph="Kursiver Beschreibungstext..." class="inp w-full autogrow italic rtf-box">${toRtfHtml(it.desc)}</div></div>
+          <div class="rtf-wrap"><div class="flex flex-wrap items-center justify-between gap-1.5 mb-1"><label class="font-bold t-mut">Beschreibung</label>${renderRtfToolbarHtml(true)}</div><div contenteditable="true" id="desc_${it.id}" data-pwf="${kind}:${it.id}:desc" data-boxh="${kind}:${it.id}:desc" ${hD} data-ph="Kursiver Beschreibungstext..." class="inp w-full autogrow italic rtf-box">${toRtfHtml(it.desc)}</div></div>
           <div class="rtf-wrap min-w-0">
             <div class="flex flex-col md:flex-row md:flex-wrap md:items-center justify-between gap-2 md:gap-1.5 mb-1.5 md:mb-1 min-w-0">
               <div class="flex flex-wrap items-center justify-between md:justify-start gap-2 min-w-0">
-                <label class="font-bold t-mut cursor-help" data-tip="Freitext &amp; Baukasten: Erkennt Werte wie [+5 LP-Max] sowie Vor-/Nachteile samt Einsatzgebiet (z.B. [+4 Vorteile (Trefferwürfe)], +4 Vorteile mit Trefferwürfen, +2 Vorteil auf Parieren, +1 Vorteil auf Ausweichen oder +2 Vorteile auf Schießen), solange ‚Auf Bogen aktiv‘ eingeschaltet ist.">Effekte</label>
+                <label class="font-bold t-mut cursor-help" data-tip="Freitext &amp; Baukasten: Erkennt Werte wie [+5 LP-Max], Vor-/Nachteile samt Einsatzgebiet sowie dynamische Formeln wie {{WA/2}} (in Beschreibung, Effekte oder Zusatzinfos).">Effekte</label>
                 ${renderRtfToolbarHtml(true)}
               </div>
               <div class="grid grid-cols-1 gap-1.5 w-full min-w-0 max-w-full p-2 rounded-lg bg-black/15 border bdr-line md:flex md:flex-wrap md:items-center md:gap-1 md:w-auto md:p-0 md:bg-transparent md:border-0 md:rounded-none">
-                <div class="grid grid-cols-2 md:inline-flex rounded-lg p-0.5 bg-black/25 border bdr-line text-[11px] w-full md:w-auto md:shrink-0 min-w-0 max-w-full" role="group" aria-label="Baukasten-Modus">
-                  <button type="button" data-action="set-pw-bld-mode" data-kind="${kind}" data-id="${it.id}" data-mode="stat" data-tip="Werte-Baukasten (Attribute, Sekundärwerte, Status)" class="px-2 py-1 md:py-0.5 rounded font-extrabold transition-colors whitespace-nowrap truncate text-center ${!isSkBld?'bg-acc-soft text-acc':'t-mut hover:text-acc'}">Werte</button>
-                  <button type="button" data-action="set-pw-bld-mode" data-kind="${kind}" data-id="${it.id}" data-mode="skill" data-tip="Vor- oder Nachteile auf eine konkrete Fertigkeit aus Tab 2 bauen" class="px-2 py-1 md:py-0.5 rounded font-extrabold transition-colors whitespace-nowrap truncate text-center ${isSkBld?'bg-acc-soft text-acc':'t-mut hover:text-acc'}">Fertigkeit V/N</button>
+                <div class="grid grid-cols-3 md:inline-flex rounded-lg p-0.5 bg-black/25 border bdr-line text-[11px] w-full md:w-auto md:shrink-0 min-w-0 max-w-full" role="group" aria-label="Baukasten-Modus">
+                  <button type="button" data-action="set-pw-bld-mode" data-kind="${kind}" data-id="${it.id}" data-mode="stat" data-tip="Werte-Baukasten (Attribute, Sekundärwerte, Status)" class="px-1.5 md:px-2 py-1 md:py-0.5 rounded font-extrabold transition-colors whitespace-nowrap truncate text-center ${!isSkBld&&!isDynBld?'bg-acc-soft text-acc':'t-mut hover:text-acc'}">Werte</button>
+                  <button type="button" data-action="set-pw-bld-mode" data-kind="${kind}" data-id="${it.id}" data-mode="skill" data-tip="Vor- oder Nachteile auf eine konkrete Fertigkeit aus Tab 2 bauen" class="px-1.5 md:px-2 py-1 md:py-0.5 rounded font-extrabold transition-colors whitespace-nowrap truncate text-center ${isSkBld?'bg-acc-soft text-acc':'t-mut hover:text-acc'}"><span class="md:hidden">Fert. V/N</span><span class="hidden md:inline">Fertigkeit V/N</span></button>
+                  <button type="button" data-action="set-pw-bld-mode" data-kind="${kind}" data-id="${it.id}" data-mode="dyn" data-tip="Dynamischer Wert ({{WA/2}} etc.) für Beschreibung, Effekte oder Zusatzinfos – wird live aus den Charakterwerten berechnet" class="px-1.5 md:px-2 py-1 md:py-0.5 rounded font-extrabold transition-colors whitespace-nowrap truncate text-center ${isDynBld?'bg-acc-soft text-acc':'t-mut hover:text-acc'}">🧮 Dyn. Wert</button>
                 </div>
-                <div class="grid grid-cols-[minmax(4.25rem,5rem)_minmax(0,1fr)] md:contents gap-1.5 min-w-0">${isSkBld?`<input data-pw-skcnt="${kind}:${it.id}" type="text" inputmode="numeric" value="${esc(it.bldSkCnt||'1')}" placeholder="1" data-tip="Anzahl Vorteile/Nachteile (nur ganze Zahlen ≥ 1)" class="inp w-full md:w-12 text-center py-1 md:py-0.5 px-1.5 md:px-1 text-xs font-black tabular min-w-0 md:shrink-0"/><select data-pw-sel="${kind}:${it.id}:bldSkKind" data-tip="Vorteil(e) oder Nachteil(e) wählen" class="inp w-full md:w-auto py-1 md:py-0.5 px-2 md:px-1.5 text-xs font-bold min-w-0 max-w-full md:shrink-0"><option value="adv" ${it.bldSkKind!=='dis'?'selected':''}>Vorteil(e)</option><option value="dis" ${it.bldSkKind==='dis'?'selected':''}>Nachteil(e)</option></select><select data-pw-sel="${kind}:${it.id}:bldSkId" data-tip="Fertigkeit aus Tab 2 wählen" class="inp col-span-2 w-full md:w-auto py-1 md:py-0.5 px-2 md:px-1.5 text-xs font-bold min-w-0 max-w-full md:max-w-[190px]">${sortedSkills.length?sortedSkills.map(sk=>`<option value="${esc(sk.id)}" ${selSkId===sk.id?'selected':''}>${esc(String(sk.name).trim())}</option>`).join(''):`<option value="" disabled selected>— Erst Fertigkeit in Tab 2 anlegen —</option>`}</select>`:`<input data-pwf="${kind}:${it.id}:bldAmt" type="text" value="${esc(it.bldAmt||'+1')}" class="inp w-full md:w-12 text-center py-1 md:py-0.5 px-1.5 md:px-1 text-xs font-black tabular min-w-0 md:shrink-0"/><select data-pw-sel="${kind}:${it.id}:bldStat" class="inp w-full md:w-auto py-1 md:py-0.5 px-2 md:px-1.5 text-xs font-bold min-w-0 max-w-full md:max-w-[180px]">${statGroups.map(([gl,arr])=>`<optgroup label="${esc(gl)}">${arr.map(st=>`<option value="${esc(st)}" ${it.bldStat===st?'selected':''}>${esc(st)}</option>`).join('')}</optgroup>`).join('')}</select>`}</div>
+                ${isDynBld?`<div class="grid grid-cols-2 md:contents gap-1.5 min-w-0">
+                  <select data-pw-sel="${kind}:${it.id}:bldDynVar" data-tip="Bezugswert wählen (Attribut, Sekundärwert oder eigene Ressource)" class="inp w-full md:w-auto py-1 md:py-0.5 px-2 md:px-1.5 text-xs font-bold min-w-0 max-w-full md:max-w-[140px]">${dynGroups.map(([gl,arr])=>`<optgroup label="${esc(gl)}">${arr.map(v=>`<option value="${esc(v)}" ${dynSpec.varName===v?'selected':''}>${esc(v)}</option>`).join('')}</optgroup>`).join('')}${!dynGroups.some(([,arr])=>arr.includes(dynSpec.varName))?`<option value="${esc(dynSpec.varName)}" selected>${esc(dynSpec.varName)}</option>`:''}</select>
+                  <select data-pw-dyn-preset="${kind}:${it.id}" data-tip="Schnell-Faktor oder Operation wählen (kann rechts daneben frei bearbeitet werden)" class="inp w-full md:w-auto py-1 md:py-0.5 px-2 md:px-1.5 text-xs font-bold min-w-0 max-w-full md:max-w-[115px]">${DYN_FACTOR_PRESETS.map(p=>`<option value="${esc(p.v)}" ${dynPresetVal===p.v?'selected':''}>${esc(p.l)}</option>`).join('')}<option value="__custom__" ${dynPresetVal==='__custom__'?'selected':''}>Eigene…</option></select>
+                  <input data-pwf="${kind}:${it.id}:bldDynFactor" type="text" value="${esc(dynSpec.factor)}" placeholder="z.B. /2, *1.5, /4+2" data-tip="Faktor oder Teilformel frei eintippen (z. B. /2, *1.5, x2, /4+2, -5 oder leer für ×1)" class="inp w-full md:w-24 py-1 md:py-0.5 px-2 md:px-1.5 text-xs font-bold tabular min-w-0 max-w-full"/>
+                  <select data-pw-sel="${kind}:${it.id}:bldDynRound" data-tip="Optionale Rundung (exakt, abrunden, aufrunden, runden)" class="inp w-full md:w-auto py-1 md:py-0.5 px-2 md:px-1.5 text-xs font-bold min-w-0 max-w-full md:max-w-[115px]">${DYN_ROUND_OPTS.map(r=>`<option value="${esc(r.v)}" ${dynSpec.round===r.v?'selected':''}>${esc(r.l)}</option>`).join('')}</select>
+                  <select data-pw-sel="${kind}:${it.id}:bldDynTarget" data-tip="Zielfeld beim Einfügen, falls kein Textfeld dieser Karte fokussiert ist (sonst wird exakt an deiner Cursorposition eingefügt)" class="inp col-span-2 md:col-span-1 w-full md:w-auto py-1 md:py-0.5 px-2 md:px-1.5 text-xs font-bold min-w-0 max-w-full md:max-w-[125px]">${DYN_TARGET_OPTS.map(t=>`<option value="${esc(t.v)}" ${dynTargetVal===t.v?'selected':''}>→ ${esc(t.l)}</option>`).join('')}</select>
+                </div>
+                <div class="flex flex-wrap items-center gap-1.5 md:contents min-w-0">
+                  <span id="chip_${it.id}" draggable="${bldToken?'true':'false'}" data-drag-tok="${esc(bldToken)}" data-pw-kind="${kind}" data-pw-id="${it.id}" data-tip="${esc(dynSpec.evalRes.ok?`Formel: ${dynSpec.expr}\nRechnung: ${dynSpec.evalRes.breakdown}\nIn Beschreibung, Effekte oder Zusatzinfos ziehen oder Einfüge-Button klicken.`:`Ungültige Formel: ${dynSpec.expr}\nFehler: ${dynSpec.evalRes.error||'Syntaxfehler'}`).replace(/\n/g,'&#10;')}" class="tag select-none tabular max-w-full min-w-0 break-words ${bldToken?'cursor-grab':'opacity-60 cursor-not-allowed'}">${dynSpec.evalRes.ok?`⠿ ${esc(dynSpec.token)} (= ${esc(dynSpec.evalRes.formatted)})`:`⚠ ${esc(dynSpec.evalRes.error||'Ungültige Formel')}`}</span>
+                  <button type="button" id="insTok_${it.id}" data-action="ins-token" data-kind="${kind}" data-id="${it.id}" data-bld-mode="dyn" ${bldToken?'':'disabled'} data-tip="${esc(dynSpec.evalRes.ok?`Rechnung: ${dynSpec.evalRes.breakdown}\nFügt ${dynSpec.token} an der letzten Cursor-Position (Beschreibung/Effekte/Zusatzinfos) oder im gewählten Zielfeld ein.\nBeispiel: „Die Reichweite beträgt ${dynSpec.token} Meter.“`:`Ungültige Formel: ${dynSpec.expr}\nFehler: ${dynSpec.evalRes.error||'Syntaxfehler'}`).replace(/\n/g,'&#10;')}" class="btn btn-ok py-1.5 md:py-0.5 px-3 md:px-2 text-xs md:text-[11px] font-extrabold tabular flex-1 md:flex-initial md:shrink-0 min-w-0 max-w-full whitespace-normal text-center">${dynSpec.evalRes.ok?`+ ${esc(dynSpec.token)} (= ${esc(dynSpec.evalRes.formatted)})`:`⚠ ${esc(dynSpec.evalRes.error||'Ungültige Formel')}`}</button>
+                  <span class="t-mut text-[11px] leading-snug basis-full md:basis-auto cursor-help" data-tip="Du kannst {{...}}-Formeln jederzeit auch direkt per Hand eintippen – z. B. {{WA/2}}, {{floor(LP-Max/4)+1}} oder {{max(ST,GW)}}.">💡 Beispiel: „Die Reichweite beträgt <code class="text-acc font-bold">{{WA/2}}</code> Meter.“ → wird automatisch live berechnet.</span>
+                </div>`:`<div class="grid grid-cols-[minmax(4.25rem,5rem)_minmax(0,1fr)] md:contents gap-1.5 min-w-0">${isSkBld?`<input data-pw-skcnt="${kind}:${it.id}" type="text" inputmode="numeric" value="${esc(it.bldSkCnt||'1')}" placeholder="1" data-tip="Anzahl Vorteile/Nachteile (nur ganze Zahlen ≥ 1)" class="inp w-full md:w-12 text-center py-1 md:py-0.5 px-1.5 md:px-1 text-xs font-black tabular min-w-0 md:shrink-0"/><select data-pw-sel="${kind}:${it.id}:bldSkKind" data-tip="Vorteil(e) oder Nachteil(e) wählen" class="inp w-full md:w-auto py-1 md:py-0.5 px-2 md:px-1.5 text-xs font-bold min-w-0 max-w-full md:shrink-0"><option value="adv" ${it.bldSkKind!=='dis'?'selected':''}>Vorteil(e)</option><option value="dis" ${it.bldSkKind==='dis'?'selected':''}>Nachteil(e)</option></select><select data-pw-sel="${kind}:${it.id}:bldSkId" data-tip="Fertigkeit aus Tab 2 wählen" class="inp col-span-2 w-full md:w-auto py-1 md:py-0.5 px-2 md:px-1.5 text-xs font-bold min-w-0 max-w-full md:max-w-[190px]">${sortedSkills.length?sortedSkills.map(sk=>`<option value="${esc(sk.id)}" ${selSkId===sk.id?'selected':''}>${esc(String(sk.name).trim())}</option>`).join(''):`<option value="" disabled selected>— Erst Fertigkeit in Tab 2 anlegen —</option>`}</select>`:`<input data-pwf="${kind}:${it.id}:bldAmt" type="text" value="${esc(it.bldAmt||'+1')}" class="inp w-full md:w-12 text-center py-1 md:py-0.5 px-1.5 md:px-1 text-xs font-black tabular min-w-0 md:shrink-0"/><select data-pw-sel="${kind}:${it.id}:bldStat" class="inp w-full md:w-auto py-1 md:py-0.5 px-2 md:px-1.5 text-xs font-bold min-w-0 max-w-full md:max-w-[180px]">${statGroups.map(([gl,arr])=>`<optgroup label="${esc(gl)}">${arr.map(st=>`<option value="${esc(st)}" ${it.bldStat===st?'selected':''}>${esc(st)}</option>`).join('')}</optgroup>`).join('')}</select>`}</div>
                 <div class="flex flex-wrap items-center gap-1.5 md:contents min-w-0">
                   <span id="chip_${it.id}" draggable="${bldToken?'true':'false'}" data-drag-tok="${esc(bldToken)}" data-pw-kind="${kind}" data-pw-id="${it.id}" data-tip="${bldToken?'Ins Effektfeld ziehen oder „+ Baustein“ klicken':'Erst mindestens eine Fertigkeit in Tab 2 anlegen'}" class="tag select-none tabular max-w-full min-w-0 break-words ${bldToken?'cursor-grab':'opacity-60 cursor-not-allowed'}">${bldToken?`⠿ ${esc(bldToken)}`:'⚠ Erst Fertigkeit in Tab 2 anlegen'}</span>
-                  <button type="button" id="insTok_${it.id}" data-action="ins-token" data-kind="${kind}" data-id="${it.id}" ${bldToken?'':'disabled'} class="btn btn-ok py-1.5 md:py-0.5 px-3 md:px-2 text-xs md:text-[11px] flex-1 md:flex-initial md:shrink-0">+ Baustein</button>
+                  <button type="button" id="insTok_${it.id}" data-action="ins-token" data-kind="${kind}" data-id="${it.id}" data-bld-mode="${isSkBld?'skill':'stat'}" ${bldToken?'':'disabled'} class="btn btn-ok py-1.5 md:py-0.5 px-3 md:px-2 text-xs md:text-[11px] flex-1 md:flex-initial md:shrink-0">+ Baustein</button>
                   ${!isSkBld?`<button type="button" data-action="open-list" data-ltype="customStats" data-tip="Eigene Baukasten-Variablen verwalten" class="btn py-1.5 md:py-0.5 px-2.5 md:px-1.5 text-xs md:text-[11px] shrink-0">⚙️</button>`:''}
-                </div>
+                </div>`}
               </div>
             </div>
             <div contenteditable="true" id="eff_${it.id}" data-pwf="${kind}:${it.id}:effects" data-boxh="${kind}:${it.id}:effects" ${hE} data-ph="z.B. Erhöht dauerhaft deine Lebenskraft um [+5 LP-Max]..." class="inp w-full autogrow rtf-box">${toRtfHtml(it.effects)}</div>
             <div id="tokBar_${it.id}" class="flex flex-wrap items-center justify-between gap-2 mt-1.5">${buildTokBarInnerHtml(kind,it)}</div>
             ${(()=>{const prDef=UI.statusIniPromptKey&&stToksInCard.some(t=>t.statusKey===UI.statusIniPromptKey)?STATUS_DEFS.find(d=>d.k===UI.statusIniPromptKey):null;if(!prDef)return '';const pv=getStatusEffValues(prDef.k);return `<div class="mt-2 p-2.5 rounded-lg border border-amber-400/70 bg-amber-500/15 flex flex-wrap items-center justify-between gap-2 text-xs"><span class="font-extrabold text-amber-300">⚡ ${esc(prDef.name)} aktiviert: Initiative +${10*pv.stacks} oder −${10*pv.stacks} wählen?</span><div class="flex items-center gap-1.5"><button type="button" data-action="confirm-status-inidir" data-key="${prDef.k}" data-dir="1" class="btn py-0.5 px-2.5 text-xs font-black ${pv.iniDir>0?'bg-amber-500 text-slate-950 border-amber-400':'border-amber-400/50 text-amber-200'}">⚡ +${10*pv.stacks} Initiative</button><button type="button" data-action="confirm-status-inidir" data-key="${prDef.k}" data-dir="-1" class="btn py-0.5 px-2.5 text-xs font-black ${pv.iniDir<0?'bg-amber-500 text-slate-950 border-amber-400':'border-amber-400/50 text-amber-200'}">⚡ −${10*pv.stacks} Initiative</button></div></div>`;})()}
           </div>
-          <div class="rtf-wrap"><div class="flex flex-wrap items-center justify-between gap-1.5 mb-1"><label class="font-bold t-mut">Zusätzliche Regeln &amp; Infos</label>${renderRtfToolbarHtml(true)}</div><div contenteditable="true" data-pwf="${kind}:${it.id}:rules" data-boxh="${kind}:${it.id}:rules" ${hR} data-ph="Reichweite, Dauer, Spezialregeln..." class="inp w-full autogrow rtf-box">${toRtfHtml(it.rules)}</div></div>
+          <div class="rtf-wrap"><div class="flex flex-wrap items-center justify-between gap-1.5 mb-1"><label class="font-bold t-mut">Zusätzliche Regeln &amp; Infos</label>${renderRtfToolbarHtml(true)}</div><div contenteditable="true" id="rules_${it.id}" data-pwf="${kind}:${it.id}:rules" data-boxh="${kind}:${it.id}:rules" ${hR} data-ph="Reichweite, Dauer, Spezialregeln..." class="inp w-full autogrow rtf-box">${toRtfHtml(it.rules)}</div></div>
+          ${(()=>{const dynPrevInner=buildDynPreviewBarInnerHtml(it,cardM);return `<div id="dynPrev_${it.id}" data-dyn-prev="${kind}:${it.id}" class="dyn-prev-bar${dynPrevInner?'':' hidden'}">${dynPrevInner}</div>`;})()}
         </div>
         ${!isAug?`<div class="subcard space-y-2"><div class="flex items-center justify-between text-xs"><span class="font-extrabold text-amber-400">Augment-Slots (${linked.length} / 3 ausgerüstet)</span>${gi.overLimit?`<span class="text-[11px] font-bold text-rose-400">⚠ Kollektiv ${gi.totalMsp} MsP in dieser Gruppe</span>`:''}</div>
         <div class="grid grid-cols-1 md:grid-cols-3 gap-2">${[0,1,2].map(sIdx=>{
@@ -8259,17 +9264,19 @@
       const curArtTip=getPwTermTip(it.art);
       const itemActionSubs=DEF_ACTION_SUBS.filter(a=>Array.isArray(it.actionSubs)&&it.actionSubs.includes(a));
       const itemTags=Array.isArray(it.tags)?it.tags.filter(t=>String(t||'').trim()&&!isReservedPwTerm(t)):[];
-      const metaPills=[];
+      const tKey=getPwTierKey(it,isAug), tMeta=PW_TIERS[tKey]||PW_TIERS.marginal, tBadgeCls=PW_TIER_BADGE_CLS[tKey]||PW_TIER_BADGE_CLS.marginal;
+      const metaPills=[`<span class="inline-flex items-center rounded-md px-1.5 py-0.5 text-[10px] font-extrabold border ${tBadgeCls}" data-tip="${esc(tMeta.full)}">${esc(tMeta.l)}</span>`];
       if(it.art) metaPills.push(`<span class="tag text-[10px] py-0.5 px-1.5 ${curArtTip?'cursor-help':''}" ${curArtTip?`data-tip="${esc(curArtTip)}"`:''}>${esc(it.art)}</span>`);
       itemActionSubs.forEach(asub=>{const tip=getPwTermTip(asub);metaPills.push(`<span class="tag text-[10px] py-0.5 px-1.5 !border-indigo-400/50 !bg-indigo-500/15 !text-indigo-200 ${tip?'cursor-help':''}" ${tip?`data-tip="${esc(tip)}"`:''}>${esc(asub)}</span>`);});
       itemTags.forEach(tg=>{const tip=getPwTermTip(tg);metaPills.push(`<span class="inline-flex items-center rounded-md px-1.5 py-0.5 text-[10px] font-bold border bdr-line bg-black/20 t-mut ${tip?'cursor-help':''}" ${tip?`data-tip="${esc(tip)}"`:''}>${esc(tg)}</span>`);});
       const costBadgeHtml=hasUseCost?`<span class="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-black border border-amber-400/60 bg-amber-500/15 text-amber-300 tabular shrink-0" data-tip="Einsatzkosten">⚡ ${esc(costSummary)}</span>`:'';
       const hasMeta=metaPills.length>0||Boolean(costBadgeHtml);
       const metaRow=hasMeta?`<div class="flex flex-wrap items-center justify-between gap-1.5 pt-1 border-t bdr-line"><div class="flex flex-wrap items-center gap-1 min-w-0">${metaPills.join('')}</div>${costBadgeHtml}</div>`:'';
+      const M=opts.M||calcActiveMods();
       const hasDesc=Boolean(stripHtml(it.desc).trim());
       const hasEffects=Boolean(stripHtml(it.effects).trim());
       const hasRules=Boolean(stripHtml(it.rules).trim());
-      const descRow=hasDesc?`<div class="text-xs italic leading-snug t-mut rtf-box cursor-auto">${toRtfHtml(it.desc)}</div>`:'';
+      const descRow=hasDesc?`<div data-pw-view-rtf="${kind}:${it.id}:desc" class="text-xs italic leading-snug t-mut rtf-box cursor-auto">${renderDynamicRtfHtml(it.desc,M)}</div>`:'';
       let effectsRow='';
       if(hasEffects){
         const chips=getAllParsedEffectChips(it.effects);
@@ -8282,11 +9289,11 @@
         }).join('')}${modInactive?`<button type="button" data-action="toggle-apply-mods" data-kind="${kind}" data-id="${it.id}" data-tip="Mods dieser Karte sind derzeit deaktiviert (nicht auf Bogen/Würfelassistent angerechnet) – klicken zum Aktivieren" class="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-extrabold border border-amber-400/60 bg-amber-500/15 text-amber-300 cursor-pointer">⏸️ Mods inaktiv</button>`:''}</div>`:'';
         const prDef=UI.statusIniPromptKey&&stToksInCard.some(t=>t.statusKey===UI.statusIniPromptKey)?STATUS_DEFS.find(d=>d.k===UI.statusIniPromptKey):null;
         const iniPromptHtml=prDef?(()=>{const pv=getStatusEffValues(prDef.k);return `<div class="mt-1.5 p-2 rounded-lg border border-amber-400/70 bg-amber-500/15 flex flex-wrap items-center justify-between gap-2 text-xs"><span class="font-extrabold text-amber-300">⚡ ${esc(prDef.name)} aktiviert: Initiative +${10*pv.stacks} oder −${10*pv.stacks} wählen?</span><div class="flex items-center gap-1.5"><button type="button" data-action="confirm-status-inidir" data-key="${prDef.k}" data-dir="1" class="btn py-0.5 px-2.5 text-xs font-black ${pv.iniDir>0?'bg-amber-500 text-slate-950 border-amber-400':'border-amber-400/50 text-amber-200'}">⚡ +${10*pv.stacks} Ini</button><button type="button" data-action="confirm-status-inidir" data-key="${prDef.k}" data-dir="-1" class="btn py-0.5 px-2.5 text-xs font-black ${pv.iniDir<0?'bg-amber-500 text-slate-950 border-amber-400':'border-amber-400/50 text-amber-200'}">⚡ −${10*pv.stacks} Ini</button></div></div>`;})():'';
-        effectsRow=`<div class="text-xs leading-snug${hasDesc?' pt-1 border-t border-white/10':''}"><div class="rtf-box cursor-auto">${toRtfHtml(it.effects)}</div>${modBadgesHtml}${iniPromptHtml}</div>`;
+        effectsRow=`<div class="text-xs leading-snug${hasDesc?' pt-1 border-t border-white/10':''}"><div data-pw-view-rtf="${kind}:${it.id}:effects" class="rtf-box cursor-auto">${renderDynamicRtfHtml(it.effects,M)}</div>${modBadgesHtml}${iniPromptHtml}</div>`;
       }
-      const rulesHtml=hasRules?toRtfHtml(it.rules):'';
-      const rulesIsBlock=hasRules&&/<(ul|ol|div|p|h1|h2|h3|br)/i.test(rulesHtml);
-      const rulesRow=hasRules?`<div class="text-[11px] leading-snug${(hasDesc||hasEffects)?' pt-1 border-t border-white/10':''} t-mut"><span class="font-extrabold text-acc mr-1">Zusatzinfos:</span>${rulesIsBlock?`<div class="rtf-box cursor-auto mt-0.5">${rulesHtml}</div>`:`<span class="rtf-box cursor-auto">${rulesHtml}</span>`}</div>`:'';
+      const rulesHtml=hasRules?renderDynamicRtfHtml(it.rules,M):'';
+      const rulesIsBlock=hasRules&&/<(ul|ol|div|p|h1|h2|h3|br)\b/i.test(rulesHtml);
+      const rulesRow=hasRules?`<div class="text-[11px] leading-snug${(hasDesc||hasEffects)?' pt-1 border-t border-white/10':''} t-mut"><span class="font-extrabold text-acc mr-1">Zusatzinfos:</span>${rulesIsBlock?`<div data-pw-view-rtf="${kind}:${it.id}:rules" class="rtf-box cursor-auto mt-0.5">${rulesHtml}</div>`:`<span data-pw-view-rtf="${kind}:${it.id}:rules" class="rtf-box cursor-auto">${rulesHtml}</span>`}</div>`:'';
       const hasBody=hasDesc||hasEffects||hasRules;
       return `<div ${isAug?`data-aug-card="${it.id}"`:''} class="card py-2 px-2.5 sm:px-3 space-y-1.5 ${isAug?'border-amber-500/45':''}${viaParentPower?' opacity-75 hover:opacity-100 transition-opacity':''}" ${winStyle}>
         ${headerRow}
@@ -8571,6 +9578,7 @@
     function tplPowers(){
       const P=calcProg(), fAct=hasActivePwFilter(), fCnt=getPwFilterCnt();
       const pwCtx={
+        M:calcActiveMods(),
         statGroups:getStatGroups(),
         sortedSkills:[...(S.skills||[])].filter(s=>s&&String(s.name||'').trim()).sort((a,b)=>String(a.name).trim().localeCompare(String(b.name).trim(),'de')),
         flatSecs:getPwSecOptionsFlat()
@@ -8590,7 +9598,7 @@
           ${(UI.pwFilterTypes||[]).map(tp=>`<button type="button" data-action="toggle-pw-filter-opt" data-fkind="type" data-fval="${esc(tp)}" data-tip="Filter entfernen" class="tag cursor-pointer max-w-full min-w-0 break-words text-left">Typ: ${tp==='augment'?'Augmente':'Kräfte'} ✕</button>`).join('')}
           ${(UI.pwFilterArts||[]).map(a=>`<button type="button" data-action="toggle-pw-filter-opt" data-fkind="art" data-fval="${esc(a)}" data-tip="${esc(getPwTermTip(a)||'Filter entfernen')}" class="tag cursor-pointer max-w-full min-w-0 break-words text-left">Hauptart: ${esc(a)} ✕</button>`).join('')}
           ${(UI.pwFilterActionSubs||[]).map(asub=>`<button type="button" data-action="toggle-pw-filter-opt" data-fkind="asub" data-fval="${esc(asub)}" data-tip="${esc(getPwTermTip(asub)||'Filter entfernen')}" class="tag cursor-pointer max-w-full min-w-0 break-words text-left">Unterart: ${esc(asub)} ✕</button>`).join('')}
-          ${(UI.pwFilterTiers||[]).map(k=>`<button type="button" data-action="toggle-pw-filter-opt" data-fkind="tier" data-fval="${esc(k)}" data-tip="Filter entfernen" class="tag cursor-pointer max-w-full min-w-0 break-words text-left">Stufe: ${esc(PW_TIERS[k]?.l||k)} ✕</button>`).join('')}
+          ${(UI.pwFilterTiers||[]).map(k=>`<button type="button" data-action="toggle-pw-filter-opt" data-fkind="tier" data-fval="${esc(k)}" data-tip="Filter entfernen" class="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-extrabold border cursor-pointer max-w-full min-w-0 break-words text-left ${PW_TIER_BADGE_CLS[k]||'bdr-acc bg-acc-soft text-acc'}">Stufe: ${esc(PW_TIERS[k]?.l||k)} ✕</button>`).join('')}
           ${(UI.pwFilterTags||[]).map(tg=>`<button type="button" data-action="toggle-pw-filter-opt" data-fkind="tag" data-fval="${esc(tg)}" data-tip="${esc(getPwTermTip(tg)||'Filter entfernen')}" class="tag cursor-pointer max-w-full min-w-0 break-words text-left">Tag: ${esc(tg)} ✕</button>`).join('')}
         </div>
         <div class="flex flex-wrap items-center gap-1.5 min-w-0">
@@ -8629,7 +9637,7 @@
         </div>
         <div class="space-y-1.5 pt-1 border-t bdr-line min-w-0">
           <div class="text-[11px] font-extrabold t-mut uppercase tracking-wider">Lernkosten-Stufe</div>
-          <div class="grid grid-cols-2 sm:flex sm:flex-wrap gap-1.5 min-w-0">${Object.entries(PW_TIERS).map(([k,t])=>{const on=(UI.pwFilterTiers||[]).includes(k);return `<button type="button" data-action="toggle-pw-filter-opt" data-fkind="tier" data-fval="${esc(k)}" class="inline-flex items-center gap-1.5 px-2.5 py-1.5 sm:py-1 rounded-lg border cursor-pointer select-none transition-colors min-w-0 max-w-full text-left ${on?'bdr-acc bg-acc-soft text-acc font-extrabold':'bdr-line bg-black/20 hover:border-sky-400/50'}"><span class="text-xs leading-none shrink-0">${on?'☑':'☐'}</span><span class="min-w-0 truncate">${esc(t.l)}</span></button>`;}).join('')}</div>
+          <div class="grid grid-cols-2 sm:flex sm:flex-wrap gap-1.5 min-w-0">${Object.entries(PW_TIERS).map(([k,t])=>{const on=(UI.pwFilterTiers||[]).includes(k), tCls=PW_TIER_BADGE_CLS[k]||'bdr-acc bg-acc-soft text-acc';return `<button type="button" data-action="toggle-pw-filter-opt" data-fkind="tier" data-fval="${esc(k)}" data-tip="${esc(t.full)}" class="inline-flex items-center gap-1.5 px-2.5 py-1.5 sm:py-1 rounded-lg border cursor-pointer select-none transition-colors min-w-0 max-w-full text-left ${on?`${tCls} font-extrabold`:'bdr-line bg-black/20 hover:border-sky-400/50'}"><span class="text-xs leading-none shrink-0">${on?'☑':'☐'}</span><span class="min-w-0 truncate">${esc(t.l)}</span></button>`;}).join('')}</div>
         </div>
         ${allPwTags.length?`<div class="space-y-1.5 pt-1 border-t bdr-line min-w-0">
           <div class="text-[11px] font-extrabold t-mut uppercase tracking-wider">Tags (${allPwTags.length})</div>
@@ -8665,9 +9673,9 @@
     }
 
     function buildPwCatPillsHtml(){
-      const st={marginal:{c:0,sp:0,m:0},fundamental:{c:0,sp:0,m:0},grandios:{c:0,sp:0,m:0}};
+      const st={marginal:{c:0,sp:0,m:0},fundamental:{c:0,sp:0,m:0},exzeptionell:{c:0,sp:0,m:0},grandios:{c:0,sp:0,m:0}};
       [...S.powers,...S.augments].filter(it=>it.tier!=='basisaktion').forEach(it=>{const k=PW_TIERS[it.tier]?it.tier:'marginal',c=calcPwCost(it);if(!st[k])st[k]={c:0,sp:0,m:0};st[k].c++;st[k].sp+=c.sp;st[k].m+=c.msp;});
-      return Object.entries(PW_TIERS).filter(([k])=>k!=='basisaktion').map(([k,t])=>`<span class="subcard py-1 px-2.5 text-[11px] font-bold inline-flex gap-1.5 tabular"><strong class="text-acc">${t.l}:</strong> ${st[k].c}× (${st[k].sp} SP${st[k].m?` + ${st[k].m} MsP`:''})</span>`).join('');
+      return Object.entries(PW_TIERS).filter(([k])=>k!=='basisaktion').map(([k,t])=>`<span class="rounded-lg border py-1 px-2.5 text-[11px] font-bold inline-flex items-center gap-1.5 tabular ${PW_TIER_BADGE_CLS[k]||''}"><strong>${esc(t.l)}:</strong> ${st[k].c}× (${st[k].sp} SP${st[k].m?` + ${st[k].m} MsP`:''})</span>`).join('');
     }
 
     function moveChrSecOrder(secKey,dir){
@@ -8845,7 +9853,7 @@
         </section>`;
       }
       return `<section data-chrsec="powers" class="card space-y-3" ${winStyle}>
-        ${hdrCommon('Kräfte &amp; Augmente','Marginal: 1 SP • Fundamental: 2 SP • Grandios: 2 SP + 1 MsP\nNutze das ⋮-Menü oder auf dem Desktop ⠿ zum Sortieren.',`<button type="button" data-action="add-power" class="btn py-1 px-2 text-xs">+ Kraft</button><button type="button" data-action="add-augment" class="btn py-1 px-2 text-xs border-amber-400/60 text-amber-500">+ Augment</button><span id="chrPwBadge" class="pill cursor-default text-acc tabular">${P.pwSp} SP | ${P.pwMsp||'-'} MsP</span>`)}
+        ${hdrCommon('Kräfte &amp; Augmente','Marginal (Options): 1 SP • Fundamental (Core): 2 SP • Exzeptionell (Ace): 3 SP • Grandios (Game Changer): 3 SP + 1 MsP\nNutze das ⋮-Menü oder auf dem Desktop ⠿ zum Sortieren.',`<button type="button" data-action="add-power" class="btn py-1 px-2 text-xs">+ Kraft</button><button type="button" data-action="add-augment" class="btn py-1 px-2 text-xs border-amber-400/60 text-amber-500">+ Augment</button><span id="chrPwBadge" class="pill cursor-default text-acc tabular">${P.pwSp} SP | ${P.pwMsp||'-'} MsP</span>`)}
         ${!meta.collapsed?`<div id="chrPwCats" class="flex flex-wrap gap-2">${buildPwCatPillsHtml()}</div>
         <div class="overflow-x-auto max-w-full min-w-0"><table class="tbl r-tbl md:min-w-[760px] text-xs sm:text-sm tabular"><thead><tr><th class="text-left w-40">⠿ Typ</th><th class="text-left">Name</th><th class="text-left w-60">Kategorie</th><th class="text-center w-24">SP</th><th class="text-center w-24">MsP</th><th class="text-right w-32">Status</th></tr></thead><tbody>${allPw.length?allPw.map(({kind,lbl,it})=>{const c=calcPwCost(it),isAug=kind==='augment',par=isAug&&it.parentPowerId?S.powers.find(p=>p.id===it.parentPowerId):null;const pwMenuMob=`<button type="button" data-action="open-chrpw-menu" data-kind="${kind}" data-id="${it.id}" aria-haspopup="menu" aria-expanded="false" aria-label="Aktionen für ${esc(it.name||lbl)}" data-tip="Sortieren (▲/▼), Farben, Geschenkt &amp; Löschen" class="btn md:hidden w-9 h-9 p-0 text-base font-black shrink-0">⋮</button>`;const pwMenuDesk=`<button type="button" data-action="open-chrpw-menu" data-kind="${kind}" data-id="${it.id}" aria-haspopup="menu" aria-expanded="false" aria-label="Aktionen für ${esc(it.name||lbl)}" data-tip="Sortieren (▲/▼), Farben, Geschenkt &amp; Löschen" class="btn hidden md:inline-flex w-8 h-8 p-0 text-sm font-black shrink-0">⋮</button>`;return `<tr data-chr-pw="${kind}:${it.id}" ${it.bgColor?`style="background:color-mix(in srgb,${esc(it.bgColor)} 22%,transparent)"`:''}><td class="r-card-hdr"><div class="flex items-center justify-between gap-2 w-full min-w-0"><div class="flex items-center gap-1.5 min-w-0"><span draggable="true" data-drag-chr-pw="${kind}:${it.id}" data-tip="Ziehen zum Sortieren in der Steigerungschronik" class="px-1.5 py-0.5 rounded bg-black/20 border bdr-line t-mut text-xs font-black cursor-grab select-none shrink-0">⠿</span><div class="min-w-0"><span class="px-2 py-0.5 rounded text-[10px] font-black ${isAug?'bg-amber-500/15 text-amber-400 border border-amber-500/40':'bg-acc-soft text-acc border bdr-acc'}">${lbl}</span>${par?`<div class="text-[10px] t-mut truncate mt-0.5 max-w-[180px] md:max-w-[110px]">↳ ${esc(par.name||'Kraft')}</div>`:''}</div></div>${pwMenuMob}</div></td><td data-lbl="Name"><input data-pwf="${kind}:${it.id}:name" type="text" value="${esc(it.name)}" ${it.color?`style="color:${esc(it.color)}"`:''} placeholder="Unbenannt..." class="inp-line w-full min-w-0 text-right md:text-left font-bold"/></td><td data-lbl="Kategorie"><div class="min-w-0 flex-1 md:flex-none md:w-full">${renderPwCostSelect(kind,it)}</div></td><td data-lbl="SP" class="text-center"><input data-pwcost="${kind}:${it.id}:sp" type="text" inputmode="numeric" value="${c.sp}" class="inp w-16 text-center py-1 md:py-0.5 px-1 font-extrabold ${it.manualCost?'!border-amber-400 text-amber-300':''}"/></td><td data-lbl="MsP" class="text-center"><input data-pwcost="${kind}:${it.id}:msp" type="text" inputmode="numeric" value="${c.msp}" class="inp w-16 text-center py-1 md:py-0.5 px-1 font-extrabold ${c.msp?'text-amber-400':''}"/></td><td data-lbl="Status" class="text-right"><div class="inline-flex items-center justify-end gap-1.5"><button type="button" data-action="gift-pw" data-kind="${kind}" data-id="${it.id}" data-tip="${it.manualCost&&c.sp===0&&c.msp===0?'Geschenkt aktiv (0 SP) – Klicken für Standardkosten':'Geschenkt (0 SP) – Toggle'}" class="btn py-1 md:py-0.5 px-2 md:px-1.5 text-xs md:text-[10px] ${it.manualCost&&c.sp===0&&c.msp===0?'btn-ok':''}">🎁</button>${it.manualCost?`<span class="text-[10px] font-extrabold text-amber-400">Manuell</span>`:''}${pwMenuDesk}</div></td></tr>`;}).join(''):`<tr><td colspan="6" class="text-center justify-center text-xs t-mut py-3">Keine Kräfte oder Augmente vorhanden.</td></tr>`}</tbody></table></div>`:''}
       </section>`;
@@ -11520,7 +12528,7 @@
             if(fTier&&!itemMatchesTier(it)) return '';
             const id=String(it.id||'');
             const checked=Boolean(isAug?PWLIB.selAugIds?.[id]:PWLIB.selPwIds?.[id]);
-            const tInfo=PW_TIERS[itemTierKey(it)]||PW_TIERS.marginal;
+            const tKey=itemTierKey(it), tInfo=PW_TIERS[tKey]||PW_TIERS.marginal, tBadgeCls=PW_TIER_BADGE_CLS[tKey]||PW_TIER_BADGE_CLS.marginal;
             const c=calcPwCost(it);
             const uCostTxt=formatPwUseCosts(it);
             const prevTxt=stripHtml(it.desc||it.effects||'').replace(/\s+/g,' ').trim();
@@ -11539,7 +12547,7 @@
                 </div>
               </div>
               <div class="flex flex-wrap items-center gap-1 shrink-0 tabular">
-                <span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-black/30 border bdr-line">${esc(tInfo.l)} (${c.sp} SP${c.msp?`+${c.msp}M`:''})</span>
+                <span class="px-1.5 py-0.5 rounded text-[10px] font-extrabold border ${tBadgeCls}">${esc(tInfo.l)} (${c.sp} SP${c.msp?`+${c.msp}M`:''})</span>
                 ${uCostTxt?`<span class="px-1.5 py-0.5 rounded text-[10px] font-bold text-acc bg-acc-soft/30 border bdr-acc">⚡ ${esc(uCostTxt)}</span>`:''}
               </div>
             </button>`;
@@ -11768,7 +12776,21 @@
         if(ex){ex.url=url; renderMain(); save(); toast(`Aussehen-Bild${dSfx} aktualisiert`);}
         else{const nid=uid(); S.bioImages.push({id:nid,url,caption:''}); UI.imgTargetId=nid; if(UI.tab5)UI.tab5.bioGallery=false; renderMain(); save(); toast(`Aussehen-Bild${dSfx} importiert`);}
       }else if(ctx.kind==='bg'){
-        getEditStyleSlot().bg=url; if(UI.inLobby||S.appearance.editScope==='lobby') saveLobbyStyleLocal(); applyTheme(); save(); toast(`Hintergrund${dSfx} gespeichert`);
+        const applyBgFinal=(finalUrl,wasComp)=>{
+          getEditStyleSlot().bg=finalUrl;
+          applyTheme();
+          persistCurrentThemeChange({scope:'auto'});
+          if(!UI.inLobby) save();
+          if(UI.modal==='imgMenu'||UI.modal==='avatar'||UI.modal==='settings'||UI.modal==='adminPanel') renderModal();
+          if(wasComp) toast(`Hintergrund${dSfx} fürs Profil komprimiert & gespeichert`);
+          else if(!CLOUD.currentUser||!isOversizedBgDataUrl(finalUrl)) toast(`Hintergrund${dSfx} gespeichert`);
+        };
+        if(CLOUD.currentUser&&isOversizedBgDataUrl(url)){
+          compressBgDataUrlForProfile(url,THEME_BG_SYNC_LIMIT,(compUrl,wasComp)=>applyBgFinal(compUrl,wasComp));
+        }else{
+          applyBgFinal(url,false);
+        }
+        return;
       }
       if(UI.modal==='imgMenu'||UI.modal==='avatar'||UI.modal==='settings'||UI.modal==='adminPanel') renderModal();
     }
@@ -11804,7 +12826,11 @@
       }else if(ctx.kind==='bio'){
         S.bioImages=S.bioImages.filter(im=>im.id!==ctx.id); renderMain(); save(); toast('🗑️ Aussehen-Bild entfernt.');
       }else if(ctx.kind==='bg'){
-        getEditStyleSlot().bg=''; if(UI.inLobby||S.appearance.editScope==='lobby') saveLobbyStyleLocal(); applyTheme(); save(); toast('🗑️ Hintergrundbild entfernt.');
+        getEditStyleSlot().bg='';
+        applyTheme();
+        persistCurrentThemeChange({scope:'auto',clearBgSlot:true});
+        if(!UI.inLobby) save();
+        toast('🗑️ Hintergrundbild entfernt.');
       }
       UI.imgTargetKind=''; UI.imgTargetId='';
       closeActiveModal();
@@ -12523,7 +13549,7 @@
           <button type="button" data-action="open-admin-icons" data-tip="Globale Standard-Icons für Ebbephase, Flutphase &amp; alle Statuseffekte zentral auf dem Server verwalten" class="btn py-1 px-3 text-xs font-extrabold border-amber-400/60 bg-amber-500/20 text-amber-200">👑 🎨 Standard-Icons verwalten (Server)</button>
         </div>`:''}
         <div class="subcard space-y-2.5"><h3 class="text-xs font-extrabold text-acc">1. EXPORT, IMPORT &amp; RESET</h3><div class="flex flex-wrap items-center gap-2"><button type="button" data-action="export-json" class="btn btn-pri">⬇ Charakter exportieren (.json)</button><button type="button" data-action="import-json" class="btn">⬆ Charakter importieren (.json)</button>${UI.confirmNew?`<div class="flex gap-1.5 ml-auto"><button type="button" data-action="new-sheet-yes" class="btn bg-rose-600 text-white">Alles leeren!</button><button type="button" data-action="new-sheet-no" class="btn">Abbrechen</button></div>`:`<button type="button" data-action="new-sheet-ask" class="btn btn-err ml-auto">Neuer Charakterbogen</button>`}</div></div>
-          <div class="subcard space-y-3"><div class="flex flex-wrap items-center justify-between gap-2"><h3 class="text-xs font-extrabold text-acc">2. MODUS &amp; REITER-DESIGN</h3><button type="button" data-action="toggle-dark" class="btn">🌓 ${S.appearance.dark?'Dunkles Design':'Helles Design'}</button></div>${isLobbyScope
+          <div class="subcard space-y-3"><div class="flex flex-wrap items-center justify-between gap-2"><div class="flex flex-wrap items-center gap-2"><h3 class="text-xs font-extrabold text-acc">2. MODUS &amp; REITER-DESIGN</h3><span class="px-2 py-0.5 rounded-full text-[10px] font-extrabold border ${CLOUD.currentUser?'bdr-acc bg-acc-soft text-acc':'bdr-line bg-black/20 t-mut'}">${CLOUD.currentUser?`☁️ Profilgebunden (${esc(CLOUD.currentUser)})`:'💾 Gast-Modus (lokal)'}</span></div><button type="button" data-action="toggle-dark" class="btn">🌓 ${S.appearance.dark?'Dunkles Design':'Helles Design'}</button></div>${isLobbyScope
           ?`<div class="pt-2 border-t bdr-line flex flex-wrap items-center justify-between gap-2 text-xs"><span class="text-acc font-extrabold">🏠 Eigenes Farbschema für deine Lobby${CLOUD.currentUser?` (${esc(CLOUD.currentUser)})`:''} – unabhängig von deinen Charakter-Reitern.</span>${!UI.inLobby?`<button type="button" data-action="edit-scope" data-scope="${esc(S.activeTab||'attributes')}" class="btn py-1 px-2.5 text-[11px]">← Charakter-Reiter bearbeiten</button>`:''}</div>`
           :`<div class="flex flex-wrap items-center justify-between gap-2 pt-2 border-t bdr-line"><span class="text-xs font-bold">Design-Modus:</span><div class="inline-flex flex-wrap rounded-xl p-1 bg-black/20 border bdr-line"><button type="button" data-action="app-mode" data-mode="global" class="px-3 py-1 rounded-lg text-xs font-extrabold ${!isPer?'bg-acc-soft text-acc':''}">Global</button><button type="button" data-action="app-mode" data-mode="perTab" class="px-3 py-1 rounded-lg text-xs font-extrabold ${isPer?'bg-acc-soft text-acc':''}">Pro Reiter</button><button type="button" data-action="edit-scope" data-scope="lobby" class="px-3 py-1 rounded-lg text-xs font-extrabold hover:text-acc">🏠 Lobby-Design</button></div></div>${isPer?`<div class="flex flex-wrap gap-1.5">${TABS.map(t=>`<button type="button" data-action="edit-scope" data-scope="${t.id}" class="btn text-xs ${S.appearance.editScope===t.id?'btn-pri':''}">${t.l}</button>`).join('')}</div>`:''}`}</div>
           <div class="subcard space-y-3">
@@ -13016,10 +14042,11 @@
         ['Grandios','3 SP','+2 SP','+3 SP','+4 SP + 1 MsP','12 SP + 1 MsP']
       ];
       const pwRows=[
-        ['Basisaktion','0 SP','—','Allgemeine Grundmanöver (kostenfrei)',false],
-        ['Marginal','1 SP','—','Kleine Effekte, Tricks oder Spezialisierungen',false],
-        ['Fundamental','2 SP','—','Zentrale Kampfkünste, Zauber &amp; Manöver',false],
-        ['Grandios','2 SP','1 MsP','Mächtige Meister-Kräfte &amp; Schlüssel-Augmente',true]
+        ['Basisaktion','0 SP','—','Allgemeine Grundmanöver (kostenfrei)','basisaktion'],
+        ['Marginal (Options)','1 SP','—','Kleine Effekte, Tricks oder Spezialisierungen','marginal'],
+        ['Fundamental (Core)','2 SP','—','Zentrale Kampfkünste, Zauber &amp; Manöver','fundamental'],
+        ['Exzeptionell (Ace)','3 SP','—','Herausragende Signatur-Kräfte &amp; starke Augmente','exzeptionell'],
+        ['Grandios (Game Changer)','3 SP','1 MsP','Mächtige Meister-Kräfte &amp; Schlüssel-Augmente','grandios']
       ];
       return `<div class="space-y-5">
         <section class="space-y-2.5">
@@ -13141,12 +14168,12 @@
                 </tr>
               </thead>
               <tbody>
-                ${pwRows.map(([tier,sp,msp,useTxt,isGrand])=>`<tr class="${isGrand?'bg-amber-500/15':''}">
-                  <td class="font-black ${isGrand?'text-amber-300':'text-acc'}">${tier}</td>
+                ${pwRows.map(([tier,sp,msp,useTxt,tKey])=>{const isGrand=tKey==='grandios', isExz=tKey==='exzeptionell', rowCls=isGrand?'bg-amber-500/15':isExz?'bg-fuchsia-500/10':'', nameCls=isGrand?'text-amber-600 dark:text-amber-300':isExz?'text-fuchsia-600 dark:text-fuchsia-300':tKey==='marginal'?'text-emerald-600 dark:text-emerald-300':tKey==='fundamental'?'text-sky-600 dark:text-sky-300':'text-acc';return `<tr class="${rowCls}">
+                  <td class="font-black ${nameCls}">${tier}</td>
                   <td class="text-center font-bold">${sp}</td>
-                  <td class="text-center font-black ${isGrand?'text-amber-300':'t-mut'}">${msp}</td>
+                  <td class="text-center font-black ${isGrand?'text-amber-600 dark:text-amber-300':'t-mut'}">${msp}</td>
                   <td class="t-mut">${useTxt}</td>
-                </tr>`).join('')}
+                </tr>`;}).join('')}
               </tbody>
             </table>
           </div>
@@ -13157,7 +14184,7 @@
             </div>
             <div class="subcard rounded-xl p-3.5 border border-amber-400/55 bg-amber-500/10 space-y-1">
               <div class="font-black text-xs text-amber-300">👑 MsP-Limit pro Kraft-Gruppe</div>
-              <p class="text-xs t-mut leading-relaxed">Eine Kraft und ihre verknüpften Augmente dürfen zusammen <strong class="text-amber-200">maximal 1 MsP</strong> kosten (also höchstens einen grandiosen Eintrag in der gesamten Gruppe).</p>
+              <p class="text-xs t-mut leading-relaxed">Eine Kraft und ihre verknüpften Augmente dürfen zusammen <strong class="text-amber-200">maximal 1 MsP</strong> kosten (also höchstens einen Eintrag des Rangs <strong>Grandios (Game Changer)</strong> in der gesamten Gruppe).</p>
             </div>
           </div>
         </section>
@@ -13344,6 +14371,7 @@
         const ss=$('skSummaryHdr'); if(ss) ss.textContent=`${P.skSp} SP${P.skMsp?` + ${P.skMsp} MsP`:''}`;
       }else if(S.activeTab==='powers'){
         const ps=$('pwSummaryHdr'); if(ps) ps.textContent=`${P.pwSp} SP${P.pwMsp?` + ${P.pwMsp} MsP`:''}`;
+        refreshTab3DynamicDOM(M);
       }else if(S.activeTab==='chronicle'){
         if($('chrSpRem'))$('chrSpRem').textContent=P.spRem; if($('chrSpSpent'))$('chrSpSpent').textContent=P.spSpent; if($('chrSpTot'))$('chrSpTot').textContent=P.totSp;
         if($('chrMspRem'))$('chrMspRem').textContent=P.mspRem; if($('chrMspSpent'))$('chrMspSpent').textContent=P.mspSpent; if($('chrMspTot'))$('chrMspTot').textContent=P.totMsp;
@@ -13407,9 +14435,27 @@
       return null;
     }
 
+    function syncPwFieldCursorState(box,rng=null){
+      if(!box||!box.dataset?.pwf) return;
+      const [kind,id,field]=String(box.dataset.pwf||'').split(':');
+      if(!kind||!id||!['desc','effects','rules'].includes(field)) return;
+      if(rng) savedPwRanges[`${id}:${field}`]=rng.cloneRange();
+      if(document.activeElement===box||box.contains(document.activeElement)){
+        lastPwFieldById[id]=field;
+        const it=findPwItem(kind,id);
+        if(it&&it.bldMode==='dyn'){
+          it.bldDynTarget=field;
+          const tSel=document.querySelector(`[data-pw-sel="${kind}:${id}:bldDynTarget"]`);
+          if(tSel&&document.activeElement!==tSel) tSel.value=field;
+        }
+      }
+    }
     function saveEffRangeIfActive(){
       const activeRtf=document.activeElement?.closest?.('.rtf-box[contenteditable="true"]');
-      if(activeRtf) lastActiveRtfEl=activeRtf;
+      if(activeRtf){
+        lastActiveRtfEl=activeRtf;
+        syncPwFieldCursorState(activeRtf,null);
+      }
       const sel=window.getSelection();
       if(!sel||!sel.rangeCount) return;
       const rng=sel.getRangeAt(0);
@@ -13418,6 +14464,7 @@
       if(rtfBox){
         lastActiveRtfEl=rtfBox;
         lastActiveRtfRange=rng.cloneRange();
+        syncPwFieldCursorState(rtfBox,rng);
       }
       const effEl=node?.nodeType===1?node.closest?.('[id^="eff_"]'):node?.parentElement?.closest?.('[id^="eff_"]');
       if(effEl&&effEl.id?.startsWith('eff_')){
@@ -13425,63 +14472,129 @@
       }
     }
 
-    function insertTokenAtCursor(kind,id,tok,dropPoint=null){
+    function insertTokenAtCursor(kind,id,tok,dropPoint=null,explicitField=null){
       const it=findPwItem(kind,id); if(!it||!tok) return;
-      const effEl=$(`eff_${id}`);
+      const isDynTok=/^\{\{[\s\S]*\}\}$/.test(String(tok||'').trim());
+      const validFields=['desc','effects','rules'];
+      const fieldLabels={desc:'Beschreibung',effects:'Effekte',rules:'Zusatzinfos'};
+      let targetField='effects';
+      if(explicitField&&validFields.includes(explicitField)){
+        targetField=explicitField;
+      }else if(isDynTok||it.bldMode==='dyn'){
+        const activeRtf=document.activeElement?.closest?.('.rtf-box[contenteditable="true"]');
+        const activePwf=activeRtf?.dataset?.pwf?activeRtf.dataset.pwf.split(':'):null;
+        if(activePwf&&activePwf[0]===kind&&activePwf[1]===id&&validFields.includes(activePwf[2])){
+          targetField=activePwf[2];
+        }else if(lastPwFieldById[id]&&validFields.includes(lastPwFieldById[id])){
+          targetField=lastPwFieldById[id];
+        }else if(lastActiveRtfEl&&lastActiveRtfEl.isConnected&&lastActiveRtfEl.dataset?.pwf){
+          const lp=lastActiveRtfEl.dataset.pwf.split(':');
+          if(lp[0]===kind&&lp[1]===id&&validFields.includes(lp[2])) targetField=lp[2];
+          else targetField=validFields.includes(it.bldDynTarget)?it.bldDynTarget:'desc';
+        }else{
+          targetField=validFields.includes(it.bldDynTarget)?it.bldDynTarget:'desc';
+        }
+      }
+      const targetEl=targetField==='effects'
+        ?$(`eff_${id}`)
+        :(targetField==='desc'?($(`desc_${id}`)||document.querySelector(`[data-pwf="${kind}:${id}:desc"]`)):($(`rules_${id}`)||document.querySelector(`[data-pwf="${kind}:${id}:rules"]`)));
       let targetRange=null;
-      if(effEl){
+      if(targetEl){
         if(dropPoint&&typeof dropPoint.x==='number'&&typeof dropPoint.y==='number'){
           const dr=getCaretRangeAtPoint(dropPoint.x,dropPoint.y);
-          if(dr&&effEl.contains(dr.startContainer)) targetRange=dr;
+          if(dr&&targetEl.contains(dr.startContainer)) targetRange=dr;
         }
         if(!targetRange){
           const sel=window.getSelection();
           if(sel&&sel.rangeCount){
             const sr=sel.getRangeAt(0);
-            if(effEl.contains(sr.commonAncestorContainer)) targetRange=sr.cloneRange();
+            if(targetEl.contains(sr.commonAncestorContainer)) targetRange=sr.cloneRange();
           }
         }
-        if(!targetRange&&savedEffRanges[id]){
-          const vr=savedEffRanges[id];
-          if(vr.startContainer&&vr.startContainer.isConnected&&effEl.contains(vr.startContainer)) targetRange=vr.cloneRange();
+        if(!targetRange){
+          const savedR=savedPwRanges[`${id}:${targetField}`]||(targetField==='effects'?savedEffRanges[id]:null);
+          if(savedR&&savedR.startContainer&&savedR.startContainer.isConnected&&targetEl.contains(savedR.startContainer)){
+            targetRange=savedR.cloneRange();
+          }
         }
       }
-      if(effEl&&targetRange){
-        effEl.focus();
-        let pre='', post='';
-        if(targetRange.startContainer.nodeType===3){
-          const txt=targetRange.startContainer.nodeValue||'';
-          const chBefore=targetRange.startOffset>0?txt[targetRange.startOffset-1]:'';
-          const chAfter=targetRange.startOffset<txt.length?txt[targetRange.startOffset]:'';
-          if(chBefore&&!/[\s(\[]/.test(chBefore)) pre=' ';
-          if(chAfter&&!/[\s.,;:!?)\]]/.test(chAfter)) post=' ';
+      if(targetEl){
+        let insertedAtCursor=false;
+        if(targetRange){
+          insertedAtCursor=true;
+          targetEl.focus();
+          let pre='', post='';
+          if(targetRange.startContainer.nodeType===3){
+            const txt=targetRange.startContainer.nodeValue||'';
+            const chBefore=targetRange.startOffset>0?txt[targetRange.startOffset-1]:'';
+            const chAfter=targetRange.startOffset<txt.length?txt[targetRange.startOffset]:'';
+            if(chBefore&&!/[\s(\[{]/.test(chBefore)) pre=' ';
+            if(chAfter&&!/[\s.,;:!?)\]}]/.test(chAfter)) post=' ';
+          }
+          targetRange.deleteContents();
+          const tNode=document.createTextNode(pre+tok+post);
+          targetRange.insertNode(tNode);
+          const nr=document.createRange();
+          nr.setStartAfter(tNode); nr.collapse(true);
+          const sel=window.getSelection();
+          if(sel){sel.removeAllRanges();sel.addRange(nr);}
+          savedPwRanges[`${id}:${targetField}`]=nr.cloneRange();
+          if(targetField==='effects') savedEffRanges[id]=nr.cloneRange();
+          lastActiveRtfEl=targetEl;
+          lastActiveRtfRange=nr.cloneRange();
+          lastPwFieldById[id]=targetField;
+        }else{
+          targetEl.focus();
+          const plainNow=targetEl.textContent||'';
+          const needsSpace=plainNow.length>0&&!/[\s(\[{]$/.test(plainNow);
+          const tNode=document.createTextNode((needsSpace?' ':'')+tok);
+          targetEl.appendChild(tNode);
+          const nr=document.createRange();
+          nr.setStartAfter(tNode); nr.collapse(true);
+          const sel=window.getSelection();
+          if(sel){sel.removeAllRanges();sel.addRange(nr);}
+          savedPwRanges[`${id}:${targetField}`]=nr.cloneRange();
+          if(targetField==='effects') savedEffRanges[id]=nr.cloneRange();
+          lastActiveRtfEl=targetEl;
+          lastActiveRtfRange=nr.cloneRange();
+          lastPwFieldById[id]=targetField;
         }
-        targetRange.deleteContents();
-        const tNode=document.createTextNode(pre+tok+post);
-        targetRange.insertNode(tNode);
-        const nr=document.createRange();
-        nr.setStartAfter(tNode); nr.collapse(true);
-        const sel=window.getSelection();
-        if(sel){sel.removeAllRanges();sel.addRange(nr);}
-        savedEffRanges[id]=nr.cloneRange();
-        withPoolSync(()=>{
-          it.applyMods=true;
-          it.effects=effEl.innerHTML;
-        });
-        const tb=$(`tokBar_${id}`); if(tb) tb.innerHTML=buildTokBarInnerHtml(kind,it);
+        if(targetField==='effects'&&!isDynTok){
+          withPoolSync(()=>{
+            it.applyMods=true;
+            it.effects=targetEl.innerHTML;
+          });
+        }else{
+          it[targetField]=targetEl.innerHTML;
+        }
+        targetEl.dispatchEvent(new Event('input',{bubbles:true}));
+        if(targetField==='effects'){
+          const tb=$(`tokBar_${id}`); if(tb) tb.innerHTML=buildTokBarInnerHtml(kind,it);
+        }
+        updatePwDynPreviewDOM(kind,id);
         autoSizeAllTextareas();
-        syncLiveCalculations();
-        renderHeader();
+        if(targetField==='effects'){
+          syncLiveCalculations();
+          renderHeader();
+        }
         save();
-        toast(`Baustein ${tok} an Cursorposition eingefügt!`);
+        toast(insertedAtCursor
+          ?`Baustein ${tok} in ${fieldLabels[targetField]} eingefügt!`
+          :`Baustein ${tok} an ${fieldLabels[targetField]} angehängt!`);
         return;
       }
-      withPoolSync(()=>{
-        it.applyMods=true;
-        const cur=String(it.effects||'').trim();
-        it.effects=cur?`${cur} ${esc(tok)}`:esc(tok);
-      });
-      renderMain(); renderHeader(); syncLiveCalculations(); toast(`Baustein ${tok} eingefügt & auf Bogen aktiv!`);
+      if(targetField==='effects'&&!isDynTok){
+        withPoolSync(()=>{
+          it.applyMods=true;
+          const cur=String(it.effects||'').trim();
+          it.effects=cur?`${cur} ${esc(tok)}`:esc(tok);
+        });
+      }else{
+        const cur=String(it[targetField]||'').trim();
+        it[targetField]=cur?`${cur} ${esc(tok)}`:esc(tok);
+      }
+      renderMain(); renderHeader(); syncLiveCalculations(); save();
+      toast(`Baustein ${tok} in ${fieldLabels[targetField]} eingefügt!`);
     }
 
     function spendResource(kind,id){
@@ -14539,7 +15652,8 @@
         case 'set-pw-bld-mode': {
           const it=findPwItem(el.dataset.kind,el.dataset.id);
           if(it){
-            const mode=el.dataset.mode?(el.dataset.mode==='skill'?'skill':'stat'):(it.bldMode==='skill'?'stat':'skill');
+            const rawM=el.dataset.mode;
+            const mode=rawM==='skill'?'skill':(rawM==='dyn'?'dyn':(rawM==='stat'?'stat':(it.bldMode==='skill'?'stat':'skill')));
             if(it.bldMode!==mode){
               it.bldMode=mode;
               if(mode==='skill'){
@@ -14547,6 +15661,11 @@
                 if(!it.bldSkId||!named.some(s=>s.id===it.bldSkId)) it.bldSkId=named[0]?.id||'';
                 if(!String(it.bldSkCnt||'').replace(/\D/g,'').replace(/^0+/,'')) it.bldSkCnt='1';
                 if(it.bldSkKind!=='dis') it.bldSkKind='adv';
+              }else if(mode==='dyn'){
+                if(!String(it.bldDynVar||'').trim()) it.bldDynVar='WA';
+                if(it.bldDynFactor===undefined||it.bldDynFactor===null) it.bldDynFactor='/2';
+                if(!['','floor','ceil','round'].includes(it.bldDynRound)) it.bldDynRound='';
+                if(!['desc','effects','rules'].includes(it.bldDynTarget)) it.bldDynTarget='desc';
               }
               renderMain(); save();
             }
@@ -15330,6 +16449,7 @@
           UI.inLobby=true; UI.sheetLoaded=false; UI.modal=null; CLOUD.viewingRemote=false; CLOUD.remoteCharId='';
           CLOUD.confirmDelCloudId=null; CLOUD.confirmClearDice=false; CLOUD.campAction='';
           D.open=false; CN.open=false; resetDiceToLobbyNeutral();
+          applySessionTheme({allowSheetFallback:false});
           try{window.history.replaceState({},'',`${window.location.pathname}?lobby=1`);}catch(e){}
           initLiveDiceChannel(); renderAll(false); fetchLobbyList(true);
           toast('🏠 Charakterbogen geschlossen – du bist in der Lobby.');
@@ -15507,12 +16627,17 @@
           if(p!==p2){toast('⚠️ Die beiden Passwörter stimmen nicht überein!');break;}
           const exKey=findUserKeyByName(u);
           if(exKey){toast(`⚠️ Account „${exKey}“ existiert bereits – bitte auf „Anmelden“ klicken.`);break;}
+          cancelThemePrefsSync();
           CLOUD.registry.users[u]={userId:'usr_'+uid(),passHash:simpleHash(p),createdAt:stamp(),avatar:'',nameHistory:[]};
           ensureAllRegistryUsers();
           CLOUD.currentUser=u;
-          try{loadLobbyStyleForCurrentUser();applyTheme();localStorage.setItem('scherbensturm_cloud_user',u);}catch(e){}
-          renderHeader(); refreshUserNotificationsBg(false);
-          syncCloudRegistry(true); renderModal(); toast(`✨ Account „${u}“ registriert & angemeldet!`);
+          try{localStorage.setItem('scherbensturm_cloud_user',u);}catch(e){}
+          applySessionTheme({allowSheetFallback:false});
+          applyTheme();
+          renderHeader(); renderMain(); renderModal(true);
+          refreshUserNotificationsBg(false);
+          syncCloudRegistry(true);
+          toast(`✨ Account „${u}“ registriert & angemeldet!`);
           break;
         }
         case 'user-login': {
@@ -15524,13 +16649,28 @@
           if(CLOUD.registry.users[exKey].passHash!==simpleHash(p)&&!(CLOUD.registry.adminHash&&simpleHash(p)===CLOUD.registry.adminHash)){
             toast('🔒 Passwort stimmt nicht.');break;
           }
+          cancelThemePrefsSync();
           CLOUD.currentUser=exKey;
-          try{loadLobbyStyleForCurrentUser();applyTheme();localStorage.setItem('scherbensturm_cloud_user',exKey);}catch(e){}
-          renderHeader(); refreshUserNotificationsBg(false);
-          renderModal(); toast(`🔑 Willkommen zurück, ${exKey}!`);
+          try{localStorage.setItem('scherbensturm_cloud_user',exKey);}catch(e){}
+          applySessionTheme({allowSheetFallback:false});
+          applyTheme();
+          renderHeader(); renderMain(); renderModal(true);
+          refreshUserNotificationsBg(false);
+          syncCloudRegistry(false);
+          toast(`🔑 Willkommen zurück, ${exKey}!`);
           break;
         }
-        case 'user-logout': CLOUD.currentUser=''; CLOUD.filterMine=false; ensureProfileModalAccess(); try{localStorage.removeItem('scherbensturm_cloud_user');loadLobbyStyleForCurrentUser();applyTheme();}catch(e){} renderHeader(); renderMain(); renderModal(); toast('Abgemeldet'); break;
+        case 'user-logout': {
+          flushThemePrefsSync();
+          CLOUD.currentUser=''; CLOUD.filterMine=false;
+          ensureProfileModalAccess();
+          try{localStorage.removeItem('scherbensturm_cloud_user');}catch(e){}
+          applySessionTheme({allowSheetFallback:false});
+          applyTheme();
+          renderHeader(); renderMain(); renderModal(true);
+          toast('Abgemeldet');
+          break;
+        }
         case 'open-admin-panel':
         case 'toggle-admin-bar': openAdminPanel(); break;
         case 'admin-return-panel': {
@@ -15559,9 +16699,13 @@
               c.allowedUsers=(c.allowedUsers||[]).filter(x=>String(x||'').toLowerCase()!==uLow);
               c.gmUsers=(c.gmUsers||[]).filter(x=>String(x||'').toLowerCase()!==uLow);
             });
+            try{const bk=getUserBgLocalKey(u);if(bk)localStorage.removeItem(bk);}catch(e){}
             if(CLOUD.currentUser&&CLOUD.currentUser.toLowerCase()===uLow){
+              cancelThemePrefsSync();
               CLOUD.currentUser='';
-              try{localStorage.removeItem('scherbensturm_cloud_user');loadLobbyStyleForCurrentUser();applyTheme();}catch(e){}
+              try{localStorage.removeItem('scherbensturm_cloud_user');}catch(e){}
+              applySessionTheme({allowSheetFallback:false});
+              applyTheme();
             }
             syncCloudRegistry(true);
             delete CLOUD.registry.users[u];
@@ -15701,6 +16845,7 @@
           resetCloudSyncState({clearMeta:true,status:'saved'});
           UI.inLobby=true; UI.sheetLoaded=false; UI.modal=null; CLOUD.viewingRemote=false; CLOUD.remoteCharId='';
           D.open=false; CN.open=false; resetDiceToLobbyNeutral();
+          applySessionTheme({allowSheetFallback:false});
           try{window.history.replaceState({},'',`${window.location.pathname}?lobby=1`);}catch(e){}
           renderAll(false); fetchLobbyList(true);
           toast('🔙 Ansichtsmodus beendet – du bist in der Lobby.');
@@ -16221,22 +17366,20 @@
           savePatchnotesToServer(nextEntries,'🗑️ Patchnotes-Eintrag gelöscht.');
           break;
         }
-        case 'toggle-dark': S.appearance.dark=!S.appearance.dark; syncPalDraftFromSlot(); applyTheme(); renderModal(); save(); break;
-        case 'app-mode': S.appearance.mode=el.dataset.mode; S.appearance.editScope=S.activeTab; syncPalDraftFromSlot(); applyTheme(); renderModal(); save(); break;
-        case 'edit-scope': S.appearance.editScope=el.dataset.scope; syncPalDraftFromSlot(); applyTheme(); renderModal(); save(false); break;
-        case 'pick-pal': {const sl=getEditStyleSlot();sl.palette=el.dataset.pal;sl.customColors=null;if(UI.inLobby||S.appearance.editScope==='lobby')saveLobbyStyleLocal();syncPalDraftFromSlot(sl);applyTheme();renderModal();save();break;}
+        case 'toggle-dark': S.appearance.dark=!S.appearance.dark; syncPalDraftFromSlot(); applyTheme(); persistCurrentThemeChange({scope:'dark'}); renderModal(); if(!UI.inLobby) save(); break;
+        case 'app-mode': S.appearance.mode=el.dataset.mode; S.appearance.editScope=S.activeTab; syncPalDraftFromSlot(); applyTheme(); persistCurrentThemeChange({scope:'sheet'}); renderModal(); if(!UI.inLobby) save(); break;
+        case 'edit-scope': S.appearance.editScope=el.dataset.scope; syncPalDraftFromSlot(); applyTheme(); renderModal(); break;
+        case 'pick-pal': {const sl=getEditStyleSlot();sl.palette=el.dataset.pal;sl.customColors=null;syncPalDraftFromSlot(sl);applyTheme();persistCurrentThemeChange({scope:'auto'});renderModal();if(!UI.inLobby) save();break;}
         case 'toggle-pal-builder': UI.palBuilderOpen=!UI.palBuilderOpen; if(UI.palBuilderOpen)syncPalDraftFromSlot(); renderModal(); break;
-        case 'pal-draft-islt': {UI.palDraft.isLt=!UI.palDraft.isLt;const sl=getEditStyleSlot();sl.customColors={...UI.palDraft};if(UI.inLobby||S.appearance.editScope==='lobby')saveLobbyStyleLocal();applyTheme();renderModal();save();break;}
+        case 'pal-draft-islt': {UI.palDraft.isLt=!UI.palDraft.isLt;const sl=getEditStyleSlot();sl.customColors={...UI.palDraft};applyTheme();persistCurrentThemeChange({scope:'auto'});renderModal();if(!UI.inLobby) save();break;}
         case 'save-custom-pal': {
           const nm=(($('inpCustomPalName')?.value||UI.palDraft.name||'').trim())||`Eigene Palette ${(S.customPalettes?.length||0)+1}`;
           const np={id:'cp_'+uid(),name:nm,isLt:Boolean(UI.palDraft.isLt),bg:UI.palDraft.bg||'#020617',acc:UI.palDraft.acc||'#0ea5e9',acc2:UI.palDraft.acc2||'#6366f1',txt:UI.palDraft.txt||'#f1f5f9',mut:UI.palDraft.mut||'#94a3b8',btnTxt:UI.palDraft.btnTxt||'#ffffff'};
           if(!Array.isArray(S.customPalettes)) S.customPalettes=[];
           S.customPalettes.push(np);
-          saveCustomPalettesLocal();
           const sl=getEditStyleSlot(); sl.palette=np.id; sl.customColors=null;
-          if(UI.inLobby||S.appearance.editScope==='lobby') saveLobbyStyleLocal();
           UI.palDraft.name=np.name;
-          applyTheme(); renderModal(); save(); toast(`🎨 Farbpalette „${nm}“ gespeichert!`);
+          applyTheme(); persistCurrentThemeChange({scope:'palettes'}); renderModal(); if(!UI.inLobby) save(); toast(`🎨 Farbpalette „${nm}“ gespeichert!`);
           break;
         }
         case 'update-custom-pal': {
@@ -16244,21 +17387,18 @@
           if(cp){
             const nm=(($('inpCustomPalName')?.value||UI.palDraft.name||cp.name).trim())||cp.name;
             Object.assign(cp,{name:nm,isLt:Boolean(UI.palDraft.isLt),bg:UI.palDraft.bg,acc:UI.palDraft.acc,acc2:UI.palDraft.acc2,txt:UI.palDraft.txt,mut:UI.palDraft.mut,btnTxt:UI.palDraft.btnTxt});
-            saveCustomPalettesLocal();
             const sl=getEditStyleSlot(); sl.palette=cp.id; sl.customColors=null;
-            if(UI.inLobby||S.appearance.editScope==='lobby') saveLobbyStyleLocal();
-            applyTheme(); renderModal(); save(); toast(`✓ Farbpalette „${nm}“ aktualisiert!`);
+            applyTheme(); persistCurrentThemeChange({scope:'palettes'}); renderModal(); if(!UI.inLobby) save(); toast(`✓ Farbpalette „${nm}“ aktualisiert!`);
           }
           break;
         }
         case 'del-custom-pal': {
           const pid=el.dataset.id;
           S.customPalettes=(S.customPalettes||[]).filter(p=>p.id!==pid);
-          saveCustomPalettesLocal();
           if(S.appearance.global.palette===pid) S.appearance.global.palette='azur';
-          if(S.appearance.lobby?.palette===pid){S.appearance.lobby.palette='azur';saveLobbyStyleLocal();}
+          if(S.appearance.lobby?.palette===pid) S.appearance.lobby.palette='azur';
           TABS.forEach(t=>{if(S.appearance.tabs[t.id]?.palette===pid)S.appearance.tabs[t.id].palette='azur';});
-          syncPalDraftFromSlot(); applyTheme(); renderModal(); save(); toast('Eigene Farbpalette gelöscht');
+          syncPalDraftFromSlot(); applyTheme(); persistCurrentThemeChange({scope:'palettes'}); renderModal(); if(!UI.inLobby) save(); toast('Eigene Farbpalette gelöscht');
           break;
         }
         case 'pick-bg': openImgMenu('bg','',UI.modal==='settings'?'settings':''); break;
@@ -16470,7 +17610,7 @@
         case 'pwlib-pick-file': $('filePwImport')?.click(); break;
         case 'new-sheet-ask': UI.confirmNew=true; renderModal(); break;
         case 'new-sheet-no': UI.confirmNew=false; renderModal(); break;
-        case 'new-sheet-yes': await flushBeforeCharacterSwitch(); CLOUD.viewingRemote=false; CLOUD.remoteCharId=''; S=defaultState(); if(CLOUD.currentUser) S.owner=CLOUD.currentUser; resetCloudSyncState({clearMeta:true,status:'saved',lastSyncTs:''}); UI.inLobby=false; UI.sheetLoaded=true; UI.modal=null; UI.confirmNew=false; exitLobbyNeutralDice(); renderAll(false); toast('Neuer Charakterbogen geladen'); break;
+        case 'new-sheet-yes': await flushBeforeCharacterSwitch(); CLOUD.viewingRemote=false; CLOUD.remoteCharId=''; S=defaultState(); if(CLOUD.currentUser) S.owner=CLOUD.currentUser; UI.inLobby=false; UI.sheetLoaded=true; UI.modal=null; UI.confirmNew=false; applySessionTheme({allowSheetFallback:false,forSheet:true}); resetCloudSyncState({clearMeta:true,status:'saved',lastSyncTs:''}); exitLobbyNeutralDice(); renderAll(false); toast('Neuer Charakterbogen geladen'); break;
       }
     });
 
@@ -16971,7 +18111,8 @@
           }else{
             it[f]=f==='useAmt'?toInt(el.value,0):val;
             if(f==='useAmt'){if(Array.isArray(it.useCosts)&&it.useCosts[0])it.useCosts[0].amt=Math.max(0,it.useAmt);syncPwUseCostsLegacy(it);}
-            if(f==='bldAmt') updatePwBuilderChipDOM(kind,id);
+            if(f==='bldAmt'||f==='bldDynFactor') updatePwBuilderChipDOM(kind,id);
+            if(f==='desc'||f==='rules') updatePwDynPreviewDOM(kind,id);
             if(f==='useAmt') save();
             else saveSoon();
           }
@@ -17074,16 +18215,15 @@
         });
         syncLiveCalculations();return;
       }
-      if(el.id==='rngOverlay'){const t=getEditStyleSlot();t.overlay=toInt(el.value,75);if(UI.inLobby||S.appearance.editScope==='lobby')saveLobbyStyleLocal();if($('bgOvLbl'))$('bgOvLbl').textContent=t.overlay+'%';applyTheme();save();return;}
-      if(el.id==='rngBlur'){const t=getEditStyleSlot();t.blur=toInt(el.value,0);if(UI.inLobby||S.appearance.editScope==='lobby')saveLobbyStyleLocal();if($('bgBlurLbl'))$('bgBlurLbl').textContent=t.blur+' px';applyTheme();save();return;}
+      if(el.id==='rngOverlay'){const t=getEditStyleSlot();t.overlay=toInt(el.value,75);if($('bgOvLbl'))$('bgOvLbl').textContent=t.overlay+'%';applyTheme();persistCurrentThemeChange({scope:'auto'});if(!UI.inLobby) saveSoon(300);return;}
+      if(el.id==='rngBlur'){const t=getEditStyleSlot();t.blur=toInt(el.value,0);if($('bgBlurLbl'))$('bgBlurLbl').textContent=t.blur+' px';applyTheme();persistCurrentThemeChange({scope:'auto'});if(!UI.inLobby) saveSoon(300);return;}
       if(el.dataset.palName){UI.palDraft.name=el.value;return;}
       if(el.dataset.palCol){
         const k=el.dataset.palCol, v=el.value;
         UI.palDraft[k]=v;
         const hx=document.querySelector(`input[data-pal-hex="${k}"]`); if(hx) hx.value=v.toUpperCase();
         const sl=getEditStyleSlot(); sl.customColors={...UI.palDraft};
-        if(UI.inLobby||S.appearance.editScope==='lobby')saveLobbyStyleLocal();
-        applyTheme(); save(); return;
+        applyTheme(); persistCurrentThemeChange({scope:'auto'}); if(!UI.inLobby) saveSoon(300); return;
       }
       if(el.dataset.palHex){
         const k=el.dataset.palHex; let v=el.value.trim(); if(v&&!v.startsWith('#')) v='#'+v;
@@ -17091,8 +18231,7 @@
           UI.palDraft[k]=v.toLowerCase();
           const cp=document.querySelector(`input[data-pal-col="${k}"]`); if(cp) cp.value=v.toLowerCase();
           const sl=getEditStyleSlot(); sl.customColors={...UI.palDraft};
-          if(UI.inLobby||S.appearance.editScope==='lobby')saveLobbyStyleLocal();
-          applyTheme(); save();
+          applyTheme(); persistCurrentThemeChange({scope:'auto'}); if(!UI.inLobby) saveSoon(300);
         }
         return;
       }
@@ -17275,11 +18414,29 @@
         }
         return;
       }
+      if(el.dataset.pwDynPreset){
+        const [kind,id]=el.dataset.pwDynPreset.split(':'),it=findPwItem(kind,id);
+        if(it&&el.value!=='__custom__'){
+          it.bldDynFactor=el.value;
+          const facInp=document.querySelector(`input[data-pwf="${kind}:${id}:bldDynFactor"]`);
+          if(facInp) facInp.value=el.value;
+          updatePwBuilderChipDOM(kind,id);
+          save();
+        }
+        return;
+      }
       if(el.dataset.pwSel){
         const [kind,id,f]=el.dataset.pwSel.split(':'),it=findPwItem(kind,id);
         if(it){
           it[f]=el.value;
-          if(f==='bldSkKind'||f==='bldSkId'||f==='bldStat'){
+          if(f==='bldSkKind'||f==='bldSkId'||f==='bldStat'||f==='bldDynVar'||f==='bldDynRound'||f==='bldDynTarget'){
+            if(f==='bldDynTarget'&&['desc','effects','rules'].includes(el.value)){
+              lastPwFieldById[id]=el.value;
+              if(lastActiveRtfEl&&lastActiveRtfEl.dataset?.pwf?.startsWith(`${kind}:${id}:`)&&!lastActiveRtfEl.dataset.pwf.endsWith(`:${el.value}`)){
+                lastActiveRtfEl=null;
+                lastActiveRtfRange=null;
+              }
+            }
             updatePwBuilderChipDOM(kind,id);
             save();
           }else{
@@ -17877,7 +19034,7 @@
       const eqSecBox=dragEqSec?e.target.closest('[data-eqsec]'):null;
       const eqItemBox=dragEqItem?e.target.closest('[data-eqitem]'):null;
       const campTabBox=(dragCampId&&CLOUD.isAdmin)?e.target.closest('[data-camp-tab]'):null;
-      const ta=dragToken?e.target.closest('[id^="eff_"]'):null;
+      const ta=dragToken?(/^\{\{[\s\S]*\}\}$/.test(dragToken)?e.target.closest('[data-pwf$=":desc"],[data-pwf$=":effects"],[data-pwf$=":rules"]'):e.target.closest('[id^="eff_"]')):null;
       if(grp||secBox||skSecBox||agCard||skRow||cpwRow||chrSecBox||eqSecBox||eqItemBox||campTabBox||ta){
         e.preventDefault();
         document.querySelectorAll('[data-pw-sec].pw-drop-over,[data-sk-sec].pw-drop-over,[data-camp-tab].pw-drop-over').forEach(x=>x.classList.remove('pw-drop-over','sk-drop-over'));
@@ -17899,6 +19056,7 @@
             const sel=window.getSelection();
             if(sel){sel.removeAllRanges();sel.addRange(r);}
             if(ta.id?.startsWith('eff_')) savedEffRanges[ta.id.slice(4)]=r.cloneRange();
+            if(ta.dataset?.pwf){const [,tid,tf]=ta.dataset.pwf.split(':');if(tid&&['desc','effects','rules'].includes(tf)){savedPwRanges[`${tid}:${tf}`]=r.cloneRange();lastPwFieldById[tid]=tf;}}
           }
         }
       }
@@ -18371,8 +19529,8 @@
         dragCampId=null;
 
       }else if(dragToken){
-        const ta=e.target.closest('[id^="eff_"]');
-        if(ta){e.preventDefault();const [kind,id]=ta.dataset.pwf.split(':');insertTokenAtCursor(kind,id,dragToken,{x:e.clientX,y:e.clientY});}
+        const ta=/^\{\{[\s\S]*\}\}$/.test(dragToken)?e.target.closest('[data-pwf$=":desc"],[data-pwf$=":effects"],[data-pwf$=":rules"]'):e.target.closest('[id^="eff_"]');
+        if(ta){e.preventDefault();const [kind,id,field]=ta.dataset.pwf.split(':');insertTokenAtCursor(kind,id,dragToken,{x:e.clientX,y:e.clientY},field);}
         dragToken='';
       }else if(e.target.closest?.('#imgDropZone')&&e.dataTransfer?.files?.length){
         e.preventDefault();
@@ -18803,6 +19961,7 @@
     });
     function handleExitFlush(){
       flushPendingSave(false);
+      flushThemePrefsSync();
       if(!CLOUD.viewingRemote&&UI.sheetLoaded&&!UI.inLobby&&canWriteCurrentSheetToCloud()){
         if(CLOUD_SYNC.dirty||CLOUD_SYNC.debounceTimer!==null||CLOUD_SYNC.status==='error'){
           flushCloudSyncNow({silent:true,keepalive:true});
@@ -18923,6 +20082,7 @@
       if(box){
         if(box.getAttribute('contenteditable')==='true'){
           lastActiveRtfEl=box;
+          syncPwFieldCursorState(box,null);
           saveEffRangeIfActive();
         }
         const wrap=box.closest('.rtf-wrap');
@@ -18971,6 +20131,7 @@
       fetchLobbyList(true);
     }else{
       UI.inLobby=true; UI.sheetLoaded=false; UI.modal=null;
+      applySessionTheme({allowSheetFallback:false});
       resetDiceToLobbyNeutral();
       renderAll(false);
       fetchLobbyList(true);
