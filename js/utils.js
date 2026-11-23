@@ -37,3 +37,6 @@ export const sanitizeSecHierarchy=secList=>{
   });
 };
 export const isDynWordChar=ch=>/[a-zA-Z0-9äöüÄÖÜß_]/.test(ch||'');
+export function findVisibleBtn(sel){
+  return Array.from(document.querySelectorAll(sel)).find(b=>b.offsetParent!==null)||document.querySelector(sel);
+}
