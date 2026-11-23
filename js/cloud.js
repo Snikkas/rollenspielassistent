@@ -8,10 +8,10 @@ import {
   hooks
 } from './ui-hooks.js';
 import {
-  defaultState, setS, normalizeCampaigns, mergeThemePrefs, migrateUserLocalBgMap, sanitizeThemePrefsForRegistry, getCampaigns, setActiveCampaign, isGlobalGM, canManageCampaign, canClearLiveDice, getCreatableCampaigns, ensureUserRecord, ensureAllRegistryUsers, findUserKeyByName, renderUserNamePill, saveRegistryLocal, saveDiceFeedLocal, saveSecretRollsLocal, getActiveLiveCampaignId, getRollCampaignId, getCampaignFilteredDiceFeed, captureScrollState, restoreScrollState, toast, hasNiceRoll, triggerNiceEasterEgg, mergeLoaded, saveLastActiveTab, getSavedTabForChar, save, flushPendingSave, applySessionTheme, syncPalDraftFromSlot, applyTheme, CUSTOM_ICONS, S, D, CN, LD, FBW, isMobileLayout, UI, LIVE_TAB_ID, PATCHNOTES, FEEDBACK, CLOUD, CLOUD_SYNC, PWLIB, getCharOwner, getCharCampaignId, canManageChar
+  defaultState, setS, normalizeCampaigns, mergeThemePrefs, migrateUserLocalBgMap, sanitizeThemePrefsForRegistry, getCampaigns, setActiveCampaign, isGlobalGM, canManageCampaign, canClearLiveDice, getCreatableCampaigns, ensureUserRecord, ensureAllRegistryUsers, findUserKeyByName, renderUserNamePill, saveRegistryLocal, saveDiceFeedLocal, saveSecretRollsLocal, getActiveLiveCampaignId, getRollCampaignId, getCampaignFilteredDiceFeed, captureScrollState, restoreScrollState, toast, hasNiceRoll, triggerNiceEasterEgg, normalizeForeignSheet, mergeLoaded, saveLastActiveTab, getSavedTabForChar, save, flushPendingSave, applySessionTheme, syncPalDraftFromSlot, applyTheme, CUSTOM_ICONS, S, D, CN, LD, FBW, isMobileLayout, UI, LIVE_TAB_ID, PATCHNOTES, FEEDBACK, CLOUD, CLOUD_SYNC, PWLIB, getCharOwner, getCharCampaignId, canManageChar
 } from './state.js';
 import {
-  calcActiveMods, importPowerPackIntoSheet, getLpMax, getMlpMax, getIniTot, getApMax, getMapMax
+  invalidateModsCache, calcActiveMods, importPowerPackIntoSheet, getLpMax, getMlpMax, getIniTot, getApMax, getMapMax
 } from './calc.js';
 
 let cloudSyncTimer=null, liveDiceES=null, liveDiceBC=null, liveDiceTopicCur='', liveDicePollTimer=null, registryPushInFlight=0, lastRegistryPushMs=0;
@@ -124,10 +124,11 @@ export function renderLobbyLiveDiceHtml(inFloatingWin=false){
           <div class="min-w-0 flex-1">
             <div class="flex flex-wrap items-center gap-1.5 min-w-0">
               <span class="font-black text-xs sm:text-sm truncate max-w-full">${esc(entry.charName||'Unbenannter Held')}</span>
+              ${entry.vsCharName?`<span class="px-1.5 py-0.2 rounded text-[10px] font-black bg-indigo-500/20 text-indigo-200 border border-indigo-400/45 max-w-full truncate">⚔️ vs. ${esc(entry.vsCharName)}</span>`:''}
               ${entry.playerName?renderUserNamePill(entry.playerName,{cls:'px-1.5 py-0.2 rounded text-[10px] font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-400/40'}):''}
               ${isFirst?`<span class="px-1.5 py-0.2 rounded text-[9px] font-black uppercase bg-acc-soft text-acc border bdr-acc">Aktuellster Wurf</span>`:''}
             </div>
-            <div class="text-xs font-extrabold text-acc truncate">${esc(entry.label||'Freie Probe')}</div>
+            <div class="text-xs font-extrabold text-acc ${entry.vsCharName?'break-words':'truncate'}">${esc(entry.label||'Freie Probe')}</div>
           </div>
         </div>
         <span class="text-[11px] font-bold t-mut tabular shrink-0">${esc(entry.ts||'')}</span>
@@ -1558,6 +1559,78 @@ export async function loadCloudCharacter(id,asViewOnly=true,autoFallbackView=fal
   }catch(err){
     toast('⚠️ Verbindung zur Cloud-Lobby fehlgeschlagen.');
   }
+}
+const FOREIGN_SHEET_TTL_MS=60000;
+const foreignSheetCache=new Map();
+const foreignSheetInflight=new Map();
+const foreignSheetErrors=new Map();
+export function getCachedForeignSheet(charId){
+  const id=String(charId||'').trim();
+  if(!id) return null;
+  if(!UI.inLobby&&S?.charId&&id===S.charId) return S;
+  return foreignSheetCache.get(id)?.sheet||null;
+}
+export function getForeignSheetLoadedAt(charId){
+  const id=String(charId||'').trim();
+  if(!id) return 0;
+  if(!UI.inLobby&&S?.charId&&id===S.charId) return Date.now();
+  return foreignSheetCache.get(id)?.ts||0;
+}
+export function isForeignSheetLoading(charId){
+  const id=String(charId||'').trim();
+  return Boolean(id&&foreignSheetInflight.has(id));
+}
+export function getForeignSheetError(charId){
+  const id=String(charId||'').trim();
+  return id?(foreignSheetErrors.get(id)||''):'';
+}
+export async function fetchForeignCharacterSheet(charId,{force=false,silent=true}={}){
+  const id=String(charId||'').trim();
+  if(!id) return null;
+  if(!UI.inLobby&&S?.charId&&id===S.charId){
+    foreignSheetErrors.delete(id);
+    if(D.open) hooks.renderDice?.();
+    return S;
+  }
+  const hit=foreignSheetCache.get(id);
+  if(!force&&hit&&(Date.now()-hit.ts)<FOREIGN_SHEET_TTL_MS){
+    foreignSheetErrors.delete(id);
+    return hit.sheet;
+  }
+  if(foreignSheetInflight.has(id)){
+    return foreignSheetInflight.get(id);
+  }
+  foreignSheetErrors.delete(id);
+  const req=(async()=>{
+    try{
+      const url=`${getCloudEndpoint()}?id=${encodeURIComponent(id)}`;
+      const res=await fetch(url,{headers:{'Accept':'application/json'}});
+      const data=await res.json().catch(()=>({}));
+      if(!res.ok||!data||data.error){
+        const msg=data?.error||'Gegner-Charakterbogen konnte nicht geladen werden.';
+        foreignSheetErrors.set(id,msg);
+        if(!silent) toast(`⚠️ ${msg}`);
+        return hit?.sheet||null;
+      }
+      const norm=normalizeForeignSheet(data);
+      invalidateModsCache(norm);
+      foreignSheetCache.set(id,{sheet:norm,ts:Date.now()});
+      foreignSheetErrors.delete(id);
+      if(!silent) toast(`🔄 „${norm.profile?.name||'Charakter'}“ aktualisiert!`);
+      return norm;
+    }catch(err){
+      const msg='Cloud-Endpunkt nicht erreichbar (Gegner-Bogen konnte nicht geladen werden).';
+      foreignSheetErrors.set(id,msg);
+      if(!silent) toast(`⚠️ ${msg}`);
+      return hit?.sheet||null;
+    }finally{
+      foreignSheetInflight.delete(id);
+      if(D.open) hooks.renderDice?.();
+    }
+  })();
+  foreignSheetInflight.set(id,req);
+  if(D.open) hooks.renderDice?.();
+  return req;
 }
 export async function createNewUserCharacter(opts={}){
   if(!CLOUD.currentUser){

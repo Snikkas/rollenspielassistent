@@ -917,9 +917,14 @@ export function analyzeEqTagTooltip(tg,tagList,itemKind='weapon',itemObj=null,sh
       sitKey='sit_'+baseLow.replace(/[^a-z0-9äöüß]+/g,'_'); sitLabel=`${tagLbl} (situativ)`;
     }
     if(autoGrip==='inactive') return;
-    let scope=itemKind==='armor'?'all':'hit', label=itemKind==='armor'?'Rüstungs-Effekt':'Trefferwurf', skillName='', attrKey='', skillCandidates=null;
+    let scope=itemKind==='armor'?'all':'hit', label=itemKind==='armor'?'Rüstungs-Effekt':'Trefferwurf', skillName='', attrKey='', skillCandidates=null, oppDefSubScope='';
     if(isOppDef){
       scope='hit'; label='Gegner-Abwehr → Trefferwurf';
+      if(/\b(?:parade|parieren)\w*[\s,/-]+(?:und|oder)\s+block\w*/i.test(sent)) oppDefSubScope='parry_block';
+      else if(/\bparade\w*|\bparieren\b/i.test(sent)) oppDefSubScope='parry';
+      else if(/\bblock\w*/i.test(sent)) oppDefSubScope='block';
+      else if(/\bausweich\w*/i.test(sent)) oppDefSubScope='dodge';
+      else oppDefSubScope='defense';
     }else if(isOppAtk){
       scope='defense'; label='Gegner-Angriff → Abwehr';
     }else if(isOppDetect){
@@ -974,6 +979,8 @@ export function analyzeEqTagTooltip(tg,tagList,itemKind='weapon',itemObj=null,sh
         val:v,
         kind:effKind,
         scope,
+        isOppDef,
+        oppDefSubScope,
         label:sitKey?`${sitLabel}`:label,
         skillName,
         skillCandidates,
@@ -1031,6 +1038,7 @@ export function getAdvDisForContext(ctx={},M=null,sheet=S){
   const w=ctx.weaponId?(target.weapons||[]).find(x=>x.id===ctx.weaponId):null;
   const rawCat=ctx.wRollCat||(w?'Trefferwurf':'Normaler Test');
   const cat=rawCat==='Parade'?'Parieren':rawCat;
+  const oppDefCat=ctx.oppDefenseCat?(ctx.oppDefenseCat==='Parade'?'Parieren':ctx.oppDefenseCat):'';
   const sk=ctx.skillId?(target.skills||[]).find(x=>x.id===ctx.skillId):null;
   const skNameLow=sk?String(sk.name||'').trim().toLowerCase():'';
   const skBaseLow=skNameLow.replace(/\s*\([^)]*\)\s*$/,'').trim();
@@ -1041,6 +1049,15 @@ export function getAdvDisForContext(ctx={},M=null,sheet=S){
   const isSkBlock=Boolean(skNameLow==='blocken'||skBaseLow==='blocken');
   const isSkDefense=Boolean(isSkDodge||isSkParry||isSkBlock||skNameLow==='abwehr'||skBaseLow==='abwehr');
   const matchesScope=e=>{
+    if(e.isOppDef&&oppDefCat){
+      if(cat!=='Trefferwurf') return false;
+      const sub=e.oppDefSubScope||'defense';
+      if(sub==='parry') return oppDefCat==='Parieren';
+      if(sub==='parry_block') return oppDefCat==='Parieren'||oppDefCat==='Blocken';
+      if(sub==='block') return oppDefCat==='Blocken';
+      if(sub==='dodge') return oppDefCat==='Ausweichen';
+      return oppDefCat==='Parieren'||oppDefCat==='Blocken'||oppDefCat==='Ausweichen'||oppDefCat==='Abwehr';
+    }
     if(e.scope==='all') return true;
     if(e.scope==='hit') return cat==='Trefferwurf';
     if(e.scope==='hit_melee') return cat==='Trefferwurf'&&(w?w.wType!=='ranged':(skNameLow!=='fernkampf'&&skBaseLow!=='fernkampf'));
