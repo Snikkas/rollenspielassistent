@@ -2000,3 +2000,18 @@ export function getWeaponRollMeta(w,M=calcActiveMods()){
   const hasBlock=Array.isArray(w?.tags)&&w.tags.some(t=>/^blockf[äa]hig\b/i.test(String(t?.name||'').trim()));
   return {attrKey,attrVal,sk,skBonus,pool,hasMassiv,hasBlock};
 }
+
+export function getPwSecOptionsFlat(){
+  const out=[], visited=new Set();
+  const walk=(parentId,depth)=>{
+    (S.powerSections||[]).filter(s=>s&&(s.parentSectionId||'')===parentId).forEach(s=>{
+      if(visited.has(s.id)) return;
+      visited.add(s.id);
+      out.push({id:s.id,name:String(s.name||'Sektion'),depth});
+      walk(s.id,depth+1);
+    });
+  };
+  walk('',0);
+  (S.powerSections||[]).forEach(s=>{if(s&&!visited.has(s.id))out.push({id:s.id,name:String(s.name||'Sektion'),depth:0});});
+  return out;
+}
