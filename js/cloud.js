@@ -351,6 +351,10 @@ export function handleIncomingDicePayload(rawObj,isRealtimePush=false){
     hooks.handleLiveDuelEvent?.(rawObj,isRealtimePush);
     return;
   }
+  if(rawObj.type==='combat_damage_offer'||rawObj.type==='combat_damage_applied'){
+    hooks.handleCombatLiveEvent?.(rawObj,isRealtimePush);
+    return;
+  }
   if(rawObj.type==='clear_dice'){
     const clr=toInt(rawObj.clearedAt,Date.now());
     if(rawObj.campaignId){
@@ -406,7 +410,7 @@ export function initLiveDiceChannel(){
           const outer=JSON.parse(ev.data);
           if(outer&&outer.event==='message'&&typeof outer.message==='string'){
             handleIncomingDicePayload(JSON.parse(outer.message),true);
-          }else if(outer&&((outer.id&&Array.isArray(outer.res))||outer.type==='campnote_live'||outer.type==='clear_dice'||outer.type==='duel_challenge'||outer.type==='duel_response'||outer.type==='duel_cancel')){
+          }else if(outer&&((outer.id&&Array.isArray(outer.res))||outer.type==='campnote_live'||outer.type==='clear_dice'||outer.type==='duel_challenge'||outer.type==='duel_response'||outer.type==='duel_cancel'||outer.type==='combat_damage_offer'||outer.type==='combat_damage_applied')){
             handleIncomingDicePayload(outer,true);
           }
         }catch(err){}
@@ -1657,6 +1661,60 @@ export async function fetchForeignCharacterSheet(charId,{force=false,silent=true
   foreignSheetInflight.set(id,req);
   if(D.open) hooks.renderDice?.();
   return req;
+}
+export async function applyCloudResourceDelta(charId,deltas={},logText=''){
+  const id=String(charId||'').trim();
+  if(!id) return {ok:false,error:'Keine Ziel-Charakter-ID.'};
+  const payload={
+    action:'deltaResource',
+    charId:id,
+    deltas,
+    logText:String(logText||'').trim(),
+    ts:stamp(),
+    actorUser:String(CLOUD.currentUser||'').trim(),
+    isAdmin:Boolean(CLOUD.isAdmin),
+    adminHash:CLOUD.isAdmin?String(CLOUD.registry?.adminHash||''):''
+  };
+  try{
+    const res=await fetch(getCloudEndpoint(),{
+      method:'PATCH',
+      headers:{'Content-Type':'application/json','Accept':'application/json'},
+      body:JSON.stringify(payload)
+    });
+    const data=await res.json().catch(()=>({}));
+    if(!res.ok||!data||!data.ok){
+      return {ok:false,error:data?.error||`Fehler (${res.status}) beim Anwenden am Bogen.`};
+    }
+    const sec=data.secondary||{};
+    const li=(CLOUD.list||[]).find(c=>c&&c.id===id);
+    if(li){
+      if(sec.lpCurrent!==undefined) li.lpCurrent=sec.lpCurrent;
+      if(sec.mlpCurrent!==undefined) li.mlpCurrent=sec.mlpCurrent;
+      if(sec.apCurrent!==undefined) li.apCurrent=sec.apCurrent;
+      if(sec.mapCurrent!==undefined) li.mapCurrent=sec.mapCurrent;
+      if(data.updatedAt) li.updatedAt=data.updatedAt;
+    }
+    const hit=foreignSheetCache.get(id);
+    if(hit&&hit.sheet&&hit.sheet.secondary){
+      Object.assign(hit.sheet.secondary,sec);
+      hit.ts=Date.now();
+    }
+    if(!UI.inLobby&&S?.charId&&S.charId===id&&S.secondary){
+      Object.assign(S.secondary,sec);
+      if(payload.logText){
+        if(!Array.isArray(S.chronicleLog)) S.chronicleLog=[];
+        S.chronicleLog.unshift({id:uid(),ts:data.updatedAt||payload.ts,text:payload.logText});
+        if(S.chronicleLog.length>300) S.chronicleLog.length=300;
+      }
+      save(false);
+      hooks.syncLiveCalculations?.(true);
+    }else if(UI.inLobby){
+      hooks.renderMain?.();
+    }
+    return {ok:true,...data};
+  }catch(err){
+    return {ok:false,error:'Cloud-Endpunkt nicht erreichbar (Direkt-Abzug fehlgeschlagen).'};
+  }
 }
 export async function createNewUserCharacter(opts={}){
   if(!CLOUD.currentUser){
