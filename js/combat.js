@@ -8,13 +8,13 @@ import {
   hooks
 } from './ui-hooks.js';
 import {
-  S, D, UI, CLOUD, COMBAT, LIVE_TAB_ID, diceLogs, getWeaponSubtype, getCharCampaignId, getActiveLiveCampaignId, toast, triggerNiceEasterEgg
+  S, D, UI, CLOUD, DUEL, COMBAT, LIVE_TAB_ID, diceLogs, getWeaponSubtype, getCharCampaignId, getCharOwner, getActiveLiveCampaignId, canManageCampaign, isGlobalGM, toast, triggerNiceEasterEgg, logChron, save
 } from './state.js';
 import {
   calcActiveMods
 } from './calc.js';
 import {
-  getCachedForeignSheet, publishLiveRoll, isSecretRollActive
+  getCachedForeignSheet, publishLiveRoll, sendLiveBroadcast, applyCloudResourceDelta, isSecretRollActive
 } from './cloud.js';
 import {
   isLobbyNeutralDice, rollW100, renderDice
@@ -350,6 +350,12 @@ export function resetCombatState(){
   COMBAT.dmgMod = 0;
   COMBAT.armorMod = 0;
   COMBAT.posted = false;
+  COMBAT.offerId = '';
+  COMBAT.offerStatus = '';
+  COMBAT.offerNote = '';
+  COMBAT.directApplying = false;
+  COMBAT.directAppliedNote = '';
+  COMBAT.ammoSpent = false;
 }
 
 export function initCombatFromRoll({ T, res, isAtkBlk20 = false, attackerName = '' }){
@@ -434,6 +440,12 @@ export function initCombatFromRoll({ T, res, isAtkBlk20 = false, attackerName = 
   COMBAT.dmgMod = 0;
   COMBAT.armorMod = 0;
   COMBAT.posted = false;
+  COMBAT.offerId = '';
+  COMBAT.offerStatus = '';
+  COMBAT.offerNote = '';
+  COMBAT.directApplying = false;
+  COMBAT.directAppliedNote = '';
+  COMBAT.ammoSpent = false;
 }
 
 export function rollCombatHitZone(){
@@ -531,6 +543,343 @@ export function publishCombatDamageToFeed(){
   renderDice();
 }
 
+const handledOfferIds = new Set();
+
+export function isDamageOfferTargetForMe(offer){
+  if(!offer || !offer.targetCharId) return false;
+  const tid = String(offer.targetCharId).trim();
+  if(!UI.inLobby && S?.charId && S.charId === tid) return true;
+  const curUser = String(CLOUD.currentUser || '').trim().toLowerCase();
+  if(curUser){
+    const own = String(getCharOwner(tid) || '').trim().toLowerCase();
+    if(own && own === curUser) return true;
+  }
+  const campId = String(offer.campaignId || getCharCampaignId(tid) || 'default');
+  if(canManageCampaign(campId)) return true;
+  return false;
+}
+
+export function canDirectApplyCombatDamage(targetCharId = COMBAT.targetCharId){
+  const tid = String(targetCharId || '').trim();
+  if(!tid) return false;
+  if(CLOUD.isAdmin) return true;
+  if(!UI.inLobby && S?.charId && S.charId === tid) return true;
+  const curUser = String(CLOUD.currentUser || '').trim().toLowerCase();
+  if(curUser){
+    const own = String(getCharOwner(tid) || '').trim().toLowerCase();
+    if(own && own === curUser) return true;
+  }
+  const campId = getCharCampaignId(tid);
+  if(canManageCampaign(campId)) return true;
+  if(campId === 'default' && isGlobalGM()) return true;
+  return false;
+}
+
+export function sendCombatDamageOffer(){
+  if(!COMBAT.active || !COMBAT.hitOk) return;
+  const tid = String(COMBAT.targetCharId || '').trim();
+  if(!tid){
+    toast('Kein Ziel-Charakter ausgewählt.');
+    return;
+  }
+  const calc = calculateCombatDamage();
+  if(calc.finalDmg <= 0){
+    toast('Endschaden ist 0 – kein Abzug nötig.');
+    return;
+  }
+  const isLob = isLobbyNeutralDice();
+  const atkName = COMBAT.attackerName || (isLob ? (CLOUD.currentUser || 'Gast') : (String(S.profile?.name || '').trim() || 'Unbenannter Held'));
+  const campId = isLob ? getActiveLiveCampaignId() : getCharCampaignId(S.charId || tid);
+  const offerId = `dmg_${uid()}`;
+  const offer = {
+    type: 'combat_damage_offer',
+    offerId,
+    campaignId: campId,
+    tsMs: Date.now(),
+    senderTabId: LIVE_TAB_ID,
+    attackerCharId: isLob ? '' : (S.charId || ''),
+    attackerName: atkName,
+    attackerPlayer: String(CLOUD.currentUser || S.owner || '').trim(),
+    targetCharId: tid,
+    targetName: calc.targetName || 'Ziel',
+    weaponName: calc.weaponName,
+    pool: calc.pool,
+    amount: calc.finalDmg,
+    zoneName: calc.zoneName,
+    dmgTypeLabel: calc.selOpt.shortLabel || calc.selOpt.label || 'Schaden',
+    thresholdLevel: calc.threshold.level,
+    thresholdLabel: calc.threshold.label,
+    formula: calc.formula,
+    armorDetail: calc.armor.detailText,
+    isBlocked: COMBAT.isBlocked,
+    durchschlagApplied: calc.durchschlagApplied
+  };
+  COMBAT.offerId = offerId;
+  COMBAT.offerStatus = 'sent';
+  COMBAT.offerNote = `📨 Schadensangebot (−${calc.finalDmg} ${calc.poolLbl}) an ${offer.targetName} gesendet...`;
+  sendLiveBroadcast(offer);
+  toast(`💥 Schaden an ${offer.targetName} gesendet (−${calc.finalDmg} ${calc.poolLbl})!`);
+  renderDice();
+}
+
+export async function acceptCombatDamageOffer(offerId){
+  const list = DUEL.damageOffers || [];
+  const idx = list.findIndex(o => o && o.offerId === offerId);
+  if(idx < 0){
+    toast('Dieses Schadensangebot ist nicht mehr aktiv.');
+    hooks.renderDuelBanner?.();
+    return;
+  }
+  const offer = list[idx];
+  const amt = Math.max(0, toInt(offer.editOpen ? offer.editAmount : offer.amount, 0));
+  const pool = offer.pool === 'mlp' ? 'mlp' : 'lp';
+  const poolLbl = pool === 'mlp' ? 'mLP' : 'LP';
+  const resKey = pool === 'mlp' ? 'mlpCurrent' : 'lpCurrent';
+  const logText = `💥 Schaden erhalten (${offer.attackerName || 'Gegner'}, ${offer.weaponName || 'Angriff'}, ${offer.zoneName || 'Zone'}): −${amt} ${poolLbl}${offer.thresholdLabel ? ` [${offer.thresholdLabel}]` : ''}`;
+  const isOwnOpen = Boolean(!UI.inLobby && S?.charId && S.charId === offer.targetCharId);
+  let prevVal = null, newVal = null;
+
+  if(isOwnOpen){
+    prevVal = toInt(S.secondary?.[resKey], 8);
+    newVal = prevVal - amt;
+    S.secondary[resKey] = newVal;
+    logChron(logText);
+    save();
+    hooks.syncLiveCalculations?.(false);
+    hooks.renderMain?.();
+  }else if(amt > 0){
+    const res = await applyCloudResourceDelta(offer.targetCharId, { [resKey]: -amt }, logText);
+    if(!res.ok){
+      toast(`⚠️ ${res.error || 'Schaden konnte nicht übernommen werden.'}`);
+      return;
+    }
+    prevVal = res.before?.[resKey] ?? null;
+    newVal = res.after?.[resKey] ?? res.secondary?.[resKey] ?? null;
+  }
+
+  handledOfferIds.add(offer.offerId);
+  DUEL.damageOffers = list.filter(o => o && o.offerId !== offerId);
+  hooks.renderDuelBanner?.();
+
+  const valSuffix = (prevVal !== null && newVal !== null) ? ` (${poolLbl} ${prevVal} → ${newVal})` : '';
+  sendLiveBroadcast({
+    type: 'combat_damage_applied',
+    status: 'applied',
+    offerId: offer.offerId,
+    campaignId: offer.campaignId,
+    targetCharId: offer.targetCharId,
+    targetName: offer.targetName,
+    pool,
+    appliedAmount: amt,
+    prevVal,
+    newVal,
+    responderName: String(CLOUD.currentUser || offer.targetName || 'Spieler').trim(),
+    senderTabId: LIVE_TAB_ID,
+    tsMs: Date.now()
+  });
+
+  publishLiveRoll({
+    id: uid(),
+    tsMs: Date.now(),
+    ts: new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+    senderTabId: LIVE_TAB_ID,
+    charId: offer.targetCharId || '',
+    charName: offer.targetName || 'Ziel',
+    playerName: String(CLOUD.currentUser || '').trim(),
+    campaignId: offer.campaignId || getActiveLiveCampaignId(),
+    label: `✅ Schaden übernommen (${offer.attackerName || 'Angreifer'} • ${offer.zoneName || 'Zone'})${valSuffix}`,
+    isDamage: true,
+    finalDmg: amt,
+    pool,
+    hzZone: offer.zoneName || '',
+    dmgTypeLabel: offer.dmgTypeLabel || 'Schaden',
+    thresholdLevel: amt > 0 ? (offer.thresholdLevel || 'none') : 'none',
+    thresholdLabel: amt > 0 ? (offer.thresholdLabel || '') : '',
+    formula: `−${amt} ${poolLbl}${valSuffix}`,
+    th: 100,
+    chance: 100,
+    res: [{ r: amt, ok: amt > 0, crit: false, eg: 0, meg: 0 }]
+  });
+  toast(`✅ Schaden übernommen: −${amt} ${poolLbl}${valSuffix}`);
+}
+
+export function declineCombatDamageOffer(offerId){
+  const list = DUEL.damageOffers || [];
+  const offer = list.find(o => o && o.offerId === offerId);
+  handledOfferIds.add(offerId);
+  DUEL.damageOffers = list.filter(o => o && o.offerId !== offerId);
+  hooks.renderDuelBanner?.();
+  if(offer){
+    sendLiveBroadcast({
+      type: 'combat_damage_applied',
+      status: 'declined',
+      offerId: offer.offerId,
+      campaignId: offer.campaignId,
+      targetCharId: offer.targetCharId,
+      targetName: offer.targetName,
+      pool: offer.pool || 'lp',
+      appliedAmount: 0,
+      responderName: String(CLOUD.currentUser || offer.targetName || 'Spieler').trim(),
+      senderTabId: LIVE_TAB_ID,
+      tsMs: Date.now()
+    });
+  }
+  toast('Schadensangebot abgelehnt.');
+}
+
+export function handleCombatLiveEvent(rawObj, isRealtimePush = false){
+  if(!rawObj || typeof rawObj !== 'object') return;
+  if(rawObj.senderTabId === LIVE_TAB_ID) return;
+  const oid = String(rawObj.offerId || '').trim();
+  if(!oid) return;
+
+  if(rawObj.type === 'combat_damage_offer'){
+    if(handledOfferIds.has(oid)) return;
+    if(!isDamageOfferTargetForMe(rawObj)) return;
+    if(!Array.isArray(DUEL.damageOffers)) DUEL.damageOffers = [];
+    if(DUEL.damageOffers.some(o => o && o.offerId === oid)) return;
+    DUEL.damageOffers.unshift({
+      ...rawObj,
+      editOpen: false,
+      editAmount: Math.max(0, toInt(rawObj.amount, 0))
+    });
+    if(DUEL.damageOffers.length > 5) DUEL.damageOffers.length = 5;
+    hooks.renderDuelBanner?.();
+    if(isRealtimePush){
+      const pl = rawObj.pool === 'mlp' ? 'mLP' : 'LP';
+      toast(`💥 ${rawObj.attackerName || 'Angreifer'} trifft ${rawObj.targetName || 'dich'} (${rawObj.zoneName || 'Zone'}): −${toInt(rawObj.amount, 0)} ${pl}`);
+    }
+    return;
+  }
+
+  if(rawObj.type === 'combat_damage_applied'){
+    handledOfferIds.add(oid);
+    if(Array.isArray(DUEL.damageOffers) && DUEL.damageOffers.some(o => o && o.offerId === oid)){
+      DUEL.damageOffers = DUEL.damageOffers.filter(o => o && o.offerId !== oid);
+      hooks.renderDuelBanner?.();
+    }
+    if(COMBAT.offerId && COMBAT.offerId === oid){
+      const pl = rawObj.pool === 'mlp' ? 'mLP' : 'LP';
+      if(rawObj.status === 'declined'){
+        COMBAT.offerStatus = 'declined';
+        COMBAT.offerNote = `ℹ️ ${rawObj.targetName || COMBAT.targetName || 'Ziel'} hat das Schadensangebot abgelehnt.`;
+      }else{
+        const valTxt = (rawObj.prevVal !== null && rawObj.prevVal !== undefined && rawObj.newVal !== null && rawObj.newVal !== undefined)
+          ? ` (${pl} ${rawObj.prevVal} → ${rawObj.newVal})`
+          : '';
+        COMBAT.offerStatus = 'applied';
+        COMBAT.offerNote = `✅ ${rawObj.targetName || COMBAT.targetName || 'Ziel'} hat −${toInt(rawObj.appliedAmount, 0)} ${pl} übernommen${valTxt}`;
+      }
+      toast(COMBAT.offerNote);
+      if(D.open) renderDice();
+    }
+  }
+}
+
+export async function applyCombatDamageDirectly(){
+  if(!COMBAT.active || !COMBAT.hitOk || COMBAT.directApplying) return;
+  const tid = String(COMBAT.targetCharId || '').trim();
+  if(!tid){
+    toast('Kein Ziel-Charakter ausgewählt.');
+    return;
+  }
+  if(!canDirectApplyCombatDamage(tid)){
+    toast('🔒 Nur Spielleitung, Admin oder Besitzer dürfen direkt am Bogen abziehen.');
+    return;
+  }
+  const calc = calculateCombatDamage();
+  if(calc.finalDmg <= 0){
+    toast('Endschaden ist 0 – kein Abzug nötig.');
+    return;
+  }
+  const resKey = calc.pool === 'mlp' ? 'mlpCurrent' : 'lpCurrent';
+  const isLob = isLobbyNeutralDice();
+  const atkName = COMBAT.attackerName || (isLob ? (CLOUD.currentUser || 'Gast') : (String(S.profile?.name || '').trim() || 'Unbenannter Held'));
+  const logText = `💥 Schaden (SL-Direktabzug • ${atkName}, ${calc.weaponName}, ${calc.zoneName}): −${calc.finalDmg} ${calc.poolLbl}${calc.threshold.label ? ` [${calc.threshold.label}]` : ''}`;
+
+  COMBAT.directApplying = true;
+  renderDice();
+  const res = await applyCloudResourceDelta(tid, { [resKey]: -calc.finalDmg }, logText);
+  COMBAT.directApplying = false;
+
+  if(!res.ok){
+    toast(`⚠️ ${res.error || 'Direkt-Abzug fehlgeschlagen.'}`);
+    renderDice();
+    return;
+  }
+  const prevVal = res.before?.[resKey];
+  const newVal = res.after?.[resKey] ?? res.secondary?.[resKey];
+  const valTxt = (prevVal !== undefined && newVal !== undefined) ? `${calc.poolLbl} ${prevVal} → ${newVal}` : `−${calc.finalDmg} ${calc.poolLbl}`;
+  COMBAT.directAppliedNote = `✅ ${calc.targetName || 'Ziel'}: ${valTxt}`;
+  if(COMBAT.offerId){
+    sendLiveBroadcast({
+      type: 'combat_damage_applied',
+      status: 'applied',
+      offerId: COMBAT.offerId,
+      campaignId: isLob ? getActiveLiveCampaignId() : getCharCampaignId(S.charId || tid),
+      targetCharId: tid,
+      targetName: calc.targetName || 'Ziel',
+      pool: calc.pool,
+      appliedAmount: calc.finalDmg,
+      prevVal,
+      newVal,
+      responderName: String(CLOUD.currentUser || 'SL').trim(),
+      senderTabId: LIVE_TAB_ID,
+      tsMs: Date.now()
+    });
+    COMBAT.offerStatus = 'applied';
+    COMBAT.offerNote = COMBAT.directAppliedNote;
+  }
+  publishLiveRoll({
+    id: uid(),
+    tsMs: Date.now(),
+    ts: new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+    senderTabId: LIVE_TAB_ID,
+    charId: isLob ? '' : (S.charId || ''),
+    charName: atkName,
+    playerName: isLob ? '' : String(CLOUD.currentUser || S.owner || '').trim(),
+    campaignId: isLob ? getActiveLiveCampaignId() : getCharCampaignId(S.charId || tid),
+    vsCharId: tid,
+    vsCharName: calc.targetName || 'Ziel',
+    label: `⚡ Schaden angewendet: ${calc.targetName || 'Ziel'} (${calc.zoneName}) • ${valTxt}`,
+    isDamage: true,
+    finalDmg: calc.finalDmg,
+    pool: calc.pool,
+    hzZone: calc.zoneName,
+    dmgTypeLabel: calc.selOpt.shortLabel || calc.selOpt.label || 'Schaden',
+    thresholdLevel: calc.threshold.level,
+    thresholdLabel: calc.threshold.label,
+    formula: `${calc.formula} • ${valTxt}`,
+    armorDetail: calc.armor.detailText,
+    th: 100,
+    chance: 100,
+    res: [{ r: calc.finalDmg, ok: true, crit: false, eg: calc.eg, meg: 0 }]
+  });
+  toast(`⚡ Direkt abgezogen – ${calc.targetName || 'Ziel'}: ${valTxt}`);
+  renderDice();
+}
+
+export function spendCombatAmmo(){
+  if(isLobbyNeutralDice()) return;
+  const weapon = COMBAT.weaponId ? (S.weapons || []).find(w => w.id === COMBAT.weaponId) : null;
+  const ammoId = COMBAT.ammoId || weapon?.ammoId || '';
+  if(!ammoId) return;
+  const am = (S.ammos || []).find(a => a.id === ammoId);
+  if(!am) return;
+  const cur = Math.max(0, toInt(am.qty, 0));
+  if(cur <= 0){
+    toast(`⚠️ Keine Munition (${am.name || 'Munition'}) mehr im Vorrat!`);
+    return;
+  }
+  am.qty = cur - 1;
+  COMBAT.ammoSpent = true;
+  logChron(`🏹 Munition verbraucht: −1 ${am.name || 'Munition'} (Rest: ${am.qty}).`);
+  hooks.syncLinkedAmmoDOM?.(am.id, null);
+  save();
+  toast(`🏹 −1 ${am.name || 'Munition'} verbraucht (Vorrat: ${am.qty})`);
+  renderDice();
+}
+
 export function renderCombatDamageBox(){
   if(!COMBAT.active) return '';
   if(COMBAT.blockPrompt && !COMBAT.hitOk){
@@ -608,6 +957,22 @@ export function renderCombatDamageBox(){
     ? calc.armor.pieces.map(p => `<div class="flex items-center justify-between gap-2 text-[11px] tabular min-w-0"><span class="truncate font-bold">${esc(p.name)}</span><span class="t-mut shrink-0">${p.grp ? `gRP ${p.grp} + ` : ''}${esc(p.specDesc)} = <strong class="text-emerald-300">${p.total}</strong></span></div>`).join('')
     : `<div class="text-[11px] t-mut">${calc.targetSheet ? `Keine angelegte Rüstung deckt „${esc(calc.zoneName)}“ ab.` : 'Kein Ziel-Charakterbogen gewählt (Rüstung über ± manuell anpassbar).'}</div>`;
 
+  const canDirect = canDirectApplyCombatDamage(COMBAT.targetCharId);
+  const ammoBtnHtml = calc.ammo
+    ? `<button type="button" data-action="combat-spend-ammo" ${toInt(calc.ammo.qty, 0) <= 0 ? 'disabled' : ''} class="btn w-full py-1.5 px-3 text-xs font-extrabold ${COMBAT.ammoSpent ? 'border-emerald-400/60 bg-emerald-500/15 text-emerald-200' : 'border-amber-400/50 bg-amber-500/10 text-amber-200 hover:bg-amber-500/20'}">${COMBAT.ammoSpent ? `✓ −1 ${esc(calc.ammoName)} verbraucht (Vorrat: ${toInt(calc.ammo.qty, 0)})` : `🏹 −1 ${esc(calc.ammoName)} verbrauchen (Vorrat: ${toInt(calc.ammo.qty, 0)})`}</button>`
+    : '';
+
+  const applyActionsHtml = COMBAT.targetCharId
+    ? `<div class="space-y-1.5 pt-1 border-t border-white/10">
+        <div class="grid grid-cols-1 ${canDirect ? 'sm:grid-cols-2' : ''} gap-1.5">
+          <button type="button" data-action="combat-send-offer" ${calc.finalDmg <= 0 ? 'disabled' : ''} data-tip="Sendet ein Live-Aktionsbanner an den Spieler von ${esc(calc.targetName || 'Ziel')}, damit er den Schaden sicher auf seinem eigenen Bogen übernimmt" class="btn py-1.5 px-2.5 text-xs font-black border-rose-400/60 bg-rose-500/20 text-rose-100 hover:bg-rose-500/30">💥 Schaden an Ziel senden</button>
+          ${canDirect ? `<button type="button" data-action="combat-apply-direct" ${(calc.finalDmg <= 0 || COMBAT.directApplying) ? 'disabled' : ''} data-tip="Zieht den Schaden über den atomaren Server-Endpunkt direkt am Bogen ab (ideal für NSCs ohne aktiven Spieler)" class="btn py-1.5 px-2.5 text-xs font-black border-amber-400/65 bg-amber-500/20 text-amber-200 hover:bg-amber-500/30">${COMBAT.directApplying ? '⏳ Wende an...' : '⚡ Direkt am Bogen abziehen (SL)'}</button>` : ''}
+        </div>
+        ${COMBAT.offerNote ? `<div class="text-[11px] font-extrabold px-2.5 py-1.5 rounded-lg border break-words ${COMBAT.offerStatus === 'applied' ? 'border-emerald-400/60 bg-emerald-500/15 text-emerald-200' : COMBAT.offerStatus === 'declined' ? 'border-amber-400/50 bg-amber-500/10 text-amber-200' : 'border-indigo-400/50 bg-indigo-500/15 text-indigo-200'}">${esc(COMBAT.offerNote)}</div>` : ''}
+        ${(COMBAT.directAppliedNote && COMBAT.directAppliedNote !== COMBAT.offerNote) ? `<div class="text-[11px] font-extrabold px-2.5 py-1.5 rounded-lg border border-emerald-400/60 bg-emerald-500/15 text-emerald-200 break-words">${esc(COMBAT.directAppliedNote)}</div>` : ''}
+      </div>`
+    : '';
+
   return `<div id="combatDamageBox" class="subcard p-3 border-2 border-rose-500/50 bg-rose-500/5 space-y-2.5 min-w-0">
     ${hdr}
     <div class="text-[11px] t-mut flex flex-wrap items-center gap-x-2 gap-y-0.5 tabular">
@@ -675,6 +1040,8 @@ export function renderCombatDamageBox(){
       </div>
     </div>
 
+    ${ammoBtnHtml}
+    ${applyActionsHtml}
     <button type="button" data-action="combat-post-feed" class="btn ${COMBAT.posted ? 'btn-ok' : 'btn-pri'} w-full py-1.5 px-3 text-xs font-black">${COMBAT.posted ? '✓ Im Live-Feed gepostet (erneut senden)' : '📡 Schaden in Live-Feed posten'}</button>
   </div>`;
 }

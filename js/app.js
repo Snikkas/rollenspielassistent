@@ -23,7 +23,7 @@ import {
   sendDuelChallenge, cancelOutgoingDuel, clearOutgoingDuel, handleLiveDuelEvent, ignoreIncomingDuel, openDuelReplyModal, closeDuelReplyModal, submitDuelReply, renderDuelBanner, renderDuelReplyModal
 } from './duel.js';
 import {
-  initCombatFromRoll, resetCombatState, rollCombatHitZone, publishCombatDamageToFeed, renderCombatDamageBox, hasTagMatch
+  initCombatFromRoll, resetCombatState, rollCombatHitZone, publishCombatDamageToFeed, renderCombatDamageBox, hasTagMatch, sendCombatDamageOffer, applyCombatDamageDirectly, spendCombatAmmo, handleCombatLiveEvent, acceptCombatDamageOffer, declineCombatDamageOffer
 } from './combat.js';
 import {
   applyRtfCommand, autoSizeAllTextareas, ensureCampNotesStructure, syncPublicNotesAfterChange, renderCampNotes, getCaretRangeAtPoint, syncPwFieldCursorState, saveEffRangeIfActive, insertTokenAtCursor, placeCaretAtStart, indentRtfLi, outdentRtfLi, RTF_STATE, getOrderedCampNoteFolders
@@ -1786,14 +1786,29 @@ document.addEventListener('click',async e=>{
     }
     case 'combat-close': resetCombatState(); renderDice(); break;
     case 'combat-toggle-collapse': COMBAT.collapsed=!COMBAT.collapsed; renderDice(); break;
-    case 'combat-roll-hz': rollCombatHitZone(); break;
-    case 'combat-set-zone': COMBAT.zoneName=el.dataset.zone||''; COMBAT.lastHzRoll=null; COMBAT.posted=false; renderDice(); break;
-    case 'combat-set-dmgtype': COMBAT.dmgType=el.dataset.dmgtype||'cut'; COMBAT.posted=false; renderDice(); break;
-    case 'combat-set-pool': COMBAT.pool=el.dataset.pool==='mlp'?'mlp':'lp'; COMBAT.posted=false; renderDice(); break;
-    case 'combat-toggle-block-red': COMBAT.blockItemRed=!COMBAT.blockItemRed; COMBAT.posted=false; renderDice(); break;
-    case 'combat-dmg-step': COMBAT.dmgMod=toInt(COMBAT.dmgMod,0)+Number(el.dataset.d); COMBAT.posted=false; renderDice(); break;
-    case 'combat-armor-step': COMBAT.armorMod=toInt(COMBAT.armorMod,0)+Number(el.dataset.d); COMBAT.posted=false; renderDice(); break;
+    case 'combat-roll-hz': COMBAT.offerStatus=''; COMBAT.offerNote=''; COMBAT.directAppliedNote=''; rollCombatHitZone(); break;
+    case 'combat-set-zone': COMBAT.zoneName=el.dataset.zone||''; COMBAT.lastHzRoll=null; COMBAT.posted=false; COMBAT.offerStatus=''; COMBAT.offerNote=''; COMBAT.directAppliedNote=''; renderDice(); break;
+    case 'combat-set-dmgtype': COMBAT.dmgType=el.dataset.dmgtype||'cut'; COMBAT.posted=false; COMBAT.offerStatus=''; COMBAT.offerNote=''; COMBAT.directAppliedNote=''; renderDice(); break;
+    case 'combat-set-pool': COMBAT.pool=el.dataset.pool==='mlp'?'mlp':'lp'; COMBAT.posted=false; COMBAT.offerStatus=''; COMBAT.offerNote=''; COMBAT.directAppliedNote=''; renderDice(); break;
+    case 'combat-toggle-block-red': COMBAT.blockItemRed=!COMBAT.blockItemRed; COMBAT.posted=false; COMBAT.offerStatus=''; COMBAT.offerNote=''; COMBAT.directAppliedNote=''; renderDice(); break;
+    case 'combat-dmg-step': COMBAT.dmgMod=toInt(COMBAT.dmgMod,0)+Number(el.dataset.d); COMBAT.posted=false; COMBAT.offerStatus=''; COMBAT.offerNote=''; COMBAT.directAppliedNote=''; renderDice(); break;
+    case 'combat-armor-step': COMBAT.armorMod=toInt(COMBAT.armorMod,0)+Number(el.dataset.d); COMBAT.posted=false; COMBAT.offerStatus=''; COMBAT.offerNote=''; COMBAT.directAppliedNote=''; renderDice(); break;
     case 'combat-post-feed': publishCombatDamageToFeed(); break;
+    case 'combat-send-offer': sendCombatDamageOffer(); break;
+    case 'combat-apply-direct': await applyCombatDamageDirectly(); break;
+    case 'combat-spend-ammo': spendCombatAmmo(); break;
+    case 'combat-offer-accept': await acceptCombatDamageOffer(el.dataset.id); break;
+    case 'combat-offer-decline': declineCombatDamageOffer(el.dataset.id); break;
+    case 'combat-offer-toggle-edit': {
+      const of=(DUEL.damageOffers||[]).find(x=>x&&x.offerId===el.dataset.id);
+      if(of){of.editOpen=!of.editOpen;if(of.editOpen&&(of.editAmount===undefined||of.editAmount===null))of.editAmount=Math.max(0,toInt(of.amount,0));renderDuelBanner();}
+      break;
+    }
+    case 'combat-offer-step': {
+      const of=(DUEL.damageOffers||[]).find(x=>x&&x.offerId===el.dataset.id);
+      if(of){of.editOpen=true;of.editAmount=Math.max(0,toInt(of.editAmount??of.amount,0)+Number(el.dataset.d));renderDuelBanner();}
+      break;
+    }
     case 'toggle-dice-custom': D.customOpen=!D.customOpen; renderDice(); break;
     case 'dice-custom-preset': D.customSides=Math.max(1,toInt(el.dataset.sides,20)); D.customOpen=true; renderDice(); break;
     case 'roll-custom-dice': rollCustomDice(); break;
@@ -3007,6 +3022,15 @@ document.addEventListener('click',async e=>{
 document.addEventListener('focusin',e=>{if(e.target.dataset?.cres==='name') e.target.dataset.prevCres=cresName();if(e.target.dataset?.exsec?.endsWith(':name')){const id=e.target.dataset.exsec.split(':')[0],ex=(S.extraSecList||[]).find(x=>x.id===id);if(ex)e.target.dataset.prevExName=getExtraSecName(ex);}if(e.target.dataset?.sk?.endsWith(':name')){const id=e.target.dataset.sk.split(':')[0],sk=S.skills.find(x=>x.id===id);if(sk)e.target.dataset.prevSkName=String(sk.name||'').trim();}if(e.target.dataset?.pwf?.endsWith(':name')){const [kind,id]=e.target.dataset.pwf.split(':'),it=findPwItem(kind,id);if(it)e.target.dataset.prevName=String(it.name||'');}});
 
 document.addEventListener('input',e=>{
+  if(e.target?.dataset?.combatOfferInp){
+    const oid=e.target.dataset.combatOfferInp;
+    const of=(DUEL.damageOffers||[]).find(x=>x&&x.offerId===oid);
+    if(of){
+      of.editOpen=true;
+      of.editAmount=Math.max(0,toInt(e.target.value,0));
+    }
+    return;
+  }
   if(e.target?.dataset?.glossSearch){
     UI.glossSearch=e.target.value;
     updateInfoGlossaryGridDOM();
@@ -5432,7 +5456,9 @@ registerHooks({
   clearOutgoingDuel,
   initCombatFromRoll,
   resetCombatState,
-  renderCombatDamageBox
+  renderCombatDamageBox,
+  handleCombatLiveEvent,
+  syncLinkedAmmoDOM
 });
 hydrateWinPrefs();
 load();
