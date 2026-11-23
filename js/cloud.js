@@ -61,9 +61,27 @@ export function renderLobbyLiveDiceHtml(inFloatingWin=false){
     const av=chMatch?.avatar||(entry.charId&&entry.charId===S.charId?S.profile.avatar:'')||'';
     const res=Array.isArray(entry.res)?entry.res:[];
     const anyCrit=res.some(x=>x.crit), anyOk=res.some(x=>x.ok);
-    const bdrCls=entry.isHz?'border-amber-400/60 bg-amber-500/10':entry.isCustomDice?'border-sky-400/60 bg-sky-500/10':anyCrit?(isFirst?'crit-glow border-amber-400 bg-amber-500/15':'border-amber-400/70 bg-amber-500/10'):anyOk?'border-emerald-500/50 bg-emerald-500/10':'border-rose-500/50 bg-rose-500/10';
+    const bdrCls=entry.isDamage?(toInt(entry.finalDmg,0)>0?'border-rose-500/65 bg-rose-500/10':'border-amber-400/60 bg-amber-500/10'):entry.isHz?'border-amber-400/60 bg-amber-500/10':entry.isCustomDice?'border-sky-400/60 bg-sky-500/10':anyCrit?(isFirst?'crit-glow border-amber-400 bg-amber-500/15':'border-amber-400/70 bg-amber-500/10'):anyOk?'border-emerald-500/50 bg-emerald-500/10':'border-rose-500/50 bg-rose-500/10';
     let resHtml='';
-    if(entry.isHz){
+    if(entry.isDamage){
+      const fd=toInt(entry.finalDmg,0);
+      const poolLbl=entry.pool==='mlp'?'mLP':'LP';
+      const thLvl=entry.thresholdLevel||'none';
+      const thCls=thLvl==='heavy'?'bg-rose-600 text-white border-rose-400':thLvl==='medium'?'bg-orange-500 text-slate-950 border-orange-300':thLvl==='light'?'bg-amber-400 text-slate-950 border-amber-200':'bg-black/30 t-mut border-white/10';
+      resHtml=`<div class="space-y-1.5 pt-1.5 border-t border-white/10 tabular">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <div class="flex flex-wrap items-center gap-2 min-w-0">
+            <span class="px-2.5 py-1 rounded-xl bg-black/35 border ${fd>0?'border-rose-400/50 text-rose-300':'border-amber-400/40 text-amber-300'} text-lg sm:text-2xl font-black">💥 ${fd} ${poolLbl}</span>
+            <div class="min-w-0">
+              <div class="text-xs font-extrabold break-words">${entry.hzZone?`🎯 ${esc(entry.hzZone)} • `:''}${esc(entry.dmgTypeLabel||'Schaden')}${entry.isBlocked?' • 🛡️ Geblockt':''}${entry.durchschlagApplied?' • ⚡ Durchschlag':''}</div>
+              ${entry.formula?`<div class="text-[11px] t-mut break-words">${esc(entry.formula)}</div>`:''}
+            </div>
+          </div>
+          ${entry.thresholdLabel?`<span class="px-2.5 py-1 rounded-lg border font-black text-[11px] sm:text-xs shadow shrink-0 ${thCls}">${esc(entry.thresholdLabel)}</span>`:''}
+        </div>
+        ${entry.armorDetail?`<div class="text-[10px] t-mut bg-black/20 rounded-lg px-2 py-1 border bdr-line break-words">🛡️ Rüstung: ${esc(entry.armorDetail)}</div>`:''}
+      </div>`;
+    }else if(entry.isHz){
       const r0=res[0]?.r??'-';
       resHtml=`<div class="flex flex-wrap items-center justify-between gap-2 pt-1.5 border-t border-white/10">
         <div class="flex flex-wrap items-center gap-2 min-w-0"><span class="text-xl sm:text-2xl font-black tabular text-amber-400">🎲 ${r0}</span><span class="text-xs font-extrabold text-amber-300 break-words">🎯 Trefferzone: ${esc(entry.hzZone||'Unbekannt')}</span></div>
@@ -120,7 +138,7 @@ export function renderLobbyLiveDiceHtml(inFloatingWin=false){
     return `<div class="subcard p-2.5 sm:p-3 space-y-2 border-2 ${bdrCls} ${isFirst?' ring-1 ring-sky-400/30':''} min-w-0">
       <div class="flex flex-wrap items-center justify-between gap-2 min-w-0">
         <div class="flex items-center gap-2 min-w-0 flex-1">
-          <div class="w-8 h-8 rounded-lg overflow-hidden border bdr-acc bg-black/30 shrink-0 flex items-center justify-center">${av?`<img src="${av}" class="w-full h-full object-cover"/>`:`<span class="text-xs font-black text-acc">🎲</span>`}</div>
+          <div class="w-8 h-8 rounded-lg overflow-hidden border bdr-acc bg-black/30 shrink-0 flex items-center justify-center">${av?`<img src="${av}" class="w-full h-full object-cover"/>`:`<span class="text-xs font-black text-acc">${entry.isDamage?'💥':'🎲'}</span>`}</div>
           <div class="min-w-0 flex-1">
             <div class="flex flex-wrap items-center gap-1.5 min-w-0">
               <span class="font-black text-xs sm:text-sm truncate max-w-full">${esc(entry.charName||'Unbenannter Held')}</span>
@@ -128,13 +146,13 @@ export function renderLobbyLiveDiceHtml(inFloatingWin=false){
               ${entry.playerName?renderUserNamePill(entry.playerName,{cls:'px-1.5 py-0.2 rounded text-[10px] font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-400/40'}):''}
               ${isFirst?`<span class="px-1.5 py-0.2 rounded text-[9px] font-black uppercase bg-acc-soft text-acc border bdr-acc">Aktuellster Wurf</span>`:''}
             </div>
-            <div class="text-xs font-extrabold text-acc ${entry.vsCharName?'break-words':'truncate'}">${esc(entry.label||'Freie Probe')}</div>
+            <div class="text-xs font-extrabold text-acc ${entry.vsCharName||entry.isDamage?'break-words':'truncate'}">${esc(entry.label||'Freie Probe')}</div>
           </div>
         </div>
         <span class="text-[11px] font-bold t-mut tabular shrink-0">${esc(entry.ts||'')}</span>
       </div>
       ${entry.wasSecret?`<div class="inline-flex flex-wrap items-center gap-1 px-2 py-0.5 rounded-md border border-amber-400/60 bg-gradient-to-r from-amber-500/20 to-purple-500/20 text-amber-200 text-[10px] font-extrabold tabular">🕵️ Enthüllter Geheimwurf (gewürfelt: ${esc(entry.originalTs || entry.ts)}${entry.revealedAt ? ` • enthüllt: ${esc(entry.revealedAt)}` : ''})</div>`:''}
-      ${!entry.isHz && !entry.isCustomDice?`<div class="flex flex-wrap items-center gap-1.5 text-[11px] tabular bg-black/25 rounded-lg px-2.5 py-1.5 border bdr-line break-words">
+      ${!entry.isHz && !entry.isCustomDice && !entry.isDamage?`<div class="flex flex-wrap items-center gap-1.5 text-[11px] tabular bg-black/25 rounded-lg px-2.5 py-1.5 border bdr-line break-words">
         <span class="font-extrabold text-acc">Aufschlüsselung:</span>
         <span>Wert: <strong>${esc(entry.cBreak??entry.cv)}</strong></span>
         <span class="opacity-50">•</span>
@@ -360,7 +378,7 @@ export function handleIncomingDicePayload(rawObj,isRealtimePush=false){
   if(isRealtimePush&&rawObj.senderTabId!==LIVE_TAB_ID&&CLOUD.diceToast&&getRollCampaignId(rawObj)===getActiveLiveCampaignId()){
     const r0=rawObj.res[0];
     const r0Mult=r0?.egMult||rawObj.egMult||1;
-    const sumTxt=rawObj.isHz?`W100 = ${r0?.r} (${rawObj.hzZone||'Zone'})`:rawObj.isCustomDice?`${rawObj.customFormula} = ${rawObj.customTotal}`:rawObj.res.length===1
+    const sumTxt=rawObj.isDamage?`💥 ${toInt(rawObj.finalDmg,0)} ${rawObj.pool==='mlp'?'mLP':'LP'}${rawObj.hzZone?` (${rawObj.hzZone})`:''}${rawObj.thresholdLabel?` • ${rawObj.thresholdLabel}`:''}`:rawObj.isHz?`W100 = ${r0?.r} (${rawObj.hzZone||'Zone'})`:rawObj.isCustomDice?`${rawObj.customFormula} = ${rawObj.customTotal}`:rawObj.res.length===1
       ?`${r0.r} (${r0.crit?'★ KRIT! ':''}${r0.ok?('EG '+r0.eg+(r0Mult>1?` ×${r0Mult}`:'')):'MEG '+r0.meg})`
       :`${rawObj.res.filter(x=>x.ok).length}/${rawObj.res.length} Erfolge`;
     toast(`${rawObj.wasSecret?'🕵️ Enthüllt – ':''}🎲 Live-Wurf (${rawObj.charName||'Spieler'}): ${rawObj.label||'Probe'} → ${sumTxt}`);
@@ -441,6 +459,9 @@ export function publishLiveRoll(entry, forcePublic = false){
 }
 export function formatSecretRollSummary(r){
   if(!r) return '';
+  if(r.isDamage){
+    return `💥 ${toInt(r.finalDmg,0)} ${r.pool==='mlp'?'mLP':'LP'}${r.hzZone?` • 🎯 ${r.hzZone}`:''}${r.thresholdLabel?` • ${r.thresholdLabel}`:''}`;
+  }
   if(r.isHz){
     const r0=r.res?.[0]?.r??'-';
     return `W100 = ${r0} • 🎯 ${r.hzZone||'Trefferzone'}`;

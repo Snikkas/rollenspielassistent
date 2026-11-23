@@ -353,6 +353,7 @@ export function buildAdvSrcShortList(T){
 export const isLobbyNeutralDice=()=>Boolean(UI.inLobby);
 export function resetDiceToLobbyNeutral(){
   hooks.clearOutgoingDuel?.({notifyCancel:true,silent:true});
+  hooks.resetCombatState?.();
   D.weaponId=null; D.skillId=null; D.attrKey=null; D.wRollCat='Normaler Test'; D.sitActive={}; D.oppSitActive={}; D.critOff=0; D.advAdj=0; D.disAdj=0; D.adv=0; D.dis=0;
   D.label='Freie Probe (Lobby)';
   D.cMode='direct'; D.cDirect=50; D.cAttr=50; D.cSkill='0';
@@ -729,6 +730,7 @@ export function renderDice(){
     </div>`;})()}
     ${secretBannerHtml}
     <div>${UI.lastRollHtml||`<div class="subcard border-dashed text-center text-xs t-mut py-3">Bereit zum Würfeln!</div>`}</div>
+    ${hooks.renderCombatDamageBox?.()||''}
     ${secretListHtml}
     <div class="border-t bdr-line pt-2.5"><div class="flex justify-between mb-1.5"><span class="text-xs font-extrabold t-mut">Würfel-Log (${diceLogs.length})</span><button type="button" data-action="clear-dice-log" class="text-[11px] font-bold t-mut hover:text-rose-500">Leeren</button></div><div data-scroll-key="diceLog" class="space-y-1 max-h-36 overflow-y-auto text-xs">${diceLogs.map(l=>`<div class="subcard py-1 px-2.5 space-y-0.5 min-w-0"><div class="flex justify-between gap-2 min-w-0"><span class="truncate"><strong>${esc(l.lbl)}</strong>${l.isCustomDice?`: ${esc(l.sum)}`:` [≤${l.th}]: ${l.sum}`}</span><span class="text-[10px] t-mut tabular shrink-0">${l.t}</span></div>${l.advSrc?`<div class="text-[10px] t-mut break-words">↳ ${esc(l.advSrc)}</div>`:''}</div>`).join('')}</div></div>
   </div>${renderWinResizeHandles('dice')}</div>`;
@@ -930,6 +932,7 @@ export function executeDiceRoll(opts={}){
   publishLiveRoll(livePayload);
   diceLogs.unshift({t:new Date().toLocaleTimeString('de-DE'),lbl:rollTitle,th,sum:res.map(x=>`${x.r}(${x.crit?'★':''}${x.ok?('EG'+x.eg+((x.egMult||T.egMult||1)>1?` (${x.baseEg} ×${x.egMult||T.egMult})`:'')):'MEG'+x.meg})`).join(', '),advSrc:advSrcParts.join(', ')});
   if(diceLogs.length>40) diceLogs.length=40;
+  hooks.initCombatFromRoll?.({T,res,isAtkBlk20,attackerName:c1Name});
   if(DUEL.outgoing){
     const wasWaiting=DUEL.outgoing.status==='waiting';
     hooks.clearOutgoingDuel?.({notifyCancel:wasWaiting,silent:true});
