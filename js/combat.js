@@ -175,11 +175,11 @@ export function getTargetZoneArmor(targetSheet, targetM, zoneName, dmgOpt, pool 
       }else if(dmgOpt?.key === 'impact_cut'){
         const pC = toInt(ar.protCut, 0), pI = toInt(ar.protImpact, 0);
         spec = Math.min(pC, pI);
-        specDesc = `min(Einschlag ${pI}, Schnitt ${pC}) = ${spec}`;
+        specDesc = `min(Einschlag ${pI}, Schnitt ${pC})`;
       }else if(dmgOpt?.key === 'impact_pierce'){
         const pP = toInt(ar.protPierce, 0), pI = toInt(ar.protImpact, 0);
         spec = Math.min(pP, pI);
-        specDesc = `min(Einschlag ${pI}, Durchstoß ${pP}) = ${spec}`;
+        specDesc = `min(Einschlag ${pI}, Durchstoß ${pP})`;
       }else if(dmgOpt?.isCustom){
         const cLow = String(dmgOpt.customLabel || '').trim().toLowerCase();
         spec = (Array.isArray(ar.customProt) ? ar.customProt : [])

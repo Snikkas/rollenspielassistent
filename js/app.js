@@ -8,7 +8,7 @@ import {
   registerHooks
 } from './ui-hooks.js';
 import {
-  syncPwUseCostsLegacy, makeDefaultStatusEffects, defaultState, setS, setD, clearDiceLogs, syncBodyScrollLock, positionFloatingMenu, closeCtxMenu, closePwDropdown, repositionOpenPwMenus, hydrateWinPrefs, saveWinPref, clearWinPref, applyWinFrame, setPwMode, normalizeCampaigns, getUserBgLocalKey, getCampaigns, setActiveCampaign, canManageCampaign, canClearLiveDice, getCreatableCampaigns, ensureAllRegistryUsers, findUserKeyByName, findUserKeyById, getUserAvatar, canViewUserProfile, saveRegistryLocal, saveSecretRollsLocal, getActiveLiveCampaignId, captureScrollState, restoreScrollState, toast, triggerNiceEasterEgg, logChron, mergeLoaded, saveLastActiveTab, save, flushPendingSave, saveSoon, load, flushThemePrefsSync, cancelThemePrefsSync, applySessionTheme, persistCurrentThemeChange, syncPalDraftFromSlot, applyTheme, CUSTOM_ICONS, findMainArt, findActionSub, isReservedPwTerm, isWeaponMassiv, makeWeapon, makeAmmo, makeArmor, makeInvItem, makeEqSecMeta, makeChrSecMeta, makeSection, makeSkSection, makeInvSection, makePower, makeAugment, S, D, CN, LD, FBW, DUEL, isMobileLayout, CTX_MENU, getWinState, hasSavedWinPref, savedEffRanges, savedPwRanges, lastPwFieldById, pwQuickKey, UI, LIVE_TAB_ID, PATCHNOTES, FEEDBACK, CLOUD, CLOUD_SYNC, PWLIB, getCharOwner, getCharCampaignId, canManageChar, getEditStyleSlot
+  syncPwUseCostsLegacy, makeDefaultStatusEffects, defaultState, setS, setD, clearDiceLogs, syncBodyScrollLock, positionFloatingMenu, closeCtxMenu, closePwDropdown, repositionOpenPwMenus, hydrateWinPrefs, saveWinPref, clearWinPref, applyWinFrame, setPwMode, normalizeCampaigns, getUserBgLocalKey, getCampaigns, setActiveCampaign, canManageCampaign, canClearLiveDice, getCreatableCampaigns, ensureAllRegistryUsers, findUserKeyByName, findUserKeyById, getUserAvatar, canViewUserProfile, saveRegistryLocal, saveSecretRollsLocal, getActiveLiveCampaignId, captureScrollState, restoreScrollState, toast, triggerNiceEasterEgg, logChron, mergeLoaded, saveLastActiveTab, save, flushPendingSave, saveSoon, load, flushThemePrefsSync, cancelThemePrefsSync, applySessionTheme, persistCurrentThemeChange, syncPalDraftFromSlot, applyTheme, CUSTOM_ICONS, findMainArt, findActionSub, isReservedPwTerm, isWeaponMassiv, makeWeapon, makeAmmo, makeArmor, makeInvItem, makeEqSecMeta, makeChrSecMeta, makeSection, makeSkSection, makeInvSection, makePower, makeAugment, S, D, CN, LD, FBW, DUEL, COMBAT, isMobileLayout, CTX_MENU, getWinState, hasSavedWinPref, savedEffRanges, savedPwRanges, lastPwFieldById, pwQuickKey, UI, LIVE_TAB_ID, PATCHNOTES, FEEDBACK, CLOUD, CLOUD_SYNC, PWLIB, getCharOwner, getCharCampaignId, canManageChar, getEditStyleSlot
 } from './state.js';
 import {
   getStatusEffValues, formatPwUseCosts, getReservablePwCosts, getEffectivePoolCap, getPwBuilderToken, parseStatusTokens, getAllParsedEffectChips, invalidateModsCache, calcActiveMods, buildAttrTip, buildSecTip, syncCresRenameInTokens, syncSkillRenameInTokens, purgeExtraSecFromPowers, calcAutoSkCost, findDuplicatePwEntry, makeUniquePwName, updatePwNameDupHint, enforceUniquePwName, buildPowerExportPack, downloadPowerPackJson, resolveLibraryAugmentParentName, getSuggestedAugmentsForPower, importPowerPackIntoSheet, getTrCost, performSimpleRest, performFullRest, withPoolSync, linkAugToPower, unlinkAugFromPower, calcPwCost, calcSkCost, calcProg, getWeaponRollMeta, getTagDesc, cresName, makeExtraSec, getExtraSecName, getResLabel, escReStr, getAttrCol, getSecCol, getAttrTot, getLpBase, getLpMax, getMlpBase, getMlpMax, getLpRegenAuto, getMlpRegenAuto, hasLpRegenOvr, hasMlpRegenOvr, getLpRegen, getMlpRegen, getIniBase, getIniTot, getApBase, getApMax, getMapBase, getMapMax, getCresBase, getCresMax, getExtraSecBase, getBstAuto, hasBstOvr, getBstBase, getEffBst, getSkAutoBonus, hasSkBonusOvr, getSkBonus, findPwItem, findEqItem, getLinkedAugs, getValidPwSecId
@@ -17,11 +17,14 @@ import {
   updateLobbyLiveDiceDOM, initLiveDiceChannel, publishLiveRoll, revealSecretRoll, publishLiveCampNote, clearLiveDiceFeed, syncCloudRegistry, renameUserAccount, addCampaignAllowedUser, removeCampaignAllowedUser, toggleGlobalGMTag, addCampaignMainGM, removeCampaignMainGM, kickCharFromCampaign, duplicateCharacterSheet, getCampaignSharedPages, extractPublicPages, upsertPublicNoteEntry, fetchLobbyList, fetchForeignCharacterSheet, canWriteCurrentSheetToCloud, resetCloudSyncState, updateCloudSyncStatusDOM, scheduleCloudSync, pushToCloud, flushCloudSyncNow, flushBeforeCharacterSwitch, loadCloudCharacter, createNewUserCharacter, updateCloudCharacterMeta, deleteCloudCharacter, stripLibraryPackMeta, getAllLibraryPacks, fetchPowerLibrary, publishPackToCloudLibrary, deletePackFromCloudLibrary, parsePatchnoteTsMs, getNewestPatchnoteId, isPatchnoteCollapsed, normalizePatchnoteEntry, fetchPatchnotes, savePatchnotesToServer, fetchFeedback, saveFeedbackStore, loadCustomIconsCache, fetchCustomIcons, saveCustomIconsToServer, loadNotifSeen, saveNotifSeen, markNotifRead, markAllNotifsRead, updateNotifBadges, refreshUserNotificationsBg, fetchAndSyncBasisPowers, isSecretRollActive
 } from './cloud.js';
 import {
-  resetDiceToLobbyNeutral, exitLobbyNeutralDice, ensureLobbyNeutralDiceOnOpen, applyDiceAutoAdvDis, calcThreshold, openWeaponRoll, syncDiceFromSheet, buildAdvDisInnerHtml, renderDice, renderLiveDice, rollW100, renderBlockFollowUpBox, executeBlockFollowUpRoll, executeDiceRoll, rollCustomDice, getCSkVal, getDSkVal, getEffC, getEffD, isLobbyNeutralDice, calcEgMultiplier, buildThresholdInnerHtml, activateVsCharMode, selectDiceOpponent
+  resetDiceToLobbyNeutral, exitLobbyNeutralDice, ensureLobbyNeutralDiceOnOpen, applyDiceAutoAdvDis, calcThreshold, openWeaponRoll, syncDiceFromSheet, buildAdvDisInnerHtml, renderDice, renderLiveDice, rollW100, renderBlockFollowUpBox, executeBlockFollowUpRoll, executeDiceRoll, rollCustomDice, getCSkVal, getDSkVal, getEffC, getEffD, isLobbyNeutralDice, calcEgMultiplier, buildThresholdInnerHtml, activateVsCharMode, selectDiceOpponent, resolveOpponentComparison
 } from './dice.js';
 import {
   sendDuelChallenge, cancelOutgoingDuel, clearOutgoingDuel, handleLiveDuelEvent, ignoreIncomingDuel, openDuelReplyModal, closeDuelReplyModal, submitDuelReply, renderDuelBanner, renderDuelReplyModal
 } from './duel.js';
+import {
+  initCombatFromRoll, resetCombatState, rollCombatHitZone, publishCombatDamageToFeed, renderCombatDamageBox, hasTagMatch
+} from './combat.js';
 import {
   applyRtfCommand, autoSizeAllTextareas, ensureCampNotesStructure, syncPublicNotesAfterChange, renderCampNotes, getCaretRangeAtPoint, syncPwFieldCursorState, saveEffRangeIfActive, insertTokenAtCursor, placeCaretAtStart, indentRtfLi, outdentRtfLi, RTF_STATE, getOrderedCampNoteFolders
 } from './notes.js';
@@ -1306,7 +1309,7 @@ document.addEventListener('click',async e=>{
     case 'close-livedice': LD.open=false; renderHeader(); renderDice(); renderLiveDice(); break;
     case 'dock-livedice':
     case 'toggle-dock-livedice': LD.docked=!LD.docked; if(LD.docked&&LD.floating){LD.floating=false;saveWinPref('livedice');} renderDice(); renderLiveDice(); break;
-    case 'reset-dice': clearOutgoingDuel({notifyCancel:true,silent:true}); setD({...DICE_DEF,sitActive:{},oppSitActive:{},open:true,docked:D.docked,floating:D.floating,x:D.x,y:D.y,w:D.w,h:D.h,z:D.z}); if(isLobbyNeutralDice()) resetDiceToLobbyNeutral(); UI.lastRollHtml=''; UI.lastBlockBaseHtml=''; UI.lastBlockFollowRes=null; UI.lastSecretRollId=''; renderDice(); updateLobbyLiveDiceDOM(); break;
+    case 'reset-dice': clearOutgoingDuel({notifyCancel:true,silent:true}); resetCombatState(); setD({...DICE_DEF,sitActive:{},oppSitActive:{},open:true,docked:D.docked,floating:D.floating,x:D.x,y:D.y,w:D.w,h:D.h,z:D.z}); if(isLobbyNeutralDice()) resetDiceToLobbyNeutral(); UI.lastRollHtml=''; UI.lastBlockBaseHtml=''; UI.lastBlockFollowRes=null; UI.lastSecretRollId=''; renderDice(); updateLobbyLiveDiceDOM(); break;
     case 'toggle-cnotes': CN.open=!CN.open; CN.confirmDelId=null; renderHeader(); renderCampNotes(); break;
     case 'close-cnotes': CN.open=false; CN.confirmDelId=null; renderHeader(); renderCampNotes(); break;
     case 'dock-cnotes':
@@ -1763,7 +1766,34 @@ document.addEventListener('click',async e=>{
     case 'crit-mode': D.critMode=D.critMode==='range'?'exact':'range'; renderDice(); break;
     case 'roll-d100': executeDiceRoll(); break;
     case 'roll-block-followup': executeBlockFollowUpRoll(); break;
-    case 'roll-blocked-hit-20': D.dMode='direct'; D.dDirect=20; executeDiceRoll({isAttackerBlockFollowUp:true}); break;
+    case 'combat-roll-blocked-20':
+    case 'roll-blocked-hit-20': {
+      if(D.dMode==='character'&&D.oppCharId){
+        const opp=resolveOpponentComparison(D.wRollCat||'Trefferwurf');
+        if(opp&&opp.ready){
+          COMBAT.targetCharId=opp.charId;
+          COMBAT.targetName=opp.oppName;
+          if(el.dataset.action==='roll-blocked-hit-20'){
+            COMBAT.blockItemRed=Boolean(opp.oppWeapon&&hasTagMatch(opp.oppWeapon.tags,/^blockf[äa]hig\b/i));
+          }
+        }
+      }
+      clearOutgoingDuel({notifyCancel:true,silent:true});
+      D.dMode='direct'; D.dDirect=20;
+      applyDiceAutoAdvDis(false);
+      executeDiceRoll({isAttackerBlockFollowUp:true});
+      break;
+    }
+    case 'combat-close': resetCombatState(); renderDice(); break;
+    case 'combat-toggle-collapse': COMBAT.collapsed=!COMBAT.collapsed; renderDice(); break;
+    case 'combat-roll-hz': rollCombatHitZone(); break;
+    case 'combat-set-zone': COMBAT.zoneName=el.dataset.zone||''; COMBAT.lastHzRoll=null; COMBAT.posted=false; renderDice(); break;
+    case 'combat-set-dmgtype': COMBAT.dmgType=el.dataset.dmgtype||'cut'; COMBAT.posted=false; renderDice(); break;
+    case 'combat-set-pool': COMBAT.pool=el.dataset.pool==='mlp'?'mlp':'lp'; COMBAT.posted=false; renderDice(); break;
+    case 'combat-toggle-block-red': COMBAT.blockItemRed=!COMBAT.blockItemRed; COMBAT.posted=false; renderDice(); break;
+    case 'combat-dmg-step': COMBAT.dmgMod=toInt(COMBAT.dmgMod,0)+Number(el.dataset.d); COMBAT.posted=false; renderDice(); break;
+    case 'combat-armor-step': COMBAT.armorMod=toInt(COMBAT.armorMod,0)+Number(el.dataset.d); COMBAT.posted=false; renderDice(); break;
+    case 'combat-post-feed': publishCombatDamageToFeed(); break;
     case 'toggle-dice-custom': D.customOpen=!D.customOpen; renderDice(); break;
     case 'dice-custom-preset': D.customSides=Math.max(1,toInt(el.dataset.sides,20)); D.customOpen=true; renderDice(); break;
     case 'roll-custom-dice': rollCustomDice(); break;
@@ -5399,7 +5429,10 @@ registerHooks({
   handleLiveDuelEvent,
   renderDuelBanner,
   renderDuelReplyModal,
-  clearOutgoingDuel
+  clearOutgoingDuel,
+  initCombatFromRoll,
+  resetCombatState,
+  renderCombatDamageBox
 });
 hydrateWinPrefs();
 load();
