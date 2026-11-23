@@ -11,17 +11,17 @@ import {
   syncPwUseCostsLegacy, toast, logChron, normPwEntry, save, findMainArt, isReservedPwTerm, getWeaponSubtype, isWeaponMassiv, S, D, UI
 } from './state.js';
 
-export const getTagDesc=(list,name,x)=>{
-  const found=findEqTagDef(name,list);
+export const getTagDesc=(list,name,x,sheet=S)=>{
+  const found=findEqTagDef(name,list,sheet);
   const raw=found?.desc||'Keine Beschreibung hinterlegt.';
-  const prev=formatTagW3Preview(list,name,x);
+  const prev=formatTagW3Preview(list,name,x,sheet);
   if(hasTagX(name)&&x!==undefined&&x!=='') return `${fmtTagLabel(name,x)}\n${raw.replace(/\bX\b/g,String(x))}${prev}`;
   return `${name}\n${raw}${prev}`;
 };
-export function getStatusEffValues(k){
+export function getStatusEffValues(k,sheet=S){
   const def=STATUS_DEFS.find(d=>d.k===k);
   if(!def) return {active:false,stacks:1,iniDir:1,autoStat:0,effStat:0,hasStatOvr:false,autoAdv:0,effAdv:0,hasAdvOvr:false};
-  const st=S.statusEffects?.[k]||{active:false,stacks:1,iniDir:1,statOvr:'',advOvr:''};
+  const st=sheet.statusEffects?.[k]||{active:false,stacks:1,iniDir:1,statOvr:'',advOvr:''};
   const stacks=Math.max(1,toInt(st.stacks,1));
   const iniDir=toInt(st.iniDir,1)<0?-1:1;
   const autoStat=(def.hasIniChoice?(Math.abs(def.baseStat)*iniDir):def.baseStat)*stacks;
@@ -33,23 +33,23 @@ export function getStatusEffValues(k){
   return {def,st,active:Boolean(st.active),stacks,iniDir,autoStat,effStat,hasStatOvr,autoAdv,effAdv,hasAdvOvr};
 }
 
-export const cresName=()=>String(S.customRes.name||'').trim()||'Benutzerdefiniert';
+export const cresName=(sheet=S)=>String(sheet.customRes?.name||'').trim()||'Benutzerdefiniert';
 export const makeExtraSec=(idx=1)=>({id:uid(),name:`Ressource ${idx}`,current:3,max:3,color:COL_PRESETS[(idx+5)%COL_PRESETS.length]||'#34d399'});
 export const getExtraSecName=ex=>String(ex?.name||'').trim()||'Ressource';
-export const getResLabel=k=>{if(String(k||'').startsWith('ex_')){const ex=(S.extraSecList||[]).find(x=>'ex_'+x.id===k);return ex?getExtraSecName(ex):k;}return ({ap:'AP',map:'mAP',lp:'LP',mlp:'mLP',cres:cresName(),bst:'BSt'})[k]||k;};
-export function getAvailableUseResources(){
-  const base=['ap','map','lp','mlp','cres',...(S.extraSecList||[]).map(ex=>'ex_'+ex.id),'bst'];
-  const extra=(S.useResList||[]).map(r=>String(r||'').trim()).filter(Boolean);
+export const getResLabel=(k,sheet=S)=>{if(String(k||'').startsWith('ex_')){const ex=(sheet.extraSecList||[]).find(x=>'ex_'+x.id===k);return ex?getExtraSecName(ex):k;}return ({ap:'AP',map:'mAP',lp:'LP',mlp:'mLP',cres:cresName(sheet),bst:'BSt'})[k]||k;};
+export function getAvailableUseResources(sheet=S){
+  const base=['ap','map','lp','mlp','cres',...(sheet.extraSecList||[]).map(ex=>'ex_'+ex.id),'bst'];
+  const extra=(sheet.useResList||[]).map(r=>String(r||'').trim()).filter(Boolean);
   const keys=[...new Set([...base,...extra])];
-  return keys.map(k=>({res:k,label:getResLabel(k),color:getSecCol(k)||'var(--acc)'}));
+  return keys.map(k=>({res:k,label:getResLabel(k,sheet),color:getSecCol(k,sheet)||'var(--acc)'}));
 }
 export function getActivePwUseCosts(it){
   const raw=Array.isArray(it?.useCosts)?it.useCosts:(it?.useRes&&toInt(it?.useAmt,0)>0?[{res:it.useRes,amt:toInt(it.useAmt,0)}]:[]);
   return raw.filter(c=>c&&String(c.res||'').trim()&&toInt(c.amt,0)>0).map(c=>({res:String(c.res).trim(),amt:Math.max(0,toInt(c.amt,0))}));
 }
-export function formatPwUseCosts(it){
+export function formatPwUseCosts(it,sheet=S){
   const act=getActivePwUseCosts(it);
-  return act.map(c=>`${c.amt} ${getResLabel(c.res)}`).join(' + ');
+  return act.map(c=>`${c.amt} ${getResLabel(c.res,sheet)}`).join(' + ');
 }
 export function isReservableResKey(k){
   const key=String(k||'').trim();
@@ -58,7 +58,7 @@ export function isReservableResKey(k){
 export function getReservablePwCosts(it){
   return getActivePwUseCosts(it).filter(c=>isReservableResKey(c.res));
 }
-export function getReservedTotals(){
+export function getReservedTotals(sheet=S){
   const tot={ap:0,map:0,lp:0,mlp:0,cres:0,extra:{},byRes:{},entries:[]};
   const addList=(arr,kind)=>{
     (arr||[]).forEach(it=>{
@@ -73,43 +73,45 @@ export function getReservedTotals(){
       tot.entries.push({kind,id:it.id,name:String(it.name||'').trim()||(kind==='augment'?'Unbenanntes Augment':'Unbenannte Kraft'),color:it.color||'',costs});
     });
   };
-  addList(S.powers,'power');
-  addList(S.augments,'augment');
+  addList(sheet.powers,'power');
+  addList(sheet.augments,'augment');
   return tot;
 }
-export function getEffectivePoolCap(resKey,M=calcActiveMods()){
+export function getEffectivePoolCap(resKey,M=null,sheet=S){
+  const mods=M||calcActiveMods(sheet);
   const key=String(resKey||'').trim();
   let fullMax=0;
-  if(key==='ap') fullMax=getApMax(M);
-  else if(key==='map') fullMax=getMapMax(M);
-  else if(key==='lp') fullMax=getLpMax(M);
-  else if(key==='mlp') fullMax=getMlpMax(M);
-  else if(key==='cres') fullMax=getCresMax(M);
+  if(key==='ap') fullMax=getApMax(mods,sheet);
+  else if(key==='map') fullMax=getMapMax(mods,sheet);
+  else if(key==='lp') fullMax=getLpMax(mods,sheet);
+  else if(key==='mlp') fullMax=getMlpMax(mods,sheet);
+  else if(key==='cres') fullMax=getCresMax(mods,sheet);
   else if(key.startsWith('ex_')){
-    const ex=(S.extraSecList||[]).find(x=>'ex_'+x.id===key);
-    fullMax=ex?getExtraSecMax(ex,M):0;
+    const ex=(sheet.extraSecList||[]).find(x=>'ex_'+x.id===key);
+    fullMax=ex?getExtraSecMax(ex,mods,sheet):0;
   }
-  const R=getReservedTotals();
+  const R=getReservedTotals(sheet);
   const reserved=R.byRes[key]||0;
   return {fullMax,reserved,effMax:Math.max(0,fullMax-reserved)};
 }
-export function getReservedSrcList(resKey){
-  const R=getReservedTotals(), out=[];
+export function getReservedSrcList(resKey,sheet=S){
+  const R=getReservedTotals(sheet), out=[];
   R.entries.forEach(e=>{
     const sum=e.costs.filter(c=>c.res===resKey).reduce((s,c)=>s+c.amt,0);
     if(sum>0) out.push(`${e.name} −${sum}`);
   });
   return out;
 }
-export function fmtReservedTipLine(resKey,M=calcActiveMods()){
-  const cap=getEffectivePoolCap(resKey,M);
+export function fmtReservedTipLine(resKey,M=null,sheet=S){
+  const mods=M||calcActiveMods(sheet);
+  const cap=getEffectivePoolCap(resKey,mods,sheet);
   if(cap.reserved<=0) return '';
-  const srcs=getReservedSrcList(resKey);
+  const srcs=getReservedSrcList(resKey,sheet);
   return `\n• Reserviert: −${cap.reserved}${srcs.length?` (${srcs.join(', ')})`:''} → Frei max: ${cap.effMax}`;
 }
 
-export function getStatGroups(){
-  const cn=cresName(), exMax=(S.extraSecList||[]).map(x=>`${getExtraSecName(x)}-Max`), g=[
+export function getStatGroups(sheet=S){
+  const cn=cresName(sheet), exMax=(sheet.extraSecList||[]).map(x=>`${getExtraSecName(x)}-Max`), g=[
     ['Attribute',['ST','KO','PR','GW','WA','IN','AU','WK','Alle Attribute']],
     ['Sekundärwerte',['LP-Max','mLP-Max','LP-Regeneration','mLP-Regeneration','Regeneration (LP & mLP)','Ini','AP-Max','mAP-Max',`${cn}-Max`,...exMax,'SP-Mod']],
     ['Schwellenwerte',['Verwundungsschwellen','Alle Verwundungsstufen','Verwundung (leicht)','Verwundung (mittel)','Verwundung (schwer)','Traumaschwellen','Alle Traumastufen','Trauma (leicht)','Trauma (mittel)','Trauma (schwer)']],
@@ -117,7 +119,7 @@ export function getStatGroups(){
     ['Vor- & Nachteile',['Vorteile (Trefferwürfe)','Nachteile (Trefferwürfe)','Vorteile (Abwehr/Parieren/Blocken)','Nachteile (Abwehr/Parieren/Blocken)','Vorteile (Parieren)','Nachteile (Parieren)','Vorteile (Blocken)','Nachteile (Blocken)','Vorteile (Ausweichen)','Nachteile (Ausweichen)','Vorteile (Alle Proben)','Nachteile (Alle Proben)']],
     ['Statuseffekte (nur bei ⚡ Einsetzen)',STATUS_DEFS.map(d=>`Status: ${d.name}`)]
   ];
-  if(S.customStats.length) g.push(['Eigene Variablen',S.customStats]);
+  if((sheet.customStats||[]).length) g.push(['Eigene Variablen',sheet.customStats]);
   return g;
 }
 
@@ -130,16 +132,17 @@ export function formatBldToken(amtRaw,statRaw){
   }
   return `[${String(amtRaw||'+1').trim().replace(/^(\d)/,'+$1')} ${st}]`;
 }
-export function getDynVarGroups(){
-  const cn=cresName();
-  const ownRes=[`${cn}-Max`,...(S.extraSecList||[]).map(x=>`${getExtraSecName(x)}-Max`)];
+export function getDynVarGroups(sheet=S){
+  const cn=cresName(sheet);
+  const ownRes=[`${cn}-Max`,...(sheet.extraSecList||[]).map(x=>`${getExtraSecName(x)}-Max`)];
   return [
     ['Attribute',ATTRS.map(a=>a.k)],
     ['Sekundärwerte',['LP-Max','mLP-Max','AP-Max','mAP-Max','Ini','BSt','Stufe','Bew']],
     ['Eigene Ressourcen',ownRes]
   ];
 }
-export function buildDynFormulaSpec(it,M=calcActiveMods()){
+export function buildDynFormulaSpec(it,M=null,sheet=S){
+  const mods=M||calcActiveMods(sheet);
   const v=String(it?.bldDynVar||'WA').trim()||'WA';
   const facRaw=it?.bldDynFactor!==undefined&&it?.bldDynFactor!==null?String(it.bldDynFactor):'/2';
   const fac=facRaw.trim();
@@ -153,17 +156,17 @@ export function buildDynFormulaSpec(it,M=calcActiveMods()){
   const rnd=['floor','ceil','round'].includes(it?.bldDynRound)?it.bldDynRound:'';
   const expr=rnd?`${rnd}(${core})`:core;
   const token=`{{${expr}}}`;
-  const evalRes=evalDynamicFormula(expr,M);
+  const evalRes=evalDynamicFormula(expr,mods,sheet);
   return {varName:v,factor:facRaw,round:rnd,expr,token,evalRes};
 }
 export function getDynPresetSelectVal(factorRaw){
   const f=String(factorRaw??'').trim();
   return DYN_FACTOR_PRESETS.some(p=>p.v===f)?f:'__custom__';
 }
-export function getPwBuilderToken(it,sortedSkillsOpt=null,M=null){
+export function getPwBuilderToken(it,sortedSkillsOpt=null,M=null,sheet=S){
   if(!it) return formatBldToken('+1','LP-Max');
   if(it.bldMode==='dyn'){
-    const spec=buildDynFormulaSpec(it,M||calcActiveMods());
+    const spec=buildDynFormulaSpec(it,M||calcActiveMods(sheet),sheet);
     return spec.evalRes.ok?spec.token:'';
   }
   if(it.bldMode!=='skill') return formatBldToken(it?.bldAmt,it?.bldStat);
@@ -171,7 +174,7 @@ export function getPwBuilderToken(it,sortedSkillsOpt=null,M=null){
   const parsed=digits?parseInt(digits,10):0;
   const n=parsed>=1?parsed:1;
   const hasPreSorted=Array.isArray(sortedSkillsOpt);
-  const namedSkills=hasPreSorted?sortedSkillsOpt:(S.skills||[]).filter(s=>s&&String(s.name||'').trim());
+  const namedSkills=hasPreSorted?sortedSkillsOpt:(sheet.skills||[]).filter(s=>s&&String(s.name||'').trim());
   if(!namedSkills.length) return '';
   let sk=it.bldSkId?namedSkills.find(s=>s.id===it.bldSkId):null;
   if(!sk){
@@ -200,14 +203,16 @@ export function decodeDynEntities(s){
     .replace(/&quot;/gi,'"')
     .replace(/&#39;|&apos;/gi,"'");
 }
-export function getPrimaryMoveBew(M=calcActiveMods()){
-  const mv0=S.movements?.[0];
-  const bstDelta=getEffBst(M)-getBstAuto();
-  const autoBew=Math.max(0,toFlt(mv0?.base,5)+(M.moveBase||0)+bstDelta);
+export function getPrimaryMoveBew(M=null,sheet=S){
+  const mods=M||calcActiveMods(sheet);
+  const mv0=sheet.movements?.[0];
+  const bstDelta=getEffBst(mods,sheet)-getBstAuto(sheet);
+  const autoBew=Math.max(0,toFlt(mv0?.base,5)+(mods.moveBase||0)+bstDelta);
   const hasOvr=mv0&&mv0.ovr!==undefined&&mv0.ovr!==null&&String(mv0.ovr).trim()!=='';
   return hasOvr?Math.max(0,toFlt(mv0.ovr,autoBew)):autoBew;
 }
-export function getDynamicVarEntries(M=calcActiveMods()){
+export function getDynamicVarEntries(M=null,sheet=S){
+  const mods=M||calcActiveMods(sheet);
   const entries=[], seen=new Set();
   const addVar=(name,val)=>{
     const k=String(name||'').trim();
@@ -217,44 +222,45 @@ export function getDynamicVarEntries(M=calcActiveMods()){
     seen.add(low);
     entries.push({name:k,low,val:Number.isFinite(val)?val:0});
   };
-  ATTRS.forEach(a=>addVar(a.k,getAttrTot(a.k,M)));
-  addVar('LP-Max',getLpMax(M));
-  addVar('LP',getLpMax(M));
-  addVar('mLP-Max',getMlpMax(M));
-  addVar('mLP',getMlpMax(M));
-  addVar('AP-Max',getApMax(M));
-  addVar('AP',getApMax(M));
-  addVar('mAP-Max',getMapMax(M));
-  addVar('mAP',getMapMax(M));
-  addVar('Ini',getIniTot(M));
-  addVar('Initiative',getIniTot(M));
-  addVar('BSt',getEffBst(M));
-  addVar('Stufe',toInt(S.progression?.level,1));
-  addVar('Level',toInt(S.progression?.level,1));
-  addVar('Basis-Bewegung',getPrimaryMoveBew(M));
-  addVar('Bewegung',getPrimaryMoveBew(M));
-  addVar('Bew',getPrimaryMoveBew(M));
-  addVar('LP-Regeneration',getLpRegen(M));
-  addVar('LP-Reg',getLpRegen(M));
-  addVar('mLP-Regeneration',getMlpRegen(M));
-  addVar('mLP-Reg',getMlpRegen(M));
-  const cn=cresName(), cnMax=getCresMax(M);
+  ATTRS.forEach(a=>addVar(a.k,getAttrTot(a.k,mods,sheet)));
+  addVar('LP-Max',getLpMax(mods,sheet));
+  addVar('LP',getLpMax(mods,sheet));
+  addVar('mLP-Max',getMlpMax(mods,sheet));
+  addVar('mLP',getMlpMax(mods,sheet));
+  addVar('AP-Max',getApMax(mods,sheet));
+  addVar('AP',getApMax(mods,sheet));
+  addVar('mAP-Max',getMapMax(mods,sheet));
+  addVar('mAP',getMapMax(mods,sheet));
+  addVar('Ini',getIniTot(mods,sheet));
+  addVar('Initiative',getIniTot(mods,sheet));
+  addVar('BSt',getEffBst(mods,sheet));
+  addVar('Stufe',toInt(sheet.progression?.level,1));
+  addVar('Level',toInt(sheet.progression?.level,1));
+  addVar('Basis-Bewegung',getPrimaryMoveBew(mods,sheet));
+  addVar('Bewegung',getPrimaryMoveBew(mods,sheet));
+  addVar('Bew',getPrimaryMoveBew(mods,sheet));
+  addVar('LP-Regeneration',getLpRegen(mods,sheet));
+  addVar('LP-Reg',getLpRegen(mods,sheet));
+  addVar('mLP-Regeneration',getMlpRegen(mods,sheet));
+  addVar('mLP-Reg',getMlpRegen(mods,sheet));
+  const cn=cresName(sheet), cnMax=getCresMax(mods,sheet);
   addVar(`${cn}-Max`,cnMax);
   addVar(cn,cnMax);
-  (S.extraSecList||[]).forEach(ex=>{
-    const nm=getExtraSecName(ex), mx=getExtraSecMax(ex,M);
+  (sheet.extraSecList||[]).forEach(ex=>{
+    const nm=getExtraSecName(ex), mx=getExtraSecMax(ex,mods,sheet);
     addVar(`${nm}-Max`,mx);
     addVar(nm,mx);
   });
   entries.sort((a,b)=>b.low.length-a.low.length);
   return entries;
 }
-export function evalDynamicFormula(expr,M=calcActiveMods()){
+export function evalDynamicFormula(expr,M=null,sheet=S){
+  const mods=M||calcActiveMods(sheet);
   const rawExpr=decodeDynEntities(expr).replace(/\s+/g,' ').trim();
   const fail=err=>({ok:false,value:null,formatted:'',breakdown:'',rawExpr,error:err||'Ungültige Formel'});
   if(!rawExpr) return fail('Leere Formel');
   if(rawExpr.length>240) return fail('Formel zu lang');
-  const vars=getDynamicVarEntries(M);
+  const vars=getDynamicVarEntries(mods,sheet);
   const lowSrc=rawExpr.toLowerCase();
   const tokens=[];
   let i=0;
@@ -467,13 +473,14 @@ export function extractDynamicFormulas(text){
   return out;
 }
 export const RE_HTML_OR_DYN=/(<[^>]*>)|(\{\{[^{}]*\}\})/g;
-export function renderDynamicRtfHtml(rawHtml,M=calcActiveMods()){
+export function renderDynamicRtfHtml(rawHtml,M=null,sheet=S){
+  const mods=M||calcActiveMods(sheet);
   const html=toRtfHtml(rawHtml);
   if(!html||!html.includes('{{')) return html;
   return html.replace(RE_HTML_OR_DYN,(match,tag,formulaTok)=>{
     if(tag) return tag;
     const inner=formulaTok.slice(2,-2);
-    const res=evalDynamicFormula(inner,M);
+    const res=evalDynamicFormula(inner,mods,sheet);
     if(res.ok){
       const tip=`Formel: ${res.rawExpr}\nRechnung: ${res.breakdown}`;
       return `<span class="dyn-val-pill tabular font-extrabold" data-tip="${esc(tip).replace(/\n/g,'&#10;')}">${esc(res.formatted)}</span>`;
@@ -497,7 +504,7 @@ export function parseStatusTokens(text){
 }
 export const RE_EFF_BRACKET=/\[([+-]?\d+)\s+([^\]]+)\]/g;
 export const RE_CRIT_NAT=/kritische[n]?\s+ziffer(?:\s*\(([^)]+)\)|\s+(?:bei|für|auf|mit)\s+(trefferw(?:ü|ue)rfe?n?|trefferwurf|angriffe?n?|alle[n]?\s+tests?|alle[n]?\s+proben?))?[^.!;\n\]]*?(?:um\s+([+-]?\d+|\bein\w*\b|\bzwei\b|\bdrei\b|\bvier\b|\bfünf\b)\s*(?:erh[öo]ht|gesteigert|verbessert)|([+-]\d+))/gi;
-export function parseEffectTokens(text){
+export function parseEffectTokens(text,sheet=S){
   const plain=maskDynFormulas(stripHtml(text)), out=[], used=[];
   RE_EFF_BRACKET.lastIndex=0; let m;
   while((m=RE_EFF_BRACKET.exec(plain))!==null){
@@ -505,7 +512,7 @@ export function parseEffectTokens(text){
     if(/^(?:vorteil|nachteil|status\s*:)/i.test(m[2].trim())) continue;
     out.push({raw:m[0],val:parseInt(m[1],10),name:m[2].trim(),idx:m.index,len:m[0].length});
   }
-  const cn=cresName(), exKnown=(S.extraSecList||[]).flatMap(x=>[`${getExtraSecName(x)}-Max`,getExtraSecName(x)]), known=['Alle Attribute','LP-Max','mLP-Max','LP-Regeneration','mLP-Regeneration','Regeneration (LP & mLP)','Alle Regenerationsraten','Regenerationsrate','LP-Reg','mLP-Reg','AP-Max','mAP-Max',`${cn}-Max`,cn,...exKnown,'SP-Mod','SP','Alle Verwundungsstufen','Verwundungsstufen','Alle Verwundungsschwellen','Verwundungsschwellen','Verwundung (leicht)','Verwundung (mittel)','Verwundung (schwer)','Alle Traumastufen','Traumastufen','Alle Traumaschwellen','Traumaschwellen','Trauma (leicht)','Trauma (mittel)','Trauma (schwer)','Basis-Bewegung','Rüstungsschutz','Testschwelle','Kritische Ziffer (Trefferwürfe)','Kritische Ziffer (Alle Tests)','Kritische Ziffer (Alle Proben)','Kritische Ziffer','Initiative','Ini','BSt','mLP','mAP','LP','AP','ST','KO','PR','GW','WA','IN','AU','WK',...(S.customStats||[])].filter(Boolean).sort((a,b)=>b.length-a.length).map(s=>s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'));
+  const cn=cresName(sheet), exKnown=(sheet.extraSecList||[]).flatMap(x=>[`${getExtraSecName(x)}-Max`,getExtraSecName(x)]), known=['Alle Attribute','LP-Max','mLP-Max','LP-Regeneration','mLP-Regeneration','Regeneration (LP & mLP)','Alle Regenerationsraten','Regenerationsrate','LP-Reg','mLP-Reg','AP-Max','mAP-Max',`${cn}-Max`,cn,...exKnown,'SP-Mod','SP','Alle Verwundungsstufen','Verwundungsstufen','Alle Verwundungsschwellen','Verwundungsschwellen','Verwundung (leicht)','Verwundung (mittel)','Verwundung (schwer)','Alle Traumastufen','Traumastufen','Alle Traumaschwellen','Traumaschwellen','Trauma (leicht)','Trauma (mittel)','Trauma (schwer)','Basis-Bewegung','Rüstungsschutz','Testschwelle','Kritische Ziffer (Trefferwürfe)','Kritische Ziffer (Alle Tests)','Kritische Ziffer (Alle Proben)','Kritische Ziffer','Initiative','Ini','BSt','mLP','mAP','LP','AP','ST','KO','PR','GW','WA','IN','AU','WK',...(sheet.customStats||[])].filter(Boolean).sort((a,b)=>b.length-a.length).map(s=>s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'));
   const reP=new RegExp(`([+-]\\d+)\\s+(${known.join('|')})(?![a-zA-ZäöüÄÖÜß])`,'gi');
   while((m=reP.exec(plain))!==null){
     const s=m.index, e=s+m[0].length;
@@ -555,7 +562,7 @@ export const RE_SCOPE={
   hop:/^[^.,;!\n\r()\]]{1,26}?\s+(auf|mit|beim)\s+/i,
   dyn:/^([A-ZÄÖÜ][a-zäöüßA-ZÄÖÜ0-9_-]{1,28}(?:\s+(?:[A-ZÄÖÜ][a-zäöüßA-ZÄÖÜ0-9_-]{1,28}|knacken|reiten|lesen|schreiben|spielen|führen|werfen|wirken|brauen|schmieden|heilen|lenken|steuern|zähmen|suchen|finden))?(?:\s*\([^)\n]{1,25}\))?)(?:[-\s]*(?:proben?|tests?|w(?:ü|ue)rfe?n?|wurf))?(?![a-zA-ZäöüÄÖÜß])/
 };
-export function resolveAdvDisScope(rawTail,prep='',isParen=false){
+export function resolveAdvDisScope(rawTail,prep='',isParen=false,sheet=S){
   const tail=String(rawTail||'');
   if(!tail.trim()) return isParen?{scope:'all',label:'Alle Proben',consumedLen:tail.length}:null;
   let m;
@@ -569,7 +576,7 @@ export function resolveAdvDisScope(rawTail,prep='',isParen=false){
   const pfxLen=pfxM?pfxM[0].length:0, rem=tail.slice(pfxLen);
   if(isParen&&rem.includes('(')){
     const remLow=rem.trim().toLowerCase();
-    const exactSk=(S.skills||[]).find(s=>s&&String(s.name||'').trim().toLowerCase()===remLow);
+    const exactSk=(sheet.skills||[]).find(s=>s&&String(s.name||'').trim().toLowerCase()===remLow);
     if(exactSk){
       const sn=exactSk.name.trim();
       return {scope:'skill',skillId:exactSk.id,skillName:sn,label:sn,consumedLen:tail.length};
@@ -599,7 +606,7 @@ export function resolveAdvDisScope(rawTail,prep='',isParen=false){
   if((m=rem.match(RE_SCOPE.hit))){
     return {scope:'hit',label:'Trefferwürfe',consumedLen:pfxLen+m[0].length};
   }
-  const skSorted=[...(S.skills||[])].filter(s=>s&&String(s.name||'').trim()).sort((a,b)=>b.name.trim().length-a.name.trim().length);
+  const skSorted=[...(sheet.skills||[])].filter(s=>s&&String(s.name||'').trim()).sort((a,b)=>b.name.trim().length-a.name.trim().length);
   for(const sk of skSorted){
     const sn=sk.name.trim(), reSk=new RegExp('^'+escReStr(sn)+'(?:[-\\s]*(?:proben?|tests?|w(?:ü|ue)rfe?n?|wurf))?(?![a-zA-ZäöüÄÖÜß])','i');
     if((m=rem.match(reSk))){
@@ -618,7 +625,7 @@ export function resolveAdvDisScope(rawTail,prep='',isParen=false){
   if(!isParen){
     const hop=rem.match(RE_SCOPE.hop);
     if(hop){
-      const sub=resolveAdvDisScope(rem.slice(hop[0].length),hop[1].toLowerCase(),false);
+      const sub=resolveAdvDisScope(rem.slice(hop[0].length),hop[1].toLowerCase(),false,sheet);
       if(sub) return {...sub,consumedLen:pfxLen+hop[0].length+sub.consumedLen};
     }
   }
@@ -640,7 +647,7 @@ export function resolveAdvDisScope(rawTail,prep='',isParen=false){
 export const RE_ADV_BR=/\[([+-]?\d+)\s+(Vorteil(?:e|en)?|Nachteil(?:e|en)?)(?:\s+([^\]]+))?\]/gi;
 export const RE_NAT=/([+-]?\d+|\bein(?:en|em)?\b|\bzwei\b|\bdrei\b|\bvier\b|\bfünf\b)\s+(Vorteil(?:e|en)?|Nachteil(?:e|en)?)(?:(\s*\()((?:[^()\n]|\([^()\n]*\))+)(\))|(\s+(?:auf|mit|bei|beim|für|gegen|in|im|zu)\s+)([^.,;!\n\r\]]+))?/gi;
 export const RE_ADV_REV=/(?:(?:auf|bei|beim|für|mit)\s+)?([A-Za-zÄÖÜäöüß][A-Za-zÄÖÜäöüß0-9()/ -]{1,34}?)\s+(?:haben|hat|erhalten|erhält|erhaelt|erhältst|bekommen|bekommt|bekommst|gewähren|gewährt)\s+(?:du\s+)?([+-]?\d+|\bein(?:en)?\b|\bzwei\b|\bdrei\b|\bvier\b|\bfünf\b)\s+(Vorteil(?:e|en)?|Nachteil(?:e|en)?)\b/gi;
-export function parseAdvDisTokens(text){
+export function parseAdvDisTokens(text,sheet=S){
   const plain=maskDynFormulas(stripHtml(text)), out=[], used=[];
   const overlaps=(s,e)=>used.some(([u1,u2])=>s<u2&&e>u1);
   RE_ADV_BR.lastIndex=0;
@@ -653,7 +660,7 @@ export function parseAdvDisTokens(text){
       const pm=rest.match(/^(auf|mit|bei|beim|für|gegen|in|im|zu)\s+([\s\S]+)$/i);
       if(pm){prep=pm[1].toLowerCase();rest=pm[2].trim();isP=false;}
     }
-    const sc=resolveAdvDisScope(rest,prep,isP)||{scope:'all',label:rest||'Alle Proben'};
+    const sc=resolveAdvDisScope(rest,prep,isP,sheet)||{scope:'all',label:rest||'Alle Proben'};
     out.push({raw:m[0],val,kind,scope:sc.scope,label:sc.label,skillId:sc.skillId||null,skillName:sc.skillName||'',attrKey:sc.attrKey||'',idx:m.index,len:m[0].length,isBracket:true});
     used.push([m.index,m.index+m[0].length]);
   }
@@ -670,11 +677,11 @@ export function parseAdvDisTokens(text){
     const val=parseAdvNumVal(m[1]), kind=/^nachteil/i.test(m[2])?'dis':'adv';
     let sc=null, totLen=0;
     if(m[4]!==undefined){
-      sc=resolveAdvDisScope(m[4].trim(),'',true);
+      sc=resolveAdvDisScope(m[4].trim(),'',true,sheet);
       totLen=baseLen+m[3].length+m[4].length+m[5].length;
     }else if(m[7]!==undefined){
       const prep=m[6].trim().toLowerCase();
-      sc=resolveAdvDisScope(m[7],prep,false);
+      sc=resolveAdvDisScope(m[7],prep,false,sheet);
       if(sc) totLen=baseLen+m[6].length+sc.consumedLen;
     }
     if(sc&&val&&!overlaps(s,s+totLen)){
@@ -691,7 +698,7 @@ export function parseAdvDisTokens(text){
     const s=m.index, e=s+m[0].length;
     if(overlaps(s,e)) continue;
     if(/\b(?:gegner\w*|feind\w*|ziel\w*)\b/i.test(m[1])) continue;
-    const sc=resolveAdvDisScope(m[1].trim(),'auf',false);
+    const sc=resolveAdvDisScope(m[1].trim(),'auf',false,sheet);
     const val=parseAdvNumVal(m[2]), kind=/^nachteil/i.test(m[3])?'dis':'adv';
     if(sc&&val&&sc.consumedLen>=m[1].trim().length-2){
       out.push({raw:m[0].trim(),val,kind,scope:sc.scope,label:sc.label,skillId:sc.skillId||null,skillName:sc.skillName||'',attrKey:sc.attrKey||'',idx:s,len:m[0].length,isBracket:false});
@@ -700,27 +707,32 @@ export function parseAdvDisTokens(text){
   }
   return out.sort((a,b)=>a.idx-b.idx);
 }
-export function getAllParsedEffectChips(text){
+export function getAllParsedEffectChips(text,sheet=S){
   const stToks=parseStatusTokens(text);
   const overlapsSt=(s,e)=>stToks.some(k=>s<k.idx+k.len&&e>k.idx);
-  const ad=parseAdvDisTokens(text).filter(t=>!overlapsSt(t.idx,t.idx+t.len)).map(t=>({...t,chipType:t.kind==='dis'?'dis':'adv'}));
-  const st=parseEffectTokens(text).filter(t=>!overlapsSt(t.idx,t.idx+t.len)&&!ad.some(a=>t.idx<a.idx+a.len&&t.idx+t.len>a.idx)).map(t=>({...t,chipType:'stat'}));
+  const ad=parseAdvDisTokens(text,sheet).filter(t=>!overlapsSt(t.idx,t.idx+t.len)).map(t=>({...t,chipType:t.kind==='dis'?'dis':'adv'}));
+  const st=parseEffectTokens(text,sheet).filter(t=>!overlapsSt(t.idx,t.idx+t.len)&&!ad.some(a=>t.idx<a.idx+a.len&&t.idx+t.len>a.idx)).map(t=>({...t,chipType:'stat'}));
   return [...st,...ad,...stToks].sort((a,b)=>a.idx-b.idx);
 }
-let _modsCache=null, _modsCacheQueued=false;
-export function invalidateModsCache(){_modsCache=null;}
-export function calcActiveMods(){
-  if(_modsCache) return _modsCache;
+let _modsCacheMap=new WeakMap(), _modsCacheQueued=false;
+export function invalidateModsCache(sheet=null){
+  if(sheet&&typeof sheet==='object') _modsCacheMap.delete(sheet);
+  else _modsCacheMap=new WeakMap();
+}
+export function calcActiveMods(sheet=S){
+  const target=sheet||S;
+  const cached=_modsCacheMap.get(target);
+  if(cached) return cached;
   const keys=['ST','KO','PR','GW','WA','IN','AU','WK','lpMax','mlpMax','lpRegen','mlpRegen','ini','apMax','mapMax','cresMax','spMod','woundLight','woundMedium','woundHeavy','traumaLight','traumaMedium','traumaHeavy','bst','moveBase','armor','testTh','critHit','critAll'];
   const M={src:{},extraSec:{},advDis:[],crits:[]}; keys.forEach(k=>{M[k]=0;M.src[k]=[];});
-  (S.extraSecList||[]).forEach(x=>{M.extraSec[x.id]=0;M.src['ex_'+x.id]=[];});
+  (target.extraSecList||[]).forEach(x=>{M.extraSec[x.id]=0;M.src['ex_'+x.id]=[];});
   const add=(k,v,it,isAug)=>{if(!v)return;M[k]+=v;const nm=String(it.name||'').trim()||(isAug?'Unbenanntes Augment':'Unbenannte Kraft');M.src[k].push({val:v,name:nm,kind:isAug?'Augment':'Kraft'});};
-  const cnLow=cresName().toLowerCase();
+  const cnLow=cresName(target).toLowerCase();
   const proc=(it,isAug)=>{
     if(it.applyMods===false) return;
     const srcNm=String(it.name||'').trim()||(isAug?'Unbenanntes Augment':'Unbenannte Kraft'),srcKd=isAug?'Augment':'Kraft';
-    parseAdvDisTokens(it.effects).forEach(ad=>{if(ad.val)M.advDis.push({...ad,srcName:srcNm,srcKind:srcKd});});
-    parseEffectTokens(it.effects).forEach(({val,name})=>{
+    parseAdvDisTokens(it.effects,target).forEach(ad=>{if(ad.val)M.advDis.push({...ad,srcName:srcNm,srcKind:srcKd});});
+    parseEffectTokens(it.effects,target).forEach(({val,name})=>{
       const nl=name.toLowerCase(), nu=name.toUpperCase();
       if(M[nu]!==undefined&&nu.length===2) add(nu,val,it,isAug);
       else if(nl==='alle attribute') ATTRS.forEach(a=>add(a.k,val,it,isAug));
@@ -755,16 +767,16 @@ export function calcActiveMods(){
       }
       else if(nl==='sp-mod'||nl==='sp') add('spMod',val,it,isAug);
       else{
-        const exMatches=(S.extraSecList||[]).filter(x=>{const xn=getExtraSecName(x).toLowerCase();return nl===`${xn}-max`||nl===xn;});
+        const exMatches=(target.extraSecList||[]).filter(x=>{const xn=getExtraSecName(x).toLowerCase();return nl===`${xn}-max`||nl===xn;});
         if(exMatches.length&&val){const nm=String(it.name||'').trim()||(isAug?'Unbenanntes Augment':'Unbenannte Kraft');exMatches.forEach(ex=>{M.extraSec[ex.id]=(M.extraSec[ex.id]||0)+val;M.src['ex_'+ex.id].push({val,name:nm,kind:isAug?'Augment':'Kraft'});});}
       }
     });
   };
-  S.powers.forEach(p=>proc(p,false));
-  S.augments.forEach(a=>proc(a,true));
+  (target.powers||[]).forEach(p=>proc(p,false));
+  (target.augments||[]).forEach(a=>proc(a,true));
   M.statusLp=0; M.statusMlp=0;
   STATUS_DEFS.forEach(def=>{
-    const v=getStatusEffValues(def.k);
+    const v=getStatusEffValues(def.k,target);
     if(!v.active) return;
     const srcNm=`${def.name}${v.stacks>1?` (${v.stacks}×)`:''}${(v.hasStatOvr||v.hasAdvOvr)?' [Overwrite]':''}`;
     if(v.effStat){
@@ -799,22 +811,22 @@ export function calcActiveMods(){
       });
     }
   });
-  M._sheetCounters=getSheetCounterTotals();
+  M._sheetCounters=getSheetCounterTotals(target);
   M._armorEqSources=[];
-  (S.armors||[]).forEach(ar=>{
+  (target.armors||[]).forEach(ar=>{
     if(ar&&ar.equipped!==false&&Array.isArray(ar.tags)&&ar.tags.length){
-      ar.tags.forEach(tg=>M._armorEqSources.push(analyzeEqTagTooltip(tg,S.armorTagList,'armor',ar)));
+      ar.tags.forEach(tg=>M._armorEqSources.push(analyzeEqTagTooltip(tg,target.armorTagList,'armor',ar,target)));
     }
   });
-  _modsCache=M;
-  if(!_modsCacheQueued){_modsCacheQueued=true;queueMicrotask(()=>{_modsCache=null;_modsCacheQueued=false;});}
+  _modsCacheMap.set(target,M);
+  if(!_modsCacheQueued){_modsCacheQueued=true;queueMicrotask(()=>{_modsCacheMap=new WeakMap();_modsCacheQueued=false;});}
   return M;
 }
 export const fmtSrcLines=(M,k)=>(M.src?.[k]||[]).map(s=>`• ${s.name} (${s.kind}): ${fmtSign(s.val)}`).join('\n');
 
-export function findEqTagDef(name,primaryList){
+export function findEqTagDef(name,primaryList,sheet=S){
   const low=String(name||'').trim().toLowerCase();
-  for(const lst of [primaryList,S.weaponTagList,S.ammoTagList,S.armorTagList]){
+  for(const lst of [primaryList,sheet.weaponTagList,sheet.ammoTagList,sheet.armorTagList]){
     const f=(lst||[]).find(t=>t&&t.name.toLowerCase()===low);
     if(f&&f.desc) return f;
   }
@@ -838,12 +850,12 @@ export const RE_SIT_1H=/\b(?:einh[äa]ndig\w*\s+f[üu]hr\w*|beim\s+einh[äa]ndig
 export const RE_SIT_2H=/\b(?:zweih[äa]ndig\w*\s+f[üu]hr\w*|beim\s+zweih[äa]ndigen)\b/i;
 export const RE_SIT_GENERIC=/\b(?:wenn|falls|solange|sofern|sobald|bei\s+(?:dunkelheit|nacht|regen|sturm|hitze|k[äa]lte|[üu]berraschung|ersch[öo]pfung|schlechter\s+sicht)|im\s+wasser|unter\s+wasser|im\s+liegen|liegend|kniend|aus\s+dem\s+hinterhalt|gegen\s+(?:gepanzerte|ungepanzerte|gro(?:ß|ss)e|kleine|berittene|fliegende|[üu]berraschte)|auf\s+(?:kurze|weite|gro(?:ß|ss)e|maximale|extreme)\s+(?:distanz|reichweite|entfernung))\b/i;
 export const RE_VN=/(?:um\s+)?([+-]?\d+|\bein(?:en|em|er)?\b|\bzwei\b|\bdrei\b|\bvier\b|\bfünf\b)\s+(Vorteil(?:e|en)?|Nachteil(?:e|en)?)\b/gi;
-export function analyzeEqTagTooltip(tg,tagList,itemKind='weapon',itemObj=null){
+export function analyzeEqTagTooltip(tg,tagList,itemKind='weapon',itemObj=null,sheet=S){
   const res={mods:[],crits:[],counters:[],rollMods:[]};
   if(!tg||!tg.name) return res;
   const rawName=String(tg.name||'').trim(), baseName=rawName.replace(/\(\s*X\s*\)/i,'').trim(), baseLow=baseName.toLowerCase();
   const xVal=toInt(tg.x,1), tagLbl=fmtTagLabel(rawName,hasTagX(rawName)?xVal:tg.x);
-  const def=findEqTagDef(rawName,tagList), rawDesc=String(def?.desc||'').trim();
+  const def=findEqTagDef(rawName,tagList,sheet), rawDesc=String(def?.desc||'').trim();
   if(!rawDesc) return res;
   let txt=rawDesc.replace(/(?:1\s+(?:Vorteil|Nachteil)\s*)?\(\s*bzw\.\s*X\s+(Vorteil(?:e|en)?|Nachteil(?:e|en)?)\s*\)/gi,(_,w)=>`${xVal} ${w}`);
   txt=txt.replace(/\(\s*X\s*\)/gi,`(${xVal})`).replace(/\bX\b/g,String(xVal));
@@ -926,7 +938,7 @@ export function analyzeEqTagTooltip(tg,tagList,itemKind='weapon',itemObj=null){
       scope='skill_multi'; label='Verstecken/Verbergen'; skillCandidates=['verstecken','verbergen','heimlichkeit','fingerfertigkeit'];
     }else{
       let matchedCustom=false;
-      const skSorted=[...(S.skills||[])].filter(s=>s&&String(s.name||'').trim()).sort((a,b)=>b.name.trim().length-a.name.trim().length);
+      const skSorted=[...(sheet.skills||[])].filter(s=>s&&String(s.name||'').trim()).sort((a,b)=>b.name.trim().length-a.name.trim().length);
       for(const sk of skSorted){
         const sn=sk.name.trim(), reSk=new RegExp('(?:^|[^a-zA-ZäöüÄÖÜß])'+escReStr(sn)+'(?:[-\\s]*(?:proben?|tests?|w(?:ü|ue)rfe?n?|wurf))?(?![a-zA-ZäöüÄÖÜß])','i');
         if(reSk.test(sent)){scope='skill';skillName=sn;label=sn;matchedCustom=true;break;}
@@ -977,8 +989,8 @@ export function analyzeEqTagTooltip(tg,tagList,itemKind='weapon',itemObj=null){
   });
   return res;
 }
-export function formatTagW3Preview(tagList,name,x){
-  const r=analyzeEqTagTooltip({name,x:x??'1'},tagList,'weapon',null);
+export function formatTagW3Preview(tagList,name,x,sheet=S){
+  const r=analyzeEqTagTooltip({name,x:x??'1'},tagList,'weapon',null,sheet);
   const parts=[];
   r.mods.forEach(m=>{parts.push(`${fmtSign(m.val)} ${m.kind==='dis'?'Nachteil(e)':'Vorteil(e)'} (${m.sitKey?'Situativ: '+m.sitLabel:m.label})`);});
   r.crits.forEach(c=>{parts.push(`Kritische Ziffer ${fmtSign(c.val)} (${c.scope==='all'?'Alle Proben':c.scope==='parry'?'Parieren':c.scope==='block'?'Blocken':c.scope==='dodge'?'Ausweichen':'Trefferwurf'})`);});
@@ -995,7 +1007,7 @@ export const RE_CNT_MOB_NUM=/\((\d+)\)|\b(\d+)\b/;
 export const RE_CNT_RED_MM=/nachteil\w*[\s\S]{0,80}?(?:nahkampf|reiten)[\s\S]{0,60}?(?:um\s+(\d+|\bein\w*\b|\bzwei\b|\bdrei\b)\s+)?(?:verringert|reduziert|ignoriert)/i;
 export const RE_CNT_AERO_NM=/\baerodynamisch\b/i;
 export const RE_CNT_AERO_TXT=/(?:keine[n]?|ohne)\s+nachteil\w*[\s\S]{0,60}?(?:waffenwerfen|beim\s+werfen)/i;
-export function getSheetCounterTotals(){
+export function getSheetCounterTotals(sheet=S){
   let redMeleeMount=0, negThrow=false;
   const scanText=(nm,tx)=>{
     const combined=`${nm||''}\n${stripHtml(tx||'')}`;
@@ -1008,19 +1020,21 @@ export function getSheetCounterTotals(){
     }
     if(RE_CNT_AERO_NM.test(nm||'')||RE_CNT_AERO_TXT.test(combined)) negThrow=true;
   };
-  [...(S.powers||[]),...(S.augments||[])].forEach(it=>{if(it&&it.applyMods!==false)scanText(it.name,`${it.effects||''}\n${it.rules||''}`);});
+  [...(sheet.powers||[]),...(sheet.augments||[])].forEach(it=>{if(it&&it.applyMods!==false)scanText(it.name,`${it.effects||''}\n${it.rules||''}`);});
   return {redMeleeMount,negThrow};
 }
 
-export function getAdvDisForContext(ctx={},M=calcActiveMods()){
-  const list=M.advDis||[];
-  const w=ctx.weaponId?S.weapons.find(x=>x.id===ctx.weaponId):null;
+export function getAdvDisForContext(ctx={},M=null,sheet=S){
+  const target=sheet||S;
+  const mods=M||calcActiveMods(target);
+  const list=mods.advDis||[];
+  const w=ctx.weaponId?(target.weapons||[]).find(x=>x.id===ctx.weaponId):null;
   const rawCat=ctx.wRollCat||(w?'Trefferwurf':'Normaler Test');
   const cat=rawCat==='Parade'?'Parieren':rawCat;
-  const sk=ctx.skillId?S.skills.find(x=>x.id===ctx.skillId):null;
+  const sk=ctx.skillId?(target.skills||[]).find(x=>x.id===ctx.skillId):null;
   const skNameLow=sk?String(sk.name||'').trim().toLowerCase():'';
   const skBaseLow=skNameLow.replace(/\s*\([^)]*\)\s*$/,'').trim();
-  const ak=ctx.attrKey||(sk?sk.linkedAttr:null)||(w?getWeaponRollMeta(w,M).attrKey:null);
+  const ak=ctx.attrKey||(sk?sk.linkedAttr:null)||(w?getWeaponRollMeta(w,mods,target).attrKey:null);
   const isNormTest=cat==='Normaler Test';
   const isSkDodge=Boolean(skNameLow==='ausweichen'||skBaseLow==='ausweichen');
   const isSkParry=Boolean(skNameLow==='parieren'||skBaseLow==='parieren'||skNameLow==='parade'||skBaseLow==='parade');
@@ -1059,20 +1073,20 @@ export function getAdvDisForContext(ctx={},M=calcActiveMods()){
   const sitActive=ctx.sitActive||{};
   const eqSources=[];
   if(w){
-    (w.tags||[]).forEach(tg=>eqSources.push(analyzeEqTagTooltip(tg,S.weaponTagList,'weapon',w)));
-    const linkedAmmo=w.wType==='ranged'&&w.ammoId?S.ammos.find(a=>a.id===w.ammoId):null;
+    (w.tags||[]).forEach(tg=>eqSources.push(analyzeEqTagTooltip(tg,target.weaponTagList,'weapon',w,target)));
+    const linkedAmmo=w.wType==='ranged'&&w.ammoId?(target.ammos||[]).find(a=>a.id===w.ammoId):null;
     if(linkedAmmo){
-      (linkedAmmo.tags||[]).forEach(tg=>eqSources.push(analyzeEqTagTooltip(tg,S.ammoTagList,'ammo',linkedAmmo)));
+      (linkedAmmo.tags||[]).forEach(tg=>eqSources.push(analyzeEqTagTooltip(tg,target.ammoTagList,'ammo',linkedAmmo,target)));
     }
   }
-  if(Array.isArray(M._armorEqSources)){
-    M._armorEqSources.forEach(es=>eqSources.push(es));
+  if(Array.isArray(mods._armorEqSources)){
+    mods._armorEqSources.forEach(es=>eqSources.push(es));
   }else{
-    (S.armors||[]).filter(ar=>ar&&ar.equipped!==false&&Array.isArray(ar.tags)&&ar.tags.length).forEach(ar=>{
-      ar.tags.forEach(tg=>eqSources.push(analyzeEqTagTooltip(tg,S.armorTagList,'armor',ar)));
+    (target.armors||[]).filter(ar=>ar&&ar.equipped!==false&&Array.isArray(ar.tags)&&ar.tags.length).forEach(ar=>{
+      ar.tags.forEach(tg=>eqSources.push(analyzeEqTagTooltip(tg,target.armorTagList,'armor',ar,target)));
     });
   }
-  const sheetCnt=M._sheetCounters||getSheetCounterTotals();
+  const sheetCnt=mods._sheetCounters||getSheetCounterTotals(target);
   let redMeleeMount=sheetCnt.redMeleeMount, negThrow=sheetCnt.negThrow, thrustGripVal=0;
   eqSources.forEach(es=>{
     es.counters.forEach(c=>{
@@ -1083,7 +1097,7 @@ export function getAdvDisForContext(ctx={},M=calcActiveMods()){
   });
   let autoCrit=0, langsamDisTotal=0, autoRollMod=0;
   const critSrc=[], rollModSrc=[], sitMap=new Map();
-  (M.crits||[]).forEach(cr=>{
+  (mods.crits||[]).forEach(cr=>{
     if(matchesScope(cr)&&cr.val){autoCrit+=cr.val;critSrc.push(cr);}
   });
   const addSitOpt=(key,opt)=>{
@@ -1165,61 +1179,63 @@ export function getAdvDisForContext(ctx={},M=calcActiveMods()){
       if(g.reduceDis>0){autoDis=Math.max(0,autoDis-g.reduceDis);src.push({val:-g.reduceDis,kind:'dis',tagLbl:tg0,isSit:true,label:`${g.sitLabel}: Langsam reduziert`,srcName:g.items[0]?.srcName||g.sitLabel,srcKind:g.items[0]?.srcKind||'Situativ'});}
     }
   });
-  if(ctx.includeInspiration&&S.inspirationActive){
+  if(ctx.includeInspiration&&target.inspirationActive){
     autoAdv+=1;
     src.push({val:1,kind:'adv',scope:'all',label:'Inspiration (Nächster Wurf)',tagLbl:'✨ Inspiration',srcName:'✨ Inspiration',srcKind:'Inspiration'});
   }
   return {autoAdv:Math.max(0,autoAdv),autoDis:Math.max(0,autoDis),rawAutoAdv:autoAdv,rawAutoDis:autoDis,src,autoCrit,critSrc,autoRollMod,rollModSrc,sitOptions};
 }
 export const fmtAdvSrcLines=src=>(src||[]).map(s=>`• ${s.srcName} (${s.srcKind}): ${fmtSign(s.val)} ${s.kind==='dis'?'Nachteil(e)':'Vorteil(e)'} [${s.label}]`).join('\n');
-export function buildAttrTip(k,M=calcActiveMods()){
-  const a=S.attributes[k], meta=ATTRS.find(x=>x.k===k), vw=toInt(a.vw), pot=toInt(a.pot), tr=getTrBonus(k), mod=toInt(a.mod), tot=getAttrTot(k,M), sl=fmtSrcLines(M,k), adl=fmtAdvSrcLines(getAdvDisForContext({attrKey:k},M).src);
+export function buildAttrTip(k,M=null,sheet=S){
+  const mods=M||calcActiveMods(sheet);
+  const a=sheet.attributes[k], meta=ATTRS.find(x=>x.k===k), vw=toInt(a.vw), pot=toInt(a.pot), tr=getTrBonus(k,sheet), mod=toInt(a.mod), tot=getAttrTot(k,mods,sheet), sl=fmtSrcLines(mods,k), adl=fmtAdvSrcLines(getAdvDisForContext({attrKey:k},mods,sheet).src);
   return `${meta?meta.n:k} (${k}) Gesamt: ${tot}\n• Volkswert (Vw): ${vw}${pot?`\n• Potenzial (Pot): ${fmtSign(pot)}`:''}${tr?`\n• Training (Tr): ${fmtSign(tr)}`:''}${mod?`\n• Modifikator (Mod): ${fmtSign(mod)}`:''}${sl?`\n${sl}`:''}${adl?`\n${adl}`:''}`;
 }
-export function buildSecTip(key,M=calcActiveMods()){
+export function buildSecTip(key,M=null,sheet=S){
+  const mods=M||calcActiveMods(sheet);
   if(key==='lp'){
-    const ko=getAttrTot('KO',M),st=getAttrTot('ST',M),base=Math.floor((ko+st)/5),mod=toInt(S.secondary.lpMod),tot=getLpMax(M),sl=fmtSrcLines(M,'lpMax');
-    return `LP-Max Gesamt: ${tot}\n• Basis ⌊(KO ${ko} + ST ${st}) / 5⌋: ${base}${mod?`\n• Manuelles Mod: ${fmtSign(mod)}`:''}${sl?`\n${sl}`:''}${fmtReservedTipLine('lp',M)}`;
+    const ko=getAttrTot('KO',mods,sheet),st=getAttrTot('ST',mods,sheet),base=Math.floor((ko+st)/5),mod=toInt(sheet.secondary.lpMod),tot=getLpMax(mods,sheet),sl=fmtSrcLines(mods,'lpMax');
+    return `LP-Max Gesamt: ${tot}\n• Basis ⌊(KO ${ko} + ST ${st}) / 5⌋: ${base}${mod?`\n• Manuelles Mod: ${fmtSign(mod)}`:''}${sl?`\n${sl}`:''}${fmtReservedTipLine('lp',mods,sheet)}`;
   }
   if(key==='mlp'){
-    const au=getAttrTot('AU',M),wk=getAttrTot('WK',M),base=Math.floor((au+wk)/5),mod=toInt(S.secondary.mlpMod),tot=getMlpMax(M),sl=fmtSrcLines(M,'mlpMax');
-    return `mLP-Max Gesamt: ${tot}\n• Basis ⌊(AU ${au} + WK ${wk}) / 5⌋: ${base}${mod?`\n• Manuelles Mod: ${fmtSign(mod)}`:''}${sl?`\n${sl}`:''}${fmtReservedTipLine('mlp',M)}`;
+    const au=getAttrTot('AU',mods,sheet),wk=getAttrTot('WK',mods,sheet),base=Math.floor((au+wk)/5),mod=toInt(sheet.secondary.mlpMod),tot=getMlpMax(mods,sheet),sl=fmtSrcLines(mods,'mlpMax');
+    return `mLP-Max Gesamt: ${tot}\n• Basis ⌊(AU ${au} + WK ${wk}) / 5⌋: ${base}${mod?`\n• Manuelles Mod: ${fmtSign(mod)}`:''}${sl?`\n${sl}`:''}${fmtReservedTipLine('mlp',mods,sheet)}`;
   }
   if(key==='lpRegen'){
-    const auto=getLpRegenAuto(M),tot=getLpRegen(M),ovr=hasLpRegenOvr(),sl=fmtSrcLines(M,'lpRegen');
+    const auto=getLpRegenAuto(mods,sheet),tot=getLpRegen(mods,sheet),ovr=hasLpRegenOvr(sheet),sl=fmtSrcLines(mods,'lpRegen');
     return `LP-Regenerationsrate: ${tot} (Erholsame Rast 2×: +${tot*2} LP)\n• Basiswert: ${LP_REGEN_BASE}${sl?`\n${sl}`:''}${ovr?`\n• Manueller Overwrite aktiv (Automatisch: ${auto})`:''}`;
   }
   if(key==='mlpRegen'){
-    const auto=getMlpRegenAuto(M),tot=getMlpRegen(M),ovr=hasMlpRegenOvr(),sl=fmtSrcLines(M,'mlpRegen');
+    const auto=getMlpRegenAuto(mods,sheet),tot=getMlpRegen(mods,sheet),ovr=hasMlpRegenOvr(sheet),sl=fmtSrcLines(mods,'mlpRegen');
     return `mLP-Regenerationsrate: ${tot} (Erholsame Rast 2×: +${tot*2} mLP)\n• Basiswert: ${MLP_REGEN_BASE}${sl?`\n${sl}`:''}${ovr?`\n• Manueller Overwrite aktiv (Automatisch: ${auto})`:''}`;
   }
   if(key==='ini'){
-    const wa=getAttrTot('WA',M),inV=getAttrTot('IN',M),base=wa-inV,mod=toInt(S.secondary.iniMod),tot=getIniTot(M),sl=fmtSrcLines(M,'ini');
+    const wa=getAttrTot('WA',mods,sheet),inV=getAttrTot('IN',mods,sheet),base=wa-inV,mod=toInt(sheet.secondary.iniMod),tot=getIniTot(mods,sheet),sl=fmtSrcLines(mods,'ini');
     return `Initiative Gesamt: ${fmtSign(tot)}\n• Basis (WA ${wa} − IN ${inV}): ${fmtSign(base)}${mod?`\n• Manuelles Mod: ${fmtSign(mod)}`:''}${sl?`\n${sl}`:''}`;
   }
   if(key==='ap'){
-    const base=toInt(S.secondary.apMax,3),tot=base+M.apMax,sl=fmtSrcLines(M,'apMax');
-    return `AP-Max Gesamt: ${tot}\n• Basis-Maximum: ${base}${sl?`\n${sl}`:''}${fmtReservedTipLine('ap',M)}`;
+    const base=toInt(sheet.secondary.apMax,3),tot=base+mods.apMax,sl=fmtSrcLines(mods,'apMax');
+    return `AP-Max Gesamt: ${tot}\n• Basis-Maximum: ${base}${sl?`\n${sl}`:''}${fmtReservedTipLine('ap',mods,sheet)}`;
   }
   if(key==='map'){
-    const base=toInt(S.secondary.mapMax,3),tot=base+M.mapMax,sl=fmtSrcLines(M,'mapMax');
-    return `mAP-Max Gesamt: ${tot}\n• Basis-Maximum: ${base}${sl?`\n${sl}`:''}${fmtReservedTipLine('map',M)}`;
+    const base=toInt(sheet.secondary.mapMax,3),tot=base+mods.mapMax,sl=fmtSrcLines(mods,'mapMax');
+    return `mAP-Max Gesamt: ${tot}\n• Basis-Maximum: ${base}${sl?`\n${sl}`:''}${fmtReservedTipLine('map',mods,sheet)}`;
   }
   if(key==='cres'){
-    const cn=cresName(),base=toInt(S.customRes.max,3),tot=getCresMax(M),sl=fmtSrcLines(M,'cresMax');
-    return `${cn}-Max Gesamt: ${tot}\n• Basis-Maximum: ${base}${sl?`\n${sl}`:''}${fmtReservedTipLine('cres',M)}`;
+    const cn=cresName(sheet),base=toInt(sheet.customRes.max,3),tot=getCresMax(mods,sheet),sl=fmtSrcLines(mods,'cresMax');
+    return `${cn}-Max Gesamt: ${tot}\n• Basis-Maximum: ${base}${sl?`\n${sl}`:''}${fmtReservedTipLine('cres',mods,sheet)}`;
   }
   if(String(key||'').startsWith('ex_')){
-    const ex=(S.extraSecList||[]).find(x=>'ex_'+x.id===key);
-    if(ex){const nm=getExtraSecName(ex),base=getExtraSecBase(ex),tot=getExtraSecMax(ex,M),sl=fmtSrcLines(M,key);return `${nm}-Max Gesamt: ${tot}\n• Basis-Maximum: ${base}${sl?`\n${sl}`:''}${fmtReservedTipLine(key,M)}`;}
+    const ex=(sheet.extraSecList||[]).find(x=>'ex_'+x.id===key);
+    if(ex){const nm=getExtraSecName(ex),base=getExtraSecBase(ex),tot=getExtraSecMax(ex,mods,sheet),sl=fmtSrcLines(mods,key);return `${nm}-Max Gesamt: ${tot}\n• Basis-Maximum: ${base}${sl?`\n${sl}`:''}${fmtReservedTipLine(key,mods,sheet)}`;}
   }
   if(key==='bst'){
-    const auto=getBstAuto(),base=getBstBase(),tot=getEffBst(M),ovr=hasBstOvr(),sl=fmtSrcLines(M,'bst');
+    const auto=getBstAuto(sheet),base=getBstBase(sheet),tot=getEffBst(mods,sheet),ovr=hasBstOvr(sheet),sl=fmtSrcLines(mods,'bst');
     return `Bewegungsstufe (BSt) Gesamt: ${tot}\n• Basis-BSt: ${base} (Automatik ⌊Bew/5⌋: ${auto})${ovr?`\n• Manueller Overwrite aktiv (Automatisch: ${auto})`:''}${sl?`\n${sl}`:''}`;
   }
   const thNames={woundLight:'Verwundung (leicht)',woundMedium:'Verwundung (mittel)',woundHeavy:'Verwundung (schwer)',traumaLight:'Trauma (leicht)',traumaMedium:'Trauma (mittel)',traumaHeavy:'Trauma (schwer)'};
   if(thNames[key]){
-    const base=toInt(S.thresholds[key],0),tot=base+(M[key]||0),sl=fmtSrcLines(M,key);
+    const base=toInt(sheet.thresholds[key],0),tot=base+(mods[key]||0),sl=fmtSrcLines(mods,key);
     return `${thNames[key]} Gesamt: ${tot}\n• Basiswert: ${base}${sl?`\n${sl}`:''}`;
   }
   return '';
@@ -1839,27 +1855,27 @@ export function importPowerPackIntoSheet(rawPack,opts={}){
   return summary;
 }
 
-export const getAttrCol=k=>{const a=ATTRS.find(x=>x.k===k);return(a&&S.attrColors[a.g])||'#6aa3d8';};
-export const getSecCol=k=>{if(String(k||'').startsWith('ex_')){const ex=(S.extraSecList||[]).find(x=>'ex_'+x.id===k);return ex?.color||'#34d399';}return k==='cres'?(S.customRes.color||'#c084fc'):(S.secColors[k]||DEF_SEC_COLS[k]);};
-export const getTrBonus=k=>TR_DEFS.reduce((s,b)=>s+(S.attributes[k].tr[b.i]?b.b:0),0);
-export function getTrCost(k,i){
-  const def=TR_DEFS[i], a=S.attributes[k], ms=a.trSp?.[i], mm=a.trMsp?.[i];
+export const getAttrCol=(k,sheet=S)=>{const a=ATTRS.find(x=>x.k===k);return(a&&sheet.attrColors?.[a.g])||'#6aa3d8';};
+export const getSecCol=(k,sheet=S)=>{if(String(k||'').startsWith('ex_')){const ex=(sheet.extraSecList||[]).find(x=>'ex_'+x.id===k);return ex?.color||'#34d399';}return k==='cres'?(sheet.customRes?.color||'#c084fc'):(sheet.secColors?.[k]||DEF_SEC_COLS[k]);};
+export const getTrBonus=(k,sheet=S)=>TR_DEFS.reduce((s,b)=>s+(sheet.attributes[k].tr[b.i]?b.b:0),0);
+export function getTrCost(k,i,sheet=S){
+  const def=TR_DEFS[i], a=sheet.attributes[k], ms=a.trSp?.[i], mm=a.trMsp?.[i];
   const sp=(ms!==null&&ms!==undefined)?toInt(ms,def.sp):def.sp;
   const msp=(mm!==null&&mm!==undefined)?toInt(mm,def.msp):def.msp;
   return {sp,msp,defSp:def.sp,defMsp:def.msp,manual:(ms!==null&&ms!==undefined&&sp!==def.sp)||(mm!==null&&mm!==undefined&&msp!==def.msp)};
 }
-export const getAttrBase=k=>{const a=S.attributes[k];return toInt(a.vw)+toInt(a.pot)+getTrBonus(k)+toInt(a.mod);};
-export const getAttrTot=(k,M=calcActiveMods())=>getAttrBase(k)+(M[k]||0);
-export const getLpBase=()=>Math.floor((getAttrBase('KO')+getAttrBase('ST'))/5)+toInt(S.secondary.lpMod);
-export const getLpMax=(M=calcActiveMods())=>Math.floor((getAttrTot('KO',M)+getAttrTot('ST',M))/5)+toInt(S.secondary.lpMod)+M.lpMax;
-export const getMlpBase=()=>Math.floor((getAttrBase('AU')+getAttrBase('WK'))/5)+toInt(S.secondary.mlpMod);
-export const getMlpMax=(M=calcActiveMods())=>Math.floor((getAttrTot('AU',M)+getAttrTot('WK',M))/5)+toInt(S.secondary.mlpMod)+M.mlpMax;
-export const getLpRegenAuto=(M=calcActiveMods())=>Math.max(0,LP_REGEN_BASE+(M.lpRegen||0));
-export const getMlpRegenAuto=(M=calcActiveMods())=>Math.max(0,MLP_REGEN_BASE+(M.mlpRegen||0));
-export const hasLpRegenOvr=()=>S.secondary.lpRegenOvr!==undefined&&S.secondary.lpRegenOvr!==null&&String(S.secondary.lpRegenOvr).trim()!=='';
-export const hasMlpRegenOvr=()=>S.secondary.mlpRegenOvr!==undefined&&S.secondary.mlpRegenOvr!==null&&String(S.secondary.mlpRegenOvr).trim()!=='';
-export const getLpRegen=(M=calcActiveMods())=>hasLpRegenOvr()?Math.max(0,toInt(S.secondary.lpRegenOvr,getLpRegenAuto(M))):getLpRegenAuto(M);
-export const getMlpRegen=(M=calcActiveMods())=>hasMlpRegenOvr()?Math.max(0,toInt(S.secondary.mlpRegenOvr,getMlpRegenAuto(M))):getMlpRegenAuto(M);
+export const getAttrBase=(k,sheet=S)=>{const a=sheet.attributes[k];return toInt(a.vw)+toInt(a.pot)+getTrBonus(k,sheet)+toInt(a.mod);};
+export const getAttrTot=(k,M=null,sheet=S)=>{const mods=M||calcActiveMods(sheet);return getAttrBase(k,sheet)+(mods[k]||0);};
+export const getLpBase=(sheet=S)=>Math.floor((getAttrBase('KO',sheet)+getAttrBase('ST',sheet))/5)+toInt(sheet.secondary.lpMod);
+export const getLpMax=(M=null,sheet=S)=>{const mods=M||calcActiveMods(sheet);return Math.floor((getAttrTot('KO',mods,sheet)+getAttrTot('ST',mods,sheet))/5)+toInt(sheet.secondary.lpMod)+mods.lpMax;};
+export const getMlpBase=(sheet=S)=>Math.floor((getAttrBase('AU',sheet)+getAttrBase('WK',sheet))/5)+toInt(sheet.secondary.mlpMod);
+export const getMlpMax=(M=null,sheet=S)=>{const mods=M||calcActiveMods(sheet);return Math.floor((getAttrTot('AU',mods,sheet)+getAttrTot('WK',mods,sheet))/5)+toInt(sheet.secondary.mlpMod)+mods.mlpMax;};
+export const getLpRegenAuto=(M=null,sheet=S)=>{const mods=M||calcActiveMods(sheet);return Math.max(0,LP_REGEN_BASE+(mods.lpRegen||0));};
+export const getMlpRegenAuto=(M=null,sheet=S)=>{const mods=M||calcActiveMods(sheet);return Math.max(0,MLP_REGEN_BASE+(mods.mlpRegen||0));};
+export const hasLpRegenOvr=(sheet=S)=>sheet.secondary.lpRegenOvr!==undefined&&sheet.secondary.lpRegenOvr!==null&&String(sheet.secondary.lpRegenOvr).trim()!=='';
+export const hasMlpRegenOvr=(sheet=S)=>sheet.secondary.mlpRegenOvr!==undefined&&sheet.secondary.mlpRegenOvr!==null&&String(sheet.secondary.mlpRegenOvr).trim()!=='';
+export const getLpRegen=(M=null,sheet=S)=>{const mods=M||calcActiveMods(sheet);return hasLpRegenOvr(sheet)?Math.max(0,toInt(sheet.secondary.lpRegenOvr,getLpRegenAuto(mods,sheet))):getLpRegenAuto(mods,sheet);};
+export const getMlpRegen=(M=null,sheet=S)=>{const mods=M||calcActiveMods(sheet);return hasMlpRegenOvr(sheet)?Math.max(0,toInt(sheet.secondary.mlpRegenOvr,getMlpRegenAuto(mods,sheet))):getMlpRegenAuto(mods,sheet);};
 export function performSimpleRest(){
   const M=calcActiveMods(), apInfo=getEffectivePoolCap('ap',M), mapInfo=getEffectivePoolCap('map',M);
   const apCap=apInfo.effMax, mapCap=mapInfo.effMax;
@@ -1893,27 +1909,27 @@ export function performFullRest(){
   save(); hooks.renderHeader?.(); hooks.renderMain?.();
   toast(`🌙 Erholsame Rast: LP (${S.secondary.lpCurrent}/${lpCap}), mLP (${S.secondary.mlpCurrent}/${mlpCap}) & AP/mAP wiederhergestellt${resTxt}!`);
 }
-export const getIniBase=()=>getAttrBase('WA')-getAttrBase('IN')+toInt(S.secondary.iniMod);
-export const getIniTot=(M=calcActiveMods())=>getAttrTot('WA',M)-getAttrTot('IN',M)+toInt(S.secondary.iniMod)+M.ini;
-export const getApBase=()=>toInt(S.secondary.apMax,3);
-export const getApMax=(M=calcActiveMods())=>getApBase()+M.apMax;
-export const getMapBase=()=>toInt(S.secondary.mapMax,3);
-export const getMapMax=(M=calcActiveMods())=>getMapBase()+M.mapMax;
-export const getCresBase=()=>toInt(S.customRes.max,3);
-export const getCresMax=(M=calcActiveMods())=>getCresBase()+M.cresMax;
+export const getIniBase=(sheet=S)=>getAttrBase('WA',sheet)-getAttrBase('IN',sheet)+toInt(sheet.secondary.iniMod);
+export const getIniTot=(M=null,sheet=S)=>{const mods=M||calcActiveMods(sheet);return getAttrTot('WA',mods,sheet)-getAttrTot('IN',mods,sheet)+toInt(sheet.secondary.iniMod)+mods.ini;};
+export const getApBase=(sheet=S)=>toInt(sheet.secondary.apMax,3);
+export const getApMax=(M=null,sheet=S)=>{const mods=M||calcActiveMods(sheet);return getApBase(sheet)+mods.apMax;};
+export const getMapBase=(sheet=S)=>toInt(sheet.secondary.mapMax,3);
+export const getMapMax=(M=null,sheet=S)=>{const mods=M||calcActiveMods(sheet);return getMapBase(sheet)+mods.mapMax;};
+export const getCresBase=(sheet=S)=>toInt(sheet.customRes.max,3);
+export const getCresMax=(M=null,sheet=S)=>{const mods=M||calcActiveMods(sheet);return getCresBase(sheet)+mods.cresMax;};
 export const getExtraSecBase=ex=>toInt(ex?.max,3);
-export const getExtraSecMax=(ex,M=calcActiveMods())=>getExtraSecBase(ex)+(M.extraSec?.[ex?.id]||0);
-export const getBstAuto=()=>Math.max(0,Math.floor(toFlt(S.movements?.[0]?.base,5)/5));
-export const hasBstOvr=()=>S.bstOvr!==undefined&&S.bstOvr!==null&&String(S.bstOvr).trim()!=='';
-export const getBstBase=()=>hasBstOvr()?toInt(S.bstOvr,getBstAuto()):getBstAuto();
-export const getEffBst=(M=calcActiveMods())=>getBstBase()+(M.bst||0);
+export const getExtraSecMax=(ex,M=null,sheet=S)=>{const mods=M||calcActiveMods(sheet);return getExtraSecBase(ex)+(mods.extraSec?.[ex?.id]||0);};
+export const getBstAuto=(sheet=S)=>Math.max(0,Math.floor(toFlt(sheet.movements?.[0]?.base,5)/5));
+export const hasBstOvr=(sheet=S)=>sheet.bstOvr!==undefined&&sheet.bstOvr!==null&&String(sheet.bstOvr).trim()!=='';
+export const getBstBase=(sheet=S)=>hasBstOvr(sheet)?toInt(sheet.bstOvr,getBstAuto(sheet)):getBstAuto(sheet);
+export const getEffBst=(M=null,sheet=S)=>{const mods=M||calcActiveMods(sheet);return getBstBase(sheet)+(mods.bst||0);};
 export function withPoolSync(fn){
   const M1=calcActiveMods(),oL=getLpMax(M1),oM=getMlpMax(M1),oA=getApMax(M1),oMA=getMapMax(M1),oC=getCresMax(M1);
   const oLc=getEffectivePoolCap('lp',M1).effMax,oMc=getEffectivePoolCap('mlp',M1).effMax,oAc=getEffectivePoolCap('ap',M1).effMax,oMAc=getEffectivePoolCap('map',M1).effMax,oCc=getEffectivePoolCap('cres',M1).effMax;
   const oStLp=M1.statusLp||0,oStMlp=M1.statusMlp||0;
   const oEx={}, oExc={}; (S.extraSecList||[]).forEach(x=>{oEx[x.id]=getExtraSecMax(x,M1);oExc[x.id]=getEffectivePoolCap('ex_'+x.id,M1).effMax;});
   fn();
-  invalidateModsCache();
+  invalidateModsCache(S);
   const M2=calcActiveMods();
   const capLp=getEffectivePoolCap('lp',M2), capMlp=getEffectivePoolCap('mlp',M2), capAp=getEffectivePoolCap('ap',M2), capMap=getEffectivePoolCap('map',M2), capCres=getEffectivePoolCap('cres',M2);
   const dStLp=(M2.statusLp||0)-oStLp, dStMlp=(M2.statusMlp||0)-oStMlp;
@@ -1946,30 +1962,30 @@ export const getSkBonus=skOrRank=>{
   }
   return getSkAutoBonus(skOrRank);
 };
-export const findPwItem=(kind,id)=>(kind==='augment'?S.augments:S.powers).find(x=>x.id===id);
-export const findEqItem=(kind,id)=>{const m={weapon:S.weapons,ammo:S.ammos,armor:S.armors,inv:S.inventory}[kind];return (m||[]).find(x=>x.id===id);};
-export const getLinkedAugs=pid=>S.augments.filter(a=>a.parentPowerId===pid);
-export const getUnlinkedAugs=()=>S.augments.filter(a=>!a.parentPowerId||!S.powers.some(p=>p.id===a.parentPowerId));
-export const getValidPwSecId=secId=>(secId&&S.powerSections.some(s=>s.id===secId))?String(secId):'';
-export const getUnlinkedAugsInSec=secId=>getUnlinkedAugs().filter(a=>getValidPwSecId(a.sectionId)===secId);
-export const getRootUnlinkedAugs=()=>getUnlinkedAugs().filter(a=>!getValidPwSecId(a.sectionId));
+export const findPwItem=(kind,id,sheet=S)=>(kind==='augment'?(sheet.augments||[]):(sheet.powers||[])).find(x=>x.id===id);
+export const findEqItem=(kind,id,sheet=S)=>{const m={weapon:sheet.weapons,ammo:sheet.ammos,armor:sheet.armors,inv:sheet.inventory}[kind];return (m||[]).find(x=>x.id===id);};
+export const getLinkedAugs=(pid,sheet=S)=>(sheet.augments||[]).filter(a=>a.parentPowerId===pid);
+export const getUnlinkedAugs=(sheet=S)=>(sheet.augments||[]).filter(a=>!a.parentPowerId||!(sheet.powers||[]).some(p=>p.id===a.parentPowerId));
+export const getValidPwSecId=(secId,sheet=S)=>(secId&&(sheet.powerSections||[]).some(s=>s.id===secId))?String(secId):'';
+export const getUnlinkedAugsInSec=(secId,sheet=S)=>getUnlinkedAugs(sheet).filter(a=>getValidPwSecId(a.sectionId,sheet)===secId);
+export const getRootUnlinkedAugs=(sheet=S)=>getUnlinkedAugs(sheet).filter(a=>!getValidPwSecId(a.sectionId,sheet));
 export function linkAugToPower(ag,powerId){
   if(!ag) return;
   ag.parentPowerId=String(powerId||'');
   ag.sectionId='';
 }
-export function unlinkAugFromPower(ag){
+export function unlinkAugFromPower(ag,sheet=S){
   if(!ag) return;
   if(ag.parentPowerId){
-    const prevPar=S.powers.find(p=>p.id===ag.parentPowerId);
-    ag.sectionId=getValidPwSecId(prevPar?.sectionId);
+    const prevPar=(sheet.powers||[]).find(p=>p.id===ag.parentPowerId);
+    ag.sectionId=getValidPwSecId(prevPar?.sectionId,sheet);
     ag.parentPowerId='';
   }
 }
 
 export function calcPwCost(it){const t=PW_TIERS[it.tier]||PW_TIERS.marginal;if(it.tier==='basisaktion'&&!it.manualCost)return {sp:0,msp:0};return it.manualCost?{sp:toInt(it.sp,t.sp),msp:toInt(it.msp,t.msp)}:{sp:t.sp,msp:t.msp};}
-export function getGroupMspInfo(kind,it){
-  const grp=kind==='power'?[it,...getLinkedAugs(it.id)]:(it.parentPowerId&&S.powers.find(p=>p.id===it.parentPowerId)?[S.powers.find(p=>p.id===it.parentPowerId),...getLinkedAugs(it.parentPowerId)]:[it]);
+export function getGroupMspInfo(kind,it,sheet=S){
+  const grp=kind==='power'?[it,...getLinkedAugs(it.id,sheet)]:(it.parentPowerId&&(sheet.powers||[]).find(p=>p.id===it.parentPowerId)?[(sheet.powers||[]).find(p=>p.id===it.parentPowerId),...getLinkedAugs(it.parentPowerId,sheet)]:[it]);
   const otherHasMsp=grp.some(m=>m.id!==it.id&&(m.tier==='grandios'||calcPwCost(m).msp>=1));
   const totalMsp=grp.reduce((s,m)=>s+calcPwCost(m).msp,0);
   return {otherHasMsp,totalMsp,overLimit:totalMsp>1};
@@ -1979,32 +1995,34 @@ export function calcSkCost(sk){
   if(sk.manualCost) return {sp:toInt(sk.customSp,0),msp:toInt(sk.customMsp,0),autoSp:auto.sp,autoMsp:auto.msp,manual:true};
   return {sp:auto.sp,msp:auto.msp,autoSp:auto.sp,autoMsp:auto.msp,manual:false};
 }
-export function calcProg(M=calcActiveMods()){
-  const spMod=M.spMod||0,spModSrc=fmtSrcLines(M,'spMod');
-  const lvl=Math.max(1,toInt(S.progression.level,1)),baseSp=lvl*5,baseMsp=Math.floor(lvl/10),bonusSp=toInt(S.progression.bonusSp),totSp=baseSp+bonusSp+spMod,totMsp=baseMsp+toInt(S.progression.bonusMsp);
+export function calcProg(M=null,sheet=S){
+  const mods=M||calcActiveMods(sheet);
+  const spMod=mods.spMod||0,spModSrc=fmtSrcLines(mods,'spMod');
+  const lvl=Math.max(1,toInt(sheet.progression.level,1)),baseSp=lvl*5,baseMsp=Math.floor(lvl/10),bonusSp=toInt(sheet.progression.bonusSp),totSp=baseSp+bonusSp+spMod,totMsp=baseMsp+toInt(sheet.progression.bonusMsp);
   let trSp=0,trMsp=0,skSp=0,skMsp=0,pwSp=0,pwMsp=0;
-  ATTRS.forEach(a=>TR_DEFS.forEach(b=>{if(S.attributes[a.k].tr[b.i]){const tc=getTrCost(a.k,b.i);trSp+=tc.sp;trMsp+=tc.msp;}}));
-  S.skills.forEach(sk=>{const c=calcSkCost(sk);skSp+=c.sp;skMsp+=c.msp;});
-  [...S.powers,...S.augments].forEach(it=>{const c=calcPwCost(it);pwSp+=c.sp;pwMsp+=c.msp;});
+  ATTRS.forEach(a=>TR_DEFS.forEach(b=>{if(sheet.attributes[a.k].tr[b.i]){const tc=getTrCost(a.k,b.i,sheet);trSp+=tc.sp;trMsp+=tc.msp;}}));
+  (sheet.skills||[]).forEach(sk=>{const c=calcSkCost(sk);skSp+=c.sp;skMsp+=c.msp;});
+  [...(sheet.powers||[]),...(sheet.augments||[])].forEach(it=>{const c=calcPwCost(it);pwSp+=c.sp;pwMsp+=c.msp;});
   const spSpent=trSp+skSp+pwSp,mspSpent=trMsp+skMsp+pwMsp;
   return {lvl,baseSp,baseMsp,bonusSp,spMod,spModSrc,totSp,totMsp,trSp,trMsp,skSp,skMsp,pwSp,pwMsp,spSpent,mspSpent,spRem:totSp-spSpent,mspRem:totMsp-mspSpent};
 }
 
-export function getWeaponRollMeta(w,M=calcActiveMods()){
+export function getWeaponRollMeta(w,M=null,sheet=S){
+  const mods=M||calcActiveMods(sheet);
   const hasMassiv=isWeaponMassiv(w);
   const attrKey=hasMassiv?'ST':(ATTRS.some(a=>a.k===w?.wAttr)?w.wAttr:'PR');
-  const attrVal=getAttrTot(attrKey,M);
-  const sk=w?.skillId?S.skills.find(s=>s.id===w.skillId):null;
+  const attrVal=getAttrTot(attrKey,mods,sheet);
+  const sk=w?.skillId?(sheet.skills||[]).find(s=>s.id===w.skillId):null;
   const skBonus=sk?getSkBonus(sk):0;
   const pool=attrVal+skBonus;
   const hasBlock=Array.isArray(w?.tags)&&w.tags.some(t=>/^blockf[äa]hig\b/i.test(String(t?.name||'').trim()));
   return {attrKey,attrVal,sk,skBonus,pool,hasMassiv,hasBlock};
 }
 
-export function getPwSecOptionsFlat(){
+export function getPwSecOptionsFlat(sheet=S){
   const out=[], visited=new Set();
   const walk=(parentId,depth)=>{
-    (S.powerSections||[]).filter(s=>s&&(s.parentSectionId||'')===parentId).forEach(s=>{
+    (sheet.powerSections||[]).filter(s=>s&&(s.parentSectionId||'')===parentId).forEach(s=>{
       if(visited.has(s.id)) return;
       visited.add(s.id);
       out.push({id:s.id,name:String(s.name||'Sektion'),depth});
@@ -2012,6 +2030,6 @@ export function getPwSecOptionsFlat(){
     });
   };
   walk('',0);
-  (S.powerSections||[]).forEach(s=>{if(s&&!visited.has(s.id))out.push({id:s.id,name:String(s.name||'Sektion'),depth:0});});
+  (sheet.powerSections||[]).forEach(s=>{if(s&&!visited.has(s.id))out.push({id:s.id,name:String(s.name||'Sektion'),depth:0});});
   return out;
 }
