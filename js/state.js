@@ -1234,26 +1234,29 @@ export function normPwEntry(raw,isAug){
   return {...base,...(raw||{}),id:raw?.id||uid(),templateId:String(raw?.templateId||''),color:col,bgColor:bgCol,sectionId:normSecId,...(isAug?{parentPowerId:normParentId}:{}),collapsed:Boolean(raw?.collapsed),tier,manualCost:manual,sp:manual?toInt(raw.sp,def.sp):def.sp,msp:manual?toInt(raw.msp,def.msp):def.msp,showManual:Boolean(raw?.showManual),art,artManual:Boolean(raw?.artManual),actionSubs,tags,useCosts,useAmt,useRes,reserved,reservedCosts,desc:String(raw?.desc||''),effects:String(raw?.effects??raw?.extraEffects??''),rules:String(raw?.rules||''),applyMods,bldAmt:String(raw?.bldAmt||'+1'),bldStat:String(raw?.bldStat||'LP-Max'),bldMode,bldSkCnt,bldSkKind,bldSkId,bldDynVar,bldDynFactor,bldDynRound,bldDynTarget,boxH:bh};
 }
 
-export function mergeLoaded(raw){
-  if(!raw||typeof raw!=='object') return;
-  const def=defaultState(), cid=String(raw.charId||def.charId), restoredTab=getSavedTabForChar(cid,raw.activeTab);
-  const rawCampId=String(raw.campaignId||raw._summary?.campaignId||CLOUD.registry?.charCampaigns?.[cid]||'default').trim()||'default'; S={...def,...raw,version:11,charId:cid,activeTab:restoredTab,phase:raw.phase==='flut'?'flut':'ebbe',owner:String(raw.owner||''),campaignId:rawCampId,cloudAutoSync:Boolean(raw.cloudAutoSync),profile:{...def.profile,...(raw.profile||{})},secondary:{...def.secondary,...(raw.secondary||{})},customRes:{...def.customRes,...(raw.customRes||{})},statusCollapsed:Boolean(raw.statusCollapsed),statusEffects:normStatusEffects(raw.statusEffects),inspiration:Math.max(0,toInt(raw.inspiration,0)),inspirationActive:Boolean(raw.inspirationActive),thresholds:{...def.thresholds,...(raw.thresholds||{})},combatNotes:{...def.combatNotes,...(raw.combatNotes||{})},progression:{...def.progression,...(raw.progression||{})},bio:{...def.bio,...(raw.bio||{})},equipNotes:raw.equipNotes??raw.equipFreeNotes??''};
-  if(!isHex(S.customRes.color)) S.customRes.color='#c084fc';
-  S.secondary.lpRegenOvr=S.secondary.lpRegenOvr!==undefined&&S.secondary.lpRegenOvr!==null&&String(S.secondary.lpRegenOvr).trim()!==''?String(Math.max(0,toInt(S.secondary.lpRegenOvr,5))):'';
-  S.secondary.mlpRegenOvr=S.secondary.mlpRegenOvr!==undefined&&S.secondary.mlpRegenOvr!==null&&String(S.secondary.mlpRegenOvr).trim()!==''?String(Math.max(0,toInt(S.secondary.mlpRegenOvr,5))):'';
-  S.extraSecList=Array.isArray(raw.extraSecList)?raw.extraSecList.filter(x=>x&&typeof x==='object').map((x,i)=>({id:x.id||uid(),name:String(x.name||`Ressource ${i+1}`),current:toInt(x.current,3),max:toInt(x.max,3),color:isHex(x.color)?x.color:(COL_PRESETS[(i+6)%COL_PRESETS.length]||'#34d399')})):[];
-  S.attrColors={...DEF_ATTR_COLS}; if(raw.attrColors) Object.keys(DEF_ATTR_COLS).forEach(k=>{if(isHex(raw.attrColors[k]))S.attrColors[k]=raw.attrColors[k];});
-  S.secColors={...DEF_SEC_COLS}; if(raw.secColors) Object.keys(DEF_SEC_COLS).forEach(k=>{if(isHex(raw.secColors[k]))S.secColors[k]=raw.secColors[k];});
-  S.artList=[...DEF_MAIN_ARTS];
-  S.actionSubList=[...DEF_ACTION_SUBS];
+function normalizeSheetObject(raw, { isForeign = false } = {}){
+  const def=defaultState();
+  if(!raw||typeof raw!=='object') return { sheet: def, sheetFallbackAppearance: def.appearance, sheetFallbackPalettes: [] };
+  const cid=String(raw.charId||def.charId);
+  const restoredTab=isForeign?(isValidTab(raw.activeTab)?raw.activeTab:def.activeTab):getSavedTabForChar(cid,raw.activeTab);
+  const rawCampId=String(raw.campaignId||raw._summary?.campaignId||CLOUD.registry?.charCampaigns?.[cid]||'default').trim()||'default';
+  const sheet={...def,...raw,version:11,charId:cid,activeTab:restoredTab,phase:raw.phase==='flut'?'flut':'ebbe',owner:String(raw.owner||''),campaignId:rawCampId,cloudAutoSync:Boolean(raw.cloudAutoSync),profile:{...def.profile,...(raw.profile||{})},secondary:{...def.secondary,...(raw.secondary||{})},customRes:{...def.customRes,...(raw.customRes||{})},statusCollapsed:Boolean(raw.statusCollapsed),statusEffects:normStatusEffects(raw.statusEffects),inspiration:Math.max(0,toInt(raw.inspiration,0)),inspirationActive:Boolean(raw.inspirationActive),thresholds:{...def.thresholds,...(raw.thresholds||{})},combatNotes:{...def.combatNotes,...(raw.combatNotes||{})},progression:{...def.progression,...(raw.progression||{})},bio:{...def.bio,...(raw.bio||{})},equipNotes:raw.equipNotes??raw.equipFreeNotes??''};
+  if(!isHex(sheet.customRes.color)) sheet.customRes.color='#c084fc';
+  sheet.secondary.lpRegenOvr=sheet.secondary.lpRegenOvr!==undefined&&sheet.secondary.lpRegenOvr!==null&&String(sheet.secondary.lpRegenOvr).trim()!==''?String(Math.max(0,toInt(sheet.secondary.lpRegenOvr,5))):'';
+  sheet.secondary.mlpRegenOvr=sheet.secondary.mlpRegenOvr!==undefined&&sheet.secondary.mlpRegenOvr!==null&&String(sheet.secondary.mlpRegenOvr).trim()!==''?String(Math.max(0,toInt(sheet.secondary.mlpRegenOvr,5))):'';
+  sheet.extraSecList=Array.isArray(raw.extraSecList)?raw.extraSecList.filter(x=>x&&typeof x==='object').map((x,i)=>({id:x.id||uid(),name:String(x.name||`Ressource ${i+1}`),current:toInt(x.current,3),max:toInt(x.max,3),color:isHex(x.color)?x.color:(COL_PRESETS[(i+6)%COL_PRESETS.length]||'#34d399')})):[];
+  sheet.attrColors={...DEF_ATTR_COLS}; if(raw.attrColors) Object.keys(DEF_ATTR_COLS).forEach(k=>{if(isHex(raw.attrColors[k]))sheet.attrColors[k]=raw.attrColors[k];});
+  sheet.secColors={...DEF_SEC_COLS}; if(raw.secColors) Object.keys(DEF_SEC_COLS).forEach(k=>{if(isHex(raw.secColors[k]))sheet.secColors[k]=raw.secColors[k];});
+  sheet.artList=[...DEF_MAIN_ARTS];
+  sheet.actionSubList=[...DEF_ACTION_SUBS];
   const rawTagSrc=Array.isArray(raw.pwTagList)?raw.pwTagList:(Array.isArray(raw.subcatList)?raw.subcatList:[]);
-  S.pwTagList=sortAlpha([...DEF_PW_TAGS,...rawTagSrc].filter(t=>!isReservedPwTerm(t)));
-  S.useResList=Array.isArray(raw.useResList)&&raw.useResList.length?[...new Set(raw.useResList.map(x=>String(x).trim()).filter(Boolean))]:[...DEF_USERES];
-  S.customStats=Array.isArray(raw.customStats)?sortAlpha(raw.customStats):[];
+  sheet.pwTagList=sortAlpha([...DEF_PW_TAGS,...rawTagSrc].filter(t=>!isReservedPwTerm(t)));
+  sheet.useResList=Array.isArray(raw.useResList)&&raw.useResList.length?[...new Set(raw.useResList.map(x=>String(x).trim()).filter(Boolean))]:[...DEF_USERES];
+  sheet.customStats=Array.isArray(raw.customStats)?sortAlpha(raw.customStats):[];
   const mergeDefTags=(rawArr,defArr)=>{const b=Array.isArray(rawArr)?rawArr.filter(t=>t&&String(t.name||'').trim()):[];(defArr||[]).forEach(d=>{if(!b.some(t=>String(t.name).trim().toLowerCase()===d.name.toLowerCase()))b.push({...d});});return sortTagDefs(b);};
-  S.weaponTagList=mergeDefTags(raw.weaponTagList,DEF_WEAPON_TAGS);
-  S.armorTagList=mergeDefTags(raw.armorTagList,DEF_ARMOR_TAGS);
-  S.ammoTagList=Array.isArray(raw.ammoTagList)?sortTagDefs(raw.ammoTagList):[];
+  sheet.weaponTagList=mergeDefTags(raw.weaponTagList,DEF_WEAPON_TAGS);
+  sheet.armorTagList=mergeDefTags(raw.armorTagList,DEF_ARMOR_TAGS);
+  sheet.ammoTagList=Array.isArray(raw.ammoTagList)?sortTagDefs(raw.ammoTagList):[];
   const sheetFallbackPalettes=normalizeCustomPalettesList(Array.isArray(raw.customPalettes)?raw.customPalettes:[]);
   const ap=(raw.appearance&&typeof raw.appearance==='object')?raw.appearance:{};
   const sheetFallbackAppearance={
@@ -1265,73 +1268,85 @@ export function mergeLoaded(raw){
     tabs:{}
   };
   TABS.forEach(t=>{sheetFallbackAppearance.tabs[t.id]=normalizeThemeSlot(ap.tabs?.[t.id],sheetFallbackPalettes);});
-  applySessionTheme({allowSheetFallback:true,sheetFallbackAppearance,sheetFallbackPalettes,forSheet:true});
+  if(isForeign){
+    sheet.appearance=sheetFallbackAppearance;
+    sheet.customPalettes=sheetFallbackPalettes;
+  }
+  sheet.attributes={};
   ATTRS.forEach(a=>{
     const inc=raw.attributes?.[a.k]||{}, hi=Array.isArray(inc.tr)?inc.tr.lastIndexOf(true):-1;
     const trSp=Array.isArray(inc.trSp)&&inc.trSp.length===5?inc.trSp.map(x=>x===null||x===undefined||x===''?null:toInt(x,0)):[null,null,null,null,null];
     const trMsp=Array.isArray(inc.trMsp)&&inc.trMsp.length===5?inc.trMsp.map(x=>x===null||x===undefined||x===''?null:toInt(x,0)):[null,null,null,null,null];
-    S.attributes[a.k]={vw:toInt(inc.vw,20),pot:toInt(inc.pot,0),mod:toInt(inc.mod,0),tr:[0,1,2,3,4].map(i=>i<=hi),trNotes:Array.isArray(inc.trNotes)&&inc.trNotes.length===5?inc.trNotes.map(x=>String(x??'')):['','','','',''],trSp,trMsp};
+    sheet.attributes[a.k]={vw:toInt(inc.vw,20),pot:toInt(inc.pot,0),mod:toInt(inc.mod,0),tr:[0,1,2,3,4].map(i=>i<=hi),trNotes:Array.isArray(inc.trNotes)&&inc.trNotes.length===5?inc.trNotes.map(x=>String(x??'')):['','','','',''],trSp,trMsp};
   });
-  S.skillSections=Array.isArray(raw.skillSections)?raw.skillSections.map(sec=>({id:sec?.id||uid(),name:String(sec?.name||'Sektion'),color:isHex(sec?.color)?sec.color:'',bgColor:isHex(sec?.bgColor)?sec.bgColor:'',collapsed:Boolean(sec?.collapsed),filterAttr:String(sec?.filterAttr||''),parentSectionId:String(sec?.parentSectionId||'')})):[];
-  sanitizeSecHierarchy(S.skillSections);
-  S.skills=Array.isArray(raw.skills)?raw.skills.map(sk=>{
-    const category=SK_CATS[sk.category]?sk.category:'fundamental', rank=Math.max(0,Math.min(4,toInt(sk.rank,1))), auto=hooks.calcAutoSkCost(category,rank);
+  sheet.skillSections=Array.isArray(raw.skillSections)?raw.skillSections.map(sec=>({id:sec?.id||uid(),name:String(sec?.name||'Sektion'),color:isHex(sec?.color)?sec.color:'',bgColor:isHex(sec?.bgColor)?sec.bgColor:'',collapsed:Boolean(sec?.collapsed),filterAttr:String(sec?.filterAttr||''),parentSectionId:String(sec?.parentSectionId||'')})):[];
+  sanitizeSecHierarchy(sheet.skillSections);
+  const calcAutoSk=(cat,r)=>{
+    if(typeof hooks.calcAutoSkCost==='function') return hooks.calcAutoSkCost(cat,r);
+    const c=SK_CATS[cat]||SK_CATS.fundamental;
+    let sp=0;
+    for(let i=1;i<=r;i++) sp+=(c.s[i]||0);
+    return {sp,msp:(cat==='grandios'&&r>=4)?1:0};
+  };
+  sheet.skills=Array.isArray(raw.skills)?raw.skills.map(sk=>{
+    const category=SK_CATS[sk.category]?sk.category:'fundamental', rank=Math.max(0,Math.min(4,toInt(sk.rank,1))), auto=calcAutoSk(category,rank);
     let manualCost=Boolean(sk.manualCost), customSp=sk.customSp!==undefined&&sk.customSp!==null?toInt(sk.customSp,auto.sp):auto.sp, customMsp=sk.customMsp!==undefined&&sk.customMsp!==null?toInt(sk.customMsp,auto.msp):auto.msp;
     if(sk.manualCost===undefined&&toInt(sk.spAdjust,0)!==0){manualCost=true;customSp=Math.max(0,auto.sp+toInt(sk.spAdjust,0));}
     const hasBonOvr=sk.bonusOvr!==undefined&&sk.bonusOvr!==null&&String(sk.bonusOvr).trim()!=='';
     const bonusOvr=hasBonOvr?String(toInt(sk.bonusOvr,0)):'';
-    const sectionId=sk.sectionId&&S.skillSections.some(s=>s.id===sk.sectionId)?String(sk.sectionId):'';
+    const sectionId=sk.sectionId&&sheet.skillSections.some(s=>s.id===sk.sectionId)?String(sk.sectionId):'';
     return {id:sk.id||uid(),name:String(sk.name||'Fertigkeit'),color:isHex(sk.color)?sk.color:'',bgColor:isHex(sk.bgColor)?sk.bgColor:'',linkedAttr:ATTRS.some(a=>a.k===sk.linkedAttr)?sk.linkedAttr:'PR',category,rank,bonusOvr,sectionId,manualCost,customSp,customMsp,notes:String(sk.notes||'')};
   }):[];
-  S.powerSections=Array.isArray(raw.powerSections)?raw.powerSections.map(sec=>({id:sec?.id||uid(),name:String(sec?.name||'Sektion'),color:isHex(sec?.color)?sec.color:'',bgColor:isHex(sec?.bgColor)?sec.bgColor:'',collapsed:Boolean(sec?.collapsed),filterArt:findMainArt(sec?.filterArt),parentSectionId:String(sec?.parentSectionId||'')})):[];
-  sanitizeSecHierarchy(S.powerSections);
-  S.powers=Array.isArray(raw.powers)?raw.powers.map(p=>normPwEntry(p,false)):[];
-  S.powers.forEach(p=>{if(p.sectionId&&!S.powerSections.some(s=>s.id===p.sectionId))p.sectionId='';if(hooks.getAllParsedEffectChips(p.effects).length&&raw.version<11)p.applyMods=true;});
-  S.augments=Array.isArray(raw.augments)?raw.augments.map(a=>normPwEntry(a,true)):[];
-  S.augments.forEach(a=>{if(hooks.getAllParsedEffectChips(a.effects).length&&raw.version<11)a.applyMods=true;});
-  const usedPwTags=[...S.powers,...S.augments].flatMap(it=>Array.isArray(it.tags)?it.tags:[]).filter(t=>!isReservedPwTerm(t));
-  if(usedPwTags.length){S.pwTagList=sortAlpha([...S.pwTagList,...usedPwTags]);}
-  if(Array.isArray(UI.pwFilterArts))UI.pwFilterArts=UI.pwFilterArts.map(a=>findMainArt(a)).filter(Boolean);
+  sheet.powerSections=Array.isArray(raw.powerSections)?raw.powerSections.map(sec=>({id:sec?.id||uid(),name:String(sec?.name||'Sektion'),color:isHex(sec?.color)?sec.color:'',bgColor:isHex(sec?.bgColor)?sec.bgColor:'',collapsed:Boolean(sec?.collapsed),filterArt:findMainArt(sec?.filterArt),parentSectionId:String(sec?.parentSectionId||'')})):[];
+  sanitizeSecHierarchy(sheet.powerSections);
+  const parseChips=(txt)=>typeof hooks.getAllParsedEffectChips==='function'?hooks.getAllParsedEffectChips(txt,sheet):[];
+  sheet.powers=Array.isArray(raw.powers)?raw.powers.map(p=>normPwEntry(p,false)):[];
+  sheet.powers.forEach(p=>{if(p.sectionId&&!sheet.powerSections.some(s=>s.id===p.sectionId))p.sectionId='';if(raw.version<11&&parseChips(p.effects).length)p.applyMods=true;});
+  sheet.augments=Array.isArray(raw.augments)?raw.augments.map(a=>normPwEntry(a,true)):[];
+  sheet.augments.forEach(a=>{if(raw.version<11&&parseChips(a.effects).length)a.applyMods=true;});
+  const usedPwTags=[...sheet.powers,...sheet.augments].flatMap(it=>Array.isArray(it.tags)?it.tags:[]).filter(t=>!isReservedPwTerm(t));
+  if(usedPwTags.length){sheet.pwTagList=sortAlpha([...sheet.pwTagList,...usedPwTags]);}
   const slotCnt={};
-  S.augments.forEach(ag=>{
-    if(!ag.parentPowerId&&ag.parentPower){const m=S.powers.find(p=>p.name&&p.name.toLowerCase()===String(ag.parentPower).toLowerCase());if(m)ag.parentPowerId=m.id;}
-    if(ag.parentPowerId&&!S.powers.some(p=>p.id===ag.parentPowerId)) ag.parentPowerId='';
+  sheet.augments.forEach(ag=>{
+    if(!ag.parentPowerId&&ag.parentPower){const m=sheet.powers.find(p=>p.name&&p.name.toLowerCase()===String(ag.parentPower).toLowerCase());if(m)ag.parentPowerId=m.id;}
+    if(ag.parentPowerId&&!sheet.powers.some(p=>p.id===ag.parentPowerId)) ag.parentPowerId='';
     if(ag.parentPowerId){slotCnt[ag.parentPowerId]=(slotCnt[ag.parentPowerId]||0)+1;if(slotCnt[ag.parentPowerId]>3)ag.parentPowerId='';}
     if(ag.parentPowerId){ag.sectionId='';}
-    else{ag.sectionId=(ag.sectionId&&S.powerSections.some(s=>s.id===ag.sectionId))?String(ag.sectionId):'';}
+    else{ag.sectionId=(ag.sectionId&&sheet.powerSections.some(s=>s.id===ag.sectionId))?String(ag.sectionId):'';}
   });
-  if(!Array.isArray(S.movements)||!S.movements.length) S.movements=def.movements;
-  S.movements=S.movements.map(mv=>({id:mv?.id||uid(),type:String(mv?.type||'Bewegung'),base:mv?.base??5,ovr:mv?.ovr!==undefined&&mv?.ovr!==null?String(mv.ovr):''}));
-  S.bst=raw.bst!==undefined?toInt(raw.bst,1):1;
+  if(!Array.isArray(sheet.movements)||!sheet.movements.length) sheet.movements=def.movements;
+  sheet.movements=sheet.movements.map(mv=>({id:mv?.id||uid(),type:String(mv?.type||'Bewegung'),base:mv?.base??5,ovr:mv?.ovr!==undefined&&mv?.ovr!==null?String(mv.ovr):''}));
+  sheet.bst=raw.bst!==undefined?toInt(raw.bst,1):1;
+  const autoBst=typeof hooks.getBstAuto==='function'?hooks.getBstAuto(sheet):Math.max(0,Math.floor(toFlt(sheet.movements?.[0]?.base,5)/5));
   if(raw.bstOvr===undefined){
     const oldBst=toInt(raw.bst,0);
-    S.bstOvr=(oldBst!==0&&oldBst!==1)?String(toInt(raw.bst,1)):'';
+    sheet.bstOvr=(oldBst!==0&&oldBst!==1)?String(toInt(raw.bst,1)):'';
   }else{
-    S.bstOvr=raw.bstOvr!==null&&String(raw.bstOvr).trim()!==''?String(toInt(raw.bstOvr,hooks.getBstAuto())):'';
+    sheet.bstOvr=raw.bstOvr!==null&&String(raw.bstOvr).trim()!==''?String(toInt(raw.bstOvr,autoBst)):'';
   }
-  if(!Array.isArray(S.hitZones)||!S.hitZones.length) S.hitZones=def.hitZones;
-  if(!Array.isArray(S.chronicleLog)) S.chronicleLog=def.chronicleLog;
+  if(!Array.isArray(sheet.hitZones)||!sheet.hitZones.length) sheet.hitZones=def.hitZones;
+  if(!Array.isArray(sheet.chronicleLog)) sheet.chronicleLog=def.chronicleLog;
   const rawChrOrd=Array.isArray(raw.chrSecOrder)?raw.chrSecOrder.filter(k=>DEF_CHR_SEC_ORDER.includes(k)):[];
-  S.chrSecOrder=[...new Set([...rawChrOrd,...DEF_CHR_SEC_ORDER])];
-  S.chrSecMeta={};
-  DEF_CHR_SEC_ORDER.forEach(k=>{const cm=raw.chrSecMeta?.[k]||{};S.chrSecMeta[k]={collapsed:Boolean(cm.collapsed),color:isHex(cm.color)?cm.color:'',bgColor:isHex(cm.bgColor)?cm.bgColor:''};});
-  S.chrTrExpanded=raw.chrTrExpanded&&typeof raw.chrTrExpanded==='object'?{...raw.chrTrExpanded}:{};
+  sheet.chrSecOrder=[...new Set([...rawChrOrd,...DEF_CHR_SEC_ORDER])];
+  sheet.chrSecMeta={};
+  DEF_CHR_SEC_ORDER.forEach(k=>{const cm=raw.chrSecMeta?.[k]||{};sheet.chrSecMeta[k]={collapsed:Boolean(cm.collapsed),color:isHex(cm.color)?cm.color:'',bgColor:isHex(cm.bgColor)?cm.bgColor:''};});
+  sheet.chrTrExpanded=raw.chrTrExpanded&&typeof raw.chrTrExpanded==='object'?{...raw.chrTrExpanded}:{};
   const rawOrd=Array.isArray(raw.equipSecOrder)?raw.equipSecOrder.filter(k=>DEF_EQ_SEC_ORDER.includes(k)):[];
-  S.equipSecOrder=[...new Set([...rawOrd,...DEF_EQ_SEC_ORDER])];
-  S.equipSecMeta={};
-  DEF_EQ_SEC_ORDER.forEach(k=>{const im=raw.equipSecMeta?.[k]||{};S.equipSecMeta[k]={collapsed:Boolean(im.collapsed),color:isHex(im.color)?im.color:'',bgColor:isHex(im.bgColor)?im.bgColor:''};});
+  sheet.equipSecOrder=[...new Set([...rawOrd,...DEF_EQ_SEC_ORDER])];
+  sheet.equipSecMeta={};
+  DEF_EQ_SEC_ORDER.forEach(k=>{const im=raw.equipSecMeta?.[k]||{};sheet.equipSecMeta[k]={collapsed:Boolean(im.collapsed),color:isHex(im.color)?im.color:'',bgColor:isHex(im.bgColor)?im.bgColor:''};});
   const normTags=arr=>Array.isArray(arr)?arr.filter(t=>t&&(t.name||typeof t==='string')).map(t=>typeof t==='string'?{name:t,x:'1'}:{name:String(t.name),x:String(t.x??'1')}):[];
-  S.weapons=Array.isArray(raw.weapons)?raw.weapons.map(w=>{const wTags=normTags(w?.tags),hasMas=isWeaponMassiv({tags:wTags}),wType=normWeaponType(w?.wType),wAttr=hasMas?'ST':(ATTRS.some(a=>a.k===w?.wAttr)?w.wAttr:'PR'),skillId=(w?.skillId&&S.skills.some(s=>s.id===w.skillId))?String(w.skillId):'';return {...makeWeapon(wType),...(w||{}),id:w?.id||uid(),color:isHex(w?.color)?w.color:'',bgColor:isHex(w?.bgColor)?w.bgColor:'',collapsed:Boolean(w?.collapsed),img:String(w?.img||''),wType,wAttr,skillId,grip:w?.grip==='1h'||w?.grip==='2h'?w.grip:'',ammoId:String(w?.ammoId||''),dmgCut:String(w?.dmgCut??'0'),dmgPierce:String(w?.dmgPierce??'0'),dmgImpact:String(w?.dmgImpact??'0'),customDmg:normEqCustomVals(w?.customDmg),tags:wTags,notes:String(w?.notes||'')};}):def.weapons;
-  const hzCanon=S.hitZones.map(z=>String(z?.zone||'').trim()).filter(Boolean);
+  sheet.weapons=Array.isArray(raw.weapons)?raw.weapons.map(w=>{const wTags=normTags(w?.tags),hasMas=isWeaponMassiv({tags:wTags}),wType=normWeaponType(w?.wType),wAttr=hasMas?'ST':(ATTRS.some(a=>a.k===w?.wAttr)?w.wAttr:'PR'),skillId=(w?.skillId&&sheet.skills.some(s=>s.id===w.skillId))?String(w.skillId):'';return {...makeWeapon(wType),...(w||{}),id:w?.id||uid(),color:isHex(w?.color)?w.color:'',bgColor:isHex(w?.bgColor)?w.bgColor:'',collapsed:Boolean(w?.collapsed),img:String(w?.img||''),wType,wAttr,skillId,grip:w?.grip==='1h'||w?.grip==='2h'?w.grip:'',ammoId:String(w?.ammoId||''),dmgCut:String(w?.dmgCut??'0'),dmgPierce:String(w?.dmgPierce??'0'),dmgImpact:String(w?.dmgImpact??'0'),customDmg:normEqCustomVals(w?.customDmg),tags:wTags,notes:String(w?.notes||'')};}):def.weapons;
+  const hzCanon=sheet.hitZones.map(z=>String(z?.zone||'').trim()).filter(Boolean);
   const canonZone=z=>{const cl=String(z||'').trim();if(!cl)return '';const hit=hzCanon.find(h=>h.toLowerCase()===cl.toLowerCase());return hit||cl;};
-  S.armors=Array.isArray(raw.armors)?raw.armors.map(ar=>{const {customZones:_legacyCz,...arRest}=(ar&&typeof ar==='object'?ar:{});const zns=[],exZ=[];const addU=(arr,val)=>{const c=canonZone(val);if(c&&!arr.some(x=>x.toLowerCase()===c.toLowerCase()))arr.push(c);return c;};(Array.isArray(ar?.zones)?ar.zones:[]).forEach(z=>addU(zns,z));(Array.isArray(ar?.extraZones)?ar.extraZones:[]).forEach(z=>{const c=canonZone(z);if(c&&!hzCanon.some(h=>h.toLowerCase()===c.toLowerCase()))addU(exZ,c);});String(_legacyCz||'').split(/[,;]+/).map(s=>s.trim()).filter(Boolean).forEach(cz=>{const c=addU(zns,cz);if(c&&!hzCanon.some(h=>h.toLowerCase()===c.toLowerCase()))addU(exZ,c);});return {...makeArmor(),...arRest,id:ar?.id||uid(),color:isHex(ar?.color)?ar.color:'',bgColor:isHex(ar?.bgColor)?ar.bgColor:'',collapsed:Boolean(ar?.collapsed),equipped:ar?.equipped!==undefined?Boolean(ar.equipped):true,img:String(ar?.img||''),grp:String(ar?.grp??'0'),protCut:String(ar?.protCut??'0'),protPierce:String(ar?.protPierce??'0'),protImpact:String(ar?.protImpact??'0'),customProt:normEqCustomVals(ar?.customProt),zones:zns,extraZones:exZ,tags:normTags(ar?.tags),notes:String(ar?.notes||'')};}):def.armors;
-  S.ammos=Array.isArray(raw.ammos)?raw.ammos.map(am=>({...makeAmmo(),...(am||{}),id:am?.id||uid(),color:isHex(am?.color)?am.color:'',bgColor:isHex(am?.bgColor)?am.bgColor:'',collapsed:Boolean(am?.collapsed),img:String(am?.img||''),qty:Math.max(0,toInt(am?.qty,20)),dmgCut:String(am?.dmgCut??'0'),dmgPierce:String(am?.dmgPierce??'0'),dmgImpact:String(am?.dmgImpact??'0'),customDmg:normEqCustomVals(am?.customDmg),tags:normTags(am?.tags),notes:String(am?.notes||'')})):[];
-  S.weapons.forEach(w=>{if(w.ammoId&&!S.ammos.some(a=>a.id===w.ammoId))w.ammoId='';});
-  S.invSections=Array.isArray(raw.invSections)?raw.invSections.map(sec=>({id:sec?.id||uid(),name:String(sec?.name||'Neuer Beutel'),color:isHex(sec?.color)?sec.color:'',bgColor:isHex(sec?.bgColor)?sec.bgColor:'',collapsed:Boolean(sec?.collapsed),parentSectionId:String(sec?.parentSectionId||'')})):[];
-  sanitizeSecHierarchy(S.invSections);
-  S.inventory=Array.isArray(raw.inventory)?raw.inventory.map(it=>{const sid=(it?.sectionId&&S.invSections.some(s=>s.id===it.sectionId))?String(it.sectionId):'';return {...makeInvItem(sid),...(it||{}),id:it?.id||uid(),color:isHex(it?.color)?it.color:'',bgColor:isHex(it?.bgColor)?it.bgColor:'',collapsed:Boolean(it?.collapsed),img:String(it?.img||''),name:String(it?.name||''),category:String(it?.category||'Inventar'),qty:String(it?.qty??'1'),notes:String(it?.notes||''),sectionId:sid};}):def.inventory;
-  S.bioImages=Array.isArray(raw.bioImages)?raw.bioImages.filter(im=>im&&im.url).map(im=>({id:im.id||uid(),url:String(im.url),caption:String(im.caption||'')})):[];
-  S.bioBoxH={...def.bioBoxH,...(raw.bioBoxH&&typeof raw.bioBoxH==='object'?raw.bioBoxH:{})};
+  sheet.armors=Array.isArray(raw.armors)?raw.armors.map(ar=>{const {customZones:_legacyCz,...arRest}=(ar&&typeof ar==='object'?ar:{});const zns=[],exZ=[];const addU=(arr,val)=>{const c=canonZone(val);if(c&&!arr.some(x=>x.toLowerCase()===c.toLowerCase()))arr.push(c);return c;};(Array.isArray(ar?.zones)?ar.zones:[]).forEach(z=>addU(zns,z));(Array.isArray(ar?.extraZones)?ar.extraZones:[]).forEach(z=>{const c=canonZone(z);if(c&&!hzCanon.some(h=>h.toLowerCase()===c.toLowerCase()))addU(exZ,c);});String(_legacyCz||'').split(/[,;]+/).map(s=>s.trim()).filter(Boolean).forEach(cz=>{const c=addU(zns,cz);if(c&&!hzCanon.some(h=>h.toLowerCase()===c.toLowerCase()))addU(exZ,c);});return {...makeArmor(),...arRest,id:ar?.id||uid(),color:isHex(ar?.color)?ar.color:'',bgColor:isHex(ar?.bgColor)?ar.bgColor:'',collapsed:Boolean(ar?.collapsed),equipped:ar?.equipped!==undefined?Boolean(ar.equipped):true,img:String(ar?.img||''),grp:String(ar?.grp??'0'),protCut:String(ar?.protCut??'0'),protPierce:String(ar?.protPierce??'0'),protImpact:String(ar?.protImpact??'0'),customProt:normEqCustomVals(ar?.customProt),zones:zns,extraZones:exZ,tags:normTags(ar?.tags),notes:String(ar?.notes||'')};}):def.armors;
+  sheet.ammos=Array.isArray(raw.ammos)?raw.ammos.map(am=>({...makeAmmo(),...(am||{}),id:am?.id||uid(),color:isHex(am?.color)?am.color:'',bgColor:isHex(am?.bgColor)?am.bgColor:'',collapsed:Boolean(am?.collapsed),img:String(am?.img||''),qty:Math.max(0,toInt(am?.qty,20)),dmgCut:String(am?.dmgCut??'0'),dmgPierce:String(am?.dmgPierce??'0'),dmgImpact:String(am?.dmgImpact??'0'),customDmg:normEqCustomVals(am?.customDmg),tags:normTags(am?.tags),notes:String(am?.notes||'')})):[];
+  sheet.weapons.forEach(w=>{if(w.ammoId&&!sheet.ammos.some(a=>a.id===w.ammoId))w.ammoId='';});
+  sheet.invSections=Array.isArray(raw.invSections)?raw.invSections.map(sec=>({id:sec?.id||uid(),name:String(sec?.name||'Neuer Beutel'),color:isHex(sec?.color)?sec.color:'',bgColor:isHex(sec?.bgColor)?sec.bgColor:'',collapsed:Boolean(sec?.collapsed),parentSectionId:String(sec?.parentSectionId||'')})):[];
+  sanitizeSecHierarchy(sheet.invSections);
+  sheet.inventory=Array.isArray(raw.inventory)?raw.inventory.map(it=>{const sid=(it?.sectionId&&sheet.invSections.some(s=>s.id===it.sectionId))?String(it.sectionId):'';return {...makeInvItem(sid),...(it||{}),id:it?.id||uid(),color:isHex(it?.color)?it.color:'',bgColor:isHex(it?.bgColor)?it.bgColor:'',collapsed:Boolean(it?.collapsed),img:String(it?.img||''),name:String(it?.name||''),category:String(it?.category||'Inventar'),qty:String(it?.qty??'1'),notes:String(it?.notes||''),sectionId:sid};}):def.inventory;
+  sheet.bioImages=Array.isArray(raw.bioImages)?raw.bioImages.filter(im=>im&&im.url).map(im=>({id:im.id||uid(),url:String(im.url),caption:String(im.caption||'')})):[];
+  sheet.bioBoxH={...def.bioBoxH,...(raw.bioBoxH&&typeof raw.bioBoxH==='object'?raw.bioBoxH:{})};
   const rawFolders=Array.isArray(raw.campNoteFolders)?raw.campNoteFolders:[];
   const sysPriv=rawFolders.find(f=>f&&f.id==='cf_private');
   const sysPub=rawFolders.find(f=>f&&f.id==='cf_public');
@@ -1342,20 +1357,20 @@ export function mergeLoaded(raw){
     collapsed:Boolean(f.collapsed),
     isSystem:false
   }));
-  S.campNoteFolders=[
+  sheet.campNoteFolders=[
     {id:'cf_private',name:String(sysPriv?.name||'🔒 Private Notizen'),isPublic:false,collapsed:Boolean(sysPriv?.collapsed),isSystem:true},
     {id:'cf_public',name:String(sysPub?.name||'🌐 Öffentliche Notizen'),isPublic:true,collapsed:Boolean(sysPub?.collapsed),isSystem:true},
     ...customFolders
   ];
-  const validFolderIds=new Set(S.campNoteFolders.map(f=>f.id));
+  const validFolderIds=new Set(sheet.campNoteFolders.map(f=>f.id));
   if(Array.isArray(raw.campaignNotes)&&raw.campaignNotes.length){
-    S.campaignNotes=raw.campaignNotes.map(n=>{
+    sheet.campaignNotes=raw.campaignNotes.map(n=>{
       const isPub=Boolean(n?.isPublic||n?.id==='cn_public');
       let fid=String(n?.folderId||'').trim();
       if(!validFolderIds.has(fid)){
         fid=isPub?'cf_public':'cf_private';
       }else{
-        const fObj=S.campNoteFolders.find(f=>f.id===fid);
+        const fObj=sheet.campNoteFolders.find(f=>f.id===fid);
         if(fObj&&fObj.isSystem) fid=isPub?'cf_public':'cf_private';
       }
       return {
@@ -1368,14 +1383,27 @@ export function mergeLoaded(raw){
       };
     });
   }else if(typeof raw.campaignNotes==='string'&&raw.campaignNotes.trim()){
-    S.campaignNotes=[{id:'cn_main',title:'Allgemein',content:raw.campaignNotes,isPublic:false,folderId:'cf_private',updatedAt:''}];
+    sheet.campaignNotes=[{id:'cn_main',title:'Allgemein',content:raw.campaignNotes,isPublic:false,folderId:'cf_private',updatedAt:''}];
   }else{
-    S.campaignNotes=[
+    sheet.campaignNotes=[
       {id:'cn_main',title:'Allgemein',content:'',isPublic:false,folderId:'cf_private',updatedAt:''},
       {id:'cn_public',title:'Öffentliche Notiz',content:'',isPublic:true,folderId:'cf_public',updatedAt:''}
     ];
   }
-  if(!S.campaignNotes.some(n=>n.id===S.activeCampNoteId)) S.activeCampNoteId=S.campaignNotes[0].id;
+  if(!sheet.campaignNotes.some(n=>n.id===sheet.activeCampNoteId)) sheet.activeCampNoteId=sheet.campaignNotes[0].id;
+  return { sheet, sheetFallbackAppearance, sheetFallbackPalettes };
+}
+
+export function normalizeForeignSheet(raw){
+  return normalizeSheetObject(raw, { isForeign: true }).sheet;
+}
+
+export function mergeLoaded(raw){
+  if(!raw||typeof raw!=='object') return;
+  const { sheet, sheetFallbackAppearance, sheetFallbackPalettes } = normalizeSheetObject(raw, { isForeign: false });
+  S = sheet;
+  applySessionTheme({allowSheetFallback:true,sheetFallbackAppearance,sheetFallbackPalettes,forSheet:true});
+  if(Array.isArray(UI.pwFilterArts))UI.pwFilterArts=UI.pwFilterArts.map(a=>findMainArt(a)).filter(Boolean);
 }
 
 export const getCharOwner=id=>{const ch=CLOUD.list.find(x=>x.id===id);const cl=CLOUD.registry.claims?.[id];return String(cl!==undefined?cl:(ch?.owner||'')).trim();};
