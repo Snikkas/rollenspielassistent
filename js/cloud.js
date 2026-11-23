@@ -329,6 +329,10 @@ export function handleIncomingDicePayload(rawObj,isRealtimePush=false){
     }
     return;
   }
+  if(rawObj.type==='duel_challenge'||rawObj.type==='duel_response'||rawObj.type==='duel_cancel'){
+    hooks.handleLiveDuelEvent?.(rawObj,isRealtimePush);
+    return;
+  }
   if(rawObj.type==='clear_dice'){
     const clr=toInt(rawObj.clearedAt,Date.now());
     if(rawObj.campaignId){
@@ -384,7 +388,7 @@ export function initLiveDiceChannel(){
           const outer=JSON.parse(ev.data);
           if(outer&&outer.event==='message'&&typeof outer.message==='string'){
             handleIncomingDicePayload(JSON.parse(outer.message),true);
-          }else if(outer&&((outer.id&&Array.isArray(outer.res))||outer.type==='campnote_live'||outer.type==='clear_dice')){
+          }else if(outer&&((outer.id&&Array.isArray(outer.res))||outer.type==='campnote_live'||outer.type==='clear_dice'||outer.type==='duel_challenge'||outer.type==='duel_response'||outer.type==='duel_cancel')){
             handleIncomingDicePayload(outer,true);
           }
         }catch(err){}
@@ -1626,6 +1630,7 @@ export async function fetchForeignCharacterSheet(charId,{force=false,silent=true
     }finally{
       foreignSheetInflight.delete(id);
       if(D.open) hooks.renderDice?.();
+      hooks.renderDuelReplyModal?.();
     }
   })();
   foreignSheetInflight.set(id,req);

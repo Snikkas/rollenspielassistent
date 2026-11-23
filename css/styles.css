@@ -184,3 +184,18 @@ body{max-width:100%;overflow-x:hidden;overflow-x:clip}
 .dark .dyn-val-pill.dyn-val-err,.dark .rtf-box .dyn-val-pill.dyn-val-err{color:#fda4af}
 .dyn-prev-bar{display:flex;flex-wrap:wrap;align-items:center;gap:.35rem;padding:.35rem .55rem;border-radius:.6rem;border:1px solid var(--accB);background:color-mix(in srgb,var(--accS) 55%,var(--surf2));font-size:.7rem;line-height:1.3}
 .dyn-prev-chip{font-size:.7rem;padding:.08rem .4rem}
+.duel-banner-stack{position:fixed;top:max(4.25rem,calc(3.6rem + env(safe-area-inset-top,0px)));right:max(.75rem,env(safe-area-inset-right,0px));left:auto;z-index:65;display:flex;flex-direction:column;gap:.5rem;width:min(24rem,calc(100vw - 1.5rem));max-width:calc(100vw - 1.5rem);pointer-events:none}
+.duel-banner-card{pointer-events:auto;background:color-mix(in srgb,var(--surf) 96%,transparent);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1.5px solid rgba(129,140,248,.65);box-shadow:0 14px 36px rgba(0,0,0,.45)}
+@media (max-width:639px){
+  .duel-banner-stack{left:max(.5rem,env(safe-area-inset-left,0px));right:max(.5rem,env(safe-area-inset-right,0px));width:auto;max-width:none;top:max(3.85rem,calc(3.35rem + env(safe-area-inset-top,0px)))}
+}
+.duel-sheet-backdrop{position:fixed;inset:0;z-index:75;display:flex;align-items:center;justify-content:center;padding:max(.75rem,env(safe-area-inset-top,0px)) max(.75rem,env(safe-area-inset-right,0px)) max(.75rem,env(safe-area-inset-bottom,0px)) max(.75rem,env(safe-area-inset-left,0px));background:rgba(0,0,0,.72);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);height:100vh;height:100dvh;max-height:100vh;max-height:100dvh;overflow:hidden}
+.duel-sheet-panel{width:100%;max-width:32rem;max-height:min(90vh,calc(100dvh - 1.5rem));display:flex;flex-direction:column;overflow:hidden;min-height:0;will-change:transform}
+.duel-sheet-swipe{touch-action:none;user-select:none}
+.duel-sheet-swipe button,.duel-sheet-swipe input,.duel-sheet-swipe select{touch-action:manipulation}
+@media (max-width:767px), ((max-height:540px) and (pointer:coarse)){
+  .duel-sheet-backdrop{padding:0;align-items:flex-end}
+  .duel-sheet-panel{max-width:100%!important;max-height:92dvh;border-radius:1.25rem 1.25rem 0 0!important;border-bottom:none!important;border-left:none!important;border-right:none!important}
+  .duel-sheet-panel .inp,.duel-sheet-panel select{font-size:16px!important;min-width:0!important;max-width:100%!important}
+}
+
