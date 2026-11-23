@@ -2,7 +2,7 @@ import {
   WIN_DEFAULTS
 } from './constants.js';
 import {
-  stamp, esc, toInt, toRtfHtml
+  $, stamp, esc, toInt, toRtfHtml
 } from './utils.js';
 import {
   hooks

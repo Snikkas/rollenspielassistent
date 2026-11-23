@@ -1,8 +1,8 @@
 import {
-  ATTRS, STATUS_DEFS, DEF_SEC_COLS, DEF_PW_TAGS, TR_DEFS, SK_CATS, SK_RANKS, PW_TIERS, COL_PRESETS, DYN_FACTOR_PRESETS, DYN_FUNCS, DYN_FUNC_NAMES, POWER_PACK_SCHEMA, LP_REGEN_BASE, MLP_REGEN_BASE
+  ATTRS, STATUS_DEFS, DEF_SEC_COLS, DEF_MAIN_ARTS, DEF_ACTION_SUBS, DEF_PW_TAGS, TR_DEFS, SK_CATS, SK_RANKS, PW_TIERS, COL_PRESETS, DYN_FACTOR_PRESETS, DYN_FUNCS, DYN_FUNC_NAMES, POWER_PACK_SCHEMA, LP_REGEN_BASE, MLP_REGEN_BASE
 } from './constants.js';
 import {
-  uid, stamp, esc, clone, toInt, toFlt, fmtN, fmtSign, isHex, sortAlpha, stripHtml, toRtfHtml, hasTagX, fmtTagLabel, sanitizeSecHierarchy, isDynWordChar
+  $, uid, stamp, esc, clone, toInt, toFlt, fmtN, fmtSign, isHex, sortAlpha, stripHtml, toRtfHtml, hasTagX, fmtTagLabel, sanitizeSecHierarchy, isDynWordChar
 } from './utils.js';
 import {
   hooks

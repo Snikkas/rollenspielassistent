@@ -1,8 +1,8 @@
 import {
-  DEF_WEAPON_TAGS, DEF_ARMOR_TAGS, ATTRS, DEF_ATTR_COLS, ATTR_GROUPS, STATUS_DEFS, DEF_SEC_COLS, DEF_ACTION_SUBS, DEF_PW_TAGS, TR_DEFS, SK_CATS, SK_RANKS, PW_TIERS, DEF_HZ, TABS, BIO_FIELDS, CRIT_SEQ, WEAPON_SUBTYPES, DEF_EQ_SEC_ORDER, DEF_CHR_SEC_ORDER, WIN_DEFAULTS, DEF_FB_FOLDERS, POWER_PACK_SCHEMA, DUAL_COL_TARGETS
+  DEF_WEAPON_TAGS, DEF_ARMOR_TAGS, ATTRS, DEF_ATTR_COLS, ATTR_GROUPS, STATUS_DEFS, DEF_SEC_COLS, DEF_ACTION_SUBS, DEF_PW_TAGS, DEF_USERES, TR_DEFS, SK_CATS, SK_RANKS, PW_TIERS, DEF_HZ, TABS, BIO_FIELDS, CRIT_SEQ, WEAPON_SUBTYPES, DEF_EQ_SEC_ORDER, DEF_CHR_SEC_ORDER, DICE_DEF, WIN_DEFAULTS, DEF_FB_FOLDERS, POWER_PACK_SCHEMA, DUAL_COL_TARGETS
 } from './constants.js';
 import {
-  uid, stamp, esc, clone, toInt, toFlt, fmtN, fmtSign, isHex, sortAlpha, stripHtml, cleanInlineStyles, simpleHash, sortTagDefs, canSetSecParent, sanitizeSecHierarchy
+  $, uid, stamp, esc, clone, toInt, toFlt, fmtN, fmtSign, isHex, sortAlpha, stripHtml, cleanInlineStyles, simpleHash, sortTagDefs, canSetSecParent, sanitizeSecHierarchy
 } from './utils.js';
 import {
   registerHooks

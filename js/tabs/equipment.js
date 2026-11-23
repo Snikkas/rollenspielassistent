@@ -2,7 +2,7 @@ import {
   ATTRS, SK_RANKS, BIO_FIELDS, WEAPON_SUBTYPES, DEF_EQ_SEC_ORDER
 } from '../constants.js';
 import {
-  uid, esc, clone, fmtSign, stripHtml, toRtfHtml, cardColorStyle, hasTagX, fmtTagLabel, canSetSecParent
+  $, uid, esc, clone, fmtSign, stripHtml, toRtfHtml, cardColorStyle, hasTagX, fmtTagLabel, canSetSecParent
 } from '../utils.js';
 import {
   hooks

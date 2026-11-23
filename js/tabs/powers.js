@@ -2,7 +2,7 @@ import {
   STATUS_DEFS, DEF_MAIN_ARTS, DEF_ACTION_SUBS, DEF_PW_TAGS, PW_TIERS, PW_TIER_BADGE_CLS, DYN_FACTOR_PRESETS, DYN_ROUND_OPTS, DYN_TARGET_OPTS
 } from '../constants.js';
 import {
-  findVisibleBtn, esc, toInt, fmtSign, sortAlpha, stripHtml, toRtfHtml, cardColorStyle, canSetSecParent, sanitizeSecHierarchy
+  findVisibleBtn, $, esc, toInt, fmtSign, sortAlpha, stripHtml, toRtfHtml, cardColorStyle, canSetSecParent, sanitizeSecHierarchy
 } from '../utils.js';
 import {
   hooks
@@ -11,7 +11,7 @@ import {
   openCtxMenu, toast, logChron, save, getPwTermTip, isReservedPwTerm, getPwTierKey, S, isMobileLayout, pwQuickKey, UI
 } from '../state.js';
 import {
-  getStatusEffValues, getAvailableUseResources, getActivePwUseCosts, formatPwUseCosts, getReservablePwCosts, getStatGroups, getDynVarGroups, buildDynFormulaSpec, getDynPresetSelectVal, getPwBuilderToken, evalDynamicFormula, renderDynamicRtfHtml, parseStatusTokens, getAllParsedEffectChips, calcActiveMods, withPoolSync, linkAugToPower, unlinkAugFromPower, calcPwCost, getGroupMspInfo, calcProg, getPwSecOptionsFlat, getResLabel, getSecCol, getBstBase, getEffBst, findPwItem, getLinkedAugs, getUnlinkedAugs, getValidPwSecId, getUnlinkedAugsInSec, getRootUnlinkedAugs
+  getStatusEffValues, getAvailableUseResources, getActivePwUseCosts, formatPwUseCosts, getReservablePwCosts, getStatGroups, getDynVarGroups, buildDynFormulaSpec, getDynPresetSelectVal, getPwBuilderToken, evalDynamicFormula, extractDynamicFormulas, renderDynamicRtfHtml, parseStatusTokens, getAllParsedEffectChips, calcActiveMods, withPoolSync, linkAugToPower, unlinkAugFromPower, calcPwCost, getGroupMspInfo, calcProg, getPwSecOptionsFlat, getResLabel, getSecCol, getBstBase, getEffBst, findPwItem, getLinkedAugs, getUnlinkedAugs, getValidPwSecId, getUnlinkedAugsInSec, getRootUnlinkedAugs
 } from '../calc.js';
 import {
   syncDiceFromSheet, renderDice

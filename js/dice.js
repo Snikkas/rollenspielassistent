@@ -2,7 +2,7 @@ import {
   ATTRS, CRIT_SEQ, WIN_DEFAULTS
 } from './constants.js';
 import {
-  uid, esc, toInt, fmtSign
+  $, uid, esc, toInt, fmtSign
 } from './utils.js';
 import {
   hooks

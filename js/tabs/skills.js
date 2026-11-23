@@ -2,7 +2,7 @@ import {
   ATTRS, SK_CATS, SK_RANKS, SK_CAT_SHORT
 } from '../constants.js';
 import {
-  findVisibleBtn, uid, esc, toInt, fmtSign, isHex, cardColorStyle, canSetSecParent, sanitizeSecHierarchy
+  findVisibleBtn, $, uid, esc, toInt, fmtSign, isHex, cardColorStyle, canSetSecParent, sanitizeSecHierarchy
 } from '../utils.js';
 import {
   hooks

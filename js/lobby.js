@@ -1,5 +1,5 @@
 import {
-  esc, isHex, sortAlpha, stripHtml, toRtfHtml
+  $, esc, isHex, sortAlpha, stripHtml, toRtfHtml
 } from './utils.js';
 import {
   openCtxMenu, getCampaigns, setActiveCampaign, isUserInCampaign, isGlobalGM, isCampaignMainGM, canManageCampaign, getAccessibleCampaigns, getCreatableCampaigns, getUserAvatar, renderUserNamePill, getActiveLiveCampaignId, save, load, S, UI, CLOUD, getCharOwner, getCharCampaignId, canManageChar

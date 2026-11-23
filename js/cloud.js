@@ -2,7 +2,7 @@ import {
   SYSTEM_ICON_DEFS, REGISTRY_ID, LIBRARY_ID, REPO_LIBRARY_URL, PWLIB_CACHE_KEY, PATCHNOTES_ID, PATCHNOTES_CACHE_KEY, FEEDBACK_ID, FEEDBACK_CACHE_KEY, DEF_FB_FOLDERS, ICON_STORE_ID, CUSTOM_ICONS_CACHE_KEY, CLOUD_SYNC_DEBOUNCE_MS, CLOUD_SYNC_RETRY_DELAYS, CLOUD_SYNC_KEEPALIVE_LIMIT, POWER_PACK_SCHEMA
 } from './constants.js';
 import {
-  uid, stamp, esc, clone, toInt, fmtSign, sortAlpha, stripHtml, toRtfHtml, simpleHash, fastHash2
+  $, uid, stamp, esc, clone, toInt, fmtSign, sortAlpha, stripHtml, toRtfHtml, simpleHash, fastHash2
 } from './utils.js';
 import {
   hooks

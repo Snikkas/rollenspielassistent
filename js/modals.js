@@ -2,7 +2,7 @@ import {
   DEF_WEAPON_TAGS, DEF_ARMOR_TAGS, ATTR_GROUPS, STATUS_DEFS, SYSTEM_ICON_DEFS, SEC_META, DEF_PW_TAGS, PW_TIERS, PW_TIER_BADGE_CLS, TABS, COL_PRESETS, PALETTES, GLOSSARY_CATS, GLOSSARY, WIN_DEFAULTS, DEF_FB_FOLDERS, THEME_BG_SYNC_LIMIT, DUAL_COL_TARGETS
 } from './constants.js';
 import {
-  uid, stamp, esc, clone, toInt, fmtSign, isHex, sortAlpha, stripHtml, toRtfHtml, simpleHash
+  $, uid, stamp, esc, clone, toInt, fmtSign, isHex, sortAlpha, stripHtml, toRtfHtml, simpleHash
 } from './utils.js';
 import {
   hooks

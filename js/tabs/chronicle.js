@@ -2,7 +2,7 @@ import {
   ATTRS, TR_DEFS, SK_RANKS, PW_TIERS, PW_TIER_BADGE_CLS, DEF_CHR_SEC_ORDER
 } from '../constants.js';
 import {
-  findVisibleBtn, esc, toInt, fmtSign, cardColorStyle
+  findVisibleBtn, $, esc, toInt, fmtSign, cardColorStyle
 } from '../utils.js';
 import {
   hooks
@@ -16,6 +16,9 @@ import {
 import {
   renderTrPairs
 } from './attributes.js';
+import {
+  renderSkillRows, skAttrOpts, skCatOpts, skSortBtn, skMobileSortBar
+} from './skills.js';
 import {
   renderPwCostSelect
 } from './powers.js';

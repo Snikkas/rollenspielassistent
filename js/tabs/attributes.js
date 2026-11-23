@@ -2,7 +2,7 @@ import {
   ATTRS, DEF_ATTR_COLS, ATTR_GROUPS, STATUS_DEFS, SEC_META, TR_DEFS, QTABS
 } from '../constants.js';
 import {
-  esc, toInt, toFlt, fmtN, fmtSign, toRtfHtml
+  $, esc, toInt, toFlt, fmtN, fmtSign, toRtfHtml
 } from '../utils.js';
 import {
   renderSystemIconHtml, S, isMobileLayout, UI
