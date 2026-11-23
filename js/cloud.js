@@ -124,10 +124,11 @@ export function renderLobbyLiveDiceHtml(inFloatingWin=false){
           <div class="min-w-0 flex-1">
             <div class="flex flex-wrap items-center gap-1.5 min-w-0">
               <span class="font-black text-xs sm:text-sm truncate max-w-full">${esc(entry.charName||'Unbenannter Held')}</span>
+              ${entry.vsCharName?`<span class="px-1.5 py-0.2 rounded text-[10px] font-black bg-indigo-500/20 text-indigo-200 border border-indigo-400/45 max-w-full truncate">⚔️ vs. ${esc(entry.vsCharName)}</span>`:''}
               ${entry.playerName?renderUserNamePill(entry.playerName,{cls:'px-1.5 py-0.2 rounded text-[10px] font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-400/40'}):''}
               ${isFirst?`<span class="px-1.5 py-0.2 rounded text-[9px] font-black uppercase bg-acc-soft text-acc border bdr-acc">Aktuellster Wurf</span>`:''}
             </div>
-            <div class="text-xs font-extrabold text-acc truncate">${esc(entry.label||'Freie Probe')}</div>
+            <div class="text-xs font-extrabold text-acc ${entry.vsCharName?'break-words':'truncate'}">${esc(entry.label||'Freie Probe')}</div>
           </div>
         </div>
         <span class="text-[11px] font-bold t-mut tabular shrink-0">${esc(entry.ts||'')}</span>
