@@ -125,8 +125,9 @@ export function clearDiceLogs(){ diceLogs.length=0; }
 let toastTimer=null;
 export const isMobileLayout=()=>window.matchMedia('(max-width: 767px), ((max-height: 540px) and (pointer: coarse))').matches;
 export const CTX_MENU={open:false,id:0,key:'',anchorEl:null,opts:null,callbacks:[],cleanupSwipe:null};
+export const DUEL={outgoing:null,incoming:[],reply:null,swipeCleanup:null};
 export function syncBodyScrollLock(){
-  document.body.style.overflow=(isMobileLayout()&&Boolean(D.open||CN.open||LD.open||FBW.open||UI.modal||CTX_MENU.open))?'hidden':'';
+  document.body.style.overflow=(isMobileLayout()&&Boolean(D.open||CN.open||LD.open||FBW.open||UI.modal||CTX_MENU.open||DUEL.reply))?'hidden':'';
 }
 export function positionFloatingMenu(menuEl,anchorEl,opts={}){
   if(!menuEl) return;
