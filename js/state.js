@@ -83,12 +83,40 @@ export function normStatusEffects(raw){
   });
   return def;
 }
+export function makeDefaultEnemyMeta(){
+  return {isEnemy:false,campaignIds:[],diceVisibleByCamp:{},archived:false,category:'',updatedAtMs:0};
+}
+export function normalizeEnemyMeta(raw,validCampIds=null){
+  const src=(raw&&typeof raw==='object')?raw:{};
+  const validSet=(validCampIds instanceof Set)?validCampIds:null;
+  const rawCamps=Array.isArray(src.campaignIds)?src.campaignIds:(Array.isArray(src.enemyCampaignIds)?src.enemyCampaignIds:[]);
+  const campaignIds=[...new Set(rawCamps.map(c=>String(c||'').trim()).filter(c=>c&&(!validSet||validSet.has(c))))];
+  const rawVis=(src.diceVisibleByCamp&&typeof src.diceVisibleByCamp==='object')?src.diceVisibleByCamp:{};
+  const diceVisibleByCamp={};
+  Object.entries(rawVis).forEach(([cid,val])=>{
+    const clean=String(cid||'').trim();
+    if(clean&&val===true&&(!validSet||validSet.has(clean))) diceVisibleByCamp[clean]=true;
+  });
+  const isEnemy=Boolean(src.isEnemy);
+  const archived=Boolean(src.archived);
+  if(archived||!isEnemy){
+    Object.keys(diceVisibleByCamp).forEach(k=>{delete diceVisibleByCamp[k];});
+  }
+  return {
+    isEnemy,
+    campaignIds,
+    diceVisibleByCamp,
+    archived,
+    category:String(src.category||'').trim(),
+    updatedAtMs:Math.max(0,toInt(src.updatedAtMs,0))
+  };
+}
 export function defaultState(){
   const attributes={},tabStyles={};
   ATTRS.forEach(a=>{attributes[a.k]={vw:20,pot:0,mod:0,tr:[false,false,false,false,false],trNotes:['','','','',''],trSp:[null,null,null,null,null],trMsp:[null,null,null,null,null]};});
   TABS.forEach(t=>{tabStyles[t.id]=makeStyleSlot();});
   return {
-    version:11,charId:uid(),owner:'',campaignId:'default',cloudAutoSync:true,activeTab:'attributes',quickTab:'bestehen',phase:'ebbe',
+    version:11,charId:uid(),owner:'',campaignId:'default',sheetType:'character',enemyMeta:makeDefaultEnemyMeta(),cloudAutoSync:true,activeTab:'attributes',quickTab:'bestehen',phase:'ebbe',
     profile:{name:'',ancestry:'',concept:'',avatar:''},
     appearance:{dark:true,mode:'global',editScope:'attributes',global:makeStyleSlot(),lobby:makeStyleSlot(),tabs:tabStyles},
     attrColors:{...DEF_ATTR_COLS},secColors:{...DEF_SEC_COLS},
@@ -832,7 +860,7 @@ export function compressBgDataUrlForProfile(dataUrl,maxChars,cb){
   im.src=dataUrl;
 }
 
-export const CLOUD={serverUrl:'',list:[],loading:false,syncing:false,error:'',lastSyncTs:'',viewingRemote:false,remoteCharId:'',confirmDelCloudId:null,confirmDelCampPageId:null,filterMine:false,currentUser:'',isAdmin:false,showAdminBar:false,userMgmtOpen:false,activeCampaignId:'default',campAction:'',newCharOpen:false,newCharName:'',newCharAncestry:'',newCharConcept:'',newCharCampId:'default',publicNotesOpen:true,activePublicPageKey:'',registryLoaded:false,diceFeed:[],secretRolls:[],diceConnected:false,diceToast:true,diceCollapsed:false,lobbyDiceH:340,galleryCollapsed:false,confirmClearDice:false,registry:{users:{},claims:{},charCampaigns:{},publicNotes:{},campaignSharedNotes:{},deletedCharIds:[],campaigns:[{id:'default',name:'Ohne Kampagne / Allgemein',allowedUsers:[],gmUsers:[],img:''}],gmUsers:[],lobbyLogo:'',adminHash:'',diceFeed:[],diceClearedAt:0,diceClearedByCamp:{}}};
+export const CLOUD={serverUrl:'',list:[],loading:false,syncing:false,error:'',lastSyncTs:'',viewingRemote:false,remoteCharId:'',confirmDelCloudId:null,confirmDelCampPageId:null,filterMine:false,currentUser:'',isAdmin:false,showAdminBar:false,userMgmtOpen:false,activeCampaignId:'default',campAction:'',newCharOpen:false,newCharName:'',newCharAncestry:'',newCharConcept:'',newCharCampId:'default',gmEnemiesOpen:true,gmEnemyTab:'active',gmEnemySearch:'',templatesOpen:false,templateFilter:'all',templateSearch:'',newTemplateOpen:false,newTemplateName:'',newTemplateAncestry:'',newTemplateConcept:'',newTemplateCategory:'',newTemplateAsEnemyCampId:'',publicNotesOpen:true,activePublicPageKey:'',registryLoaded:false,diceFeed:[],secretRolls:[],diceConnected:false,diceToast:true,diceCollapsed:false,lobbyDiceH:340,galleryCollapsed:false,confirmClearDice:false,registry:{users:{},claims:{},charCampaigns:{},enemyMeta:{},publicNotes:{},campaignSharedNotes:{},deletedCharIds:[],campaigns:[{id:'default',name:'Ohne Kampagne / Allgemein',allowedUsers:[],gmUsers:[],img:''}],gmUsers:[],lobbyLogo:'',adminHash:'',diceFeed:[],diceClearedAt:0,diceClearedByCamp:{}}};
 export const CLOUD_SYNC={inFlight:false,inFlightPromise:null,dirty:false,seq:0,syncedSeq:0,status:'saved',debounceTimer:null,retryTimer:null,retryStep:0,lastMetaSig:'',lastMetaCharId:'',pendingSilent:true,pendingForceRegistry:false,lastError:''};
 export const PWLIB={loaded:false,loading:false,saving:false,error:'',repoPacks:[],cloudPacks:[],tab:'server',search:'',filterCat:'',filterTier:'',selectedPackId:'',openCats:{},openPacks:{},openAugFolders:{},selSecIds:{},selPwIds:{},selAugIds:{},targetSecId:'',dedupeMode:'skipExisting',lastLoadedTs:'',adminSrc:'all',adminName:'',adminCat:'Allgemein',adminDesc:'',adminIsBasis:false,confirmDelPackId:''};
 export function getCampaigns(){
@@ -854,6 +882,18 @@ export function isUserInCampaign(camp,username){
 export function isGlobalGM(username=CLOUD.currentUser){const u=String(username||'').trim().toLowerCase();return Boolean(u&&Array.isArray(CLOUD.registry?.gmUsers)&&CLOUD.registry.gmUsers.some(x=>String(x||'').trim().toLowerCase()===u));}
 export function isCampaignMainGM(campOrId,username=CLOUD.currentUser){const u=String(username||'').trim().toLowerCase();if(!u||!isGlobalGM(u))return false;const c=typeof campOrId==='string'?getCampaigns().find(x=>x.id===campOrId):campOrId;if(!c||c.id==='default')return false;return Array.isArray(c.gmUsers)&&c.gmUsers.some(x=>String(x||'').trim().toLowerCase()===u);}
 export function canManageCampaign(campOrId,username=CLOUD.currentUser){if(CLOUD.isAdmin) return true; return isCampaignMainGM(campOrId, username);}
+export function getGmManageableCampaigns(username=CLOUD.currentUser){
+  const all=getCampaigns().filter(c=>c&&c.id!=='default');
+  if(CLOUD.isAdmin) return all;
+  return all.filter(c=>isCampaignMainGM(c,username));
+}
+export function isAnyGM(username=CLOUD.currentUser){
+  if(CLOUD.isAdmin) return true;
+  return Boolean(isGlobalGM(username)||getGmManageableCampaigns(username).length>0);
+}
+export function canToggleEnemyStatus(username=CLOUD.currentUser){
+  return isAnyGM(username);
+}
 export function canClearLiveDice(campOrId=getActiveLiveCampaignId(),username=CLOUD.currentUser){
   if(CLOUD.isAdmin) return true;
   const u=String(username||'').trim().toLowerCase();
@@ -1242,7 +1282,11 @@ function normalizeSheetObject(raw, { isForeign = false } = {}){
   const cid=String(raw.charId||def.charId);
   const restoredTab=isForeign?(isValidTab(raw.activeTab)?raw.activeTab:def.activeTab):getSavedTabForChar(cid,raw.activeTab);
   const rawCampId=String(raw.campaignId||raw._summary?.campaignId||CLOUD.registry?.charCampaigns?.[cid]||'default').trim()||'default';
-  const sheet={...def,...raw,version:11,charId:cid,activeTab:restoredTab,phase:raw.phase==='flut'?'flut':'ebbe',owner:String(raw.owner||''),campaignId:rawCampId,cloudAutoSync:Boolean(raw.cloudAutoSync),profile:{...def.profile,...(raw.profile||{})},secondary:{...def.secondary,...(raw.secondary||{})},customRes:{...def.customRes,...(raw.customRes||{})},statusCollapsed:Boolean(raw.statusCollapsed),statusEffects:normStatusEffects(raw.statusEffects),inspiration:Math.max(0,toInt(raw.inspiration,0)),inspirationActive:Boolean(raw.inspirationActive),thresholds:{...def.thresholds,...(raw.thresholds||{})},combatNotes:{...def.combatNotes,...(raw.combatNotes||{})},progression:{...def.progression,...(raw.progression||{})},bio:{...def.bio,...(raw.bio||{})},equipNotes:raw.equipNotes??raw.equipFreeNotes??''};
+  const rawSheetType=(raw.sheetType==='enemy'||raw._summary?.sheetType==='enemy'||Boolean(CLOUD.registry?.enemyMeta?.[cid]))?'enemy':'character';
+  const regEnemyMeta=CLOUD.registry?.enemyMeta?.[cid];
+  const rawEnemyMeta=(raw.enemyMeta&&typeof raw.enemyMeta==='object')?raw.enemyMeta:(raw._summary?.enemyMeta&&typeof raw._summary.enemyMeta==='object'?raw._summary.enemyMeta:null);
+  const chosenEnemyMeta=(regEnemyMeta&&(!rawEnemyMeta||toInt(regEnemyMeta.updatedAtMs,0)>=toInt(rawEnemyMeta.updatedAtMs,0)))?regEnemyMeta:(rawEnemyMeta||regEnemyMeta);
+  const sheet={...def,...raw,version:11,charId:cid,activeTab:restoredTab,phase:raw.phase==='flut'?'flut':'ebbe',owner:String(raw.owner||''),campaignId:rawCampId,sheetType:rawSheetType,enemyMeta:normalizeEnemyMeta(chosenEnemyMeta),cloudAutoSync:Boolean(raw.cloudAutoSync),profile:{...def.profile,...(raw.profile||{})},secondary:{...def.secondary,...(raw.secondary||{})},customRes:{...def.customRes,...(raw.customRes||{})},statusCollapsed:Boolean(raw.statusCollapsed),statusEffects:normStatusEffects(raw.statusEffects),inspiration:Math.max(0,toInt(raw.inspiration,0)),inspirationActive:Boolean(raw.inspirationActive),thresholds:{...def.thresholds,...(raw.thresholds||{})},combatNotes:{...def.combatNotes,...(raw.combatNotes||{})},progression:{...def.progression,...(raw.progression||{})},bio:{...def.bio,...(raw.bio||{})},equipNotes:raw.equipNotes??raw.equipFreeNotes??''};
   if(!isHex(sheet.customRes.color)) sheet.customRes.color='#c084fc';
   sheet.secondary.lpRegenOvr=sheet.secondary.lpRegenOvr!==undefined&&sheet.secondary.lpRegenOvr!==null&&String(sheet.secondary.lpRegenOvr).trim()!==''?String(Math.max(0,toInt(sheet.secondary.lpRegenOvr,5))):'';
   sheet.secondary.mlpRegenOvr=sheet.secondary.mlpRegenOvr!==undefined&&sheet.secondary.mlpRegenOvr!==null&&String(sheet.secondary.mlpRegenOvr).trim()!==''?String(Math.max(0,toInt(sheet.secondary.mlpRegenOvr,5))):'';
@@ -1417,7 +1461,91 @@ export const getCharCampaignId=id=>{
   const raw=String(regC!==undefined&&regC!==''?regC:(ch?.campaignId||(S.charId===id?S.campaignId:'')||'default')).trim()||'default';
   return validIds.has(raw)?raw:'default';
 };
+export function isEnemySheet(charOrId){
+  if(!charOrId) return false;
+  if(typeof charOrId==='object'){
+    if(charOrId.sheetType==='enemy'||charOrId._summary?.sheetType==='enemy') return true;
+    const oid=String(charOrId.charId||charOrId.id||'').trim();
+    if(!oid) return false;
+    return isEnemySheet(oid);
+  }
+  const id=String(charOrId||'').trim();
+  if(!id) return false;
+  if(CLOUD.registry?.enemyMeta&&Object.prototype.hasOwnProperty.call(CLOUD.registry.enemyMeta,id)&&CLOUD.registry.enemyMeta[id]) return true;
+  const ch=(CLOUD.list||[]).find(x=>x&&x.id===id);
+  if(ch&&(ch.sheetType==='enemy'||ch._summary?.sheetType==='enemy')) return true;
+  if(S?.charId===id&&S.sheetType==='enemy') return true;
+  return false;
+}
+export function getEnemyMeta(charOrId){
+  const validIds=new Set(getCampaigns().map(c=>c.id));
+  const id=(typeof charOrId==='object'&&charOrId)?String(charOrId.charId||charOrId.id||'').trim():String(charOrId||'').trim();
+  const cands=[];
+  if(id&&CLOUD.registry?.enemyMeta?.[id]) cands.push(CLOUD.registry.enemyMeta[id]);
+  if(typeof charOrId==='object'&&charOrId){
+    if(charOrId.enemyMeta) cands.push(charOrId.enemyMeta);
+    if(charOrId._summary?.enemyMeta) cands.push(charOrId._summary.enemyMeta);
+  }
+  if(id){
+    const ch=(CLOUD.list||[]).find(x=>x&&x.id===id);
+    if(ch?.enemyMeta) cands.push(ch.enemyMeta);
+    if(S?.charId===id&&S.enemyMeta) cands.push(S.enemyMeta);
+  }
+  if(!cands.length) return makeDefaultEnemyMeta();
+  let best=cands[0];
+  for(let i=1;i<cands.length;i++){
+    if(toInt(cands[i]?.updatedAtMs,0)>toInt(best?.updatedAtMs,0)) best=cands[i];
+  }
+  return normalizeEnemyMeta(best,validIds);
+}
+export function canManageEnemySheet(charOrId,username=CLOUD.currentUser){
+  if(CLOUD.isAdmin) return true;
+  const id=(typeof charOrId==='object'&&charOrId)?String(charOrId.charId||charOrId.id||'').trim():String(charOrId||'').trim();
+  const meta=getEnemyMeta(charOrId);
+  const u=String(username||'').trim().toLowerCase();
+  if(meta.isEnemy){
+    if(!isAnyGM(username)) return false;
+    if(!meta.campaignIds.length) return true;
+    if(meta.campaignIds.some(cid=>canManageCampaign(cid,username))) return true;
+    const own=String((id?getCharOwner(id):'')||(typeof charOrId==='object'?charOrId?.owner:'')||'').trim().toLowerCase();
+    return Boolean(u&&own&&u===own);
+  }
+  if(isAnyGM(username)) return true;
+  const own=String((id?getCharOwner(id):'')||(typeof charOrId==='object'?charOrId?.owner:'')||'').trim().toLowerCase();
+  if(!own) return Boolean(u);
+  return Boolean(u&&u===own);
+}
+export function canViewEnemySheet(charOrId,username=CLOUD.currentUser){
+  return canManageEnemySheet(charOrId,username);
+}
+export function isEnemyDiceVisibleInCampaign(charId,campId){
+  const cid=String(campId||'').trim();
+  if(!cid||!isEnemySheet(charId)) return false;
+  const meta=getEnemyMeta(charId);
+  if(!meta.isEnemy||meta.archived) return false;
+  if(!meta.campaignIds.includes(cid)) return false;
+  return Boolean(meta.diceVisibleByCamp?.[cid]);
+}
+export function canSeeEnemyInDice(charId,campId,username=CLOUD.currentUser){
+  const cid=String(campId||'').trim();
+  if(!cid||!isEnemySheet(charId)) return false;
+  const meta=getEnemyMeta(charId);
+  if(!meta.isEnemy||meta.archived) return false;
+  if(!meta.campaignIds.includes(cid)) return false;
+  if(canManageCampaign(cid,username)) return true;
+  return Boolean(meta.diceVisibleByCamp?.[cid]);
+}
+export function shouldHideOpponentDetails(charOrId,campId=''){
+  if(!isEnemySheet(charOrId)) return false;
+  if(CLOUD.isAdmin) return false;
+  const cid=String(campId||'').trim()||getActiveLiveCampaignId();
+  if(cid&&cid!=='default'&&canManageCampaign(cid,CLOUD.currentUser)) return false;
+  const meta=getEnemyMeta(charOrId);
+  if(meta.campaignIds.some(c=>canManageCampaign(c,CLOUD.currentUser))) return false;
+  return true;
+}
 export const canManageChar=id=>{
+  if(isEnemySheet(id)) return canManageEnemySheet(id);
   if(CLOUD.isAdmin) return true;
   if(!CLOUD.viewingRemote&&id===S.charId) return true;
   const own=getCharOwner(id);
@@ -1427,6 +1555,7 @@ export const canManageChar=id=>{
   return Boolean(charCampId&&charCampId!=='default'&&canManageCampaign(charCampId,CLOUD.currentUser));
 };
 export const canAccessCampNotes=(campId=getCharCampaignId(S.charId))=>{
+  if(isEnemySheet(S)) return canManageEnemySheet(S);
   if(!CLOUD.viewingRemote||CLOUD.isAdmin||canManageChar(S.charId)) return true;
   const cid=String(campId||S.campaignId||'default').trim()||'default';
   if(cid==='default'||!CLOUD.currentUser) return false;
@@ -1840,18 +1969,29 @@ try{
   CLOUD.diceToast=localStorage.getItem('scherbensturm_dice_toast')!=='0';
   CLOUD.lobbyDiceH=Math.max(180,Math.min(1200,toInt(localStorage.getItem('scherbensturm_lobby_dice_h'),340)));
   CLOUD.galleryCollapsed=localStorage.getItem('scherbensturm_lobby_gallery_collapsed')==='1';
+  CLOUD.gmEnemiesOpen=localStorage.getItem('scherbensturm_lobby_gm_enemies_open')!=='0';
+  CLOUD.templatesOpen=localStorage.getItem('scherbensturm_lobby_templates_open')==='1';
   CLOUD.activeCampaignId=localStorage.getItem('scherbensturm_active_campaign')||'default';
   const locReg=localStorage.getItem('scherbensturm_lobby_registry');
   if(locReg){
     const parsedReg=JSON.parse(locReg)||{};
+    const normCamps=normalizeCampaigns(parsedReg.campaigns);
+    const validCampSet=new Set(normCamps.map(c=>c.id));
+    const normEnemyMeta={};
+    if(parsedReg.enemyMeta&&typeof parsedReg.enemyMeta==='object'){
+      Object.entries(parsedReg.enemyMeta).forEach(([cid,em])=>{
+        if(cid&&em&&typeof em==='object') normEnemyMeta[cid]=normalizeEnemyMeta(em,validCampSet);
+      });
+    }
     CLOUD.registry={
       ...CLOUD.registry,
       ...parsedReg,
       charCampaigns:(parsedReg.charCampaigns&&typeof parsedReg.charCampaigns==='object')?parsedReg.charCampaigns:{},
+      enemyMeta:normEnemyMeta,
       publicNotes:(parsedReg.publicNotes&&typeof parsedReg.publicNotes==='object')?parsedReg.publicNotes:{},
       campaignSharedNotes:(parsedReg.campaignSharedNotes&&typeof parsedReg.campaignSharedNotes==='object')?parsedReg.campaignSharedNotes:{},
       deletedCharIds:Array.isArray(parsedReg.deletedCharIds)?[...new Set(parsedReg.deletedCharIds.map(x=>String(x||'').trim()).filter(Boolean))]:[],
-      campaigns:normalizeCampaigns(parsedReg.campaigns),
+      campaigns:normCamps,
       gmUsers:Array.isArray(parsedReg.gmUsers)?parsedReg.gmUsers:[],
       lobbyLogo:String(parsedReg.lobbyLogo||''),
       diceClearedByCamp:(parsedReg.diceClearedByCamp&&typeof parsedReg.diceClearedByCamp==='object')?parsedReg.diceClearedByCamp:{}
