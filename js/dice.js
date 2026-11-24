@@ -835,7 +835,7 @@ export function renderLiveDice(){
   const snap=hadContent?captureScrollState(mount):null;
   applyWinFrame('livedice', mount, bd, WIN_DEFAULTS.livedice.dockClass); if(!LD.open){mount.innerHTML='';mount.dataset.lastCampId='';return;}
   const allCamps=getCampaigns();
-  const visCamps=CLOUD.isAdmin?allCamps:(CLOUD.currentUser?allCamps.filter(c=>isUserInCampaign(c,CLOUD.currentUser)):allCamps);
+  const visCamps=CLOUD.isAdmin?allCamps:(CLOUD.currentUser?allCamps.filter(c=>c.id==='default'||isUserInCampaign(c,CLOUD.currentUser)||canManageCampaign(c)):allCamps);
   const activeCampId=getActiveLiveCampaignId();
   const sameCamp=hadContent&&mount.dataset.lastCampId===activeCampId;
   const activeCampObj=allCamps.find(c=>c.id===activeCampId)||allCamps[0];

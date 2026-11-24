@@ -8,7 +8,7 @@ import {
   hooks
 } from './ui-hooks.js';
 import {
-  renderSystemIconHtml, syncBodyScrollLock, bindSwipeDownClose, closeCtxMenu, openCtxMenu, applyWinFrame, renderWinCtrlBtns, renderWinResizeHandles, setModalSwipeCleanup, cleanupModalSwipe, isOversizedBgDataUrl, compressBgDataUrlForProfile, getCampaigns, isGlobalGM, canManageCampaign, ensureUserRecord, ensureAllRegistryUsers, findUserKeyByName, findUserKeyById, getUserAvatar, canViewUserProfile, renderUserNamePill, saveRegistryLocal, getCampaignFilteredDiceFeed, captureScrollState, restoreScrollState, toast, save, persistCurrentThemeChange, applyTheme, CUSTOM_ICONS, getPwTermTip, fmtCustomValSummarySuffix, S, D, CN, LD, FBW, isMobileLayout, CTX_MENU, UI, PATCHNOTES, FEEDBACK, CLOUD, CLOUD_SYNC, PWLIB, getCharOwner, getEditStyleSlot
+  renderSystemIconHtml, syncBodyScrollLock, bindSwipeDownClose, closeCtxMenu, openCtxMenu, applyWinFrame, renderWinCtrlBtns, renderWinResizeHandles, setModalSwipeCleanup, cleanupModalSwipe, isOversizedBgDataUrl, compressBgDataUrlForProfile, getCampaigns, isGlobalGM, canManageCampaign, canToggleEnemyStatus, isEnemySheet, getEnemyMeta, canManageEnemySheet, isEnemyDiceVisibleInCampaign, ensureUserRecord, ensureAllRegistryUsers, findUserKeyByName, findUserKeyById, getUserAvatar, canViewUserProfile, renderUserNamePill, saveRegistryLocal, getCampaignFilteredDiceFeed, captureScrollState, restoreScrollState, toast, save, persistCurrentThemeChange, applyTheme, CUSTOM_ICONS, getPwTermTip, fmtCustomValSummarySuffix, S, D, CN, LD, FBW, isMobileLayout, CTX_MENU, UI, PATCHNOTES, FEEDBACK, CLOUD, CLOUD_SYNC, PWLIB, getCharOwner, getEditStyleSlot
 } from './state.js';
 import {
   formatPwUseCosts, getEffectivePoolCap, getReservedSrcList, calcActiveMods, buildPowerExportPack, getSuggestedAugmentsForPower, calcPwCost, calcProg, getPwSecOptionsFlat, cresName, getResLabel, getLpRegen, getMlpRegen, findPwItem, findEqItem
@@ -574,11 +574,42 @@ export function renderHeader(){
     if(lobbyMenuOpen){const nb=document.querySelector('[data-action="open-lobby-ctx-menu"]');if(nb)CTX_MENU.anchorEl=nb;}
     return;
   }
-  const P=calcProg(), hasAv=Boolean(S.profile.avatar), pwTot=S.powers.length+S.augments.length, charDispName=String(S.profile.name||'').trim()||'Unbenannter Held';
+  const P=calcProg(), hasAv=Boolean(S.profile.avatar), pwTot=S.powers.length+S.augments.length, sheetIsEnemy=isEnemySheet(S), charDispName=String(S.profile.name||'').trim()||(sheetIsEnemy?'Unbenannter Gegner':'Unbenannter Held');
   const metaSub=[String(S.profile.ancestry||'').trim(),String(S.profile.concept||'').trim()].filter(Boolean).join(' • ');
   const sheetMenuOpen=Boolean(CTX_MENU.open&&CTX_MENU.key==='hdr-sheet-menu');
   const viewBanner=CLOUD.viewingRemote?`<div class="bg-sky-500/20 border-b border-sky-400/50 px-3 sm:px-4 py-2 text-xs"><div class="max-w-[1600px] mx-auto flex flex-wrap items-center justify-between gap-2"><div class="font-extrabold text-sky-300 flex flex-wrap items-center gap-x-2 gap-y-0.5 min-w-0 break-words"><span>👁️ 👄 👁️ ANSICHTSMODUS:</span><span>Du betrachtest gerade <strong>„${esc(S.profile.name||'Unbenannt')}“</strong> (Stufe ${P.lvl}) aus der Lobby.</span></div><div class="flex flex-wrap items-center gap-1.5 w-full sm:w-auto max-w-full"><button type="button" data-action="cloud-reload-view" class="btn py-1 px-2 sm:px-2.5 text-xs border-sky-400/50 text-sky-200 max-w-full">🔄 Aktualisieren</button><button type="button" data-action="cloud-adopt-copy" data-tip="Übernimmt diesen Charakter als neuen eigenen Bogen in deinen lokalen Speicher" class="btn btn-ok py-1 px-2 sm:px-2.5 text-xs max-w-full">📥 Als Kopie übernehmen</button><button type="button" data-action="cloud-exit-view" class="btn btn-pri py-1 px-2.5 sm:px-3 text-xs max-w-full">🔙 Zurück zur Lobby</button></div></div></div>`:'';
-  $('hdrMount').innerHTML=`<div class="h-1 w-full accent-bar"></div>${viewBanner}<header class="hdr-glass"><div class="max-w-[1600px] mx-auto px-2.5 sm:px-5 lg:px-8 py-1.5 sm:py-2 flex flex-col gap-1.5 sm:gap-2">
+  const enemyBanner=sheetIsEnemy?(()=>{
+    const em=getEnemyMeta(S.charId);
+    const allCamps=getCampaigns();
+    const campMap=new Map(allCamps.map(c=>[c.id,c.name||'Kampagne']));
+    const assigned=em.campaignIds.map(id=>({id,name:campMap.get(id)||id,vis:isEnemyDiceVisibleInCampaign(S.charId,id)}));
+    const canToggle=!CLOUD.viewingRemote&&canToggleEnemyStatus();
+    const canManage=!CLOUD.viewingRemote&&canManageEnemySheet(S.charId);
+    const quickCampId=canToggle&&em.isEnemy&&!em.archived
+      ?((CLOUD.activeCampaignId&&em.campaignIds.includes(CLOUD.activeCampaignId)&&canManageCampaign(CLOUD.activeCampaignId))
+        ?CLOUD.activeCampaignId
+        :(em.campaignIds.find(id=>canManageCampaign(id))||''))
+      :'';
+    const quickVis=quickCampId?isEnemyDiceVisibleInCampaign(S.charId,quickCampId):false;
+    const quickCampName=quickCampId?(campMap.get(quickCampId)||'Kampagne'):'';
+    const barCls=em.isEnemy?'bg-rose-500/15 border-b border-rose-400/45':'bg-purple-500/15 border-b border-purple-400/45';
+    return `<div class="${barCls} px-2.5 sm:px-5 lg:px-8 py-1.5 text-xs"><div class="max-w-[1600px] mx-auto flex flex-wrap items-center justify-between gap-2 min-w-0">
+      <div class="flex flex-wrap items-center gap-1.5 min-w-0">
+        <span class="px-2 py-0.5 rounded-md text-[11px] font-black shrink-0 ${em.isEnemy?'bg-rose-500/25 text-rose-200 border border-rose-400/55':'bg-purple-500/25 text-purple-200 border border-purple-400/55'}">${em.isEnemy?'👹 GEGNERBOGEN':'📋 GEGNER-VORLAGE'}</span>
+        ${em.category?`<span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-black/30 text-amber-200 border border-amber-400/35 truncate max-w-[140px]">${esc(em.category)}</span>`:''}
+        ${em.archived?`<span class="px-1.5 py-0.5 rounded text-[10px] font-extrabold bg-slate-500/30 text-slate-200 border border-slate-400/45 shrink-0">📦 Wegsortiert</span>`:''}
+        ${assigned.length?assigned.map(c=>`<span class="px-1.5 py-0.5 rounded text-[10px] font-bold border max-w-[160px] truncate ${c.vis?'bg-emerald-500/20 text-emerald-200 border-emerald-400/50':'bg-black/30 t-mut bdr-line'}">${c.vis?'👁️':'📁'} ${esc(c.name)}</span>`).join(''):`<span class="text-[11px] t-mut hidden sm:inline">Noch keiner Kampagne zugeordnet</span>`}
+      </div>
+      <div class="flex flex-wrap items-center gap-1.5 shrink-0 max-w-full">
+        ${canToggle?`<button type="button" role="switch" aria-checked="${em.isEnemy?'true':'false'}" data-action="toggle-enemy-active" data-id="${esc(S.charId)}" data-tip="Vorlage als Gegner aktivieren oder deaktivieren" class="btn py-1 px-2 text-[11px] font-black ${em.isEnemy?'!border-rose-400 !bg-rose-500/25 text-rose-200':''}">${em.isEnemy?'👹 Gegner: AN':'📋 Vorlage'}</button>
+        <button type="button" data-action="open-enemy-camp-picker" data-id="${esc(S.charId)}" aria-haspopup="menu" data-tip="Kampagnen per Mehrfachauswahl (Checkboxen) zuordnen" class="btn py-1 px-2 text-[11px] font-extrabold">🗺️ Kampagnen (${assigned.length})</button>`:''}
+        ${quickCampId?`<button type="button" role="switch" aria-checked="${quickVis?'true':'false'}" data-action="toggle-enemy-dice-vis" data-id="${esc(S.charId)}" data-camp="${esc(quickCampId)}" data-tip="Sichtbarkeit im Würfelassistenten für „${esc(quickCampName)}“ umschalten" class="btn py-1 px-2 text-[11px] font-black ${quickVis?'!border-emerald-400 !bg-emerald-500/25 text-emerald-200':''}">${quickVis?'👁️ Würfel: AN':'🙈 Würfel: AUS'}</button>`:''}
+        ${canManage?`<button type="button" data-action="toggle-enemy-archive" data-id="${esc(S.charId)}" data-tip="${em.archived?'Aus Archiv wiederherstellen':'Wegsortieren (Archivieren)'}" class="btn py-1 px-2 text-[11px] font-bold">${em.archived?'↩️ Aktivieren':'📦 Wegsortieren'}</button>`:''}
+        ${!CLOUD.viewingRemote?`<button type="button" data-action="open-lobby" class="btn py-1 px-2 text-[11px] font-extrabold">🏠 Lobby</button>`:''}
+      </div>
+    </div></div>`;
+  })():'';
+  $('hdrMount').innerHTML=`<div class="h-1 w-full accent-bar"></div>${viewBanner}${enemyBanner}<header class="hdr-glass"><div class="max-w-[1600px] mx-auto px-2.5 sm:px-5 lg:px-8 py-1.5 sm:py-2 flex flex-col gap-1.5 sm:gap-2">
     <div class="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-1.5 xl:gap-3 min-w-0">
       <div class="flex items-center justify-between gap-1.5 sm:gap-2 min-w-0 xl:order-2 xl:shrink-0">
         <button type="button" data-action="toggle-mobile-hdr" aria-expanded="${UI.mobileHdrOpen?'true':'false'}" aria-label="Charakter-Stammdaten und Fortschritt ein- oder ausblenden" data-tip="Stammdaten (Name, Volk, Konzept, Bild) &amp; Stufe/EP/SP/MsP ein-/ausblenden" class="flex xl:hidden items-center gap-1.5 sm:gap-2 min-w-0 flex-1 text-left rounded-xl py-0.5 pr-1.5 -ml-0.5 cursor-pointer hover:bg-white/5 transition-colors ${UI.mobileHdrOpen?'bg-acc-soft/50 ring-1 ring-sky-400/40':''}">

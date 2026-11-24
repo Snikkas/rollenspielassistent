@@ -8,13 +8,13 @@ import {
   registerHooks
 } from './ui-hooks.js';
 import {
-  syncPwUseCostsLegacy, makeDefaultStatusEffects, defaultState, setS, setD, clearDiceLogs, syncBodyScrollLock, positionFloatingMenu, closeCtxMenu, closePwDropdown, repositionOpenPwMenus, hydrateWinPrefs, saveWinPref, clearWinPref, applyWinFrame, setPwMode, normalizeCampaigns, getUserBgLocalKey, getCampaigns, setActiveCampaign, canManageCampaign, canClearLiveDice, getCreatableCampaigns, ensureAllRegistryUsers, findUserKeyByName, findUserKeyById, getUserAvatar, canViewUserProfile, saveRegistryLocal, saveSecretRollsLocal, getActiveLiveCampaignId, captureScrollState, restoreScrollState, toast, triggerNiceEasterEgg, logChron, mergeLoaded, saveLastActiveTab, save, flushPendingSave, saveSoon, load, flushThemePrefsSync, cancelThemePrefsSync, applySessionTheme, persistCurrentThemeChange, syncPalDraftFromSlot, applyTheme, CUSTOM_ICONS, findMainArt, findActionSub, isReservedPwTerm, isWeaponMassiv, makeWeapon, makeAmmo, makeArmor, makeInvItem, makeEqSecMeta, makeChrSecMeta, makeSection, makeSkSection, makeInvSection, makePower, makeAugment, S, D, CN, LD, FBW, DUEL, COMBAT, isMobileLayout, CTX_MENU, getWinState, hasSavedWinPref, savedEffRanges, savedPwRanges, lastPwFieldById, pwQuickKey, UI, LIVE_TAB_ID, PATCHNOTES, FEEDBACK, CLOUD, CLOUD_SYNC, PWLIB, getCharOwner, getCharCampaignId, canManageChar, getEditStyleSlot
+  syncPwUseCostsLegacy, makeDefaultStatusEffects, defaultState, setS, setD, clearDiceLogs, syncBodyScrollLock, positionFloatingMenu, closeCtxMenu, closePwDropdown, repositionOpenPwMenus, hydrateWinPrefs, saveWinPref, clearWinPref, applyWinFrame, setPwMode, normalizeCampaigns, normalizeEnemyMeta, getUserBgLocalKey, getCampaigns, setActiveCampaign, canManageCampaign, canClearLiveDice, getCreatableCampaigns, isEnemySheet, getEnemyMeta, canToggleEnemyStatus, canManageEnemySheet, canViewEnemySheet, ensureAllRegistryUsers, findUserKeyByName, findUserKeyById, getUserAvatar, canViewUserProfile, saveRegistryLocal, saveSecretRollsLocal, getActiveLiveCampaignId, captureScrollState, restoreScrollState, toast, triggerNiceEasterEgg, logChron, mergeLoaded, saveLastActiveTab, save, flushPendingSave, saveSoon, load, flushThemePrefsSync, cancelThemePrefsSync, applySessionTheme, persistCurrentThemeChange, syncPalDraftFromSlot, applyTheme, CUSTOM_ICONS, findMainArt, findActionSub, isReservedPwTerm, isWeaponMassiv, makeWeapon, makeAmmo, makeArmor, makeInvItem, makeEqSecMeta, makeChrSecMeta, makeSection, makeSkSection, makeInvSection, makePower, makeAugment, S, D, CN, LD, FBW, DUEL, COMBAT, isMobileLayout, CTX_MENU, getWinState, hasSavedWinPref, savedEffRanges, savedPwRanges, lastPwFieldById, pwQuickKey, UI, LIVE_TAB_ID, PATCHNOTES, FEEDBACK, CLOUD, CLOUD_SYNC, PWLIB, getCharOwner, getCharCampaignId, canManageChar, getEditStyleSlot
 } from './state.js';
 import {
   getStatusEffValues, formatPwUseCosts, getReservablePwCosts, getEffectivePoolCap, getPwBuilderToken, parseStatusTokens, getAllParsedEffectChips, invalidateModsCache, calcActiveMods, buildAttrTip, buildSecTip, syncCresRenameInTokens, syncSkillRenameInTokens, purgeExtraSecFromPowers, calcAutoSkCost, findDuplicatePwEntry, makeUniquePwName, updatePwNameDupHint, enforceUniquePwName, buildPowerExportPack, downloadPowerPackJson, resolveLibraryAugmentParentName, getSuggestedAugmentsForPower, importPowerPackIntoSheet, getTrCost, performSimpleRest, performFullRest, withPoolSync, linkAugToPower, unlinkAugFromPower, calcPwCost, calcSkCost, calcProg, getWeaponRollMeta, getTagDesc, cresName, makeExtraSec, getExtraSecName, getResLabel, escReStr, getAttrCol, getSecCol, getAttrTot, getLpBase, getLpMax, getMlpBase, getMlpMax, getLpRegenAuto, getMlpRegenAuto, hasLpRegenOvr, hasMlpRegenOvr, getLpRegen, getMlpRegen, getIniBase, getIniTot, getApBase, getApMax, getMapBase, getMapMax, getCresBase, getCresMax, getExtraSecBase, getBstAuto, hasBstOvr, getBstBase, getEffBst, getSkAutoBonus, hasSkBonusOvr, getSkBonus, findPwItem, findEqItem, getLinkedAugs, getValidPwSecId
 } from './calc.js';
 import {
-  updateLobbyLiveDiceDOM, initLiveDiceChannel, publishLiveRoll, revealSecretRoll, publishLiveCampNote, clearLiveDiceFeed, syncCloudRegistry, renameUserAccount, addCampaignAllowedUser, removeCampaignAllowedUser, toggleGlobalGMTag, addCampaignMainGM, removeCampaignMainGM, kickCharFromCampaign, duplicateCharacterSheet, getCampaignSharedPages, extractPublicPages, upsertPublicNoteEntry, fetchLobbyList, fetchForeignCharacterSheet, canWriteCurrentSheetToCloud, resetCloudSyncState, updateCloudSyncStatusDOM, scheduleCloudSync, pushToCloud, flushCloudSyncNow, flushBeforeCharacterSwitch, loadCloudCharacter, createNewUserCharacter, updateCloudCharacterMeta, deleteCloudCharacter, stripLibraryPackMeta, getAllLibraryPacks, fetchPowerLibrary, publishPackToCloudLibrary, deletePackFromCloudLibrary, parsePatchnoteTsMs, getNewestPatchnoteId, isPatchnoteCollapsed, normalizePatchnoteEntry, fetchPatchnotes, savePatchnotesToServer, fetchFeedback, saveFeedbackStore, loadCustomIconsCache, fetchCustomIcons, saveCustomIconsToServer, loadNotifSeen, saveNotifSeen, markNotifRead, markAllNotifsRead, updateNotifBadges, refreshUserNotificationsBg, fetchAndSyncBasisPowers, isSecretRollActive
+  updateLobbyLiveDiceDOM, initLiveDiceChannel, publishLiveRoll, revealSecretRoll, publishLiveCampNote, clearLiveDiceFeed, syncCloudRegistry, renameUserAccount, addCampaignAllowedUser, removeCampaignAllowedUser, toggleGlobalGMTag, addCampaignMainGM, removeCampaignMainGM, kickCharFromCampaign, duplicateCharacterSheet, getCampaignSharedPages, extractPublicPages, upsertPublicNoteEntry, fetchLobbyList, fetchForeignCharacterSheet, canWriteCurrentSheetToCloud, resetCloudSyncState, updateCloudSyncStatusDOM, scheduleCloudSync, pushToCloud, flushCloudSyncNow, flushBeforeCharacterSwitch, loadCloudCharacter, createNewUserCharacter, updateCloudCharacterMeta, deleteCloudCharacter, updateEnemyMetaCloud, createNewEnemyOrTemplate, toggleEnemyActiveStatus, toggleEnemyCampaignAssignment, toggleEnemyDiceVisibility, hideAllEnemiesInCampaignDice, toggleEnemyArchived, cloneEnemyToCampaign, stripLibraryPackMeta, getAllLibraryPacks, fetchPowerLibrary, publishPackToCloudLibrary, deletePackFromCloudLibrary, parsePatchnoteTsMs, getNewestPatchnoteId, isPatchnoteCollapsed, normalizePatchnoteEntry, fetchPatchnotes, savePatchnotesToServer, fetchFeedback, saveFeedbackStore, loadCustomIconsCache, fetchCustomIcons, saveCustomIconsToServer, loadNotifSeen, saveNotifSeen, markNotifRead, markAllNotifsRead, updateNotifBadges, refreshUserNotificationsBg, fetchAndSyncBasisPowers, isSecretRollActive
 } from './cloud.js';
 import {
   resetDiceToLobbyNeutral, exitLobbyNeutralDice, ensureLobbyNeutralDiceOnOpen, applyDiceAutoAdvDis, calcThreshold, openWeaponRoll, syncDiceFromSheet, buildAdvDisInnerHtml, renderDice, renderLiveDice, rollW100, renderBlockFollowUpBox, executeBlockFollowUpRoll, executeDiceRoll, rollCustomDice, getCSkVal, getDSkVal, getEffC, getEffD, isLobbyNeutralDice, calcEgMultiplier, buildThresholdInnerHtml, activateVsCharMode, selectDiceOpponent, resolveOpponentComparison
@@ -44,7 +44,7 @@ import {
   syncLinkedAmmoDOM, syncInvSecNameDOM, addEqTagToItem, openAddWeaponMenu, openEqTagPicker, openWpTypePicker, openWpAttrPicker, openWpSkillPicker, openWpAmmoPicker, openArZonePicker, openInvSecPicker, openInvSecParentPicker, isTab5EquipNotesCollapsed, isTab5BioGalleryCollapsed, isTab5BioFieldCollapsed, moveEqSecOrder, moveEqItemOrder, moveInvSecOrder, openEqItemMenu, openEqSecMenu, openInvSecMenu, tplEquipment
 } from './tabs/equipment.js';
 import {
-  openLobbyCharMenu, tplLobbyScreen
+  openLobbyCharMenu, openEnemyCampaignPicker, openGmTemplateAddPicker, openLobbyEnemyMenu, tplLobbyScreen, refreshGmEnemiesGridDOM, refreshTemplatesGridDOM
 } from './lobby.js';
 import {
   openUserProfile, ensureProfileModalAccess, closeActiveModal, renderFbAdminWin, buildHdrPillsHtml, openSheetCtxMenu, openLobbyCtxMenu, renderHeader, formatPwLibImportToast, refreshPwLibListDOM, buildAdminDraftPack, getImgMenuContext, openImgMenu, applyImgUrlForContext, applyImgFileForCurrentTarget, removeImgForCurrentTarget, openAdminPanel, renderModal, updateInfoGlossaryGridDOM, compressImg, handleAdminIconFileUpload, performAdminUnlock, performAdminChangePin, getColTargetObj, openDualColorModal
@@ -1945,7 +1945,8 @@ document.addEventListener('click',async e=>{
       const camps=getCampaigns();
       const delCamp=camps.find(c=>c.id===delId);
       const delName=delCamp?.name||'Kampagne';
-      CLOUD.registry.campaigns=normalizeCampaigns(camps.filter(c=>c.id!==delId));
+      const nextCamps=normalizeCampaigns(camps.filter(c=>c.id!==delId));
+      CLOUD.registry.campaigns=nextCamps;
       if(!CLOUD.registry.charCampaigns||typeof CLOUD.registry.charCampaigns!=='object') CLOUD.registry.charCampaigns={};
       const affectedIds=[];
       CLOUD.list.forEach(ch=>{
@@ -1961,6 +1962,30 @@ document.addEventListener('click',async e=>{
           if(!affectedIds.includes(cid)) affectedIds.push(cid);
         }
       });
+      // Auch Multi-Kampagnen-Zuordnungen von Gegnern bereinigen
+      const validIds=new Set(nextCamps.map(c=>c.id));
+      const affectedEnemyIds=[];
+      if(!CLOUD.registry.enemyMeta||typeof CLOUD.registry.enemyMeta!=='object') CLOUD.registry.enemyMeta={};
+      const allEnemyIds=new Set([
+        ...Object.keys(CLOUD.registry.enemyMeta),
+        ...(CLOUD.list||[]).filter(ch=>ch&&isEnemySheet(ch.id)).map(ch=>ch.id)
+      ]);
+      allEnemyIds.forEach(eid=>{
+        const m=getEnemyMeta(eid);
+        if(m.campaignIds.includes(delId)||m.diceVisibleByCamp?.[delId]){
+          const nextM=normalizeEnemyMeta({
+            ...m,
+            campaignIds:m.campaignIds.filter(x=>x!==delId),
+            diceVisibleByCamp:Object.fromEntries(Object.entries(m.diceVisibleByCamp||{}).filter(([k])=>k!==delId)),
+            updatedAtMs:Date.now()
+          },validIds);
+          CLOUD.registry.enemyMeta[eid]=clone(nextM);
+          const li=(CLOUD.list||[]).find(c=>c&&c.id===eid);
+          if(li) li.enemyMeta=clone(nextM);
+          if(S.charId===eid){S.enemyMeta=clone(nextM);save(false);}
+          affectedEnemyIds.push({id:eid,meta:nextM});
+        }
+      });
       if(S.campaignId===delId){S.campaignId='default';save(false);}
       setActiveCampaign('default');
       CLOUD.campAction='';
@@ -1968,7 +1993,10 @@ document.addEventListener('click',async e=>{
       affectedIds.forEach(cid=>{
         updateCloudCharacterMeta(cid,d=>{d.campaignId='default';if(d._summary)d._summary.campaignId='default';},'');
       });
-      renderModal();
+      affectedEnemyIds.forEach(({id:eid,meta:nm})=>{
+        updateCloudCharacterMeta(eid,d=>{d.enemyMeta=clone(nm);if(d._summary)d._summary.enemyMeta=clone(nm);},'');
+      });
+      renderMain(); renderModal();
       toast(`🗑️ Kampagne „${delName}“ gelöscht (Charaktere in Hauptkampagne verschoben).`);
       break;
     }
@@ -1996,6 +2024,72 @@ document.addEventListener('click',async e=>{
     case 'toggle-lobby-dice-collapse': CLOUD.diceCollapsed=!CLOUD.diceCollapsed; updateLobbyLiveDiceDOM(); break;
     case 'reset-lobby-dice-h': CLOUD.lobbyDiceH=340; try{localStorage.setItem('scherbensturm_lobby_dice_h','340');}catch(e){} updateLobbyLiveDiceDOM(); break;
     case 'toggle-lobby-gallery-collapse': CLOUD.galleryCollapsed=!CLOUD.galleryCollapsed; try{localStorage.setItem('scherbensturm_lobby_gallery_collapsed',CLOUD.galleryCollapsed?'1':'0');}catch(e){} renderMain(); break;
+    case 'toggle-gm-enemies-open': CLOUD.gmEnemiesOpen=!CLOUD.gmEnemiesOpen; try{localStorage.setItem('scherbensturm_lobby_gm_enemies_open',CLOUD.gmEnemiesOpen?'1':'0');}catch(e){} renderMain(); break;
+    case 'set-gm-enemy-tab': CLOUD.gmEnemyTab=(el.dataset.tab==='archived'?'archived':'active'); renderMain(); break;
+    case 'toggle-lobby-templates-open': CLOUD.templatesOpen=!CLOUD.templatesOpen; try{localStorage.setItem('scherbensturm_lobby_templates_open',CLOUD.templatesOpen?'1':'0');}catch(e){} renderMain(); break;
+    case 'set-template-filter': CLOUD.templateFilter=el.dataset.filter||'all'; renderMain(); break;
+    case 'open-new-template': {
+      if(!CLOUD.currentUser&&!CLOUD.isAdmin){toast('🔒 Bitte melde dich zuerst an, um Gegner-Vorlagen zu erstellen.');break;}
+      const reqCamp=String(el.dataset.camp||'').trim();
+      const sameTarget=CLOUD.newTemplateOpen&&CLOUD.newTemplateAsEnemyCampId===reqCamp;
+      if(sameTarget){
+        CLOUD.newTemplateOpen=false;
+        CLOUD.newTemplateAsEnemyCampId='';
+      }else{
+        CLOUD.newTemplateOpen=true;
+        CLOUD.newTemplateAsEnemyCampId=(reqCamp&&reqCamp!=='default'&&canManageCampaign(reqCamp))?reqCamp:'';
+        if(CLOUD.newTemplateAsEnemyCampId) CLOUD.gmEnemiesOpen=true;
+        else CLOUD.templatesOpen=true;
+      }
+      renderMain();
+      if(CLOUD.newTemplateOpen) setTimeout(()=>$('inpNewTplName')?.focus(),40);
+      break;
+    }
+    case 'create-template-cancel': {
+      CLOUD.newTemplateOpen=false;
+      CLOUD.newTemplateAsEnemyCampId='';
+      renderMain();
+      break;
+    }
+    case 'create-template-confirm': {
+      const nm=($('inpNewTplName')?.value??CLOUD.newTemplateName??'').trim();
+      const anc=($('inpNewTplAncestry')?.value??CLOUD.newTemplateAncestry??'').trim();
+      const con=($('inpNewTplConcept')?.value??CLOUD.newTemplateConcept??'').trim();
+      const cat=($('inpNewTplCategory')?.value??CLOUD.newTemplateCategory??'').trim();
+      createNewEnemyOrTemplate({name:nm,ancestry:anc,concept:con,category:cat,asEnemyCampId:CLOUD.newTemplateAsEnemyCampId||''});
+      break;
+    }
+    case 'toggle-enemy-active': {
+      const cid=el.dataset.id||'';
+      const pref=(CLOUD.activeCampaignId&&CLOUD.activeCampaignId!=='default'&&canManageCampaign(CLOUD.activeCampaignId))?CLOUD.activeCampaignId:'';
+      if(cid) toggleEnemyActiveStatus(cid,pref);
+      break;
+    }
+    case 'toggle-enemy-dice-vis': {
+      const cid=el.dataset.id||'';
+      const cmp=el.dataset.camp||CLOUD.activeCampaignId||'';
+      if(cid&&cmp) toggleEnemyDiceVisibility(cid,cmp);
+      break;
+    }
+    case 'hide-all-camp-enemies-dice': {
+      const cmp=el.dataset.camp||CLOUD.activeCampaignId||'';
+      if(cmp) hideAllEnemiesInCampaignDice(cmp);
+      break;
+    }
+    case 'toggle-enemy-archive': {
+      const cid=el.dataset.id||'';
+      if(cid) toggleEnemyArchived(cid);
+      break;
+    }
+    case 'clone-enemy-camp': {
+      const cid=el.dataset.id||'';
+      const cmp=el.dataset.camp||'';
+      if(cid) cloneEnemyToCampaign(cid,cmp);
+      break;
+    }
+    case 'open-enemy-camp-picker': openEnemyCampaignPicker(el,el.dataset.id); break;
+    case 'open-gm-template-add-picker': openGmTemplateAddPicker(el,el.dataset.camp||CLOUD.activeCampaignId); break;
+    case 'open-lobby-enemy-menu': openLobbyEnemyMenu(el,el.dataset.id,el.dataset.camp||''); break;
     case 'lobby-open-dice': D.open=true; ensureLobbyNeutralDiceOnOpen(); renderHeader(); renderDice(); break;
     case 'lobby-quick-roll': ensureLobbyNeutralDiceOnOpen(); syncDiceFromSheet(); executeDiceRoll(); break;
     case 'toggle-dice-toast': CLOUD.diceToast=!CLOUD.diceToast; try{localStorage.setItem('scherbensturm_dice_toast',CLOUD.diceToast?'1':'0');}catch(e){} updateLobbyLiveDiceDOM(); toast(CLOUD.diceToast?'🔔 Live-Wurf-Popups aktiviert':'🔕 Live-Wurf-Popups stummgeschaltet'); break;
@@ -2067,12 +2161,17 @@ document.addEventListener('click',async e=>{
     }
     case 'user-logout': {
       flushThemePrefsSync();
-      CLOUD.currentUser=''; CLOUD.filterMine=false;
+      CLOUD.currentUser=''; CLOUD.filterMine=false; CLOUD.newTemplateOpen=false; CLOUD.newTemplateAsEnemyCampId='';
+      if(!UI.inLobby&&isEnemySheet(S)&&!canViewEnemySheet(S.charId)){
+        CLOUD.viewingRemote=false; CLOUD.remoteCharId='';
+        UI.inLobby=true;
+      }
       ensureProfileModalAccess();
       try{localStorage.removeItem('scherbensturm_cloud_user');}catch(e){}
       applySessionTheme({allowSheetFallback:false});
       applyTheme();
       renderHeader(); renderMain(); renderModal(true);
+      if(D.open) renderDice();
       toast('Abgemeldet');
       break;
     }
@@ -2090,7 +2189,20 @@ document.addEventListener('click',async e=>{
     case 'toggle-user-mgmt': CLOUD.userMgmtOpen=!CLOUD.userMgmtOpen; renderModal(); break;
     case 'admin-unlock': performAdminUnlock(); break;
     case 'admin-change-pin': performAdminChangePin(); break;
-    case 'admin-logout': CLOUD.isAdmin=false; CLOUD.showAdminBar=false; CLOUD.userMgmtOpen=false; D.secretMode=false; UI.lastSecretRollId=''; UI.adminReturnModal=''; UI.adminPinError=''; ensureProfileModalAccess(); try{localStorage.removeItem('scherbensturm_cloud_admin');}catch(e){} renderHeader(); renderMain(); renderModal(false,true); if(D.open) renderDice(); updateLobbyLiveDiceDOM(); toast('🔒 Admin-Modus gesperrt'); break;
+    case 'admin-logout': {
+      CLOUD.isAdmin=false; CLOUD.showAdminBar=false; CLOUD.userMgmtOpen=false; D.secretMode=false; UI.lastSecretRollId=''; UI.adminReturnModal=''; UI.adminPinError='';
+      if(!UI.inLobby&&isEnemySheet(S)&&!canViewEnemySheet(S.charId)){
+        CLOUD.viewingRemote=false; CLOUD.remoteCharId='';
+        UI.inLobby=true;
+      }
+      ensureProfileModalAccess();
+      try{localStorage.removeItem('scherbensturm_cloud_admin');}catch(e){}
+      renderHeader(); renderMain(); renderModal(false,true);
+      if(D.open) renderDice();
+      updateLobbyLiveDiceDOM();
+      toast('🔒 Admin-Modus gesperrt');
+      break;
+    }
     case 'admin-del-user': {
       if(!CLOUD.isAdmin) break;
       const u=el.dataset.user;
@@ -2242,8 +2354,12 @@ document.addEventListener('click',async e=>{
     case 'cloud-adopt-copy': {
       CLOUD.viewingRemote=false; CLOUD.remoteCharId=''; UI.inLobby=false; UI.sheetLoaded=true; UI.modal=null; exitLobbyNeutralDice();
       S.charId=uid(); S.owner=CLOUD.currentUser||''; S.cloudAutoSync=true;
+      if(isEnemySheet(S)){
+        S.campaignId='default';
+        S.enemyMeta=normalizeEnemyMeta({isEnemy:false,campaignIds:[],diceVisibleByCamp:{},archived:false,category:S.enemyMeta?.category||''});
+      }
       resetCloudSyncState({clearMeta:true,status:'saved',lastSyncTs:''});
-      renderAll(true); toast('📥 Charakter als eigene Kopie übernommen!');
+      renderAll(true); toast(isEnemySheet(S)?'📥 Als eigene Gegner-Vorlage übernommen!':'📥 Charakter als eigene Kopie übernommen!');
       break;
     }
     case 'cloud-exit-view': {
@@ -3063,6 +3179,12 @@ document.addEventListener('input',e=>{
   if(e.target?.id==='inpNewCharName'){CLOUD.newCharName=e.target.value;return;}
   if(e.target?.id==='inpNewCharAncestry'){CLOUD.newCharAncestry=e.target.value;return;}
   if(e.target?.id==='inpNewCharConcept'){CLOUD.newCharConcept=e.target.value;return;}
+  if(e.target?.id==='inpNewTplName'){CLOUD.newTemplateName=e.target.value;return;}
+  if(e.target?.id==='inpNewTplAncestry'){CLOUD.newTemplateAncestry=e.target.value;return;}
+  if(e.target?.id==='inpNewTplConcept'){CLOUD.newTemplateConcept=e.target.value;return;}
+  if(e.target?.id==='inpNewTplCategory'){CLOUD.newTemplateCategory=e.target.value;return;}
+  if(e.target?.dataset?.gmEnemySearch){CLOUD.gmEnemySearch=e.target.value;refreshGmEnemiesGridDOM();return;}
+  if(e.target?.dataset?.templateSearch){CLOUD.templateSearch=e.target.value;refreshTemplatesGridDOM();return;}
   if(e.target&&e.target.dataset?.regenOvr){
     const el=e.target, k=el.dataset.regenOvr, raw=el.value.trim();
     const M=calcActiveMods(), auto=k==='lp'?getLpRegenAuto(M):getMlpRegenAuto(M);
