@@ -2,10 +2,10 @@ import {
   $, esc, isHex, sortAlpha, stripHtml, toRtfHtml
 } from './utils.js';
 import {
-  openCtxMenu, getCampaigns, setActiveCampaign, isUserInCampaign, isGlobalGM, isCampaignMainGM, canManageCampaign, getAccessibleCampaigns, getCreatableCampaigns, getUserAvatar, renderUserNamePill, getActiveLiveCampaignId, save, load, S, UI, CLOUD, getCharOwner, getCharCampaignId, canManageChar
+  openCtxMenu, closeCtxMenu, getCampaigns, setActiveCampaign, isUserInCampaign, isGlobalGM, isCampaignMainGM, canManageCampaign, getGmManageableCampaigns, canToggleEnemyStatus, isEnemySheet, getEnemyMeta, canManageEnemySheet, canViewEnemySheet, isEnemyDiceVisibleInCampaign, getAccessibleCampaigns, getCreatableCampaigns, getUserAvatar, renderUserNamePill, getActiveLiveCampaignId, save, load, S, UI, CLOUD, getCharOwner, getCharCampaignId, canManageChar
 } from './state.js';
 import {
-  renderLobbyLiveDiceHtml, getCampaignSharedPages, extractPublicPages, updateCloudCharacterMeta
+  renderLobbyLiveDiceHtml, getCampaignSharedPages, extractPublicPages, updateCloudCharacterMeta, toggleEnemyActiveStatus, toggleEnemyCampaignAssignment, toggleEnemyDiceVisibility, toggleEnemyArchived, cloneEnemyToCampaign
 } from './cloud.js';
 import {
   renderRtfToolbarHtml
@@ -166,6 +166,585 @@ export function openLobbyCharMenu(anchorEl,cid,forceOpen=false){
     onClose:()=>{if(CLOUD.confirmDelCloudId===cid) CLOUD.confirmDelCloudId=null;}
   });
 }
+
+function resolveFreshAnchor(anchorEl, selector){
+  if(anchorEl&&anchorEl.isConnected) return anchorEl;
+  return selector?document.querySelector(selector):null;
+}
+
+export function openEnemyCampaignPicker(anchorEl,cid,forceOpen=false){
+  if(!canToggleEnemyStatus()) return;
+  const ch=CLOUD.list.find(x=>x&&x.id===cid);
+  const dispName=String(ch?.name||(S.charId===cid?S.profile?.name:'')||'').trim()||'Gegner-Vorlage';
+  const meta=getEnemyMeta(cid);
+  const gmCamps=getGmManageableCampaigns();
+  const sel=`[data-action="open-enemy-camp-picker"][data-id="${CSS.escape?CSS.escape(cid):cid}"]`;
+  const items=[
+    {type:'label',label:`Gegner-Status für „${dispName}“`},
+    {
+      icon:meta.isEnemy?'👹':'📋',
+      label:meta.isEnemy?'Als Gegner aktiv (klicken → Vorlage)':'Nur Vorlage (klicken → als Gegner aktivieren)',
+      sub:meta.isEnemy?'Nur für Spielleiter & Admin sichtbar':'Normale Vorlage – noch keinem Würfelassistenten zugeordnet',
+      active:Boolean(meta.isEnemy),
+      badge:meta.isEnemy?'AN':'AUS',
+      keepOpen:true,
+      onClick:async()=>{
+        const prefCamp=(CLOUD.activeCampaignId&&CLOUD.activeCampaignId!=='default'&&canManageCampaign(CLOUD.activeCampaignId))?CLOUD.activeCampaignId:'';
+        await toggleEnemyActiveStatus(cid,prefCamp);
+        openEnemyCampaignPicker(resolveFreshAnchor(anchorEl,sel),cid,true);
+      }
+    },
+    {sep:true},
+    {type:'label',label:'Kampagnen ankreuzen (Mehrfachauswahl)'}
+  ];
+  if(!gmCamps.length){
+    items.push({icon:'ℹ️',label:'Keine SL-Kampagnen verfügbar',sub:'Du bist aktuell keiner Kampagne als Spielleiter zugewiesen.',disabled:true});
+  }else{
+    gmCamps.forEach(c=>{
+      const checked=meta.campaignIds.includes(c.id);
+      const vis=Boolean(checked&&meta.isEnemy&&!meta.archived&&meta.diceVisibleByCamp?.[c.id]);
+      items.push({
+        icon:checked?'☑️':'⬜',
+        label:c.name||'Kampagne',
+        sub:checked?(vis?'👁️ Im Würfelassistenten sichtbar':'🙈 Zugeordnet (im Würfelassistenten verborgen)'):'Ankreuzen, um als Gegner zuzuordnen',
+        badge:checked?(vis?'👁️ AN':'🙈 AUS'):'',
+        active:checked,
+        keepOpen:true,
+        onClick:async()=>{
+          await toggleEnemyCampaignAssignment(cid,c.id);
+          openEnemyCampaignPicker(resolveFreshAnchor(anchorEl,sel),cid,true);
+        }
+      });
+    });
+  }
+  items.push({sep:true});
+  items.push({icon:'✓',label:'Fertig',onClick:()=>closeCtxMenu()});
+  openCtxMenu({
+    key:`enemy-camp-picker:${cid}`,
+    title:`Kampagnen: ${dispName}`,
+    anchorEl,
+    align:'right',
+    minWidth:275,
+    showClose:true,
+    forceOpen,
+    items
+  });
+}
+
+export function openGmTemplateAddPicker(anchorEl,campId,forceOpen=false){
+  const cid=String(campId||'').trim();
+  if(!cid||cid==='default'||!canManageCampaign(cid)) return;
+  const camp=getCampaigns().find(c=>c.id===cid);
+  const campName=camp?.name||'Kampagne';
+  const sel=`[data-action="open-gm-template-add-picker"][data-camp="${CSS.escape?CSS.escape(cid):cid}"]`;
+  const allSheets=(CLOUD.list||[])
+    .filter(ch=>ch&&isEnemySheet(ch.id)&&canViewEnemySheet(ch.id))
+    .sort((a,b)=>String(a.name||'').localeCompare(String(b.name||''),'de'));
+  const items=[
+    {type:'label',label:`Vorlagen & Gegner für „${campName}“ ankreuzen`}
+  ];
+  if(!allSheets.length){
+    items.push({icon:'ℹ️',label:'Noch keine Gegner-Vorlagen vorhanden',sub:'Erstelle zuerst unten oder über „+ Neuer Gegner“ eine Vorlage.',disabled:true});
+  }else{
+    allSheets.forEach(ch=>{
+      const m=getEnemyMeta(ch.id);
+      const checked=Boolean(m.isEnemy&&m.campaignIds.includes(cid));
+      const owner=getCharOwner(ch.id);
+      const subParts=[];
+      if(m.category) subParts.push(m.category);
+      if(owner) subParts.push(`von ${owner}`);
+      if(m.archived) subParts.push('📦 wegsortiert');
+      else if(m.isEnemy) subParts.push('👹 Gegner');
+      else subParts.push('📋 Vorlage');
+      items.push({
+        icon:checked?'☑️':'⬜',
+        label:String(ch.name||'').trim()||'Unbenannte Vorlage',
+        sub:subParts.join(' • '),
+        badge:checked?(m.diceVisibleByCamp?.[cid]?'👁️':'✓'):'',
+        active:checked,
+        keepOpen:true,
+        onClick:async()=>{
+          await toggleEnemyCampaignAssignment(ch.id,cid);
+          openGmTemplateAddPicker(resolveFreshAnchor(anchorEl,sel),cid,true);
+        }
+      });
+    });
+  }
+  items.push({sep:true});
+  items.push({icon:'✓',label:'Fertig',onClick:()=>closeCtxMenu()});
+  openCtxMenu({
+    key:`gm-tpl-add-picker:${cid}`,
+    title:`Vorlagen → ${campName}`,
+    anchorEl,
+    align:'right',
+    minWidth:285,
+    showClose:true,
+    forceOpen,
+    items
+  });
+}
+
+export function openLobbyEnemyMenu(anchorEl,cid,contextCampId='',forceOpen=false){
+  const ch=CLOUD.list.find(x=>x&&x.id===cid);
+  if(!ch) return;
+  const dispName=String(ch.name||'').trim()||'Unbenannte Vorlage';
+  const meta=getEnemyMeta(cid);
+  const canManage=canManageEnemySheet(cid);
+  const canToggle=canToggleEnemyStatus();
+  const isDelAsk=CLOUD.confirmDelCloudId===cid;
+  const effCamp=(contextCampId&&contextCampId!=='default'&&canManageCampaign(contextCampId))
+    ?contextCampId
+    :((CLOUD.activeCampaignId&&CLOUD.activeCampaignId!=='default'&&canManageCampaign(CLOUD.activeCampaignId))?CLOUD.activeCampaignId:'');
+  const effCampName=effCamp?(getCampaigns().find(c=>c.id===effCamp)?.name||'Kampagne'):'';
+  const items=[];
+  items.push({type:'label',label:meta.isEnemy?'Gegner-Aktionen':'Vorlagen-Aktionen'});
+  if(canManage){
+    items.push({icon:'✏️',label:'Bogen bearbeiten',action:'cloud-edit-char',dataset:{id:cid}});
+  }
+  items.push({icon:'👁️',label:'Im Ansichtsmodus öffnen',sub:'Schreibgeschützte Vorschau',action:'cloud-view-char',dataset:{id:cid}});
+  items.push({icon:'🔗',label:'Direktlink kopieren',sub:`?char=${cid}`,action:'copy-char-link',dataset:{id:cid}});
+  if(canToggle){
+    items.push({sep:true});
+    items.push({type:'label',label:'Spielleiter-Steuerung'});
+    items.push({
+      icon:meta.isEnemy?'👹':'📋',
+      label:meta.isEnemy?'Zurück zu Vorlage setzen':'Als Gegner aktivieren',
+      badge:meta.isEnemy?'GEGNER':'VORLAGE',
+      active:Boolean(meta.isEnemy),
+      onClick:()=>{toggleEnemyActiveStatus(cid,effCamp);}
+    });
+    items.push({
+      icon:'🗺️',
+      label:'Kampagnen auswählen (Checkboxen)',
+      badge:`${meta.campaignIds.length}`,
+      keepOpen:true,
+      onClick:()=>{openEnemyCampaignPicker(anchorEl,cid,true);}
+    });
+    if(effCamp&&meta.isEnemy&&meta.campaignIds.includes(effCamp)&&!meta.archived){
+      const isVis=isEnemyDiceVisibleInCampaign(cid,effCamp);
+      items.push({
+        icon:isVis?'🙈':'👁️',
+        label:isVis?`In „${effCampName}“ verbergen`:`In „${effCampName}“ im Würfelassistent zeigen`,
+        active:isVis,
+        onClick:()=>{toggleEnemyDiceVisibility(cid,effCamp);}
+      });
+    }
+    if(effCamp){
+      items.push({
+        icon:'⚡',
+        label:`Als Instanz für „${effCampName}“ klonen`,
+        sub:'Legt z. B. „… #1“ als eigenständigen Gegner an',
+        onClick:()=>{cloneEnemyToCampaign(cid,effCamp);}
+      });
+    }
+  }
+  if(canManage){
+    items.push({sep:true});
+    items.push({type:'label',label:'Verwaltung'});
+    items.push({
+      icon:'📋',
+      label:'Als neue Vorlage kopieren',
+      sub:'Eigenständige Vorlagen-Kopie anlegen',
+      onClick:()=>{cloneEnemyToCampaign(cid,'');}
+    });
+    items.push({
+      icon:meta.archived?'↩️':'📦',
+      label:meta.archived?'Aus Archiv wiederherstellen':'Wegsortieren (Archivieren)',
+      sub:meta.archived?'Wieder aktiv anzeigen':'Räumt den Gegner aus der aktiven Liste & verbirgt ihn',
+      onClick:()=>{toggleEnemyArchived(cid);}
+    });
+    items.push({sep:true});
+    if(isDelAsk){
+      items.push({
+        icon:'⚠️',
+        label:'Wirklich löschen? (2/2)',
+        sub:`„${dispName}“ dauerhaft entfernen`,
+        danger:true,
+        action:'cloud-del-yes',
+        dataset:{id:cid}
+      });
+      items.push({
+        icon:'↩️',
+        label:'Löschen abbrechen',
+        keepOpen:true,
+        onClick:()=>{CLOUD.confirmDelCloudId=null;openLobbyEnemyMenu(anchorEl,cid,contextCampId,true);}
+      });
+    }else{
+      items.push({
+        icon:'🗑️',
+        label:'Dauerhaft löschen',
+        danger:true,
+        keepOpen:true,
+        onClick:()=>{CLOUD.confirmDelCloudId=cid;openLobbyEnemyMenu(anchorEl,cid,contextCampId,true);}
+      });
+    }
+  }
+  openCtxMenu({
+    key:`lobby-enemy-menu:${cid}`,
+    title:dispName,
+    anchorEl,
+    align:'right',
+    minWidth:260,
+    forceOpen,
+    items,
+    onClose:()=>{if(CLOUD.confirmDelCloudId===cid) CLOUD.confirmDelCloudId=null;}
+  });
+}
+function renderInlineTemplateCreateFormHtml(activeCampId, isGmContext=false){
+  const targetCampId=isGmContext?activeCampId:String(CLOUD.newTemplateAsEnemyCampId||'').trim();
+  const targetCamp=targetCampId?getCampaigns().find(c=>c.id===targetCampId):null;
+  const asEnemy=Boolean(targetCamp&&targetCamp.id!=='default'&&canManageCampaign(targetCamp.id));
+  const title=asEnemy
+    ?`👹 Neuen Gegner für „${esc(targetCamp.name)}“ erstellen`
+    :`📋 Neue Gegner-Vorlage für „${esc(CLOUD.currentUser||'Admin')}“ anlegen`;
+  const borderCls=asEnemy?'border-rose-500/60 bg-rose-500/10':'border-purple-500/55 bg-purple-500/10';
+  const hdrCls=asEnemy?'text-rose-300':'text-purple-300';
+  return `<div class="subcard border-2 ${borderCls} p-3.5 sm:p-4 space-y-3 min-w-0 max-w-full">
+    <div class="flex flex-wrap items-center justify-between gap-2 min-w-0">
+      <h4 class="text-sm sm:text-base font-black ${hdrCls} break-words min-w-0">${title}</h4>
+      <button type="button" data-action="create-template-cancel" aria-label="Abbrechen" class="btn py-1 px-2.5 text-xs shrink-0">✕</button>
+    </div>
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3 items-end">
+      <div class="lg:col-span-4 min-w-0">
+        <label class="block text-xs font-extrabold ${hdrCls} mb-1">Name</label>
+        <input id="inpNewTplName" type="text" value="${esc(CLOUD.newTemplateName||'')}" placeholder="${asEnemy?'z.B. Schattenwolf-Alpha':'z.B. Goblin-Plünderer'}" class="inp w-full py-2 px-3 text-sm font-bold"/>
+      </div>
+      <div class="lg:col-span-3 min-w-0">
+        <label class="block text-xs font-bold t-mut mb-1">Volk / Typ <span class="opacity-65">(opt.)</span></label>
+        <input id="inpNewTplAncestry" type="text" value="${esc(CLOUD.newTemplateAncestry||'')}" placeholder="z.B. Bestie / Mensch" class="inp w-full py-2 px-3 text-sm font-semibold"/>
+      </div>
+      <div class="lg:col-span-3 min-w-0">
+        <label class="block text-xs font-bold t-mut mb-1">Rolle / Konzept <span class="opacity-65">(opt.)</span></label>
+        <input id="inpNewTplConcept" type="text" value="${esc(CLOUD.newTemplateConcept||'')}" placeholder="z.B. Fernkämpfer" class="inp w-full py-2 px-3 text-sm font-semibold"/>
+      </div>
+      <div class="lg:col-span-2 min-w-0">
+        <label class="block text-xs font-bold t-mut mb-1">Kategorie <span class="opacity-65">(opt.)</span></label>
+        <input id="inpNewTplCategory" type="text" value="${esc(CLOUD.newTemplateCategory||'')}" placeholder="Minion / Boss" class="inp w-full py-2 px-3 text-sm font-semibold"/>
+      </div>
+    </div>
+    <div class="p-2.5 rounded-xl bg-black/25 border border-white/10 text-xs t-mut leading-relaxed">
+      ${asEnemy
+        ?`🔒 Wird direkt als <strong>Gegner</strong> für „${esc(targetCamp.name)}“ angelegt – <strong>nur für Spielleitung &amp; Admin sichtbar</strong> und zunächst im Würfelassistenten <strong>verborgen</strong>, bis du den Toggle aktivierst.`
+        :`💡 Wird als <strong>Gegner-Vorlage</strong> gespeichert (erscheint nicht in der normalen Helden-Galerie). Spielleiter können Vorlagen später als Gegner aktivieren und beliebigen Kampagnen zuordnen.`}
+    </div>
+    <div class="flex flex-wrap items-center justify-end gap-2 pt-0.5">
+      <button type="button" data-action="create-template-cancel" class="btn py-2 px-3.5 text-xs">Abbrechen</button>
+      <button type="button" data-action="create-template-confirm" class="btn ${asEnemy?'bg-rose-600 text-white border-rose-500 hover:brightness-110':'btn-ok'} py-2 px-4 text-xs sm:text-sm font-black">${asEnemy?'👹 Gegner erstellen &amp; Bogen öffnen':'📋 Vorlage erstellen &amp; Bogen öffnen'}</button>
+    </div>
+  </div>`;
+}
+
+export function renderGmEnemiesListInnerHtml(activeCamp){
+  const campId=activeCamp?.id||'';
+  if(!campId||campId==='default'||!canManageCampaign(activeCamp)) return '';
+  const myId=CLOUD.viewingRemote?'':S.charId;
+  const allCamps=getCampaigns();
+  const campMap=new Map(allCamps.map(c=>[c.id,c.name||'Kampagne']));
+  const campEnemies=(CLOUD.list||[])
+    .filter(ch=>{
+      if(!ch||!isEnemySheet(ch.id)) return false;
+      const m=getEnemyMeta(ch.id);
+      return Boolean(m.isEnemy&&m.campaignIds.includes(campId));
+    })
+    .sort((a,b)=>{
+      const va=isEnemyDiceVisibleInCampaign(a.id,campId)?1:0;
+      const vb=isEnemyDiceVisibleInCampaign(b.id,campId)?1:0;
+      if(va!==vb) return vb-va;
+      return String(a.name||'').localeCompare(String(b.name||''),'de');
+    });
+  const tab=CLOUD.gmEnemyTab==='archived'?'archived':'active';
+  const q=String(CLOUD.gmEnemySearch||'').trim().toLowerCase();
+  const filtered=campEnemies.filter(ch=>{
+    const m=getEnemyMeta(ch.id);
+    if(tab==='archived'?!m.archived:m.archived) return false;
+    if(!q) return true;
+    const hay=[ch.name,ch.ancestry,ch.concept,m.category,getCharOwner(ch.id)].filter(Boolean).join(' ').toLowerCase();
+    return hay.includes(q);
+  });
+  if(!filtered.length){
+    return `<div class="subcard border-dashed py-6 px-4 text-center text-xs t-mut space-y-2">
+      <div>${q
+        ?`Keine Gegner passend zu „${esc(CLOUD.gmEnemySearch)}“ gefunden.`
+        :(tab==='archived'
+          ?'In dieser Kampagne sind aktuell keine Gegner wegsortiert.'
+          :'Noch keine aktiven Gegner dieser Kampagne zugeordnet. Erstelle oben einen neuen Gegner oder ordne vorhandene Vorlagen per Checkbox zu.')}</div>
+    </div>`;
+  }
+  return `<div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3.5 min-w-0">
+    ${filtered.map(ch=>{
+      const m=getEnemyMeta(ch.id);
+      const isVis=isEnemyDiceVisibleInCampaign(ch.id,campId);
+      const isOpenSheet=Boolean(UI.sheetLoaded&&ch.id===myId);
+      const owner=getCharOwner(ch.id);
+      const otherCampCount=Math.max(0,m.campaignIds.length-1);
+      const cardBorder=isVis
+        ?'border-emerald-400/75 bg-emerald-500/10 shadow-md'
+        :(m.archived?'border-slate-500/40 bg-black/25 opacity-85':'border-rose-400/35 bg-black/20');
+      return `<div class="card p-3 sm:p-4 flex flex-col justify-between gap-3 min-w-0 max-w-full ${cardBorder}">
+        <div class="flex items-start gap-2.5 sm:gap-3 min-w-0">
+          <div class="w-12 h-12 rounded-xl overflow-hidden border-2 ${isVis?'border-emerald-400':'border-rose-400/60'} bg-black/35 shrink-0 flex items-center justify-center shadow">
+            ${ch.avatar?`<img src="${ch.avatar}" class="w-full h-full object-cover" alt=""/>`:`<span class="text-lg leading-none">👹</span>`}
+          </div>
+          <div class="min-w-0 flex-1 space-y-1">
+            <div class="flex flex-wrap items-center gap-1.5 min-w-0">
+              <span class="text-sm sm:text-base font-black break-words line-clamp-2 min-w-0">${esc(ch.name||'Unbenannter Gegner')}</span>
+            </div>
+            <div class="text-[11px] t-mut truncate">${esc(ch.ancestry||'Gegner')}${ch.concept?` • ${esc(ch.concept)}`:''}</div>
+            <div class="flex flex-wrap items-center gap-1 pt-0.5 min-w-0">
+              <span class="px-1.5 py-0.5 rounded text-[10px] font-black bg-rose-500/20 text-rose-200 border border-rose-400/40 tabular shrink-0">St. ${ch.level||1}</span>
+              ${m.category?`<span class="px-1.5 py-0.5 rounded text-[10px] font-extrabold bg-purple-500/20 text-purple-200 border border-purple-400/40 truncate max-w-[120px]">${esc(m.category)}</span>`:''}
+              ${otherCampCount>0?`<span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-sky-500/20 text-sky-200 border border-sky-400/40 shrink-0" data-tip="Auch zugeordnet in: ${esc(m.campaignIds.filter(id=>id!==campId).map(id=>campMap.get(id)||id).join(', '))}">+${otherCampCount} Kamp.</span>`:''}
+              ${owner?`<span class="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-black/30 t-mut truncate max-w-[110px]">👤 ${esc(owner)}</span>`:''}
+              ${isOpenSheet?`<span class="px-1.5 py-0.5 rounded text-[10px] font-black bg-emerald-500/25 text-emerald-300 border border-emerald-400/60 shrink-0">Geöffnet</span>`:''}
+            </div>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-4 gap-1.5 text-center text-[11px] tabular">
+          <div class="subcard p-1.5 border bdr-line bg-black/25 min-w-0">
+            <span class="block text-[9px] font-extrabold text-rose-400">LP</span>
+            <strong class="font-black">${ch.lpCurrent??8}/${ch.lpMax??8}</strong>
+          </div>
+          <div class="subcard p-1.5 border bdr-line bg-black/25 min-w-0">
+            <span class="block text-[9px] font-extrabold text-indigo-400">mLP</span>
+            <strong class="font-black">${ch.mlpCurrent??8}/${ch.mlpMax??8}</strong>
+          </div>
+          <div class="subcard p-1.5 border bdr-line bg-black/25 min-w-0">
+            <span class="block text-[9px] font-extrabold text-yellow-300">AP</span>
+            <strong class="font-black">${ch.apCurrent??3}/${ch.apMax??3}</strong>
+          </div>
+          <div class="subcard p-1.5 border bdr-line bg-black/25 min-w-0">
+            <span class="block text-[9px] font-extrabold text-amber-400">Ini</span>
+            <strong class="font-black">${(ch.ini??0)>=0?'+'+(ch.ini??0):(ch.ini??0)}</strong>
+          </div>
+        </div>
+
+        ${m.archived
+          ?`<button type="button" data-action="toggle-enemy-archive" data-id="${esc(ch.id)}" class="btn w-full min-h-[40px] py-2 px-3 text-xs font-black border-amber-400/50 bg-amber-500/15 text-amber-200">↩️ Aus Archiv wiederherstellen</button>`
+          :`<button type="button" role="switch" aria-checked="${isVis?'true':'false'}" data-action="toggle-enemy-dice-vis" data-id="${esc(ch.id)}" data-camp="${esc(campId)}" data-tip="${isVis?'Klicken, um diesen Gegner wieder aus der Gegnerliste des Würfelassistenten zu verbergen':'Klicken, um diesen Gegner in der Gegnerliste des Würfelassistenten dieser Kampagne freizuschalten (Spieler-Details bleiben verborgen)'}" class="btn w-full min-h-[40px] py-2 px-3 text-xs font-black justify-between transition-all ${isVis?'!border-emerald-400 !bg-emerald-500/25 text-emerald-200 shadow-sm':'opacity-90 hover:opacity-100'}">
+              <span class="truncate">${isVis?'👁️ Im Würfelassistent sichtbar':'🙈 Im Würfelassistent verborgen'}</span>
+              <span class="px-2 py-0.5 rounded-full text-[10px] font-black shrink-0 ${isVis?'bg-emerald-500 text-slate-950':'bg-black/35 t-mut'}">${isVis?'AN':'AUS'}</span>
+            </button>`}
+
+        <div class="flex items-center gap-1.5 pt-2 border-t bdr-line min-w-0">
+          <button type="button" data-action="cloud-edit-char" data-id="${esc(ch.id)}" data-tip="Gegnerbogen öffnen und bearbeiten" class="btn btn-pri min-h-[38px] py-1.5 px-2.5 text-xs font-black flex-1 min-w-0"><span class="truncate">✏️ Öffnen</span></button>
+          <button type="button" data-action="open-enemy-camp-picker" data-id="${esc(ch.id)}" aria-haspopup="menu" data-tip="Kampagnen-Zuordnung per Checkbox ändern" class="btn min-h-[38px] py-1.5 px-2.5 text-xs font-extrabold shrink-0">🗺️ <span class="tabular">${m.campaignIds.length}</span></button>
+          <button type="button" data-action="clone-enemy-camp" data-id="${esc(ch.id)}" data-camp="${esc(campId)}" data-tip="Klon für diese Kampagne anlegen (z. B. #1, #2)" class="btn min-h-[38px] py-1.5 px-2.5 text-xs font-extrabold shrink-0" aria-label="Gegner für Kampagne klonen">⚡</button>
+          <button type="button" data-action="open-lobby-enemy-menu" data-id="${esc(ch.id)}" data-camp="${esc(campId)}" aria-haspopup="menu" aria-label="Weitere Aktionen für ${esc(ch.name||'Gegner')}" data-tip="Weitere Aktionen (Klonen, Wegsortieren, Vorlage, Löschen)" class="btn min-h-[38px] min-w-[38px] py-1.5 px-2 text-base font-black shrink-0">⋮</button>
+        </div>
+      </div>`;
+    }).join('')}
+  </div>`;
+}
+
+export function renderGmEnemiesPanelHtml(activeCamp){
+  const campId=activeCamp?.id||'';
+  if(!campId||campId==='default'||!canManageCampaign(activeCamp)) return '';
+  const campEnemies=(CLOUD.list||[]).filter(ch=>{
+    if(!ch||!isEnemySheet(ch.id)) return false;
+    const m=getEnemyMeta(ch.id);
+    return Boolean(m.isEnemy&&m.campaignIds.includes(campId));
+  });
+  const activeCnt=campEnemies.filter(ch=>!getEnemyMeta(ch.id).archived).length;
+  const archCnt=campEnemies.filter(ch=>getEnemyMeta(ch.id).archived).length;
+  const diceVisCnt=campEnemies.filter(ch=>isEnemyDiceVisibleInCampaign(ch.id,campId)).length;
+  const tab=CLOUD.gmEnemyTab==='archived'?'archived':'active';
+  const showInlineCreate=Boolean(CLOUD.newTemplateOpen&&CLOUD.newTemplateAsEnemyCampId===campId);
+  return `<div class="subcard p-2.5 sm:p-4 space-y-3 border-2 border-rose-500/45 bg-rose-500/10 min-w-0 max-w-full">
+    <div class="flex flex-wrap items-center justify-between gap-2 min-w-0 ${CLOUD.gmEnemiesOpen||showInlineCreate?'border-b bdr-line pb-2.5':''}">
+      <div class="flex flex-wrap items-center gap-1.5 sm:gap-2 min-w-0 max-w-full">
+        <button type="button" data-action="toggle-gm-enemies-open" aria-expanded="${CLOUD.gmEnemiesOpen?'true':'false'}" aria-label="${CLOUD.gmEnemiesOpen?'Spielleiter-Gegner einklappen':'Spielleiter-Gegner ausklappen'}" data-tip="${CLOUD.gmEnemiesOpen?'Spielleiter-Gegner einklappen':'Spielleiter-Gegner ausklappen'}" class="btn w-8 h-8 p-0 text-xs font-black shrink-0 border-rose-400/50 text-rose-200">${CLOUD.gmEnemiesOpen?'▾':'▸'}</button>
+        <h3 class="text-xs sm:text-sm font-black text-rose-300 uppercase tracking-wider break-words min-w-0">👹 Spielleiter-Gegner</h3>
+        <span class="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-black/30 text-rose-200 border border-rose-400/40 inline-flex items-center gap-1 max-w-full min-w-0"><span class="shrink-0">🔒</span><span class="truncate">Nur SL · ${esc(activeCamp.name||'Kampagne')}</span></span>
+        <span class="px-2 py-0.5 rounded-full text-[10px] font-black tabular shrink-0 ${diceVisCnt>0?'bg-emerald-500/25 text-emerald-300 border border-emerald-400/60':'bg-black/25 t-mut border bdr-line'}">👁️ ${diceVisCnt} im Würfel</span>
+        <span class="pill cursor-default text-[10px] py-0.5 px-2 tabular shrink-0">⚔️ ${activeCnt} aktiv${archCnt?` · 📦 ${archCnt}`:''}</span>
+      </div>
+      <div class="flex flex-wrap items-center gap-1.5 min-w-0 max-w-full">
+        <button type="button" data-action="open-new-template" data-camp="${esc(campId)}" data-tip="Neuen Gegner direkt für diese Kampagne erstellen" class="btn bg-rose-600/85 hover:bg-rose-600 text-white border-rose-400/60 py-1 px-2.5 text-xs font-extrabold shrink-0">+ Neuer Gegner</button>
+        <button type="button" data-action="open-gm-template-add-picker" data-camp="${esc(campId)}" aria-haspopup="menu" data-tip="Vorhandene Vorlagen oder Gegner per Checkbox dieser Kampagne zuordnen" class="btn py-1 px-2.5 text-xs font-extrabold border-purple-400/50 bg-purple-500/15 text-purple-200 shrink-0">📋 <span class="hidden sm:inline">Aus </span>Vorlagen</button>
+        ${diceVisCnt>0?`<button type="button" data-action="hide-all-camp-enemies-dice" data-camp="${esc(campId)}" data-tip="Alle Gegner dieser Kampagne sofort wieder aus dem Würfelassistenten ausblenden" class="btn py-1 px-2.5 text-xs font-extrabold border-amber-400/50 bg-amber-500/15 text-amber-200 shrink-0">🙈 Alle ausblenden</button>`:''}
+        <button type="button" data-action="toggle-gm-enemies-open" class="btn py-1 px-2 text-xs shrink-0">${CLOUD.gmEnemiesOpen?'▴':'▾'}<span class="hidden sm:inline"> ${CLOUD.gmEnemiesOpen?'Einklappen':'Öffnen'}</span></button>
+      </div>
+    </div>
+    ${showInlineCreate?renderInlineTemplateCreateFormHtml(campId,true):''}
+    ${CLOUD.gmEnemiesOpen?`
+      <div class="flex flex-wrap items-center justify-between gap-2 min-w-0">
+        <div class="inline-flex rounded-xl p-0.5 bg-black/25 border bdr-line text-xs shrink-0">
+          <button type="button" data-action="set-gm-enemy-tab" data-tab="active" class="px-2.5 py-1 rounded-lg font-extrabold transition-all ${tab==='active'?'bg-rose-500/30 text-rose-200 shadow-sm':'t-mut hover:text-white'}">⚔️ Aktiv (${activeCnt})</button>
+          <button type="button" data-action="set-gm-enemy-tab" data-tab="archived" class="px-2.5 py-1 rounded-lg font-extrabold transition-all ${tab==='archived'?'bg-amber-500/30 text-amber-200 shadow-sm':'t-mut hover:text-white'}">📦 Wegsortiert (${archCnt})</button>
+        </div>
+        <div class="flex-1 min-w-[160px] max-w-xs">
+          <input type="search" data-gm-enemy-search="1" value="${esc(CLOUD.gmEnemySearch||'')}" placeholder="Gegner filtern..." class="inp w-full py-1 px-2.5 text-xs font-semibold"/>
+        </div>
+      </div>
+      <div class="text-[11px] t-mut leading-relaxed">
+        💡 Nur Gegner mit aktivem <strong class="text-emerald-300">👁️ AN</strong>-Toggle erscheinen in der Gegnerliste des Würfelassistenten dieser Kampagne. Für Spieler bleiben Attribute, Waffen, Fertigkeiten &amp; Rüstung verborgen.
+      </div>
+      <div data-gm-enemies-grid="1" class="min-w-0">${renderGmEnemiesListInnerHtml(activeCamp)}</div>
+    `:''}
+  </div>`;
+}
+
+export function renderTemplatesGridInnerHtml(activeCamp){
+  const isGmOrAdmin=canToggleEnemyStatus();
+  const curUserLow=String(CLOUD.currentUser||'').trim().toLowerCase();
+  const myId=CLOUD.viewingRemote?'':S.charId;
+  const allCamps=getCampaigns();
+  const campMap=new Map(allCamps.map(c=>[c.id,c.name||'Kampagne']));
+  const activeCampId=activeCamp?.id||'default';
+  const canCloneToActiveCamp=Boolean(isGmOrAdmin&&activeCampId!=='default'&&canManageCampaign(activeCampId));
+  const activeCampName=activeCamp?.name||'Kampagne';
+  const allVisible=(CLOUD.list||[])
+    .filter(ch=>ch&&isEnemySheet(ch.id)&&canViewEnemySheet(ch.id))
+    .sort((a,b)=>String(a.name||'').localeCompare(String(b.name||''),'de'));
+  const flt=isGmOrAdmin?(CLOUD.templateFilter||'all'):'all';
+  const q=String(CLOUD.templateSearch||'').trim().toLowerCase();
+  const filtered=allVisible.filter(ch=>{
+    const m=getEnemyMeta(ch.id);
+    const ownLow=getCharOwner(ch.id).toLowerCase();
+    if(isGmOrAdmin){
+      if(flt==='templates'&&(m.isEnemy||m.archived)) return false;
+      if(flt==='enemies'&&(!m.isEnemy||m.archived)) return false;
+      if(flt==='mine'&&(!curUserLow||ownLow!==curUserLow)) return false;
+      if(flt==='archived'&&!m.archived) return false;
+      if(flt==='all'&&m.archived) return false;
+    }
+    if(!q) return true;
+    const hay=[ch.name,ch.ancestry,ch.concept,m.category,getCharOwner(ch.id)].filter(Boolean).join(' ').toLowerCase();
+    return hay.includes(q);
+  });
+  if(!filtered.length){
+    return `<div class="subcard border-dashed py-8 px-4 text-center text-xs t-mut space-y-2">
+      <div>${q
+        ?`Keine Vorlagen passend zu „${esc(CLOUD.templateSearch)}“ gefunden.`
+        :(isGmOrAdmin
+          ?(flt==='archived'?'Keine wegsortierten Vorlagen/Gegner vorhanden.':'In diesem Filter liegen aktuell keine Vorlagen oder Gegner.')
+          :'Du hast noch keine eigenen Gegner-Vorlagen angelegt. Klicke oben auf „+ Neue Vorlage“, um eine zu bauen!')}</div>
+    </div>`;
+  }
+  return `<div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 min-w-0">
+    ${filtered.map(ch=>{
+      const m=getEnemyMeta(ch.id);
+      const owner=getCharOwner(ch.id);
+      const isMine=Boolean(owner&&curUserLow&&owner.toLowerCase()===curUserLow);
+      const isOpenSheet=Boolean(UI.sheetLoaded&&ch.id===myId);
+      const canManage=canManageEnemySheet(ch.id);
+      const assignedCamps=m.campaignIds.map(id=>({id,name:campMap.get(id)||id,vis:isEnemyDiceVisibleInCampaign(ch.id,id)}));
+      const cardCls=m.isEnemy
+        ?(m.archived?'border-slate-500/45 bg-black/25 opacity-85':'border-rose-400/45 bg-rose-500/5')
+        :'border-purple-400/35 bg-purple-500/5';
+      return `<div class="card p-3.5 sm:p-4 flex flex-col justify-between gap-3 min-w-0 max-w-full ${cardCls}">
+        <div class="flex items-start gap-3 min-w-0">
+          <div class="w-12 h-12 rounded-xl overflow-hidden border-2 ${m.isEnemy?'border-rose-400/70':'border-purple-400/60'} bg-black/35 shrink-0 flex items-center justify-center shadow">
+            ${ch.avatar?`<img src="${ch.avatar}" class="w-full h-full object-cover" alt=""/>`:`<span class="text-lg leading-none">${m.isEnemy?'👹':'📋'}</span>`}
+          </div>
+          <div class="min-w-0 flex-1 space-y-1">
+            <div class="flex flex-wrap items-center gap-1.5 min-w-0">
+              <span class="text-sm sm:text-base font-black break-words line-clamp-2 min-w-0">${esc(ch.name||'Unbenannte Vorlage')}</span>
+            </div>
+            <div class="text-[11px] t-mut truncate">${esc(ch.ancestry||'Volk')} • ${esc(ch.concept||'Konzept')}</div>
+            <div class="flex flex-wrap items-center gap-1 pt-0.5 min-w-0">
+              <span class="px-1.5 py-0.5 rounded text-[10px] font-black ${m.isEnemy?'bg-rose-500/25 text-rose-200 border border-rose-400/50':'bg-purple-500/20 text-purple-200 border border-purple-400/40'} shrink-0">${m.isEnemy?'👹 Gegner':'📋 Vorlage'}</span>
+              <span class="px-1.5 py-0.5 rounded text-[10px] font-black bg-acc-soft text-acc border bdr-acc tabular shrink-0">St. ${ch.level||1}</span>
+              ${m.category?`<span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-black/30 text-amber-200 border border-amber-400/30 truncate max-w-[110px]">${esc(m.category)}</span>`:''}
+              ${m.archived?`<span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-500/30 text-slate-300 border border-slate-400/40 shrink-0">📦 Archiv</span>`:''}
+              ${owner?renderUserNamePill(owner,{cls:`px-1.5 py-0.5 rounded text-[10px] font-black max-w-full ${isMine?'bg-emerald-500/25 text-emerald-300 border border-emerald-400/50':'bg-indigo-500/20 text-indigo-300 border border-indigo-400/40'}`}):''}
+              ${isOpenSheet?`<span class="px-1.5 py-0.5 rounded text-[10px] font-black bg-emerald-500/25 text-emerald-300 border border-emerald-400/60 shrink-0">Geöffnet</span>`:''}
+            </div>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-4 gap-1.5 text-center text-[11px] tabular">
+          <div class="subcard p-1.5 border bdr-line bg-black/25 min-w-0"><span class="block text-[9px] font-extrabold text-rose-400">LP</span><strong class="font-black">${ch.lpCurrent??8}/${ch.lpMax??8}</strong></div>
+          <div class="subcard p-1.5 border bdr-line bg-black/25 min-w-0"><span class="block text-[9px] font-extrabold text-indigo-400">mLP</span><strong class="font-black">${ch.mlpCurrent??8}/${ch.mlpMax??8}</strong></div>
+          <div class="subcard p-1.5 border bdr-line bg-black/25 min-w-0"><span class="block text-[9px] font-extrabold text-yellow-300">AP</span><strong class="font-black">${ch.apCurrent??3}/${ch.apMax??3}</strong></div>
+          <div class="subcard p-1.5 border bdr-line bg-black/25 min-w-0"><span class="block text-[9px] font-extrabold text-amber-400">Ini</span><strong class="font-black">${(ch.ini??0)>=0?'+'+(ch.ini??0):(ch.ini??0)}</strong></div>
+        </div>
+
+        ${isGmOrAdmin?`
+          <div class="space-y-1.5 min-w-0">
+            <div class="grid grid-cols-2 gap-1.5 min-w-0">
+              <button type="button" role="switch" aria-checked="${m.isEnemy?'true':'false'}" data-action="toggle-enemy-active" data-id="${esc(ch.id)}" data-tip="${m.isEnemy?'Als Gegner aktiv – klicken, um wieder als normale Vorlage zu markieren':'Als Gegner aktivieren, um diese Vorlage Kampagnen zuzuordnen'}" class="btn min-h-[40px] py-1.5 px-2.5 text-xs font-black justify-between min-w-0 ${m.isEnemy?'!border-rose-400 !bg-rose-500/25 text-rose-200':'opacity-90'}">
+                <span class="truncate">${m.isEnemy?'👹 Gegner':'📋 Vorlage'}</span>
+                <span class="px-1.5 py-0.5 rounded text-[9px] font-black shrink-0 ${m.isEnemy?'bg-rose-500 text-white':'bg-black/35 t-mut'}">${m.isEnemy?'AN':'AUS'}</span>
+              </button>
+              <button type="button" data-action="open-enemy-camp-picker" data-id="${esc(ch.id)}" aria-haspopup="menu" data-tip="Kampagnen per Mehrfachauswahl (Checkboxen) zuordnen" class="btn min-h-[40px] py-1.5 px-2.5 text-xs font-extrabold min-w-0 ${assignedCamps.length?'border-sky-400/55 bg-sky-500/15 text-sky-200':''}">
+                <span class="truncate">🗺️ Kampagnen (${assignedCamps.length})</span>
+              </button>
+            </div>
+            ${assignedCamps.length?`<div class="flex flex-wrap items-center gap-1 min-w-0">
+              ${assignedCamps.map(c=>`<span class="px-1.5 py-0.5 rounded text-[10px] font-bold border max-w-full truncate ${c.vis?'bg-emerald-500/20 text-emerald-200 border-emerald-400/50':'bg-black/30 t-mut bdr-line'}" data-tip="${esc(c.name)}: ${c.vis?'Im Würfelassistent sichtbar':'Im Würfelassistent verborgen'}">${c.vis?'👁️':'📁'} ${esc(c.name)}</span>`).join('')}
+            </div>`:''}
+          </div>
+        `:''}
+
+        <div class="flex items-center gap-1.5 pt-2 border-t bdr-line min-w-0">
+          ${canManage
+            ?`<button type="button" data-action="cloud-edit-char" data-id="${esc(ch.id)}" class="btn btn-pri min-h-[38px] py-1.5 px-2.5 text-xs font-black flex-1 min-w-0"><span class="truncate">✏️ Bogen öffnen</span></button>`
+            :`<button type="button" data-action="cloud-view-char" data-id="${esc(ch.id)}" class="btn bdr-acc bg-acc-soft text-acc min-h-[38px] py-1.5 px-2.5 text-xs font-black flex-1 min-w-0"><span class="truncate">👁️ Ansehen</span></button>`}
+          ${canCloneToActiveCamp?`<button type="button" data-action="clone-enemy-camp" data-id="${esc(ch.id)}" data-camp="${esc(activeCampId)}" data-tip="Als eigenständigen Gegner in „${esc(activeCampName)}“ klonen" class="btn min-h-[38px] py-1.5 px-2.5 text-xs font-extrabold border-rose-400/45 bg-rose-500/15 text-rose-200 shrink-0">⚡ <span class="hidden sm:inline">Klonen</span></button>`:''}
+          <button type="button" data-action="open-lobby-enemy-menu" data-id="${esc(ch.id)}" data-camp="${esc(canCloneToActiveCamp?activeCampId:'')}" aria-haspopup="menu" aria-label="Weitere Aktionen für ${esc(ch.name||'Vorlage')}" class="btn min-h-[38px] min-w-[38px] py-1.5 px-2 text-base font-black shrink-0">⋮</button>
+        </div>
+      </div>`;
+    }).join('')}
+  </div>`;
+}
+
+export function renderLobbyTemplatesSectionHtml(activeCamp){
+  if(!CLOUD.currentUser&&!CLOUD.isAdmin) return '';
+  const isGmOrAdmin=canToggleEnemyStatus();
+  const allVisible=(CLOUD.list||[]).filter(ch=>ch&&isEnemySheet(ch.id)&&canViewEnemySheet(ch.id));
+  const tplCnt=allVisible.filter(ch=>!getEnemyMeta(ch.id).isEnemy&&!getEnemyMeta(ch.id).archived).length;
+  const enCnt=allVisible.filter(ch=>getEnemyMeta(ch.id).isEnemy&&!getEnemyMeta(ch.id).archived).length;
+  const archCnt=allVisible.filter(ch=>getEnemyMeta(ch.id).archived).length;
+  const curUserLow=String(CLOUD.currentUser||'').trim().toLowerCase();
+  const mineCnt=curUserLow?allVisible.filter(ch=>getCharOwner(ch.id).toLowerCase()===curUserLow).length:0;
+  const activeCampId=activeCamp?.id||'default';
+  const showInlineCreate=Boolean(CLOUD.newTemplateOpen&&(!CLOUD.newTemplateAsEnemyCampId||CLOUD.newTemplateAsEnemyCampId!==activeCampId||!canManageCampaign(activeCamp)));
+  const flt=CLOUD.templateFilter||'all';
+  return `<section class="card p-3 sm:p-6 space-y-4 min-w-0 max-w-full">
+    <div class="flex flex-wrap items-center justify-between gap-2.5 min-w-0 ${CLOUD.templatesOpen||showInlineCreate?'border-b bdr-line pb-2.5':''}">
+      <div class="flex flex-wrap items-center gap-2 min-w-0 max-w-full">
+        <button type="button" data-action="toggle-lobby-templates-open" aria-expanded="${CLOUD.templatesOpen?'true':'false'}" aria-label="${CLOUD.templatesOpen?'Gegner-Vorlagen einklappen':'Gegner-Vorlagen ausklappen'}" data-tip="${CLOUD.templatesOpen?'Gegner-Vorlagen einklappen':'Gegner-Vorlagen ausklappen'}" class="btn w-8 h-8 p-0 text-xs font-black shrink-0">${CLOUD.templatesOpen?'▾':'▸'}</button>
+        <h2 class="text-sm sm:text-lg font-black break-words min-w-0">${isGmOrAdmin?'📋 Gegner-Vorlagen &amp; Bestiarium':'📋 Meine Gegner-Vorlagen'}</h2>
+        <span class="pill cursor-default text-[10px] py-0.5 px-2 tabular shrink-0">${allVisible.length} ${allVisible.length===1?'Eintrag':'Einträge'}</span>
+        ${isGmOrAdmin&&enCnt?`<span class="px-2 py-0.5 rounded-full text-[10px] font-black bg-rose-500/20 text-rose-200 border border-rose-400/45 tabular shrink-0">👹 ${enCnt} aktiv</span>`:''}
+      </div>
+      <div class="flex flex-wrap items-center gap-1.5 shrink-0">
+        <button type="button" data-action="open-new-template" data-camp="" data-tip="Neue Gegner-Vorlage anlegen (getrennt von der normalen Helden-Galerie)" class="btn btn-ok py-1.5 px-3 text-xs font-black">+ Neue Vorlage</button>
+        <button type="button" data-action="toggle-lobby-templates-open" class="btn py-1.5 px-2.5 text-xs shrink-0">${CLOUD.templatesOpen?'▴':'▾'}<span class="hidden sm:inline"> ${CLOUD.templatesOpen?'Einklappen':'Öffnen'}</span></button>
+      </div>
+    </div>
+    ${showInlineCreate?renderInlineTemplateCreateFormHtml('',false):''}
+    ${CLOUD.templatesOpen?`
+      <div class="space-y-3 min-w-0">
+        <div class="text-xs t-mut leading-relaxed">
+          ${isGmOrAdmin
+            ?'💡 Erstelle hier Gegnertemplates oder aktiviere Vorlagen als <strong class="text-rose-300">👹 Gegner</strong> und ordne sie per Checkbox-Menü beliebig vielen deiner Kampagnen zu. Im Kampagnen-Panel oben steuerst du dann pro Gegner die Sichtbarkeit im Würfelassistenten.'
+            :'💡 Hier kannst du eigene Gegner-Vorlagen bauen, ohne Kampagnen zu überfluten. Spielleiter können Vorlagen später als Gegner aktivieren und ihren Kampagnen zuordnen – fremde Vorlagen und SL-Gegner bleiben dabei verborgen.'}
+        </div>
+        ${isGmOrAdmin||allVisible.length>=4?`
+          <div class="flex flex-wrap items-center justify-between gap-2 min-w-0">
+            ${isGmOrAdmin?`<div class="flex flex-wrap items-center gap-1 text-xs min-w-0">
+              ${[
+                ['all',`Alle (${tplCnt+enCnt})`],
+                ['templates',`📋 Vorlagen (${tplCnt})`],
+                ['enemies',`👹 Gegner (${enCnt})`],
+                ...(curUserLow?[['mine',`👤 Meine (${mineCnt})`]]:[]),
+                ['archived',`📦 Archiv (${archCnt})`]
+              ].map(([k,lbl])=>`<button type="button" data-action="set-template-filter" data-filter="${k}" class="btn py-1 px-2.5 text-[11px] font-extrabold ${flt===k?'btn-pri':'opacity-85 hover:opacity-100'}">${lbl}</button>`).join('')}
+            </div>`:'<div></div>'}
+            <div class="flex-1 min-w-[160px] max-w-xs">
+              <input type="search" data-template-search="1" value="${esc(CLOUD.templateSearch||'')}" placeholder="Vorlagen suchen..." class="inp w-full py-1 px-2.5 text-xs font-semibold"/>
+            </div>
+          </div>
+        `:''}
+        <div data-templates-grid="1" class="min-w-0">${renderTemplatesGridInnerHtml(activeCamp)}</div>
+      </div>
+    `:''}
+  </section>`;
+}
+
 export function tplLobbyScreen(){
   const myId=CLOUD.viewingRemote?'':S.charId;
   const baseOrig=window.location.origin&&window.location.origin!=='null'?`${window.location.origin}${window.location.pathname}`:'';
@@ -188,8 +767,9 @@ export function tplLobbyScreen(){
   const availCampUsers=knownUsers.filter(u=>!campAllowedUsers.some(au=>au.toLowerCase()===u.toLowerCase()));
   const campGmUsers=Array.isArray(activeCamp?.gmUsers)?activeCamp.gmUsers:[];
   const availCampGMs=knownUsers.filter(u=>!campGmUsers.some(g=>g.toLowerCase()===u.toLowerCase()));
-  const campCharList=CLOUD.list.filter(ch=>getCharCampaignId(ch.id)===activeCampId);
-  const myTotalCnt=CLOUD.currentUser?CLOUD.list.filter(ch=>getCharOwner(ch.id).toLowerCase()===CLOUD.currentUser.toLowerCase()).length:0;
+  const heroList=CLOUD.list.filter(ch=>ch&&!isEnemySheet(ch.id));
+  const campCharList=heroList.filter(ch=>getCharCampaignId(ch.id)===activeCampId);
+  const myTotalCnt=CLOUD.currentUser?heroList.filter(ch=>getCharOwner(ch.id).toLowerCase()===CLOUD.currentUser.toLowerCase()).length:0;
   const myCampCnt=CLOUD.currentUser?campCharList.filter(ch=>getCharOwner(ch.id).toLowerCase()===CLOUD.currentUser.toLowerCase()).length:0;
   const visibleList=CLOUD.filterMine&&CLOUD.currentUser?campCharList.filter(ch=>getCharOwner(ch.id).toLowerCase()===CLOUD.currentUser.toLowerCase()||(UI.sheetLoaded&&ch.id===myId)):campCharList;
   const creatableCamps=getCreatableCampaigns(CLOUD.currentUser);
@@ -197,7 +777,7 @@ export function tplLobbyScreen(){
   const selNewCampId=creatableCamps.some(c=>c.id===CLOUD.newCharCampId)?CLOUD.newCharCampId:(creatableCamps.some(c=>c.id===activeCampId)?activeCampId:'default');
   const canReadPublicNotes=activeCampId!=='default'&&(CLOUD.isAdmin||(CLOUD.currentUser&&(isUserInCampaign(activeCamp,CLOUD.currentUser)||isCampaignMainGM(activeCamp,CLOUD.currentUser))));
   const pubNoteCharList=[...campCharList];
-  if(canReadPublicNotes&&S.charId&&getCharCampaignId(S.charId)===activeCampId&&!pubNoteCharList.some(c=>c.id===S.charId)&&(S.profile.name||S.campaignNotes?.find(n=>n.id==='cn_public')?.content)){
+  if(canReadPublicNotes&&S.charId&&!isEnemySheet(S)&&getCharCampaignId(S.charId)===activeCampId&&!pubNoteCharList.some(c=>c.id===S.charId)&&(S.profile.name||S.campaignNotes?.find(n=>n.id==='cn_public')?.content)){
     pubNoteCharList.push({id:S.charId,name:S.profile.name||'Unbenannter Held',avatar:S.profile.avatar||'',owner:S.owner||CLOUD.currentUser||'',campaignId:activeCampId,updatedAt:CLOUD.registry.publicNotes?.[S.charId]?.updatedAt||''});
   }
   const pubNotesDocEntries=canReadPublicNotes?pubNoteCharList.map(ch=>{
@@ -412,7 +992,7 @@ export function tplLobbyScreen(){
       <div data-lobby-camp-tabs="1" class="flex items-center gap-2 sm:gap-2.5 overflow-x-auto pb-1 max-w-full">
         ${visibleCampaigns.map(c=>{
           const isAct=c.id===activeCampId;
-          const cCnt=CLOUD.list.filter(ch=>getCharCampaignId(ch.id)===c.id).length;
+          const cCnt=heroList.filter(ch=>getCharCampaignId(ch.id)===c.id).length;
           const icon=c.id==='default'?'🌐':'📁';
           const label=c.id==='default'?esc(c.name||'Ohne Kampagne / Allgemein'):esc(c.name||'Kampagne');
           const tabBgStyle=isHex(c.bgColor)?`background:${isAct?`linear-gradient(135deg,color-mix(in srgb,${c.bgColor} 78%,var(--surf2)),color-mix(in srgb,${c.bgColor} 58%,var(--surf)))`:`color-mix(in srgb,${c.bgColor} 34%,var(--surf2))`};border-color:color-mix(in srgb,${c.bgColor} ${isAct?'95%':'65%'},var(--bdr));${isAct?`box-shadow:0 0 0 2px color-mix(in srgb,${c.bgColor} 65%,transparent),0 6px 16px rgba(0,0,0,.28);`:''}`:'';
@@ -556,6 +1136,8 @@ export function tplLobbyScreen(){
       </div>`}
       `:''}
 
+      ${renderGmEnemiesPanelHtml(activeCamp)}
+
       ${canReadPublicNotes?`
         <div class="subcard p-2.5 sm:p-4 space-y-3 sm:space-y-3.5 border-2 bdr-acc bg-acc-soft/20 min-w-0 max-w-full">
           <div class="flex flex-wrap items-center justify-between gap-2 min-w-0 ${CLOUD.publicNotesOpen?'border-b bdr-line pb-2.5':''}">
@@ -685,7 +1267,26 @@ export function tplLobbyScreen(){
       `:''}
     </section>
 
+    <!-- Sektion 2b: Aufklappbare Gegner-Vorlagen-Werkstatt -->
+    ${renderLobbyTemplatesSectionHtml(activeCamp)}
+
     <!-- Sektion 3: Live-Würfel-Bereich am Ende der Lobby -->
     <div id="lobbyLiveDiceMount" data-last-camp-id="${esc(getActiveLiveCampaignId())}">${renderLobbyLiveDiceHtml()}</div>
   </div>`;
+}
+
+export function refreshGmEnemiesGridDOM(){
+  const grid=document.querySelector('[data-gm-enemies-grid]');
+  if(!grid) return;
+  const visibleCampaigns=getAccessibleCampaigns(CLOUD.currentUser);
+  const activeCamp=visibleCampaigns.find(c=>c.id===CLOUD.activeCampaignId)||visibleCampaigns[0]||getCampaigns()[0];
+  grid.innerHTML=renderGmEnemiesListInnerHtml(activeCamp);
+}
+
+export function refreshTemplatesGridDOM(){
+  const grid=document.querySelector('[data-templates-grid]');
+  if(!grid) return;
+  const visibleCampaigns=getAccessibleCampaigns(CLOUD.currentUser);
+  const activeCamp=visibleCampaigns.find(c=>c.id===CLOUD.activeCampaignId)||visibleCampaigns[0]||getCampaigns()[0];
+  grid.innerHTML=renderTemplatesGridInnerHtml(activeCamp);
 }

@@ -8,7 +8,7 @@ import {
   hooks
 } from './ui-hooks.js';
 import {
-  applyWinFrame, renderWinCtrlBtns, renderWinResizeHandles, getCampaigns, isUserInCampaign, getActiveLiveCampaignId, getCampaignFilteredDiceFeed, captureScrollState, restoreScrollState, save, getWeaponSubtype, S, D, LD, DUEL, diceLogs, isMobileLayout, UI, LIVE_TAB_ID, CLOUD, getCharCampaignId
+  applyWinFrame, renderWinCtrlBtns, renderWinResizeHandles, getCampaigns, isUserInCampaign, canManageCampaign, getActiveLiveCampaignId, getCampaignFilteredDiceFeed, captureScrollState, restoreScrollState, save, getWeaponSubtype, S, D, LD, DUEL, diceLogs, isMobileLayout, UI, LIVE_TAB_ID, CLOUD, getCharCampaignId, isEnemySheet, getEnemyMeta, isEnemyDiceVisibleInCampaign, canSeeEnemyInDice, shouldHideOpponentDetails
 } from './state.js';
 import {
   calcActiveMods, getAdvDisForContext, getWeaponRollMeta, fmtAdvSrcLines, getAttrTot, getSkBonus
@@ -20,20 +20,57 @@ import {
 export const getCSkVal=()=>D.cSkill==='custom'?toInt(D.cCustom):toInt(D.cSkill);
 export const getDSkVal=()=>D.dSkill==='custom'?toInt(D.dCustom):toInt(D.dSkill);
 export const getEffC=()=>D.cMode==='direct'?toInt(D.cDirect):toInt(D.cAttr)+getCSkVal();
+export function getActiveDiceCampaignId(){
+  if(isLobbyNeutralDice()) return getActiveLiveCampaignId();
+  if(isEnemySheet(S)){
+    const meta=getEnemyMeta(S);
+    if(CLOUD.activeCampaignId&&meta.campaignIds.includes(CLOUD.activeCampaignId)) return CLOUD.activeCampaignId;
+    if(meta.campaignIds.length) return meta.campaignIds[0];
+    return getActiveLiveCampaignId();
+  }
+  return getCharCampaignId(S.charId);
+}
 export function getCampaignOpponents(){
-  const activeCamp=isLobbyNeutralDice()?getActiveLiveCampaignId():getCharCampaignId(S.charId);
+  const activeCamp=getActiveDiceCampaignId();
   const seen=new Set();
   const list=[];
   (CLOUD.list||[]).forEach(c=>{
     if(!c||!c.id||seen.has(c.id)) return;
+    if(isEnemySheet(c.id)){
+      if(!canSeeEnemyInDice(c.id,activeCamp)) return;
+      seen.add(c.id);
+      list.push({
+        id:c.id,
+        name:String(c.name||'Unbenannter Gegner').trim()||'Unbenannter Gegner',
+        isSelf:Boolean(!UI.inLobby&&S?.charId&&c.id===S.charId),
+        isEnemy:true,
+        diceVisible:isEnemyDiceVisibleInCampaign(c.id,activeCamp)
+      });
+      return;
+    }
     if(getCharCampaignId(c.id)!==activeCamp) return;
     seen.add(c.id);
-    list.push({id:c.id,name:String(c.name||'Unbenannter Held').trim()||'Unbenannter Held',isSelf:Boolean(!UI.inLobby&&S?.charId&&c.id===S.charId)});
+    list.push({
+      id:c.id,
+      name:String(c.name||'Unbenannter Held').trim()||'Unbenannter Held',
+      isSelf:Boolean(!UI.inLobby&&S?.charId&&c.id===S.charId),
+      isEnemy:false,
+      diceVisible:true
+    });
   });
   if(!UI.inLobby&&S?.charId&&!seen.has(S.charId)){
-    list.push({id:S.charId,name:String(S.profile?.name||'').trim()||'Aktiver Charakter',isSelf:true});
+    if(!isEnemySheet(S)||canSeeEnemyInDice(S.charId,activeCamp)){
+      list.push({
+        id:S.charId,
+        name:String(S.profile?.name||'').trim()||(isEnemySheet(S)?'Aktiver Gegner':'Aktiver Charakter'),
+        isSelf:true,
+        isEnemy:isEnemySheet(S),
+        diceVisible:isEnemySheet(S)?isEnemyDiceVisibleInCampaign(S.charId,activeCamp):true
+      });
+    }
   }
   return list.sort((a,b)=>{
+    if(a.isEnemy!==b.isEnemy) return a.isEnemy?-1:1;
     if(a.isSelf!==b.isSelf) return a.isSelf?1:-1;
     return a.name.localeCompare(b.name,'de');
   });
@@ -125,16 +162,23 @@ export function resolveOpponentComparison(c1Cat='Normaler Test'){
   const listMatch=(CLOUD.list||[]).find(c=>c&&c.id===charId);
   const fallbackName=String(listMatch?.name||'').trim()||(charId&&charId===S?.charId?(String(S.profile?.name||'').trim()||'Aktiver Charakter'):'');
   if(!charId) return {ready:false,charId:'',oppName:'',loading:false,error:''};
+  const activeCamp=getActiveDiceCampaignId();
+  const isEnemy=isEnemySheet(charId);
+  if(isEnemy&&!canSeeEnemyInDice(charId,activeCamp)){
+    return {ready:false,charId,oppName:fallbackName||'Gegner',isEnemy:true,hideDetails:true,loading:false,error:'Dieser Gegner ist aktuell nicht für den Würfelassistenten freigeschaltet.'};
+  }
+  const hideDetails=shouldHideOpponentDetails(charId,activeCamp);
   const liveResp=(DUEL.outgoing&&DUEL.outgoing.status==='responded'&&DUEL.outgoing.targetCharId===charId&&DUEL.outgoing.response?.snapshot)?DUEL.outgoing.response:null;
   const oppSheet=getCachedForeignSheet(charId);
   const loading=isForeignSheetLoading(charId);
   const error=getForeignSheetError(charId);
   if(!oppSheet&&!liveResp){
-    return {ready:false,charId,oppName:fallbackName||'Gegner',loading,error};
+    return {ready:false,charId,oppName:fallbackName||'Gegner',isEnemy,hideDetails,loading,error};
   }
   const oppM=oppSheet?calcActiveMods(oppSheet):null;
   const oppName=String(liveResp?.targetCharName||oppSheet?.profile?.name||'').trim()||fallbackName||'Unbenannter Gegner';
-  const oppKind=['preset','attr','skill'].includes(D.oppKind)?D.oppKind:'preset';
+  const rawKind=['preset','attr','skill'].includes(D.oppKind)?D.oppKind:'preset';
+  const oppKind=(hideDetails&&rawKind==='skill')?'preset':rawKind;
   const oppPreset=['dodge','parry','block','attack'].includes(D.oppPreset)?D.oppPreset:'dodge';
   const oppSkills=(oppSheet?.skills||[]).filter(Boolean);
   const oppWeapons=(oppSheet?.weapons||[]).filter(Boolean);
@@ -156,6 +200,8 @@ export function resolveOpponentComparison(c1Cat='Normaler Test'){
       ready:true,
       charId,
       oppName,
+      isEnemy,
+      hideDetails,
       oppSheet:oppSheet||{skills:[],weapons:[],attributes:{},profile:{name:oppName}},
       oppM:oppM||{},
       oppKind:liveResp.oppKind||oppKind,
@@ -181,26 +227,28 @@ export function resolveOpponentComparison(c1Cat='Normaler Test'){
   }
 
   let attrKey='GW', attrVal=0, sk=null, skBonus=0, oppWeapon=null, oppVal=0, oppRollCat='Normaler Test', oppShortLabel='', oppBreak='';
+  const effOppWeaponId=hideDetails?'':D.oppWeaponId;
+  const effOppSkillId=hideDetails?'':D.oppSkillId;
 
   if(oppKind==='preset'){
     if(oppPreset==='dodge'){
       attrKey='GW';
       attrVal=getAttrTot('GW',oppM,oppSheet);
-      sk=D.oppSkillId==='__none__'?null:(D.oppSkillId?oppSkills.find(s=>s.id===D.oppSkillId):null)||findOppSkillByKeywords(oppSheet,['ausweichen','abwehr']);
-      if(D.oppSkillId==='__none__') sk=null;
+      sk=effOppSkillId==='__none__'?null:(effOppSkillId?oppSkills.find(s=>s.id===effOppSkillId):null)||findOppSkillByKeywords(oppSheet,['ausweichen','abwehr']);
+      if(effOppSkillId==='__none__') sk=null;
       skBonus=sk?getSkBonus(sk):0;
       oppVal=attrVal+skBonus;
       oppRollCat='Ausweichen';
       oppShortLabel=`Ausweichen ${oppVal}`;
       oppBreak=sk?`${oppName} • Ausweichen: GW ${attrVal} ${fmtSign(skBonus)} ${sk.name} = ${oppVal}`:`${oppName} • Ausweichen: GW ${attrVal} = ${oppVal}`;
     }else if(oppPreset==='parry'){
-      oppWeapon=(D.oppWeaponId==='__none__')?null:((D.oppWeaponId?oppWeapons.find(w=>w.id===D.oppWeaponId):null)||findDefaultOppWeapon(oppSheet,'parry'));
+      oppWeapon=(effOppWeaponId==='__none__')?null:((effOppWeaponId?oppWeapons.find(w=>w.id===effOppWeaponId):null)||findDefaultOppWeapon(oppSheet,'parry'));
       attrKey='PR';
       attrVal=getAttrTot('PR',oppM,oppSheet);
-      if(D.oppSkillId==='__none__'){
+      if(effOppSkillId==='__none__'){
         sk=null;
       }else{
-        sk=(D.oppSkillId?oppSkills.find(s=>s.id===D.oppSkillId):null)||findOppSkillByKeywords(oppSheet,['parieren','parade'])||(oppWeapon?.skillId?skillsFind(oppSkills,oppWeapon.skillId):null);
+        sk=(effOppSkillId?oppSkills.find(s=>s.id===effOppSkillId):null)||findOppSkillByKeywords(oppSheet,['parieren','parade'])||(oppWeapon?.skillId?skillsFind(oppSkills,oppWeapon.skillId):null);
       }
       skBonus=sk?getSkBonus(sk):0;
       oppVal=attrVal+skBonus;
@@ -209,13 +257,13 @@ export function resolveOpponentComparison(c1Cat='Normaler Test'){
       oppShortLabel=`Parieren ${oppVal}`;
       oppBreak=`${oppName} • Parieren${wNm?` (${wNm})`:''}: PR ${attrVal}${sk?` ${fmtSign(skBonus)} ${sk.name}`:''} = ${oppVal}`;
     }else if(oppPreset==='block'){
-      oppWeapon=(D.oppWeaponId==='__none__')?null:((D.oppWeaponId?oppWeapons.find(w=>w.id===D.oppWeaponId):null)||findDefaultOppWeapon(oppSheet,'block'));
+      oppWeapon=(effOppWeaponId==='__none__')?null:((effOppWeaponId?oppWeapons.find(w=>w.id===effOppWeaponId):null)||findDefaultOppWeapon(oppSheet,'block'));
       attrKey='ST';
       attrVal=getAttrTot('ST',oppM,oppSheet);
-      if(D.oppSkillId==='__none__'){
+      if(effOppSkillId==='__none__'){
         sk=null;
       }else{
-        sk=(D.oppSkillId?oppSkills.find(s=>s.id===D.oppSkillId):null)||findOppSkillByKeywords(oppSheet,['blocken','schildblock'])||(oppWeapon?.skillId?skillsFind(oppSkills,oppWeapon.skillId):null);
+        sk=(effOppSkillId?oppSkills.find(s=>s.id===effOppSkillId):null)||findOppSkillByKeywords(oppSheet,['blocken','schildblock'])||(oppWeapon?.skillId?skillsFind(oppSkills,oppWeapon.skillId):null);
       }
       skBonus=sk?getSkBonus(sk):0;
       oppVal=attrVal+skBonus;
@@ -224,14 +272,14 @@ export function resolveOpponentComparison(c1Cat='Normaler Test'){
       oppShortLabel=`Blocken ${oppVal}`;
       oppBreak=`${oppName} • Blocken${wNm?` (${wNm})`:''}: ST ${attrVal}${sk?` ${fmtSign(skBonus)} ${sk.name}`:''} = ${oppVal}`;
     }else{
-      oppWeapon=(D.oppWeaponId==='__none__')?null:((D.oppWeaponId?oppWeapons.find(w=>w.id===D.oppWeaponId):null)||findDefaultOppWeapon(oppSheet,'attack'));
+      oppWeapon=(effOppWeaponId==='__none__')?null:((effOppWeaponId?oppWeapons.find(w=>w.id===effOppWeaponId):null)||findDefaultOppWeapon(oppSheet,'attack'));
       const wm=oppWeapon?getWeaponRollMeta(oppWeapon,oppM,oppSheet):null;
       attrKey=wm?wm.attrKey:'PR';
       attrVal=getAttrTot(attrKey,oppM,oppSheet);
-      if(D.oppSkillId==='__none__'){
+      if(effOppSkillId==='__none__'){
         sk=null;
       }else{
-        sk=(D.oppSkillId?oppSkills.find(s=>s.id===D.oppSkillId):null)||(wm?.sk||null);
+        sk=(effOppSkillId?oppSkills.find(s=>s.id===effOppSkillId):null)||(wm?.sk||null);
       }
       skBonus=sk?getSkBonus(sk):0;
       oppVal=attrVal+skBonus;
@@ -241,7 +289,7 @@ export function resolveOpponentComparison(c1Cat='Normaler Test'){
       oppBreak=`${oppName} • ${wNm}: ${attrKey} ${attrVal}${sk?` ${fmtSign(skBonus)} ${sk.name}`:''} = ${oppVal}`;
     }
   }else if(oppKind==='skill'){
-    sk=(D.oppSkillId?oppSkills.find(s=>s.id===D.oppSkillId):null)||oppSkills[0]||null;
+    sk=(effOppSkillId?oppSkills.find(s=>s.id===effOppSkillId):null)||oppSkills[0]||null;
     attrKey=sk?(ATTRS.some(a=>a.k===sk.linkedAttr)?sk.linkedAttr:'PR'):(ATTRS.some(a=>a.k===D.oppAttrKey)?D.oppAttrKey:'PR');
     attrVal=getAttrTot(attrKey,oppM,oppSheet);
     skBonus=sk?getSkBonus(sk):0;
@@ -264,7 +312,7 @@ export function resolveOpponentComparison(c1Cat='Normaler Test'){
     wRollCat:oppRollCat,
     skillId:sk?.id||null,
     attrKey,
-    sitActive:D.oppSitActive||{},
+    sitActive:hideDetails?{}:(D.oppSitActive||{}),
     includeInspiration:false,
     oppDefenseCat:oppDefForOpp
   },oppM,oppSheet);
@@ -273,6 +321,8 @@ export function resolveOpponentComparison(c1Cat='Normaler Test'){
     ready:true,
     charId,
     oppName,
+    isEnemy,
+    hideDetails,
     oppSheet,
     oppM,
     oppKind,
@@ -472,7 +522,9 @@ export function syncDiceFromSheet(){
 }
 
 export function buildAdvDisInnerHtml(T){
-  const aSrc=(T.advSrc||[]).filter(s=>s.kind!=='dis'), dSrc=(T.advSrc||[]).filter(s=>s.kind==='dis');
+  const hideOpp=Boolean(T.opp?.ready&&T.opp?.hideDetails);
+  const visSrc=hideOpp?(T.c1AdvSrc||[]):(T.advSrc||[]);
+  const aSrc=visSrc.filter(s=>s.kind!=='dis'), dSrc=visSrc.filter(s=>s.kind==='dis');
   const aTip=aSrc.length?`data-tip="${esc('Aktive Vorteils-Quellen:\n'+fmtAdvSrcLines(aSrc))}"`:'';
   const dTip=dSrc.length?`data-tip="${esc('Aktive Nachteils-Quellen:\n'+fmtAdvSrcLines(dSrc))}"`:'';
   const netBonus=T.bonus-T.effTh;
@@ -495,9 +547,10 @@ export function buildAdvDisInnerHtml(T){
     return `<span data-tip="${tip}" class="inline-flex flex-wrap items-center gap-1 px-1.5 py-0.5 rounded border text-[10px] leading-snug max-w-full min-w-0 break-words cursor-help ${cls}"><span class="px-1 rounded font-black tabular shrink-0 ${badgeCls}">${badge}</span><span class="font-bold min-w-0 break-words">${esc(orig)}</span>${scopeTxt?`<span class="opacity-80 min-w-0 break-words">• ${esc(scopeTxt)}</span>`:''}</span>`;
   };
   const c1Src=T.c1AdvSrc||[];
-  const oppSrc=T.oppAdvSrc||[];
+  const oppSrc=hideOpp?[]:(T.oppAdvSrc||[]);
   const hasC1Auto=Boolean(c1Src.length||(T.critSrc&&T.critSrc.length)||(T.rollModSrc&&T.rollModSrc.length));
-  const hasOppAuto=Boolean(T.opp?.ready&&oppSrc.length);
+  const hasOppAuto=Boolean(!hideOpp&&T.opp?.ready&&oppSrc.length);
+  const hasHiddenOppModNote=Boolean(hideOpp&&(T.oppAutoAdv||T.oppAutoDis));
   const hasAdvDisAdj=(T.advAdj!==0||T.disAdj!==0);
   const c1Name=isLobbyNeutralDice()?(CLOUD.currentUser||'Gast'):(String(S.profile?.name||'').trim()||'Eigener Charakter');
   const manChips=[];
@@ -509,7 +562,11 @@ export function buildAdvDisInnerHtml(T){
     const isPos=T.disAdj>0;
     manChips.push(`<span class="inline-flex flex-wrap items-center gap-1 px-1.5 py-0.5 rounded border text-[10px] leading-snug max-w-full min-w-0 break-words ${isPos?'bg-rose-500/15 text-rose-200 border-rose-500/35':'bg-amber-500/15 text-amber-200 border-amber-400/45'}"><span class="px-1 rounded font-black tabular shrink-0 ${isPos?'bg-rose-500/25 text-rose-300':'bg-amber-500/25 text-amber-300'}">${fmtSign(T.disAdj)}N</span><span class="font-bold">Manuell</span><span class="opacity-80">• Nachteile</span></span>`);
   }
-  const oppSummaryBadge=T.opp?.ready?`<span class="text-[10px] font-bold text-indigo-300 tabular truncate">⚔️ ${esc(c1Name)} (${T.c1AutoAdv}V/${T.c1AutoDis}N) vs. ${esc(T.opp.oppName)} (${T.oppAutoAdv}V→N / ${T.oppAutoDis}N→V)</span>`:'';
+  const oppSummaryBadge=T.opp?.ready
+    ?(hideOpp
+      ?`<span class="text-[10px] font-bold text-indigo-300 tabular truncate">⚔️ ${esc(c1Name)} (${T.c1AutoAdv}V/${T.c1AutoDis}N) vs. 👹 ${esc(T.opp.oppName)} (Details verborgen)</span>`
+      :`<span class="text-[10px] font-bold text-indigo-300 tabular truncate">⚔️ ${esc(c1Name)} (${T.c1AutoAdv}V/${T.c1AutoDis}N) vs. ${esc(T.opp.oppName)} (${T.oppAutoAdv}V→N / ${T.oppAutoDis}N→V)</span>`)
+    :'';
   return `<div class="flex flex-wrap items-center justify-between gap-1.5 pb-0.5 min-w-0">
     <span class="text-[10px] font-extrabold t-mut uppercase tracking-wider">VORTEILE &amp; NACHTEILE</span>
     ${oppSummaryBadge}
@@ -519,15 +576,19 @@ export function buildAdvDisInnerHtml(T){
     <div class="col-span-1 flex justify-center"><button type="button" data-action="reset-dice-advdis" data-tip="Auf automatisch berechnete Vor-/Nachteile zurücksetzen" class="btn px-1.5 py-2 text-xs font-black ${hasAdvDisAdj?'!border-amber-400 !bg-amber-500/25 text-amber-300':'text-amber-500 opacity-75'}">↺</button></div>
     <div ${dTip} class="col-span-5 min-w-0 flex items-center justify-between gap-1 p-2 rounded-lg bg-rose-500/10 border border-rose-500/25 ${dTip?'cursor-help':''}"><div class="min-w-0"><div class="text-[10px] font-bold text-rose-500">NACHTEILE</div><div class="font-black text-sm tabular flex flex-wrap items-baseline gap-x-1"><span>${D.dis}</span>${(T.autoDis||T.disAdj)?`<span class="text-[10px] font-bold text-rose-400">(${T.autoDis} Auto${T.disAdj?fmtSign(T.disAdj):''})</span>`:''}</div></div><div class="flex gap-1 shrink-0"><button type="button" data-action="dis-step" data-d="-1" ${D.dis<=0?'disabled':''} class="btn w-7 h-7 p-0">−</button><button type="button" data-action="dis-step" data-d="1" class="btn bg-rose-600 text-white border-rose-600 w-7 h-7 p-0">+</button></div></div>
   </div>
-  ${(hasC1Auto||hasOppAuto||hasAdvDisAdj)?`<div class="p-2 rounded-lg bg-black/25 border bdr-line space-y-1.5 min-w-0">${hasC1Auto?`<div class="space-y-1 min-w-0"><div class="text-[10px] font-extrabold text-acc leading-tight">${T.opp?.ready?`Eigene Quellen – ${esc(c1Name)} (${esc(D.wRollCat||'Normaler Test')})`:`Automatische Quellen (${esc(D.wRollCat||'Normaler Test')})`}:</div><div class="flex flex-wrap items-center gap-1 min-w-0">${c1Src.map(fmtSrcChip).join('')}${(T.critSrc||[]).map(c=>`<span data-tip="${esc(`${c.srcName} (${c.srcKind}): Kritische Ziffer ${fmtSign(c.val)}`)}" class="inline-flex flex-wrap items-center gap-1 px-1.5 py-0.5 rounded border text-[10px] leading-snug max-w-full min-w-0 break-words font-bold tabular cursor-help bg-amber-500/15 text-amber-300 border-amber-400/45">${fmtSign(c.val)} Krit. Ziffer (${esc(c.tagLbl||c.srcName)})</span>`).join('')}${(T.rollModSrc||[]).map(rm=>`<span data-tip="${esc(`${rm.srcName} (${rm.srcKind}): ${fmtSign(rm.val)} auf das geworfene W100-Ergebnis`)}" class="inline-flex flex-wrap items-center gap-1 px-1.5 py-0.5 rounded border text-[10px] leading-snug max-w-full min-w-0 break-words font-bold tabular cursor-help bg-cyan-500/15 text-cyan-300 border-cyan-400/45">🎲 ${fmtSign(rm.val)} Würfelergebnis (${esc(rm.tagLbl||rm.srcName)})</span>`).join('')}</div></div>`:''}${hasOppAuto?`<div class="${hasC1Auto?'pt-1.5 border-t border-white/10 ':''}space-y-1 min-w-0"><div class="text-[10px] font-extrabold text-indigo-300 leading-tight">⚔️ Gegner-Quellen – ${esc(T.opp.oppName)} (${esc(T.opp.oppRollCat||'Normaler Test')} • invertiert verrechnet):</div><div class="flex flex-wrap items-center gap-1 min-w-0">${oppSrc.map(fmtSrcChip).join('')}</div></div>`:''}${hasAdvDisAdj?`<div class="${(hasC1Auto||hasOppAuto)?'pt-1.5 border-t border-white/10 ':''}space-y-1 min-w-0"><div class="text-[10px] font-extrabold text-amber-300 leading-tight">Manuell:</div><div class="flex flex-wrap items-center gap-1 min-w-0">${manChips.join('')}</div></div>`:''}</div>`:''}
+  ${(hasC1Auto||hasOppAuto||hasHiddenOppModNote||hasAdvDisAdj)?`<div class="p-2 rounded-lg bg-black/25 border bdr-line space-y-1.5 min-w-0">${hasC1Auto?`<div class="space-y-1 min-w-0"><div class="text-[10px] font-extrabold text-acc leading-tight">${T.opp?.ready?`Eigene Quellen – ${esc(c1Name)} (${esc(D.wRollCat||'Normaler Test')})`:`Automatische Quellen (${esc(D.wRollCat||'Normaler Test')})`}:</div><div class="flex flex-wrap items-center gap-1 min-w-0">${c1Src.map(fmtSrcChip).join('')}${(T.critSrc||[]).map(c=>`<span data-tip="${esc(`${c.srcName} (${c.srcKind}): Kritische Ziffer ${fmtSign(c.val)}`)}" class="inline-flex flex-wrap items-center gap-1 px-1.5 py-0.5 rounded border text-[10px] leading-snug max-w-full min-w-0 break-words font-bold tabular cursor-help bg-amber-500/15 text-amber-300 border-amber-400/45">${fmtSign(c.val)} Krit. Ziffer (${esc(c.tagLbl||c.srcName)})</span>`).join('')}${(T.rollModSrc||[]).map(rm=>`<span data-tip="${esc(`${rm.srcName} (${rm.srcKind}): ${fmtSign(rm.val)} auf das geworfene W100-Ergebnis`)}" class="inline-flex flex-wrap items-center gap-1 px-1.5 py-0.5 rounded border text-[10px] leading-snug max-w-full min-w-0 break-words font-bold tabular cursor-help bg-cyan-500/15 text-cyan-300 border-cyan-400/45">🎲 ${fmtSign(rm.val)} Würfelergebnis (${esc(rm.tagLbl||rm.srcName)})</span>`).join('')}</div></div>`:''}${hasOppAuto?`<div class="${hasC1Auto?'pt-1.5 border-t border-white/10 ':''}space-y-1 min-w-0"><div class="text-[10px] font-extrabold text-indigo-300 leading-tight">⚔️ Gegner-Quellen – ${esc(T.opp.oppName)} (${esc(T.opp.oppRollCat||'Normaler Test')} • invertiert verrechnet):</div><div class="flex flex-wrap items-center gap-1 min-w-0">${oppSrc.map(fmtSrcChip).join('')}</div></div>`:''}${hasHiddenOppModNote?`<div class="${hasC1Auto?'pt-1.5 border-t border-white/10 ':''}text-[10px] font-bold text-indigo-300/90">🔒 Gegner-Modifikatoren von ${esc(T.opp.oppName)} werden automatisch verrechnet (Quellen verborgen).</div>`:''}${hasAdvDisAdj?`<div class="${(hasC1Auto||hasOppAuto||hasHiddenOppModNote)?'pt-1.5 border-t border-white/10 ':''}space-y-1 min-w-0"><div class="text-[10px] font-extrabold text-amber-300 leading-tight">Manuell:</div><div class="flex flex-wrap items-center gap-1 min-w-0">${manChips.join('')}</div></div>`:''}</div>`:''}
   ${(T.sitOptions&&T.sitOptions.length)?`<div class="pt-1 border-t bdr-line space-y-1 min-w-0"><div class="text-[10px] font-extrabold t-mut uppercase tracking-wider">Situative Schalter${T.opp?.ready?` (${esc(c1Name)})`:' (bei Bedarf anklicken)'}</div><div class="flex flex-wrap items-center gap-1.5 min-w-0">${T.sitOptions.map(so=>{const badge=so.reduceDis?`−${so.reduceDis} Nacht.`:so.adv?`+${so.adv} Vort.`:so.dis?`+${so.dis} Nacht.`:'±0';const tipTxt=so.items.map(i=>`${i.srcName}: ${i.label}`).join('\n')+(so.counterNote?`\nVerrechnung: ${so.counterNote}`:'');return `<button type="button" data-action="toggle-dice-sit" data-sit="${esc(so.sitKey)}" data-tip="${esc(tipTxt)}" class="btn py-1 px-2.5 text-[11px] font-bold tabular max-w-full ${so.active?(so.dis>0&&!so.adv?'bg-rose-600 text-white border-rose-500':'btn-ok'):'opacity-85 hover:opacity-100'}"><span>${so.active?'☑':'☐'}</span><span class="break-words">${esc(so.sitLabel)} (${badge})</span>${so.counterNote?`<span class="text-[10px] opacity-85">[${esc(so.counterNote)}]</span>`:''}</button>`;}).join('')}</div></div>`:''}
-  ${(T.opp?.ready&&T.oppSitOptions&&T.oppSitOptions.length)?`<div class="pt-1 border-t bdr-line space-y-1 min-w-0"><div class="text-[10px] font-extrabold text-indigo-300 uppercase tracking-wider">⚔️ Situative Schalter (${esc(T.opp.oppName)} • invertiert)</div><div class="flex flex-wrap items-center gap-1.5 min-w-0">${T.oppSitOptions.map(so=>{const badge=so.reduceDis?`Gegner −${so.reduceDis}N`:so.adv?`Gegner +${so.adv}V → +${so.adv}N`:so.dis?`Gegner +${so.dis}N → +${so.dis}V`:'±0';const tipTxt=so.items.map(i=>`${i.srcName}: ${i.label}`).join('\n');return `<button type="button" data-action="toggle-dice-opp-sit" data-sit="${esc(so.sitKey)}" data-tip="${esc(tipTxt)}" class="btn py-1 px-2.5 text-[11px] font-bold tabular max-w-full ${so.active?(so.adv>0&&!so.dis?'bg-rose-600 text-white border-rose-500':'btn-ok'):'opacity-85 hover:opacity-100'}"><span>${so.active?'☑':'☐'}</span><span class="break-words">${esc(so.sitLabel)} (${badge})</span></button>`;}).join('')}</div></div>`:''}
+  ${(!hideOpp&&T.opp?.ready&&T.oppSitOptions&&T.oppSitOptions.length)?`<div class="pt-1 border-t bdr-line space-y-1 min-w-0"><div class="text-[10px] font-extrabold text-indigo-300 uppercase tracking-wider">⚔️ Situative Schalter (${esc(T.opp.oppName)} • invertiert)</div><div class="flex flex-wrap items-center gap-1.5 min-w-0">${T.oppSitOptions.map(so=>{const badge=so.reduceDis?`Gegner −${so.reduceDis}N`:so.adv?`Gegner +${so.adv}V → +${so.adv}N`:so.dis?`Gegner +${so.dis}N → +${so.dis}V`:'±0';const tipTxt=so.items.map(i=>`${i.srcName}: ${i.label}`).join('\n');return `<button type="button" data-action="toggle-dice-opp-sit" data-sit="${esc(so.sitKey)}" data-tip="${esc(tipTxt)}" class="btn py-1 px-2.5 text-[11px] font-bold tabular max-w-full ${so.active?(so.adv>0&&!so.dis?'bg-rose-600 text-white border-rose-500':'btn-ok'):'opacity-85 hover:opacity-100'}"><span>${so.active?'☑':'☐'}</span><span class="break-words">${esc(so.sitLabel)} (${badge})</span></button>`;}).join('')}</div></div>`:''}
   <div class="text-center text-xs font-bold py-1 rounded-lg ${T.net>0?'bg-emerald-500/15 text-emerald-500':T.net<0?'bg-rose-500/15 text-rose-500':'bg-black/15 t-mut'}">${T.net>0?`${Math.abs(T.rawNet)} Netto-Vorteil (${fmtSign(netBonus)})`:T.net<0?`${Math.abs(T.rawNet)} Netto-Nachteil (${netBonus})`:'Ausgeglichen (±0)'}</div>`;
 }
 export const buildThresholdInnerHtml=T=>{
   const c1Lbl=T.opp?.ready?(isLobbyNeutralDice()?(CLOUD.currentUser||'Gast'):(String(S.profile?.name||'').trim()||'Wert')):'Wert';
   const dLbl=T.opp?.ready?T.opp.oppName:'Schw.';
-  return `<div class="text-[11px] font-semibold t-mut">Testschwelle (W100 ≤ Schwelle) • <span class="text-acc font-bold tabular">Chance: ${T.chance}%</span></div><div class="text-4xl font-black tabular my-0.5">${T.th}</div><div class="text-[11px] t-mut tabular break-words">${T.cv} (${esc(c1Lbl)}) + 50 − ${T.dv} (${esc(dLbl)}) ${T.bonus>=0?'+ '+T.bonus:'− '+Math.abs(T.bonus)}${T.effTh?` (inkl. ${fmtSign(T.effTh)} Effekt)`:''} = <strong>${T.th}</strong></div>${T.egMult>1?`<div class="mt-1.5 inline-flex items-center justify-center px-2.5 py-0.5 rounded-lg bg-amber-500/20 border border-amber-400/60 text-amber-300 text-[11px] font-black tabular">✨ Schwelle ${T.th}: EG ×${T.egMult} bei Erfolg (100 = Patzer)</div>`:''}${T.rollMod?`<div class="text-[11px] font-extrabold text-cyan-300 mt-1">⚡ Würfelergebnis-Modifikator: Geworfene Zahl ${fmtSign(T.rollMod)} (${esc((T.rollModSrc||[]).map(x=>x.tagLbl||x.srcName).join(', '))})</div>`:''}`;
+  const hideOpp=Boolean(T.opp?.ready&&T.opp?.hideDetails);
+  const formulaLine=hideOpp
+    ?`${T.cv} (${esc(c1Lbl)}) vs. 👹 ${esc(dLbl)} (Werte verborgen) → Schwelle <strong>${T.th}</strong>`
+    :`${T.cv} (${esc(c1Lbl)}) + 50 − ${T.dv} (${esc(dLbl)}) ${T.bonus>=0?'+ '+T.bonus:'− '+Math.abs(T.bonus)}${T.effTh?` (inkl. ${fmtSign(T.effTh)} Effekt)`:''} = <strong>${T.th}</strong>`;
+  return `<div class="text-[11px] font-semibold t-mut">Testschwelle (W100 ≤ Schwelle) • <span class="text-acc font-bold tabular">Chance: ${T.chance}%</span></div><div class="text-4xl font-black tabular my-0.5">${T.th}</div><div class="text-[11px] t-mut tabular break-words">${formulaLine}</div>${T.egMult>1?`<div class="mt-1.5 inline-flex items-center justify-center px-2.5 py-0.5 rounded-lg bg-amber-500/20 border border-amber-400/60 text-amber-300 text-[11px] font-black tabular">✨ Schwelle ${T.th}: EG ×${T.egMult} bei Erfolg (100 = Patzer)</div>`:''}${T.rollMod?`<div class="text-[11px] font-extrabold text-cyan-300 mt-1">⚡ Würfelergebnis-Modifikator: Geworfene Zahl ${fmtSign(T.rollMod)} (${esc((T.rollModSrc||[]).map(x=>x.tagLbl||x.srcName).join(', '))})</div>`:''}`;
 };
 
 export function renderDice(){
@@ -584,30 +645,50 @@ export function renderDice(){
   const DIFF_PRESETS=[20,30,40,50,60,70,80];
   const renderOppBoxBody=()=>{
     const opps=getCampaignOpponents();
+    const activeCamp=getActiveDiceCampaignId();
+    const isGmHere=canManageCampaign(activeCamp);
+    const enemyOpps=opps.filter(o=>o.isEnemy);
+    const charOpps=opps.filter(o=>!o.isEnemy);
+    const fmtOppOpt=o=>{
+      const pfx=o.isEnemy?(isGmHere?(o.diceVisible?'👹 👁️ ':'👹 🙈 '):'👹 '):'';
+      const sfx=o.isSelf?' (Aktiver Bogen)':(o.isEnemy&&isGmHere&&!o.diceVisible?' (Nur SL)':'');
+      return `<option value="${esc(o.id)}" ${D.oppCharId===o.id?'selected':''}>${pfx}${esc(o.name)}${sfx}</option>`;
+    };
+    const pickerOptsHtml=opps.length
+      ?(enemyOpps.length&&charOpps.length
+        ?`<optgroup label="👹 Gegner (${enemyOpps.length})">${enemyOpps.map(fmtOppOpt).join('')}</optgroup><optgroup label="👥 Charaktere (${charOpps.length})">${charOpps.map(fmtOppOpt).join('')}</optgroup>`
+        :opps.map(fmtOppOpt).join(''))
+      :'<option value="">Keine Charaktere in Kampagne</option>';
     const opp=T.opp;
+    const hideOpp=Boolean(opp?.hideDetails);
     const loading=Boolean(opp?.loading||isForeignSheetLoading(D.oppCharId));
     const errMsg=opp?.error||getForeignSheetError(D.oppCharId);
     const charPicker=`<div class="flex items-center gap-1.5 min-w-0">
-      <select data-dice-opp="charId" aria-label="Gegner-Charakter wählen" class="inp flex-1 min-w-0 font-bold text-xs py-1.5">${opps.length?opps.map(o=>`<option value="${esc(o.id)}" ${D.oppCharId===o.id?'selected':''}>${esc(o.name)}${o.isSelf?' (Aktiver Bogen)':''}</option>`).join(''):'<option value="">Keine Charaktere in Kampagne</option>'}</select>
+      <select data-dice-opp="charId" aria-label="Gegner-Charakter wählen" class="inp flex-1 min-w-0 font-bold text-xs py-1.5">${pickerOptsHtml}</select>
       <button type="button" data-action="refresh-dice-opp" data-tip="Aktuellen Stand des Gegners aus der Cloud nachladen" class="btn w-8 h-8 p-0 text-xs shrink-0 ${loading?'animate-spin':''}" ${loading?'disabled':''}>🔄</button>
     </div>`;
     if(!opps.length){
-      return `${charPicker}<div class="text-[11px] t-mut bg-black/20 rounded-lg p-2 border bdr-line">Noch keine Charaktere in dieser Kampagne geladen. Klicke auf <strong>🔄</strong> zum Aktualisieren.</div>`;
+      return `${charPicker}<div class="text-[11px] t-mut bg-black/20 rounded-lg p-2 border bdr-line">Noch keine Charaktere oder freigeschalteten Gegner in dieser Kampagne geladen. Klicke auf <strong>🔄</strong> zum Aktualisieren.</div>`;
     }
     if(loading&&!opp?.ready){
-      return `${charPicker}<div class="text-[11px] text-acc font-bold bg-black/20 rounded-lg p-2 border bdr-acc">⏳ Lade Charakterbogen aus der Cloud...</div>`;
+      return `${charPicker}<div class="text-[11px] text-acc font-bold bg-black/20 rounded-lg p-2 border bdr-acc">⏳ Lade Daten aus der Cloud...</div>`;
     }
     if(!opp?.ready){
-      return `${charPicker}${errMsg?`<div class="text-[11px] text-rose-400 font-bold bg-rose-500/10 rounded-lg p-2 border border-rose-500/35">⚠️ ${esc(errMsg)}</div>`:`<div class="text-[11px] t-mut bg-black/20 rounded-lg p-2 border bdr-line">Bitte einen Gegner-Charakter auswählen.</div>`}`;
+      return `${charPicker}${errMsg?`<div class="text-[11px] text-rose-400 font-bold bg-rose-500/10 rounded-lg p-2 border border-rose-500/35">⚠️ ${esc(errMsg)}</div>`:`<div class="text-[11px] t-mut bg-black/20 rounded-lg p-2 border bdr-line">Bitte einen Gegner oder Charakter auswählen.</div>`}`;
     }
     const oppSheet=opp.oppSheet, oppM=opp.oppM;
     const oppSkills=[...(oppSheet.skills||[])].filter(s=>s&&String(s.name||'').trim()).sort((a,b)=>String(a.name).localeCompare(String(b.name),'de'));
     const oppWeapons=[...(oppSheet.weapons||[])].filter(Boolean);
-    const kindBar=`<div class="grid grid-cols-3 gap-1">
-      <button type="button" data-action="dice-opp-kind" data-kind="preset" class="btn py-1 px-1 text-[11px] font-extrabold ${opp.oppKind==='preset'?'btn-pri':''}">🛡️ Abwehr</button>
-      <button type="button" data-action="dice-opp-kind" data-kind="attr" class="btn py-1 px-1 text-[11px] font-extrabold ${opp.oppKind==='attr'?'btn-pri':''}">⚡ Attribut</button>
-      <button type="button" data-action="dice-opp-kind" data-kind="skill" class="btn py-1 px-1 text-[11px] font-extrabold ${opp.oppKind==='skill'?'btn-pri':''}">🎯 Fertigk.</button>
-    </div>`;
+    const kindBar=hideOpp
+      ?`<div class="grid grid-cols-2 gap-1">
+          <button type="button" data-action="dice-opp-kind" data-kind="preset" class="btn py-1 px-1 text-[11px] font-extrabold ${opp.oppKind==='preset'?'btn-pri':''}">🛡️ Abwehr</button>
+          <button type="button" data-action="dice-opp-kind" data-kind="attr" class="btn py-1 px-1 text-[11px] font-extrabold ${opp.oppKind==='attr'?'btn-pri':''}">⚡ Attribut</button>
+        </div>`
+      :`<div class="grid grid-cols-3 gap-1">
+          <button type="button" data-action="dice-opp-kind" data-kind="preset" class="btn py-1 px-1 text-[11px] font-extrabold ${opp.oppKind==='preset'?'btn-pri':''}">🛡️ Abwehr</button>
+          <button type="button" data-action="dice-opp-kind" data-kind="attr" class="btn py-1 px-1 text-[11px] font-extrabold ${opp.oppKind==='attr'?'btn-pri':''}">⚡ Attribut</button>
+          <button type="button" data-action="dice-opp-kind" data-kind="skill" class="btn py-1 px-1 text-[11px] font-extrabold ${opp.oppKind==='skill'?'btn-pri':''}">🎯 Fertigk.</button>
+        </div>`;
     let detailHtml='';
     if(opp.oppKind==='preset'){
       const showAtkPreset=Boolean(D.wRollCat==='Parieren'||D.wRollCat==='Blocken'||D.wRollCat==='Ausweichen'||opp.oppPreset==='attack');
@@ -617,14 +698,19 @@ export function renderDice(){
         {k:'block',l:'🧱 Block.',tip:'Blocken (ST + Waffe/Schild + passende Fertigkeit)'}
       ];
       if(showAtkPreset) presetBtns.push({k:'attack',l:'⚔️ Angr.',tip:'Waffenangriff des Gegners'});
-      const needsWeapon=opp.oppPreset==='parry'||opp.oppPreset==='block'||opp.oppPreset==='attack';
-      const curWpVal=D.oppWeaponId==='__none__'?'__none__':(opp.oppWeapon?.id||'__none__');
-      const curSkVal=D.oppSkillId==='__none__'?'__none__':(opp.sk?.id||'__none__');
-      detailHtml=`<div class="grid ${presetBtns.length===4?'grid-cols-2 sm:grid-cols-4':'grid-cols-3'} gap-1">${presetBtns.map(pb=>`<button type="button" data-action="dice-opp-preset" data-preset="${pb.k}" data-tip="${esc(pb.tip)}" class="btn py-1 px-1 text-[11px] font-extrabold ${opp.oppPreset===pb.k?'btn-pri':''}">${pb.l}</button>`).join('')}</div>
-      ${needsWeapon?`<div class="min-w-0"><label class="block text-[10px] font-bold t-mut mb-0.5">Waffe / Schild des Gegners</label><select data-dice-opp="weaponId" class="inp w-full text-xs font-bold py-1"><option value="__none__" ${curWpVal==='__none__'?'selected':''}>Ohne Waffe</option>${oppWeapons.map(w=>{const wn=String(w.name||'').trim()||getWeaponSubtype(w.wType).label;const tagsTxt=(w.tags||[]).map(t=>t?.name).filter(Boolean).slice(0,2).join(', ');return `<option value="${esc(w.id)}" ${curWpVal===w.id?'selected':''}>${esc(wn)}${tagsTxt?` (${esc(tagsTxt)})`:''}</option>`;}).join('')}</select></div>`:''}
-      <div class="min-w-0"><label class="block text-[10px] font-bold t-mut mb-0.5">Fertigkeit des Gegners (${opp.attrKey} ${opp.attrVal})</label><select data-dice-opp="skillId" class="inp w-full text-xs font-bold py-1"><option value="__none__" ${curSkVal==='__none__'?'selected':''}>Ohne Fertigkeit (+0)</option>${oppSkills.map(sk=>{const b=getSkBonus(sk);return `<option value="${esc(sk.id)}" ${curSkVal===sk.id?'selected':''}>${esc(sk.name)} (${fmtSign(b)})</option>`;}).join('')}</select></div>`;
+      if(hideOpp){
+        detailHtml=`<div class="grid ${presetBtns.length===4?'grid-cols-2 sm:grid-cols-4':'grid-cols-3'} gap-1">${presetBtns.map(pb=>`<button type="button" data-action="dice-opp-preset" data-preset="${pb.k}" data-tip="${esc(pb.tip)}" class="btn py-1 px-1 text-[11px] font-extrabold ${opp.oppPreset===pb.k?'btn-pri':''}">${pb.l}</button>`).join('')}</div>
+        <div class="text-[10px] t-mut bg-black/20 rounded-lg px-2 py-1.5 border bdr-line">🔒 Gegnerwerte, Waffen &amp; Fertigkeiten bleiben verborgen und werden automatisch im Hintergrund verrechnet.</div>`;
+      }else{
+        const needsWeapon=opp.oppPreset==='parry'||opp.oppPreset==='block'||opp.oppPreset==='attack';
+        const curWpVal=D.oppWeaponId==='__none__'?'__none__':(opp.oppWeapon?.id||'__none__');
+        const curSkVal=D.oppSkillId==='__none__'?'__none__':(opp.sk?.id||'__none__');
+        detailHtml=`<div class="grid ${presetBtns.length===4?'grid-cols-2 sm:grid-cols-4':'grid-cols-3'} gap-1">${presetBtns.map(pb=>`<button type="button" data-action="dice-opp-preset" data-preset="${pb.k}" data-tip="${esc(pb.tip)}" class="btn py-1 px-1 text-[11px] font-extrabold ${opp.oppPreset===pb.k?'btn-pri':''}">${pb.l}</button>`).join('')}</div>
+        ${needsWeapon?`<div class="min-w-0"><label class="block text-[10px] font-bold t-mut mb-0.5">Waffe / Schild des Gegners</label><select data-dice-opp="weaponId" class="inp w-full text-xs font-bold py-1"><option value="__none__" ${curWpVal==='__none__'?'selected':''}>Ohne Waffe</option>${oppWeapons.map(w=>{const wn=String(w.name||'').trim()||getWeaponSubtype(w.wType).label;const tagsTxt=(w.tags||[]).map(t=>t?.name).filter(Boolean).slice(0,2).join(', ');return `<option value="${esc(w.id)}" ${curWpVal===w.id?'selected':''}>${esc(wn)}${tagsTxt?` (${esc(tagsTxt)})`:''}</option>`;}).join('')}</select></div>`:''}
+        <div class="min-w-0"><label class="block text-[10px] font-bold t-mut mb-0.5">Fertigkeit des Gegners (${opp.attrKey} ${opp.attrVal})</label><select data-dice-opp="skillId" class="inp w-full text-xs font-bold py-1"><option value="__none__" ${curSkVal==='__none__'?'selected':''}>Ohne Fertigkeit (+0)</option>${oppSkills.map(sk=>{const b=getSkBonus(sk);return `<option value="${esc(sk.id)}" ${curSkVal===sk.id?'selected':''}>${esc(sk.name)} (${fmtSign(b)})</option>`;}).join('')}</select></div>`;
+      }
     }else if(opp.oppKind==='attr'){
-      detailHtml=`<div class="grid grid-cols-4 gap-1">${ATTRS.map(a=>{const v=getAttrTot(a.k,oppM,oppSheet);return `<button type="button" data-action="dice-opp-attr" data-attr="${a.k}" class="btn py-1 px-0.5 flex-col gap-0 ${opp.attrKey===a.k?'btn-pri':''}"><span class="text-[10px]">${a.k}</span><span class="text-xs font-black tabular">${v}</span></button>`;}).join('')}</div>`;
+      detailHtml=`<div class="grid grid-cols-4 gap-1">${ATTRS.map(a=>{const v=getAttrTot(a.k,oppM,oppSheet);return `<button type="button" data-action="dice-opp-attr" data-attr="${a.k}" class="btn py-1 px-0.5 flex-col gap-0 ${opp.attrKey===a.k?'btn-pri':''}"><span class="text-[10px]">${a.k}</span><span class="text-xs font-black tabular">${hideOpp?'??':v}</span></button>`;}).join('')}</div>`;
     }else{
       if(oppSkills.length){
         const curSkId=opp.sk?.id||oppSkills[0].id;
@@ -651,7 +737,7 @@ export function renderDice(){
       const sp=outDuel.response.snapshot;
       const modTxt=(sp.autoAdv||sp.autoDis)?` (${sp.autoAdv?`+${sp.autoAdv}V`:''}${sp.autoAdv&&sp.autoDis?' / ':''}${sp.autoDis?`+${sp.autoDis}N`:''})`:'';
       liveDuelBarHtml=`<div class="p-2 rounded-lg border border-emerald-400/60 bg-emerald-500/15 flex items-center justify-between gap-2 min-w-0">
-        <div class="text-[11px] font-extrabold text-emerald-200 break-words min-w-0">✅ ${esc(opp.oppName)} kontert mit <span class="text-white">${esc(sp.oppShortLabel)}</span>${esc(modTxt)}${outDuel.response.useInspiration?' • ✨ Inspiration':''}</div>
+        <div class="text-[11px] font-extrabold text-emerald-200 break-words min-w-0">${hideOpp?`✅ ${esc(opp.oppName)} hat gekontert (Werte verborgen)`:`✅ ${esc(opp.oppName)} kontert mit <span class="text-white">${esc(sp.oppShortLabel)}</span>${esc(modTxt)}${outDuel.response.useInspiration?' • ✨ Inspiration':''}`}</div>
         <button type="button" data-action="duel-clear-status" data-tip="Live-Antwort lösen und wieder lokal anpassen" class="btn w-6 h-6 p-0 text-[10px] font-black shrink-0">✕</button>
       </div>`;
     }else if(outDuel&&(outDuel.status==='timeout'||outDuel.status==='declined')){
@@ -665,10 +751,13 @@ export function renderDice(){
       </div>`;
     }else if(opp.charId){
       liveDuelBarHtml=`<div class="flex items-center justify-between gap-1.5 min-w-0">
-        <button type="button" data-action="duel-send" data-tip="Schickt dem Spieler von ${esc(opp.oppName)} eine Live-Konter-Anfrage (du kannst trotzdem jederzeit direkt würfeln)" class="btn w-full py-1 px-2.5 text-[11px] font-extrabold border-indigo-400/50 bg-indigo-500/15 text-indigo-200 hover:bg-indigo-500/25">📨 Konter anfragen (Live)</button>
+        <button type="button" data-action="duel-send" data-tip="Schickt ${opp.isEnemy?'der Spielleitung':'dem Spieler von '+esc(opp.oppName)} eine Live-Konter-Anfrage (du kannst trotzdem jederzeit direkt würfeln)" class="btn w-full py-1 px-2.5 text-[11px] font-extrabold border-indigo-400/50 bg-indigo-500/15 text-indigo-200 hover:bg-indigo-500/25">📨 Konter anfragen (Live)</button>
       </div>`;
     }
-    return `${charPicker}${errMsg?`<div class="text-[10px] text-amber-300 font-bold">⚠️ ${esc(errMsg)} (zeige zwischengespeicherten Stand)</div>`:''}${liveDuelBarHtml}${kindBar}${detailHtml}<div class="text-xs font-extrabold text-indigo-300 text-right tabular break-words pt-0.5 border-t border-white/10">${esc(opp.oppBreak)}</div>`;
+    const oppFootLine=hideOpp
+      ?`👹 ${opp.oppName} • ${opp.oppKind==='attr'?opp.attrKey:opp.oppRollCat} (Details verborgen)`
+      :opp.oppBreak;
+    return `${charPicker}${errMsg?`<div class="text-[10px] text-amber-300 font-bold">⚠️ ${esc(errMsg)} (zeige zwischengespeicherten Stand)</div>`:''}${liveDuelBarHtml}${kindBar}${detailHtml}<div class="text-xs font-extrabold text-indigo-300 text-right tabular break-words pt-0.5 border-t border-white/10">${esc(oppFootLine)}</div>`;
   };
   const vbox=(ttl,mAct,mode,dirF,aF,sF,cF,mId,mCol,sVal,aL,sL)=>{
     const wKey=dirF==='cDirect'?'c':'d';
@@ -676,7 +765,7 @@ export function renderDice(){
     const diffResetBtn=wKey==='d'?`<button type="button" id="btnResetDiceDiff" data-action="reset-dice-diff" data-tip="Nur Schwierigkeit auf Standardwert 40 zurücksetzen (Eigener Wert &amp; Vor-/Nachteile bleiben erhalten)" class="btn py-0.5 px-1.5 text-[10px] font-extrabold tabular transition-all ${isDiffChanged?'!border-amber-400 !bg-amber-500/25 text-amber-300 shadow-sm':'opacity-70 hover:opacity-100'}">↺ 40</button>`:'';
     const diffPresetBar=(wKey==='d'&&mode!=='character')?`<div class="grid grid-cols-7 gap-1 pt-0.5" data-diff-presets="1">${DIFF_PRESETS.map(v=>{const active=D.dMode==='direct'&&toInt(D.dDirect)===v;return `<button type="button" data-action="dice-set-diff" data-val="${v}" data-tip="Schwierigkeit direkt auf ${v} setzen" class="btn py-0.5 px-0 text-[11px] tabular ${active?'btn-pri font-black':'opacity-85 hover:opacity-100'}">${v}</button>`;}).join('')}</div>`:'';
     const modeBtns=wKey==='d'
-      ?`<div class="inline-flex flex-wrap rounded-lg p-0.5 bg-black/20 border bdr-line text-[11px] shrink-0"><button type="button" data-action="${mAct}" data-mode="direct" class="px-1.5 sm:px-2 py-0.5 rounded font-bold ${mode==='direct'?'bg-acc-soft text-acc':''}">Direkt</button><button type="button" data-action="${mAct}" data-mode="breakdown" class="px-1.5 sm:px-2 py-0.5 rounded font-bold ${mode==='breakdown'?'bg-acc-soft text-acc':''}">Aufgeschl.</button><button type="button" data-action="${mAct}" data-mode="character" data-tip="Gegen einen Charakterbogen der aktiven Kampagne würfeln" class="px-1.5 sm:px-2 py-0.5 rounded font-bold ${mode==='character'?'bg-indigo-500/30 text-indigo-200':''}">⚔️ <span class="hidden sm:inline">Gegen Charakter</span><span class="sm:hidden">Charakter</span></button></div>`
+      ?`<div class="inline-flex flex-wrap rounded-lg p-0.5 bg-black/20 border bdr-line text-[11px] shrink-0"><button type="button" data-action="${mAct}" data-mode="direct" class="px-1.5 sm:px-2 py-0.5 rounded font-bold ${mode==='direct'?'bg-acc-soft text-acc':''}">Direkt</button><button type="button" data-action="${mAct}" data-mode="breakdown" class="px-1.5 sm:px-2 py-0.5 rounded font-bold ${mode==='breakdown'?'bg-acc-soft text-acc':''}">Aufgeschl.</button><button type="button" data-action="${mAct}" data-mode="character" data-tip="Gegen einen Charakterbogen oder freigeschalteten Gegner der aktiven Kampagne würfeln" class="px-1.5 sm:px-2 py-0.5 rounded font-bold ${mode==='character'?'bg-indigo-500/30 text-indigo-200':''}">⚔️ <span class="hidden sm:inline">Gegen Ziel</span><span class="sm:hidden">Ziel</span></button></div>`
       :`<div class="inline-flex rounded-lg p-0.5 bg-black/20 border bdr-line text-[11px] shrink-0"><button type="button" data-action="${mAct}" data-mode="direct" class="px-2 py-0.5 rounded font-bold ${mode==='direct'?'bg-acc-soft text-acc':''}">Direkt</button><button type="button" data-action="${mAct}" data-mode="breakdown" class="px-2 py-0.5 rounded font-bold ${mode==='breakdown'?'bg-acc-soft text-acc':''}">Aufgeschl.</button></div>`;
     const bodyContent=(wKey==='d'&&mode==='character')
       ?renderOppBoxBody()
@@ -686,7 +775,8 @@ export function renderDice(){
     return `<div class="subcard space-y-2 min-w-0 ${wKey==='d'&&mode==='character'?'border-indigo-400/50 bg-indigo-500/5':''}"><div class="flex flex-wrap items-center justify-between gap-1.5"><div class="flex items-center gap-1.5 min-w-0"><span class="text-xs font-extrabold truncate">${ttl}</span>${diffResetBtn}</div>${modeBtns}</div>${bodyContent}${diffPresetBar}</div>`;
   };
   const mob=isMobileLayout();
-  p.innerHTML=`<div class="card p-0 ${mob?'rounded-none border-0':'rounded-2xl'} flex-1 h-full flex flex-col min-h-0 overflow-hidden shadow-2xl relative"><div data-win-drag="dice" class="shrink-0 z-10 flex flex-wrap items-center justify-between gap-1.5 sm:gap-2 px-3 sm:px-4 py-2.5 sm:py-3 border-b bdr-line win-drag-hdr" style="background:var(--surf2)"><div class="min-w-0 flex-1"><h2 class="text-sm font-extrabold truncate">🎲 Würfelassistent</h2><p class="text-[11px] text-acc font-bold truncate">${esc(D.label)}${T.opp?.ready?` ⚔️ vs. ${esc(T.opp.oppName)} (${esc(T.opp.oppShortLabel)})`:''}</p></div><div class="flex items-center gap-1 sm:gap-1.5 shrink-0"><button type="button" data-action="toggle-livedice" aria-label="Live-Würfel umschalten" data-tip="Live-Würfel-Fenster daneben ein-/ausblenden" class="btn py-1 px-2 text-xs ${LD.open?'btn-pri':''}">📡 <span class="hidden sm:inline">Live</span></button>${renderWinCtrlBtns('dice')}${xl&&!UI.inLobby?`<button type="button" data-action="toggle-dock" class="hidden xl:inline-flex btn py-1 px-2 text-xs">${D.docked?'🗗 Overlay':'📌 Andocken'}</button>`:''}<button type="button" data-action="reset-dice" class="btn btn-err py-1 px-2 text-xs">Reset</button><button type="button" data-action="close-dice" aria-label="Schließen" class="btn btn-err ${mob?'w-9 h-9 p-0 text-sm':'py-1 px-2 text-xs'} font-black shrink-0">✕</button></div></div>
+  const hdrOppSub=T.opp?.ready?(T.opp.hideDetails?` ⚔️ vs. 👹 ${esc(T.opp.oppName)}`:` ⚔️ vs. ${esc(T.opp.oppName)} (${esc(T.opp.oppShortLabel)})`):'';
+  p.innerHTML=`<div class="card p-0 ${mob?'rounded-none border-0':'rounded-2xl'} flex-1 h-full flex flex-col min-h-0 overflow-hidden shadow-2xl relative"><div data-win-drag="dice" class="shrink-0 z-10 flex flex-wrap items-center justify-between gap-1.5 sm:gap-2 px-3 sm:px-4 py-2.5 sm:py-3 border-b bdr-line win-drag-hdr" style="background:var(--surf2)"><div class="min-w-0 flex-1"><h2 class="text-sm font-extrabold truncate">🎲 Würfelassistent</h2><p class="text-[11px] text-acc font-bold truncate">${esc(D.label)}${hdrOppSub}</p></div><div class="flex items-center gap-1 sm:gap-1.5 shrink-0"><button type="button" data-action="toggle-livedice" aria-label="Live-Würfel umschalten" data-tip="Live-Würfel-Fenster daneben ein-/ausblenden" class="btn py-1 px-2 text-xs ${LD.open?'btn-pri':''}">📡 <span class="hidden sm:inline">Live</span></button>${renderWinCtrlBtns('dice')}${xl&&!UI.inLobby?`<button type="button" data-action="toggle-dock" class="hidden xl:inline-flex btn py-1 px-2 text-xs">${D.docked?'🗗 Overlay':'📌 Andocken'}</button>`:''}<button type="button" data-action="reset-dice" class="btn btn-err py-1 px-2 text-xs">Reset</button><button type="button" data-action="close-dice" aria-label="Schließen" class="btn btn-err ${mob?'w-9 h-9 p-0 text-sm':'py-1 px-2 text-xs'} font-black shrink-0">✕</button></div></div>
   <div data-dice-scroll-body="1" class="p-3.5 sm:p-4 space-y-3.5 min-w-0 flex-1 min-h-0 overflow-y-auto overscroll-contain${mob?' safe-pb':''}">
     ${adminToggleBarHtml}
     ${isNeutral?`<div class="subcard py-2 px-3 border bdr-acc bg-acc-soft/30 text-xs font-extrabold text-acc flex items-center justify-between gap-2"><span>🏰 Lobby-Modus (Neutral • Absender: ${esc(CLOUD.currentUser || 'Gast')})</span></div>`:''}
@@ -745,7 +835,7 @@ export function renderLiveDice(){
   const snap=hadContent?captureScrollState(mount):null;
   applyWinFrame('livedice', mount, bd, WIN_DEFAULTS.livedice.dockClass); if(!LD.open){mount.innerHTML='';mount.dataset.lastCampId='';return;}
   const allCamps=getCampaigns();
-  const visCamps=CLOUD.isAdmin?allCamps:(CLOUD.currentUser?allCamps.filter(c=>isUserInCampaign(c,CLOUD.currentUser)):allCamps);
+  const visCamps=CLOUD.isAdmin?allCamps:(CLOUD.currentUser?allCamps.filter(c=>c.id==='default'||isUserInCampaign(c,CLOUD.currentUser)||canManageCampaign(c)):allCamps);
   const activeCampId=getActiveLiveCampaignId();
   const sameCamp=hadContent&&mount.dataset.lastCampId===activeCampId;
   const activeCampObj=allCamps.find(c=>c.id===activeCampId)||allCamps[0];
@@ -822,7 +912,7 @@ export function executeBlockFollowUpRoll(){
   publishLiveRoll({
     id:uid(),tsMs:Date.now(),ts:new Date().toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit',second:'2-digit'}),
     senderTabId:LIVE_TAB_ID,charId:isLobBlk?'':(S.charId||''),charName:isLobBlk?(CLOUD.currentUser?CLOUD.currentUser:'Gast'):(String(S.profile.name||'').trim()||'Unbenannter Held'),
-    playerName:isLobBlk?'':String(CLOUD.currentUser||S.owner||'').trim(),campaignId:isLobBlk?getActiveLiveCampaignId():getCharCampaignId(S.charId),label:lbl,weaponId:isLobBlk?null:(D.weaponId||null),wRollCat:'Blocken',
+    playerName:isLobBlk?'':String(CLOUD.currentUser||S.owner||'').trim(),campaignId:getActiveDiceCampaignId(),label:lbl,weaponId:isLobBlk?null:(D.weaponId||null),wRollCat:'Blocken',
     th,egMult,chance,cv:atkVal,dv:20,adv:0,dis:0,net:0,bonus:0,effTh:0,
     cBreak:`Aggressor-Trefferwert ${atkVal}`,dBreak:'20 (Block-Folgewurf)',advBreak:'±0',critLbl:'Endziffer 1',
     formula:`${atkVal} (Aggressor) + 50 − 20 (Schw.) = ${th} (${chance}%)`,cnt:1,res:[{r,ok,crit,baseEg,eg,egMult,meg}]
@@ -842,9 +932,12 @@ export function executeDiceRoll(opts={}){
     res.push({r,rawR,rollMod,ok,crit,baseEg,eg,egMult:T.egMult,meg});
   }
   const isLobRoll=Boolean(UI.inLobby);
-  const c1Name=isLobRoll?(CLOUD.currentUser?CLOUD.currentUser:'Gast'):(String(S.profile.name||'').trim()||'Unbenannter Held');
+  const rollerIsEnemy=Boolean(!isLobRoll&&isEnemySheet(S));
+  const c1Name=isLobRoll?(CLOUD.currentUser?CLOUD.currentUser:'Gast'):(String(S.profile.name||'').trim()||(rollerIsEnemy?'Gegner':'Unbenannter Held'));
   const isVsOpp=Boolean(!isAtkBlk20&&T.opp&&T.opp.ready);
-  let vsSummary='';
+  const hideOppLocal=Boolean(isVsOpp&&T.opp.hideDetails);
+  const hideOppInFeed=Boolean(isVsOpp&&T.opp.isEnemy);
+  let vsSummary='', vsSummaryFeed='';
   if(isVsOpp){
     const c1Sk=(!isLobRoll&&D.skillId)?(S.skills||[]).find(x=>x.id===D.skillId):null;
     const c1Wp=(!isLobRoll&&D.weaponId)?(S.weapons||[]).find(x=>x.id===D.weaponId):null;
@@ -854,16 +947,32 @@ export function executeDiceRoll(opts={}){
     else if(c1WpName) c1Short=`${c1WpName} ${T.cv}`;
     else if(!isLobRoll&&D.attrKey) c1Short=`${D.attrKey} ${T.cv}`;
     else if(D.wRollCat&&D.wRollCat!=='Normaler Test') c1Short=`${D.wRollCat} ${T.cv}`;
-    vsSummary=`${c1Name} (${c1Short}) vs. ${T.opp.oppName} (${T.opp.oppShortLabel})`;
+    const c1FeedShort=rollerIsEnemy?(D.wRollCat&&D.wRollCat!=='Normaler Test'?D.wRollCat:'Aktion'):c1Short;
+    vsSummary=hideOppLocal
+      ?`${c1Name} (${c1Short}) vs. ${T.opp.oppName}`
+      :`${c1Name} (${c1Short}) vs. ${T.opp.oppName} (${T.opp.oppShortLabel})`;
+    vsSummaryFeed=hideOppInFeed
+      ?`${c1Name} (${c1FeedShort}) vs. ${T.opp.oppName}`
+      :`${c1Name} (${c1FeedShort}) vs. ${T.opp.oppName} (${T.opp.oppShortLabel})`;
   }
   const rollTitle=isAtkBlk20?`${D.label} • 🛡️ Geblockt (Folgewurf vs. Schw. 20)`:(isVsOpp?vsSummary:D.label);
-  const advSrcParts=buildAdvSrcShortList(T);
+  const feedTitle=isAtkBlk20
+    ?(rollerIsEnemy?`${c1Name} • 🛡️ Geblockt (Folgewurf vs. Schw. 20)`:`${D.label} • 🛡️ Geblockt (Folgewurf vs. Schw. 20)`)
+    :(isVsOpp?vsSummaryFeed:(rollerIsEnemy?(D.wRollCat&&D.wRollCat!=='Normaler Test'?`${D.wRollCat}`:'Probe'):D.label));
+  const rawAdvSrcParts=buildAdvSrcShortList(T);
+  const noOppAdvT=hideOppLocal||hideOppInFeed?{...T,advSrc:(T.advSrc||[]).filter(s=>!s?.fromOpponent)}:T;
+  const advSrcParts=hideOppLocal?buildAdvSrcShortList(noOppAdvT):rawAdvSrcParts;
+  const advSrcPartsFeed=rollerIsEnemy?[]:(hideOppInFeed?buildAdvSrcShortList(noOppAdvT):rawAdvSrcParts);
   const advSrcChipsHtml=advSrcParts.map(pt=>{
     const isN=/^[+-]\d+N\b/.test(pt), isRed=/^-\d+N\b/.test(pt), isMan=/\(Manuell\)$/.test(pt);
     const cls=isMan?'bg-amber-500/15 text-amber-200 border-amber-400/40':(isN&&!isRed)?'bg-rose-500/15 text-rose-200 border-rose-500/35':'bg-emerald-500/15 text-emerald-200 border-emerald-500/35';
     return `<span class="px-1.5 py-0.5 rounded border font-bold tabular max-w-full break-words ${cls}">${esc(pt)}</span>`;
   }).join('');
-  const vsSideRowHtml=isVsOpp?`<div class="mt-1.5 text-[10px] font-bold text-indigo-300 tabular break-words">⚔️ ${esc(c1Name)}: ${T.c1AutoAdv}V/${T.c1AutoDis}N • ${esc(T.opp.oppName)}: ${T.oppAutoAdv}V→N / ${T.oppAutoDis}N→V</div>`:'';
+  const vsSideRowHtml=isVsOpp
+    ?(hideOppLocal
+      ?`<div class="mt-1.5 text-[10px] font-bold text-indigo-300 tabular break-words">⚔️ ${esc(c1Name)} vs. 👹 ${esc(T.opp.oppName)} (Gegnerwerte verborgen)</div>`
+      :`<div class="mt-1.5 text-[10px] font-bold text-indigo-300 tabular break-words">⚔️ ${esc(c1Name)}: ${T.c1AutoAdv}V/${T.c1AutoDis}N • ${esc(T.opp.oppName)}: ${T.oppAutoAdv}V→N / ${T.oppAutoDis}N→V</div>`)
+    :'';
   const advSrcRowHtml=advSrcParts.length?`<div class="mt-2 pt-1.5 border-t border-white/10 flex flex-wrap items-center justify-center gap-1 text-[10px] min-w-0 break-words"><span class="font-extrabold t-mut mr-0.5">Vor./Nacht.:</span>${advSrcChipsHtml}</div>`:'';
   let baseHtml='';
   if(res.length===1){
@@ -873,7 +982,7 @@ export function executeDiceRoll(opts={}){
     baseHtml=`<div class="subcard text-center p-4 border-2 ${cls}"><div class="text-[11px] font-bold t-mut break-words">${esc(rollTitle)} • Schwelle ${th}${xMult>1?` • <span class="text-amber-300">EG ×${xMult}</span>`:''}</div>${vsSideRowHtml}<div class="text-5xl font-black tabular my-1">🎲 ${x.r}${x.rollMod&&x.rawR!==undefined?`<span class="text-xs font-bold text-cyan-300 ml-1">(Wurf ${x.rawR}${fmtSign(x.rollMod)})</span>`:''}</div><div class="text-xs font-black uppercase ${x.crit?'text-amber-500':x.ok?'text-emerald-500':'text-rose-500'}">${x.crit?'★ Kritischer Erfolg! ★':x.ok?'Erfolg':(x.r===100?'💀 Patzer (100)':'Misserfolg')}</div><div class="mt-2"><span class="px-3.5 py-1 rounded-lg text-white font-extrabold text-sm tabular ${x.ok?'bg-emerald-600':'bg-rose-600'}">${x.ok?('EG: '+x.eg+(xMult>1?` (${x.baseEg} ×${xMult})`:'')+(isAtkBlk20?' (Grundschaden)':'')):'MEG: '+x.meg}</span></div>${advSrcRowHtml}${blkBanner}</div>`;
   }else{
     const w=res.filter(x=>x.ok).length, c=res.filter(x=>x.crit).length;
-    const multiSrcBox=(advSrcParts.length||isVsOpp)?`<div class="subcard py-1.5 px-2.5 space-y-1 text-[10px] min-w-0 break-words">${isVsOpp?`<div class="font-bold text-indigo-300 tabular break-words">⚔️ ${esc(rollTitle)} • ${esc(c1Name)} (${T.c1AutoAdv}V/${T.c1AutoDis}N) vs. ${esc(T.opp.oppName)} (${T.oppAutoAdv}V→N / ${T.oppAutoDis}N→V)</div>`:''}${advSrcParts.length?`<div class="flex flex-wrap items-center gap-1 min-w-0"><span class="font-extrabold t-mut mr-0.5">Vor./Nacht.:</span>${advSrcChipsHtml}</div>`:''}</div>`:'';
+    const multiSrcBox=(advSrcParts.length||isVsOpp)?`<div class="subcard py-1.5 px-2.5 space-y-1 text-[10px] min-w-0 break-words">${isVsOpp?`<div class="font-bold text-indigo-300 tabular break-words">${hideOppLocal?`⚔️ ${esc(rollTitle)} (Gegnerwerte verborgen)`:`⚔️ ${esc(rollTitle)} • ${esc(c1Name)} (${T.c1AutoAdv}V/${T.c1AutoDis}N) vs. ${esc(T.opp.oppName)} (${T.oppAutoAdv}V→N / ${T.oppAutoDis}N→V)`}</div>`:''}${advSrcParts.length?`<div class="flex flex-wrap items-center gap-1 min-w-0"><span class="font-extrabold t-mut mr-0.5">Vor./Nacht.:</span>${advSrcChipsHtml}</div>`:''}</div>`:'';
     baseHtml=`<div class="space-y-1.5"><div class="subcard py-1.5 px-3 flex justify-between text-xs font-extrabold"><span>${D.cnt}× W100 (≤${th})${T.egMult>1?` • <span class="text-amber-300">EG ×${T.egMult}</span>`:''}${isAtkBlk20?' • 🛡️ Folgewurf vs. Schw. 20 (Grundschaden)':''}</span><span>${w}/${D.cnt} Erfolge${c?` • ★ ${c}`:''}</span></div><div class="grid grid-cols-2 gap-1.5">${res.map((x,i)=>{const xm=x.egMult||T.egMult||1;return `<div class="subcard p-2 flex justify-between items-center ${x.crit?'border-amber-400 bg-amber-500/15':x.ok?'border-emerald-500/50 bg-emerald-500/10':'border-rose-500/50 bg-rose-500/10'}"><span class="font-black tabular">#${i+1}: ${x.r}${x.rollMod&&x.rawR!==undefined?` (${x.rawR}${fmtSign(x.rollMod)})`:""}</span><span class="text-xs font-extrabold">${x.crit?'★ ':''}${x.ok?('EG '+x.eg+(xm>1?` ×${xm}`:'')+(isAtkBlk20?' (GS)':'')):'MEG '+x.meg}</span></div>`;}).join('')}</div>${multiSrcBox}</div>`;
   }
   if(D.wRollCat==='Blocken'&&res.some(x=>x.ok)){
@@ -887,13 +996,19 @@ export function executeDiceRoll(opts={}){
     UI.lastRollHtml=baseHtml;
   }
   const cs=getCSkVal(), ds=getDSkVal();
-  const cBreak=D.cMode==='breakdown'?`${D.attrKey||'Attr.'} ${D.cAttr} ${fmtSign(cs)} Fert. = ${T.cv}`:`Direkt ${T.cv}`;
-  const dBreak=isVsOpp?T.opp.oppBreak:(D.dMode==='breakdown'?`${D.dAttr} ${fmtSign(ds)} = ${T.dv}`:`${T.dv}`);
-  const advBreak=(T.effAdv||T.effDis||advSrcParts.length)?`${T.effAdv}V/${T.effDis}N (Netto ${fmtSign(T.rawNet)} → ${fmtSign(T.bonus-T.effTh)})${advSrcParts.length?` • ${advSrcParts.join(', ')}`:''}`:'±0';
-  const critLbl=(D.crit==='1'?'Endziffer 1':(D.critMode==='range'?`Endziffer 1–${D.crit}`:`nur Endziffer ${D.crit}`))+(T.autoCrit?` [inkl. +${T.autoCrit} Krit-Bonus]`:'');
-  const formula=isVsOpp
-    ?`${T.cv} (${c1Name}) + 50 − ${T.dv} (${T.opp.oppName}) ${T.bonus>=0?'+ '+T.bonus:'− '+Math.abs(T.bonus)}${T.effTh?` [inkl. ${fmtSign(T.effTh)} Effekt]`:''} = ${T.th} (${T.chance}%)`
-    :`${T.cv} (Wert) + 50 − ${T.dv} (Schw.) ${T.bonus>=0?'+ '+T.bonus:'− '+Math.abs(T.bonus)}${T.effTh?` [inkl. ${fmtSign(T.effTh)} Effekt]`:''} = ${T.th} (${T.chance}%)`;
+  const cBreak=rollerIsEnemy?'Gegnerwert (verborgen)':(D.cMode==='breakdown'?`${D.attrKey||'Attr.'} ${D.cAttr} ${fmtSign(cs)} Fert. = ${T.cv}`:`Direkt ${T.cv}`);
+  const dBreak=isVsOpp
+    ?(hideOppInFeed?`${T.opp.oppName} (Werte verborgen)`:T.opp.oppBreak)
+    :(D.dMode==='breakdown'?`${D.dAttr} ${fmtSign(ds)} = ${T.dv}`:`${T.dv}`);
+  const advBreak=(rollerIsEnemy||hideOppInFeed)
+    ?(advSrcPartsFeed.length?`Verrechnet • ${advSrcPartsFeed.join(', ')}`:'Verrechnet (Gegnerdetails verborgen)')
+    :((T.effAdv||T.effDis||advSrcPartsFeed.length)?`${T.effAdv}V/${T.effDis}N (Netto ${fmtSign(T.rawNet)} → ${fmtSign(T.bonus-T.effTh)})${advSrcPartsFeed.length?` • ${advSrcPartsFeed.join(', ')}`:''}`:'±0');
+  const critLbl=(D.crit==='1'?'Endziffer 1':(D.critMode==='range'?`Endziffer 1–${D.crit}`:`nur Endziffer ${D.crit}`))+(T.autoCrit&&!rollerIsEnemy?` [inkl. +${T.autoCrit} Krit-Bonus]`:'');
+  const formula=(rollerIsEnemy||hideOppInFeed)
+    ?(isVsOpp?`${rollerIsEnemy?c1Name:`${T.cv} (${c1Name})`} vs. ${T.opp.oppName} (Gegnerwerte verborgen) → Schwelle ${T.th} (${T.chance}%)`:`${c1Name} (Gegnerwerte verborgen) → Schwelle ${T.th} (${T.chance}%)`)
+    :(isVsOpp
+      ?`${T.cv} (${c1Name}) + 50 − ${T.dv} (${T.opp.oppName}) ${T.bonus>=0?'+ '+T.bonus:'− '+Math.abs(T.bonus)}${T.effTh?` [inkl. ${fmtSign(T.effTh)} Effekt]`:''} = ${T.th} (${T.chance}%)`
+      :`${T.cv} (Wert) + 50 − ${T.dv} (Schw.) ${T.bonus>=0?'+ '+T.bonus:'− '+Math.abs(T.bonus)}${T.effTh?` [inkl. ${fmtSign(T.effTh)} Effekt]`:''} = ${T.th} (${T.chance}%)`);
   const livePayload={
     id:uid(),
     tsMs:Date.now(),
@@ -901,16 +1016,16 @@ export function executeDiceRoll(opts={}){
     senderTabId:LIVE_TAB_ID,
     charId:isLobRoll?'':(S.charId||''),
     charName:c1Name,
-    playerName:isLobRoll?'':String(CLOUD.currentUser||S.owner||'').trim(),
-    campaignId:isLobRoll?getActiveLiveCampaignId():getCharCampaignId(S.charId),
-    label:rollTitle||'Freie Probe',
+    playerName:isLobRoll?'':(rollerIsEnemy?'SL':String(CLOUD.currentUser||S.owner||'').trim()),
+    campaignId:getActiveDiceCampaignId(),
+    label:feedTitle||'Freie Probe',
     weaponId:isLobRoll?null:(D.weaponId||null),
     wRollCat:D.wRollCat||null,
     th:T.th,
     egMult:T.egMult,
     chance:T.chance,
-    cv:T.cv,
-    dv:T.dv,
+    cv:rollerIsEnemy?'?':T.cv,
+    dv:hideOppInFeed?'?':T.dv,
     adv:T.effAdv,
     dis:T.effDis,
     net:T.rawNet,
@@ -927,7 +1042,7 @@ export function executeDiceRoll(opts={}){
   if(isVsOpp){
     livePayload.vsCharId=T.opp.charId;
     livePayload.vsCharName=T.opp.oppName;
-    livePayload.vsSummary=vsSummary;
+    livePayload.vsSummary=vsSummaryFeed;
   }
   publishLiveRoll(livePayload);
   diceLogs.unshift({t:new Date().toLocaleTimeString('de-DE'),lbl:rollTitle,th,sum:res.map(x=>`${x.r}(${x.crit?'★':''}${x.ok?('EG'+x.eg+((x.egMult||T.egMult||1)>1?` (${x.baseEg} ×${x.egMult||T.egMult})`:'')):'MEG'+x.meg})`).join(', '),advSrc:advSrcParts.join(', ')});
@@ -988,7 +1103,7 @@ export function rollCustomDice(){
     charId:isLobRoll?'':(S.charId||''),
     charName:isLobRoll?(CLOUD.currentUser||'Gast'):(String(S.profile.name||'').trim()||'Unbenannter Held'),
     playerName:isLobRoll?'':String(CLOUD.currentUser||S.owner||'').trim(),
-    campaignId:isLobRoll?getActiveLiveCampaignId():getCharCampaignId(S.charId),
+    campaignId:getActiveDiceCampaignId(),
     label:`Benutzerdefinierte Würfel (${formula})`,
     isCustomDice:true,
     customFormula:formula,

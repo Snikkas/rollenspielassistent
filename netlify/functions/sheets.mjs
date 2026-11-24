@@ -63,11 +63,24 @@ async function handleDeltaResource(store, body) {
     ? reg.gmUsers.map((u) => String(u || "").trim().toLowerCase()).filter(Boolean)
     : [];
   const isGlobalGm = Boolean(actorLow && globalGms.includes(actorLow));
-  const campObj = Array.isArray(reg.campaigns) ? reg.campaigns.find((c) => c && c.id === campId) : null;
-  const campGms = Array.isArray(campObj?.gmUsers)
-    ? campObj.gmUsers.map((u) => String(u || "").trim().toLowerCase()).filter(Boolean)
-    : [];
-  const isCampaignGm = Boolean(isGlobalGm && (campId === "default" || campGms.includes(actorLow)));
+  const checkCampGm = (cid) => {
+    if (!cid || cid === "default") return false;
+    const cObj = Array.isArray(reg.campaigns) ? reg.campaigns.find((c) => c && c.id === cid) : null;
+    const cGms = Array.isArray(cObj?.gmUsers)
+      ? cObj.gmUsers.map((u) => String(u || "").trim().toLowerCase()).filter(Boolean)
+      : [];
+    return Boolean(isGlobalGm && cGms.includes(actorLow));
+  };
+  const enemyCampIds = [
+    ...(Array.isArray(reg.enemyMeta?.[charId]?.campaignIds) ? reg.enemyMeta[charId].campaignIds : []),
+    ...(Array.isArray(sheet.enemyMeta?.campaignIds) ? sheet.enemyMeta.campaignIds : []),
+    ...(Array.isArray(sheet._summary?.enemyMeta?.campaignIds) ? sheet._summary.enemyMeta.campaignIds : [])
+  ].map((c) => String(c || "").trim()).filter(Boolean);
+  const isCampaignGm = Boolean(
+    (isGlobalGm && campId === "default") ||
+    checkCampGm(campId) ||
+    enemyCampIds.some((cid) => checkCampGm(cid))
+  );
 
   if (!isAdmin && !isOwner && !isCampaignGm) {
     return jsonResp({ error: "Keine Berechtigung für direkten Ressourcenabzug (nur Besitzer, Kampagnen-SL oder Admin)." }, 403);
@@ -164,6 +177,7 @@ export default async (req) => {
           try {
             const d = await store.get(b.key, { type: "json" });
             if (!d) return null;
+            const isEnemy = d.sheetType === "enemy" || d._summary?.sheetType === "enemy";
             return {
               id: b.key,
               name: d.profile?.name || "Unbenannter Charakter",
@@ -172,6 +186,8 @@ export default async (req) => {
               avatar: d.profile?.avatar || "",
               owner: d.owner || d._summary?.owner || "",
               campaignId: d.campaignId || d._summary?.campaignId || "default",
+              sheetType: isEnemy ? "enemy" : "character",
+              enemyMeta: isEnemy ? (d.enemyMeta || d._summary?.enemyMeta || null) : null,
               level: d.progression?.level || 1,
               lpCurrent: d.secondary?.lpCurrent ?? 8,
               lpMax: d._summary?.lpMax ?? 8,

@@ -8,7 +8,7 @@ import {
   hooks
 } from './ui-hooks.js';
 import {
-  S, D, UI, CLOUD, DUEL, LIVE_TAB_ID, isMobileLayout, syncBodyScrollLock, bindSwipeDownClose, getWeaponSubtype, getCharCampaignId, getCharOwner, getActiveLiveCampaignId, canManageCampaign, toast, logChron, save
+  S, D, UI, CLOUD, DUEL, LIVE_TAB_ID, isMobileLayout, syncBodyScrollLock, bindSwipeDownClose, getWeaponSubtype, getCharCampaignId, getCharOwner, getActiveLiveCampaignId, canManageCampaign, isEnemySheet, getEnemyMeta, shouldHideOpponentDetails, toast, logChron, save
 } from './state.js';
 import {
   calcActiveMods, getAdvDisForContext, getWeaponRollMeta, getAttrTot, getSkBonus
@@ -17,7 +17,7 @@ import {
   sendLiveBroadcast, getCachedForeignSheet, isForeignSheetLoading, getForeignSheetError, fetchForeignCharacterSheet
 } from './cloud.js';
 import {
-  getEffC, isLobbyNeutralDice, resolveOpponentComparison, applyDiceAutoAdvDis, renderDice, formatSrcOriginLabel, formatAdvSrcScope
+  getEffC, getActiveDiceCampaignId, isLobbyNeutralDice, resolveOpponentComparison, applyDiceAutoAdvDis, renderDice, formatSrcOriginLabel, formatAdvSrcScope
 } from './dice.js';
 
 export const DUEL_TIMEOUT_MS = 60000;
@@ -81,6 +81,13 @@ function findDefaultWeaponForPreset(sheet,preset){
 export function isDuelTargetForMe(challenge){
   if(!challenge||!challenge.targetCharId) return false;
   const tid=String(challenge.targetCharId).trim();
+  if(isEnemySheet(tid)){
+    if(CLOUD.isAdmin) return true;
+    const chCamp=String(challenge.campaignId||'').trim();
+    if(chCamp&&chCamp!=='default'&&canManageCampaign(chCamp)) return true;
+    const meta=getEnemyMeta(tid);
+    return meta.campaignIds.some(cid=>canManageCampaign(cid));
+  }
   if(!UI.inLobby&&S?.charId&&S.charId===tid) return true;
   const curUser=String(CLOUD.currentUser||'').trim().toLowerCase();
   if(curUser){
@@ -125,7 +132,7 @@ export function sendDuelChallenge(){
   const isLob=isLobbyNeutralDice();
   const attackerName=isLob?(CLOUD.currentUser||'Gast'):(String(S.profile?.name||'').trim()||'Unbenannter Held');
   const attackerCharId=isLob?'':(S.charId||'');
-  const campaignId=isLob?getActiveLiveCampaignId():getCharCampaignId(S.charId||targetCharId);
+  const campaignId=getActiveDiceCampaignId();
   const w=(!isLob&&D.weaponId)?(S.weapons||[]).find(x=>x.id===D.weaponId):null;
   const sk=(!isLob&&D.skillId)?(S.skills||[]).find(x=>x.id===D.skillId):null;
   const weaponName=w?(String(w.name||'').trim()||getWeaponSubtype(w.wType).label):'';
@@ -510,12 +517,17 @@ export function handleLiveDuelEvent(rawObj,isRealtimePush=false){
       D.oppSkillId=rawObj.oppSkillId||'';
       D.oppSitActive=(rawObj.oppSitActive&&typeof rawObj.oppSitActive==='object')?{...rawObj.oppSitActive}:{};
       applyDiceAutoAdvDis(false);
-      const snap=rawObj.snapshot||{};
-      const advParts=[];
-      if(snap.autoAdv) advParts.push(`+${snap.autoAdv}V`);
-      if(snap.autoDis) advParts.push(`+${snap.autoDis}N`);
-      const modTxt=advParts.length?`, ${advParts.join(' / ')}`:'';
-      toast(`✅ ${rawObj.targetCharName||DUEL.outgoing.targetCharName} kontert mit ${snap.oppShortLabel||'Abwehr'}${modTxt}!`);
+      const hideToast=shouldHideOpponentDetails(rawObj.targetCharId||D.oppCharId,rawObj.campaignId);
+      if(hideToast){
+        toast(`✅ ${rawObj.targetCharName||DUEL.outgoing.targetCharName} hat gekontert (Werte verborgen)!`);
+      }else{
+        const snap=rawObj.snapshot||{};
+        const advParts=[];
+        if(snap.autoAdv) advParts.push(`+${snap.autoAdv}V`);
+        if(snap.autoDis) advParts.push(`+${snap.autoDis}N`);
+        const modTxt=advParts.length?`, ${advParts.join(' / ')}`:'';
+        toast(`✅ ${rawObj.targetCharName||DUEL.outgoing.targetCharName} kontert mit ${snap.oppShortLabel||'Abwehr'}${modTxt}!`);
+      }
       if(D.open) renderDice();
     }
   }

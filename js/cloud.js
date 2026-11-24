@@ -8,7 +8,7 @@ import {
   hooks
 } from './ui-hooks.js';
 import {
-  defaultState, setS, normalizeCampaigns, mergeThemePrefs, migrateUserLocalBgMap, sanitizeThemePrefsForRegistry, getCampaigns, setActiveCampaign, isGlobalGM, canManageCampaign, canClearLiveDice, getCreatableCampaigns, ensureUserRecord, ensureAllRegistryUsers, findUserKeyByName, renderUserNamePill, saveRegistryLocal, saveDiceFeedLocal, saveSecretRollsLocal, getActiveLiveCampaignId, getRollCampaignId, getCampaignFilteredDiceFeed, captureScrollState, restoreScrollState, toast, hasNiceRoll, triggerNiceEasterEgg, normalizeForeignSheet, mergeLoaded, saveLastActiveTab, getSavedTabForChar, save, flushPendingSave, applySessionTheme, syncPalDraftFromSlot, applyTheme, CUSTOM_ICONS, S, D, CN, LD, FBW, isMobileLayout, UI, LIVE_TAB_ID, PATCHNOTES, FEEDBACK, CLOUD, CLOUD_SYNC, PWLIB, getCharOwner, getCharCampaignId, canManageChar
+  defaultState, setS, normalizeCampaigns, makeDefaultEnemyMeta, normalizeEnemyMeta, mergeThemePrefs, migrateUserLocalBgMap, sanitizeThemePrefsForRegistry, getCampaigns, setActiveCampaign, isGlobalGM, canManageCampaign, getGmManageableCampaigns, isAnyGM, canToggleEnemyStatus, canClearLiveDice, getCreatableCampaigns, ensureUserRecord, ensureAllRegistryUsers, findUserKeyByName, findUserKeyById, renderUserNamePill, saveRegistryLocal, saveDiceFeedLocal, saveSecretRollsLocal, getActiveLiveCampaignId, getRollCampaignId, getCampaignFilteredDiceFeed, captureScrollState, restoreScrollState, toast, hasNiceRoll, triggerNiceEasterEgg, normalizeForeignSheet, mergeLoaded, saveLastActiveTab, getSavedTabForChar, save, flushPendingSave, applySessionTheme, syncPalDraftFromSlot, applyTheme, CUSTOM_ICONS, S, D, CN, LD, FBW, isMobileLayout, UI, LIVE_TAB_ID, PATCHNOTES, FEEDBACK, CLOUD, CLOUD_SYNC, PWLIB, getCharOwner, getCharCampaignId, canManageChar, isEnemySheet, getEnemyMeta, canManageEnemySheet, canViewEnemySheet, canSeeEnemyInDice
 } from './state.js';
 import {
   invalidateModsCache, calcActiveMods, importPowerPackIntoSheet, getLpMax, getMlpMax, getIniTot, getApMax, getMapMax
@@ -355,6 +355,44 @@ export function handleIncomingDicePayload(rawObj,isRealtimePush=false){
     hooks.handleCombatLiveEvent?.(rawObj,isRealtimePush);
     return;
   }
+  if(rawObj.type==='enemy_meta_live'){
+    if(rawObj.senderTabId===LIVE_TAB_ID) return;
+    const cid=String(rawObj.charId||'').trim();
+    if(!cid) return;
+    const validIds=new Set(getCampaigns().map(c=>c.id));
+    if(!CLOUD.registry.enemyMeta||typeof CLOUD.registry.enemyMeta!=='object') CLOUD.registry.enemyMeta={};
+    const nextMeta=normalizeEnemyMeta(rawObj.meta||{},validIds);
+    nextMeta.updatedAtMs=Math.max(toInt(nextMeta.updatedAtMs,0),toInt(rawObj.tsMs,Date.now()));
+    CLOUD.registry.enemyMeta[cid]=nextMeta;
+    const li=(CLOUD.list||[]).find(c=>c&&c.id===cid);
+    if(li){
+      li.sheetType='enemy';
+      li.enemyMeta=clone(nextMeta);
+      if(rawObj.name) li.name=String(rawObj.name);
+    }else if(rawObj.summary&&typeof rawObj.summary==='object'){
+      CLOUD.list.push({...rawObj.summary,id:cid,sheetType:'enemy',enemyMeta:clone(nextMeta)});
+    }
+    if(S?.charId===cid){
+      S.sheetType='enemy';
+      S.enemyMeta=clone(nextMeta);
+      save(false);
+    }
+    saveRegistryLocal();
+    if(D.dMode==='character'&&D.oppCharId===cid){
+      const activeCamp=UI.inLobby?getActiveLiveCampaignId():getCharCampaignId(S.charId);
+      if(!canSeeEnemyInDice(cid,activeCamp)){
+        D.oppCharId='';
+        D.oppWeaponId='';
+        D.oppSkillId='';
+        D.oppSitActive={};
+        hooks.clearOutgoingDuel?.({notifyCancel:false,silent:true});
+      }
+    }
+    if(D.open) hooks.renderDice?.();
+    if(UI.inLobby) hooks.renderMain?.();
+    else if(S?.charId===cid) hooks.renderHeader?.();
+    return;
+  }
   if(rawObj.type==='clear_dice'){
     const clr=toInt(rawObj.clearedAt,Date.now());
     if(rawObj.campaignId){
@@ -410,7 +448,7 @@ export function initLiveDiceChannel(){
           const outer=JSON.parse(ev.data);
           if(outer&&outer.event==='message'&&typeof outer.message==='string'){
             handleIncomingDicePayload(JSON.parse(outer.message),true);
-          }else if(outer&&((outer.id&&Array.isArray(outer.res))||outer.type==='campnote_live'||outer.type==='clear_dice'||outer.type==='duel_challenge'||outer.type==='duel_response'||outer.type==='duel_cancel'||outer.type==='combat_damage_offer'||outer.type==='combat_damage_applied')){
+          }else if(outer&&((outer.id&&Array.isArray(outer.res))||outer.type==='campnote_live'||outer.type==='clear_dice'||outer.type==='duel_challenge'||outer.type==='duel_response'||outer.type==='duel_cancel'||outer.type==='combat_damage_offer'||outer.type==='combat_damage_applied'||outer.type==='enemy_meta_live')){
             handleIncomingDicePayload(outer,true);
           }
         }catch(err){}
@@ -549,6 +587,7 @@ export async function syncCloudRegistry(push=false){
     users:CLOUD.registry.users||{},
     claims:CLOUD.registry.claims||{},
     charCampaigns:CLOUD.registry.charCampaigns||{},
+    enemyMeta:CLOUD.registry.enemyMeta||{},
     publicNotes:CLOUD.registry.publicNotes||{},
     campaignSharedNotes:CLOUD.registry.campaignSharedNotes||{},
     deletedCharIds:Array.isArray(CLOUD.registry.deletedCharIds)?[...new Set(CLOUD.registry.deletedCharIds.map(x=>String(x||'').trim()).filter(Boolean))]:[],
@@ -572,6 +611,7 @@ export async function syncCloudRegistry(push=false){
           campaigns:reg?.campaigns||[],
           claims:reg?.claims||{},
           charCampaigns:reg?.charCampaigns||{},
+          enemyMeta:reg?.enemyMeta||{},
           users:reg?.users||{},
           gmUsers:reg?.gmUsers||[],
           lobbyLogo:reg?.lobbyLogo||'',
@@ -579,6 +619,7 @@ export async function syncCloudRegistry(push=false){
           diceClearedByCamp:reg?.diceClearedByCamp||{}
         });
         const prevSig=!push?_regSig(CLOUD.registry,CLOUD.diceFeed):'';
+        const prevEnemySig=!push?JSON.stringify(CLOUD.registry?.enemyMeta||{}):'';
         const curUserKeyPre=!push&&CLOUD.currentUser?findUserKeyByName(CLOUD.currentUser):'';
         const prevUserThemeSig=!push&&curUserKeyPre?JSON.stringify(CLOUD.registry.users?.[curUserKeyPre]?.themePrefs||null):'';
         const clrAt=Math.max(toInt(rem.registry.diceClearedAt,0),toInt(localSnap?localSnap.diceClearedAt:CLOUD.registry.diceClearedAt,0));
@@ -625,8 +666,25 @@ export async function syncCloudRegistry(push=false){
         const remDelIds=Array.isArray(rem.registry.deletedCharIds)?rem.registry.deletedCharIds:[];
         const mergedDeletedCharIds=[...new Set([...remDelIds,...srcDelIds].map(x=>String(x||'').trim()).filter(Boolean))];
         const delSet=new Set(mergedDeletedCharIds);
-        delSet.forEach(did=>{delete mergedPublicNotes[did];});
+        const remEnemyMeta=(rem.registry.enemyMeta&&typeof rem.registry.enemyMeta==='object')?rem.registry.enemyMeta:{};
+        const locEnemyMeta=localSnap?(localSnap.enemyMeta||{}):(CLOUD.registry.enemyMeta||{});
+        const mergedEnemyMeta={};
+        new Set([...Object.keys(remEnemyMeta),...Object.keys(locEnemyMeta)]).forEach(cid=>{
+          if(!cid||delSet.has(cid)) return;
+          const rEm=remEnemyMeta[cid], lEm=locEnemyMeta[cid];
+          if(rEm&&!lEm){
+            mergedEnemyMeta[cid]=normalizeEnemyMeta(rEm,validCampIds);
+          }else if(lEm&&!rEm){
+            mergedEnemyMeta[cid]=normalizeEnemyMeta(lEm,validCampIds);
+          }else if(rEm&&lEm){
+            const rTs=toInt(rEm.updatedAtMs,0), lTs=toInt(lEm.updatedAtMs,0);
+            const pickLoc=(lTs>rTs)||(lTs===rTs&&push);
+            mergedEnemyMeta[cid]=normalizeEnemyMeta(pickLoc?lEm:rEm,validCampIds);
+          }
+        });
+        delSet.forEach(did=>{delete mergedPublicNotes[did];delete mergedEnemyMeta[did];});
         Object.keys(mergedPublicNotes).forEach(cid=>{
+          if(mergedEnemyMeta[cid]){delete mergedPublicNotes[cid];return;}
           if(mergedCharCampaigns[cid]) mergedPublicNotes[cid].campaignId=mergedCharCampaigns[cid];
           if(mergedClaims[cid]!==undefined) mergedPublicNotes[cid].owner=mergedClaims[cid];
         });
@@ -652,6 +710,7 @@ export async function syncCloudRegistry(push=false){
           users:mergedUsers,
           claims:mergedClaims,
           charCampaigns:mergedCharCampaigns,
+          enemyMeta:mergedEnemyMeta,
           publicNotes:mergedPublicNotes,
           campaignSharedNotes:mergedCampaignSharedNotes,
           deletedCharIds:mergedDeletedCharIds,
@@ -670,15 +729,35 @@ export async function syncCloudRegistry(push=false){
             const cid=mergedCharCampaigns[ch.id]||ch.campaignId||'default';
             ch.campaignId=validCampIds.has(cid)?cid:'default';
             CLOUD.registry.charCampaigns[ch.id]=ch.campaignId;
+            if(mergedEnemyMeta[ch.id]){
+              ch.sheetType='enemy';
+              ch.enemyMeta=clone(mergedEnemyMeta[ch.id]);
+            }
           }
         });
+        if(S?.charId&&mergedEnemyMeta[S.charId]){
+          S.sheetType='enemy';
+          S.enemyMeta=clone(mergedEnemyMeta[S.charId]);
+        }
         CLOUD.registryLoaded=true;
         mergeDiceFeeds(rem.registry.diceFeed||[],clrAt,mergedDiceClearedByCamp,push);
         const changed=push||_regSig(CLOUD.registry,CLOUD.diceFeed)!==prevSig;
+        const enemyChanged=!push&&JSON.stringify(CLOUD.registry.enemyMeta||{})!==prevEnemySig;
         if(changed){
           if(!push) saveDiceFeedLocal();
           saveRegistryLocal();
           updateLobbyLiveDiceDOM();
+        }
+        if(enemyChanged){
+          if(D.dMode==='character'&&D.oppCharId&&isEnemySheet(D.oppCharId)){
+            const activeCamp=UI.inLobby?getActiveLiveCampaignId():getCharCampaignId(S.charId);
+            if(!canSeeEnemyInDice(D.oppCharId,activeCamp)){
+              D.oppCharId=''; D.oppWeaponId=''; D.oppSkillId=''; D.oppSitActive={};
+            }
+          }
+          if(D.open) hooks.renderDice?.();
+          if(UI.inLobby) hooks.renderMain?.();
+          else if(isEnemySheet(S)) hooks.renderHeader?.();
         }
         if(!push&&CLOUD.currentUser){
           const curUserKeyPost=findUserKeyByName(CLOUD.currentUser);
@@ -1049,6 +1128,7 @@ export async function kickCharFromCampaign(charId){
 }
 export async function duplicateCharacterSheet(charId){
   if(!CLOUD.currentUser&&!CLOUD.isAdmin){toast('🔒 Bitte zuerst anmelden.');return;}
+  if(isEnemySheet(charId)&&!canViewEnemySheet(charId)){toast('🔒 Keine Berechtigung zum Kopieren dieses Gegnerbogens.');return;}
   try{
     let srcData=null;
     if(UI.sheetLoaded&&S.charId===charId&&!CLOUD.viewingRemote){srcData=clone(S);}
@@ -1057,19 +1137,32 @@ export async function duplicateCharacterSheet(charId){
       if(res.ok) srcData=await res.json();
     }
     if(!srcData||srcData.error){toast('⚠️ Charakterdaten für Kopie konnten nicht geladen werden.');return;}
+    const isEnemy=Boolean(srcData.sheetType==='enemy'||srcData._summary?.sheetType==='enemy'||isEnemySheet(charId));
     const newId=uid(), newOwner=CLOUD.currentUser||srcData.owner||'';
     srcData.charId=newId;
     srcData.owner=newOwner;
     srcData.campaignId='default';
     if(!srcData.profile) srcData.profile={};
-    srcData.profile.name=`${String(srcData.profile.name||'Charakter').trim()} (Kopie)`;
-    if(srcData._summary){srcData._summary.owner=newOwner;srcData._summary.campaignId='default';srcData._summary.updatedAt=stamp();}
+    srcData.profile.name=`${String(srcData.profile.name||(isEnemy?'Vorlage':'Charakter')).trim()} (Kopie)`;
+    if(isEnemy){
+      const newMeta=normalizeEnemyMeta({isEnemy:false,campaignIds:[],diceVisibleByCamp:{},archived:false,category:srcData.enemyMeta?.category||'',updatedAtMs:Date.now()});
+      srcData.sheetType='enemy';
+      srcData.enemyMeta=newMeta;
+      if(!CLOUD.registry.enemyMeta||typeof CLOUD.registry.enemyMeta!=='object') CLOUD.registry.enemyMeta={};
+      CLOUD.registry.enemyMeta[newId]=clone(newMeta);
+    }
+    if(srcData._summary){
+      srcData._summary.owner=newOwner;
+      srcData._summary.campaignId='default';
+      srcData._summary.updatedAt=stamp();
+      if(isEnemy){srcData._summary.sheetType='enemy';srcData._summary.enemyMeta=clone(srcData.enemyMeta);}
+    }
     if(newOwner) CLOUD.registry.claims[newId]=newOwner;
     CLOUD.registry.charCampaigns[newId]='default';
     await syncCloudRegistry(true);
     await fetch(getCloudEndpoint(),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(srcData)});
     await fetchLobbyList(true);
-    toast(`📋 Kopie „${srcData.profile.name}“ unter „Ohne Kampagne / Allgemein“ angelegt!`);
+    toast(isEnemy?`📋 Vorlagen-Kopie „${srcData.profile.name}“ angelegt!`:`📋 Kopie „${srcData.profile.name}“ unter „Ohne Kampagne / Allgemein“ angelegt!`);
   }catch(e){toast('⚠️ Kopieren fehlgeschlagen.');}
 }
 export function getCampaignSharedPages(campId){
@@ -1126,6 +1219,7 @@ export async function fetchLobbyList(silent=false){
     const data=await res.json();
     const validCampIds=new Set(getCampaigns().map(c=>c.id));
     if(!CLOUD.registry.charCampaigns||typeof CLOUD.registry.charCampaigns!=='object') CLOUD.registry.charCampaigns={};
+    if(!CLOUD.registry.enemyMeta||typeof CLOUD.registry.enemyMeta!=='object') CLOUD.registry.enemyMeta={};
     if(!Array.isArray(CLOUD.registry.deletedCharIds)) CLOUD.registry.deletedCharIds=[];
     const delSet=new Set(CLOUD.registry.deletedCharIds);
     CLOUD.list=(Array.isArray(data)?data:[]).filter(ch=>ch&&ch.id!==REGISTRY_ID&&ch.name!=='__REGISTRY__'&&ch.id!==LIBRARY_ID&&ch.name!=='__POWER_LIBRARY__'&&ch.id!==PATCHNOTES_ID&&ch.name!=='__PATCHNOTES__'&&ch.id!==FEEDBACK_ID&&ch.name!=='__FEEDBACK__'&&ch.id!==ICON_STORE_ID&&ch.name!=='__CUSTOM_ICONS__'&&!delSet.has(ch.id));
@@ -1138,6 +1232,19 @@ export async function fetchLobbyList(silent=false){
       const effCamp=validCampIds.has(rawCamp)?rawCamp:'default';
       ch.campaignId=effCamp;
       CLOUD.registry.charCampaigns[ch.id]=effCamp;
+      const isEnemy=Boolean(ch.sheetType==='enemy'||ch._summary?.sheetType==='enemy'||CLOUD.registry.enemyMeta[ch.id]);
+      if(isEnemy){
+        ch.sheetType='enemy';
+        const regEm=CLOUD.registry.enemyMeta[ch.id];
+        const blobEm=(ch.enemyMeta&&typeof ch.enemyMeta==='object')?ch.enemyMeta:(ch._summary?.enemyMeta||null);
+        const chosenEm=(regEm&&(!blobEm||toInt(regEm.updatedAtMs,0)>=toInt(blobEm.updatedAtMs,0)))?regEm:(blobEm||regEm);
+        const normEm=normalizeEnemyMeta(chosenEm,validCampIds);
+        CLOUD.registry.enemyMeta[ch.id]=normEm;
+        ch.enemyMeta=clone(normEm);
+        if(CLOUD.registry.publicNotes&&CLOUD.registry.publicNotes[ch.id]) delete CLOUD.registry.publicNotes[ch.id];
+        return;
+      }
+      ch.sheetType='character';
       if(!CLOUD.registry.publicNotes||typeof CLOUD.registry.publicNotes!=='object') CLOUD.registry.publicNotes={};
       const curPub=CLOUD.registry.publicNotes[ch.id];
       const chPub=ch.publicNote??ch._summary?.publicNote;
@@ -1170,6 +1277,7 @@ export function canWriteCurrentSheetToCloud(){
   if(CLOUD.viewingRemote||!S) return false;
   const cid=String(S.charId||'').trim();
   if(!cid) return true;
+  if(isEnemySheet(S)) return canManageEnemySheet(S);
   const existingOwner=getCharOwner(cid);
   if(!existingOwner) return true;
   if(CLOUD.isAdmin) return true;
@@ -1186,10 +1294,12 @@ export function computeCharMetaSignature(st=S){
   const avSig=av?`${av.length}:${simpleHash(av)}:${fastHash2(av)}`:'';
   const own=String(st.owner||'').trim();
   const camp=String(st.campaignId||'default').trim()||'default';
-  const pubPages=Array.isArray(st.campaignNotes)
+  const stType=st.sheetType==='enemy'?'enemy':'character';
+  const emSig=stType==='enemy'?JSON.stringify(st.enemyMeta||{}):'';
+  const pubPages=stType==='enemy'?[]:(Array.isArray(st.campaignNotes)
     ?st.campaignNotes.filter(n=>Boolean(n&&n.isPublic)).map(n=>`${n.id||''}\x1f${n.title||''}\x1f${n.content||''}`)
-    :[];
-  const raw=`${cid}\x1e${nm}\x1e${avSig}\x1e${own}\x1e${camp}\x1e${pubPages.join('\x1d')}`;
+    :[]);
+  const raw=`${cid}\x1e${nm}\x1e${avSig}\x1e${own}\x1e${camp}\x1e${stType}\x1e${emSig}\x1e${pubPages.join('\x1d')}`;
   return `${raw.length}:${simpleHash(raw)}:${fastHash2(raw)}`;
 }
 export function resetCloudSyncState(opts={}){
@@ -1354,10 +1464,13 @@ export function scheduleCloudSync(){
 }
 export function buildCloudPushSnapshot(opts={}){
   if(!S.charId) S.charId=uid();
+  const isEnemy=isEnemySheet(S);
   const existingOwner=getCharOwner(S.charId);
   const curCampForAuth=getCharCampaignId(S.charId);
   const isCampGMAuth=Boolean(curCampForAuth&&curCampForAuth!=='default'&&canManageCampaign(curCampForAuth,CLOUD.currentUser));
-  if(existingOwner&&!CLOUD.isAdmin&&!isCampGMAuth&&(!CLOUD.currentUser||existingOwner.toLowerCase()!==CLOUD.currentUser.toLowerCase())){
+  if(isEnemy){
+    if(!canManageEnemySheet(S)) return {blocked:true,owner:existingOwner||'Spielleitung'};
+  }else if(existingOwner&&!CLOUD.isAdmin&&!isCampGMAuth&&(!CLOUD.currentUser||existingOwner.toLowerCase()!==CLOUD.currentUser.toLowerCase())){
     return {blocked:true,owner:existingOwner};
   }
   if(CLOUD.currentUser&&!existingOwner) S.owner=CLOUD.currentUser;
@@ -1367,22 +1480,34 @@ export function buildCloudPushSnapshot(opts={}){
   const existingCamp=CLOUD.registry.charCampaigns[S.charId]||S.campaignId||'default';
   S.campaignId=validCampIds.has(existingCamp)?existingCamp:'default';
   CLOUD.registry.charCampaigns[S.charId]=S.campaignId;
+  if(isEnemy){
+    S.sheetType='enemy';
+    S.enemyMeta=normalizeEnemyMeta(S.enemyMeta,validCampIds);
+  }else{
+    S.sheetType='character';
+  }
   const metaSig=computeCharMetaSignature(S);
   const metaChanged=(CLOUD_SYNC.lastMetaCharId!==S.charId)||(CLOUD_SYNC.lastMetaSig!==metaSig);
   const needRegistryPush=Boolean(opts.forceRegistry||metaChanged);
   const nowTs=stamp();
-  const pubNote=(S.campaignNotes||[]).find(n=>n&&(n.id==='cn_public'||n.isPublic));
-  const pubNoteContent=String(pubNote?.content||'');
-  const pubPages=extractPublicPages(S.campaignNotes,'',pubNote?.updatedAt||nowTs);
+  const pubNote=isEnemy?null:(S.campaignNotes||[]).find(n=>n&&(n.id==='cn_public'||n.isPublic));
+  const pubNoteContent=isEnemy?'':String(pubNote?.content||'');
+  const pubPages=isEnemy?[]:extractPublicPages(S.campaignNotes,'',pubNote?.updatedAt||nowTs);
   if(needRegistryPush){
     if(S.owner) CLOUD.registry.claims[S.charId]=S.owner;
-    upsertPublicNoteEntry(S.charId,{campaignId:S.campaignId,charName:S.profile.name||'Unbenannter Held',avatar:S.profile.avatar||'',owner:S.owner||CLOUD.currentUser||'',content:pubNoteContent,updatedAt:pubNote?.updatedAt||nowTs,pages:pubPages});
+    if(isEnemy){
+      if(!CLOUD.registry.enemyMeta||typeof CLOUD.registry.enemyMeta!=='object') CLOUD.registry.enemyMeta={};
+      CLOUD.registry.enemyMeta[S.charId]=clone(S.enemyMeta);
+      if(CLOUD.registry.publicNotes&&CLOUD.registry.publicNotes[S.charId]) delete CLOUD.registry.publicNotes[S.charId];
+    }else{
+      upsertPublicNoteEntry(S.charId,{campaignId:S.campaignId,charName:S.profile.name||'Unbenannter Held',avatar:S.profile.avatar||'',owner:S.owner||CLOUD.currentUser||'',content:pubNoteContent,updatedAt:pubNote?.updatedAt||nowTs,pages:pubPages});
+    }
   }
   const M=calcActiveMods();
-  const payload={...S,cloudAutoSync:true,campaignId:S.campaignId,_AdminOverride:CLOUD.isAdmin,_summary:{owner:S.owner||'',campaignId:S.campaignId,lpMax:getLpMax(M),mlpMax:getMlpMax(M),apMax:getApMax(M),mapMax:getMapMax(M),ini:getIniTot(M),publicNote:pubNoteContent,publicPages:pubPages,updatedAt:nowTs}};
+  const payload={...S,sheetType:isEnemy?'enemy':'character',enemyMeta:isEnemy?clone(S.enemyMeta):undefined,cloudAutoSync:true,campaignId:S.campaignId,_AdminOverride:CLOUD.isAdmin,_summary:{owner:S.owner||'',campaignId:S.campaignId,sheetType:isEnemy?'enemy':'character',enemyMeta:isEnemy?clone(S.enemyMeta):null,lpMax:getLpMax(M),mlpMax:getMlpMax(M),apMax:getApMax(M),mapMax:getMapMax(M),ini:getIniTot(M),publicNote:pubNoteContent,publicPages:pubPages,updatedAt:nowTs}};
   const bodyJson=JSON.stringify(payload);
   const byteSize=(typeof Blob!=='undefined')?new Blob([bodyJson]).size:(bodyJson.length*2);
-  return {blocked:false,charId:S.charId,charName:S.profile.name||'Charakter',metaSig,needRegistryPush,bodyJson,byteSize};
+  return {blocked:false,charId:S.charId,charName:S.profile.name||(isEnemy?'Gegner':'Charakter'),metaSig,needRegistryPush,bodyJson,byteSize};
 }
 export function sendKeepaliveSnapshot(){
   if(CLOUD.viewingRemote||!canWriteCurrentSheetToCloud()) return false;
@@ -1557,11 +1682,27 @@ export async function loadCloudCharacter(id,asViewOnly=true,autoFallbackView=fal
     const res=await fetch(url,{headers:{'Accept':'application/json'}});
     const data=await res.json();
     if(!res.ok||data.error){if(!autoFallbackView)toast(`⚠️ ${data.error||'Charakter konnte nicht geladen werden.'}`);return;}
+    const isEnemy=Boolean(data.sheetType==='enemy'||data._summary?.sheetType==='enemy'||isEnemySheet(id));
+    if(isEnemy){
+      const validIds=new Set(getCampaigns().map(c=>c.id));
+      const regEm=CLOUD.registry?.enemyMeta?.[id];
+      const blobEm=(data.enemyMeta&&typeof data.enemyMeta==='object')?data.enemyMeta:(data._summary?.enemyMeta||null);
+      const chosenEm=(regEm&&(!blobEm||toInt(regEm.updatedAtMs,0)>=toInt(blobEm.updatedAtMs,0)))?regEm:(blobEm||regEm);
+      const normEm=normalizeEnemyMeta(chosenEm,validIds);
+      if(!CLOUD.registry.enemyMeta||typeof CLOUD.registry.enemyMeta!=='object') CLOUD.registry.enemyMeta={};
+      CLOUD.registry.enemyMeta[id]=normEm;
+      data.sheetType='enemy';
+      data.enemyMeta=clone(normEm);
+      if(!canViewEnemySheet({...data,id,charId:id})){
+        toast('🔒 Dieser Gegnerbogen ist nur für die Spielleitung einsehbar.');
+        return;
+      }
+    }
     const owner=getCharOwner(id)||String(data.owner||data._summary?.owner||'').trim();
     const charCampId=getCharCampaignId(id);
     const isCampGM=charCampId&&charCampId!=='default'&&canManageCampaign(charCampId,CLOUD.currentUser);
     const isOwner=Boolean(owner&&CLOUD.currentUser&&owner.toLowerCase()===CLOUD.currentUser.toLowerCase());
-    const allowedToEdit=Boolean(CLOUD.isAdmin||isOwner||isCampGM||!owner);
+    const allowedToEdit=isEnemy?canManageEnemySheet({...data,id,charId:id}):Boolean(CLOUD.isAdmin||isOwner||isCampGM||!owner);
     if(!asViewOnly&&autoFallbackView&&!allowedToEdit){
       asViewOnly=true;
     }
@@ -1583,7 +1724,7 @@ export async function loadCloudCharacter(id,asViewOnly=true,autoFallbackView=fal
       if(owner&&!S.owner) S.owner=owner;
       resetCloudSyncState({status:'saved',metaCharId:S.charId,metaSig:computeCharMetaSignature(S),lastSyncTs:data._summary?.updatedAt||stamp()});
       UI.inLobby=false; UI.sheetLoaded=true; UI.modal=null; hooks.exitLobbyNeutralDice?.(); hooks.renderAll?.(false);
-      toast(`✏️ „${S.profile.name||'Charakter'}“ zum Bearbeiten geladen!`);
+      toast(`✏️ „${S.profile.name||(isEnemy?'Gegner':'Charakter')}“ zum Bearbeiten geladen!`);
     }
   }catch(err){
     toast('⚠️ Verbindung zur Cloud-Lobby fehlgeschlagen.');
@@ -1621,6 +1762,14 @@ export async function fetchForeignCharacterSheet(charId,{force=false,silent=true
     if(D.open) hooks.renderDice?.();
     return S;
   }
+  if(isEnemySheet(id)){
+    const activeCamp=UI.inLobby?getActiveLiveCampaignId():getCharCampaignId(S.charId);
+    if(!canViewEnemySheet(id)&&!canSeeEnemyInDice(id,activeCamp)){
+      foreignSheetErrors.set(id,'Dieser Gegner ist aktuell nicht für den Würfelassistenten freigeschaltet.');
+      if(D.open) hooks.renderDice?.();
+      return null;
+    }
+  }
   const hit=foreignSheetCache.get(id);
   if(!force&&hit&&(Date.now()-hit.ts)<FOREIGN_SHEET_TTL_MS){
     foreignSheetErrors.delete(id);
@@ -1642,6 +1791,14 @@ export async function fetchForeignCharacterSheet(charId,{force=false,silent=true
         return hit?.sheet||null;
       }
       const norm=normalizeForeignSheet(data);
+      if(norm.sheetType==='enemy'){
+        const activeCamp=UI.inLobby?getActiveLiveCampaignId():getCharCampaignId(S.charId);
+        if(!canViewEnemySheet(norm)&&!canSeeEnemyInDice(id,activeCamp)){
+          foreignSheetCache.delete(id);
+          foreignSheetErrors.set(id,'Dieser Gegner ist aktuell nicht freigeschaltet.');
+          return null;
+        }
+      }
       invalidateModsCache(norm);
       foreignSheetCache.set(id,{sheet:norm,ts:Date.now()});
       foreignSheetErrors.delete(id);
@@ -1797,10 +1954,11 @@ export async function updateCloudCharacterMeta(id,mutatorFn,successMsg){
 }
 export async function deleteCloudCharacter(id){
   try{
+    const isEnemy=isEnemySheet(id);
     const owner=getCharOwner(id);
     const allowed=canManageChar(id);
-    if(owner&&!allowed){
-      toast(`🔒 Nur „${owner}“, der Kampagnen-Spielleiter oder der Admin kann diesen Charakter löschen.`);
+    if((owner||isEnemy)&&!allowed){
+      toast(isEnemy?'🔒 Keine Berechtigung zum Löschen dieses Gegners/dieser Vorlage.':`🔒 Nur „${owner}“, der Kampagnen-Spielleiter oder der Admin kann diesen Charakter löschen.`);
       return;
     }
     const url=`${getCloudEndpoint()}?id=${encodeURIComponent(id)}`;
@@ -1808,17 +1966,286 @@ export async function deleteCloudCharacter(id){
     await res.json().catch(()=>({}));
     if(!Array.isArray(CLOUD.registry.deletedCharIds)) CLOUD.registry.deletedCharIds=[];
     if(id&&!CLOUD.registry.deletedCharIds.includes(id)) CLOUD.registry.deletedCharIds.push(id);
-    archiveCharPublicNotesToCampaign(id);
+    if(!isEnemy) archiveCharPublicNotesToCampaign(id);
     if(CLOUD.registry.publicNotes) delete CLOUD.registry.publicNotes[id];
+    if(CLOUD.registry.enemyMeta) delete CLOUD.registry.enemyMeta[id];
     delete CLOUD.registry.claims[id];
     if(CLOUD.registry.charCampaigns) delete CLOUD.registry.charCampaigns[id];
     CLOUD.list=(CLOUD.list||[]).filter(c=>c&&c.id!==id);
     await syncCloudRegistry(true);
     CLOUD.confirmDelCloudId=null;
-    toast('🗑️ Charakter aus der Lobby entfernt.');
+    toast(isEnemy?'🗑️ Gegner/Vorlage entfernt.':'🗑️ Charakter aus der Lobby entfernt.');
     await fetchLobbyList(true);
   }catch(err){
     toast('⚠️ Löschen fehlgeschlagen.');
+  }
+}
+export function publishLiveEnemyMeta(charId,meta,extra={}){
+  const id=String(charId||'').trim();
+  if(!id||!meta) return;
+  sendLiveBroadcast({
+    type:'enemy_meta_live',
+    charId:id,
+    meta:clone(meta),
+    name:extra.name||'',
+    summary:extra.summary||null,
+    senderTabId:LIVE_TAB_ID,
+    tsMs:toInt(meta.updatedAtMs,Date.now())
+  });
+}
+export async function updateEnemyMetaCloud(charId,mutatorFn,successMsg=''){
+  const id=String(charId||'').trim();
+  if(!id) return false;
+  const validCampIds=new Set(getCampaigns().map(c=>c.id));
+  const curMeta=getEnemyMeta(id);
+  const nextDraft=clone(curMeta);
+  mutatorFn(nextDraft);
+  nextDraft.updatedAtMs=Date.now();
+  const norm=normalizeEnemyMeta(nextDraft,validCampIds);
+  if(!CLOUD.registry.enemyMeta||typeof CLOUD.registry.enemyMeta!=='object') CLOUD.registry.enemyMeta={};
+  CLOUD.registry.enemyMeta[id]=clone(norm);
+  if(CLOUD.registry.publicNotes&&CLOUD.registry.publicNotes[id]) delete CLOUD.registry.publicNotes[id];
+  const li=(CLOUD.list||[]).find(c=>c&&c.id===id);
+  if(li){
+    li.sheetType='enemy';
+    li.enemyMeta=clone(norm);
+  }
+  if(S?.charId===id){
+    S.sheetType='enemy';
+    S.enemyMeta=clone(norm);
+    save(false);
+  }
+  saveRegistryLocal();
+  publishLiveEnemyMeta(id,norm,{name:li?.name||(S?.charId===id?S.profile?.name:'')||''});
+  if(UI.inLobby){hooks.renderHeader?.();hooks.renderMain?.();}
+  else if(S?.charId===id){hooks.renderHeader?.();}
+  if(D.open) hooks.renderDice?.();
+  if(successMsg) toast(successMsg);
+  try{
+    await syncCloudRegistry(true);
+    const res=await fetch(`${getCloudEndpoint()}?id=${encodeURIComponent(id)}`,{headers:{'Accept':'application/json'}});
+    if(res.ok){
+      const data=await res.json().catch(()=>null);
+      if(data&&!data.error){
+        data.sheetType='enemy';
+        data.enemyMeta=clone(norm);
+        if(!data._summary||typeof data._summary!=='object') data._summary={};
+        data._summary.sheetType='enemy';
+        data._summary.enemyMeta=clone(norm);
+        if(CLOUD.isAdmin) data._AdminOverride=true;
+        await fetch(getCloudEndpoint(),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});
+      }
+    }
+    return true;
+  }catch(err){
+    return false;
+  }
+}
+export async function createNewEnemyOrTemplate(opts={}){
+  if(!CLOUD.currentUser&&!CLOUD.isAdmin){
+    toast('🔒 Bitte melde dich zuerst mit deinem Account an, um Vorlagen zu erstellen.');
+    return;
+  }
+  const asEnemyCampId=String(opts.asEnemyCampId||'').trim();
+  const canMakeEnemy=Boolean(asEnemyCampId&&canManageCampaign(asEnemyCampId));
+  await flushBeforeCharacterSwitch();
+  CLOUD.viewingRemote=false; CLOUD.remoteCharId='';
+  setS(defaultState());
+  applySessionTheme({allowSheetFallback:false,forSheet:true});
+  S.sheetType='enemy';
+  S.profile.name=String(opts.name||'').trim()||(canMakeEnemy?'Neuer Gegner':'Neue Vorlage');
+  S.profile.ancestry=String(opts.ancestry||'').trim();
+  S.profile.concept=String(opts.concept||'').trim();
+  S.owner=CLOUD.currentUser||(CLOUD.isAdmin?'Admin':'');
+  S.campaignId='default';
+  S.cloudAutoSync=true;
+  const initMeta=normalizeEnemyMeta({
+    isEnemy:canMakeEnemy,
+    campaignIds:canMakeEnemy?[asEnemyCampId]:[],
+    diceVisibleByCamp:{},
+    archived:false,
+    category:String(opts.category||'').trim(),
+    updatedAtMs:Date.now()
+  },new Set(getCampaigns().map(c=>c.id)));
+  S.enemyMeta=initMeta;
+  if(S.owner) CLOUD.registry.claims[S.charId]=S.owner;
+  if(!CLOUD.registry.charCampaigns||typeof CLOUD.registry.charCampaigns!=='object') CLOUD.registry.charCampaigns={};
+  CLOUD.registry.charCampaigns[S.charId]='default';
+  if(!CLOUD.registry.enemyMeta||typeof CLOUD.registry.enemyMeta!=='object') CLOUD.registry.enemyMeta={};
+  CLOUD.registry.enemyMeta[S.charId]=clone(initMeta);
+  CLOUD.newTemplateOpen=false; CLOUD.newTemplateName=''; CLOUD.newTemplateAncestry=''; CLOUD.newTemplateConcept=''; CLOUD.newTemplateCategory=''; CLOUD.newTemplateAsEnemyCampId='';
+  resetCloudSyncState({clearMeta:true,status:'pending',lastSyncTs:''});
+  UI.inLobby=false; UI.sheetLoaded=true; UI.modal=null; hooks.exitLobbyNeutralDice?.();
+  hooks.renderAll?.(false);
+  await pushToCloud(false,{forceRegistry:true});
+  publishLiveEnemyMeta(S.charId,initMeta,{name:S.profile.name});
+}
+export async function toggleEnemyActiveStatus(charId,defaultCampId=''){
+  if(!canToggleEnemyStatus()){
+    toast('🔒 Nur Spielleiter oder der Admin können Vorlagen als Gegner aktivieren.');
+    return false;
+  }
+  const cur=getEnemyMeta(charId);
+  const nextIsEnemy=!cur.isEnemy;
+  const ch=(CLOUD.list||[]).find(x=>x&&x.id===charId);
+  const nm=ch?.name||(S?.charId===charId?S.profile?.name:'')||'Gegner';
+  return await updateEnemyMetaCloud(charId,m=>{
+    m.isEnemy=nextIsEnemy;
+    if(!nextIsEnemy){
+      m.diceVisibleByCamp={};
+    }else if(!m.campaignIds.length){
+      const pref=String(defaultCampId||'').trim();
+      if(pref&&pref!=='default'&&canManageCampaign(pref)){
+        m.campaignIds=[pref];
+      }else{
+        const mg=getGmManageableCampaigns();
+        if(mg.length===1) m.campaignIds=[mg[0].id];
+      }
+    }
+  },nextIsEnemy?`👹 „${nm}“ als Gegner aktiviert (Kampagnen über Checkboxen wählbar)`:`📋 „${nm}“ zurück in den Vorlagen-Status gesetzt`);
+}
+export async function toggleEnemyCampaignAssignment(charId,campId){
+  const cid=String(campId||'').trim();
+  if(!cid||cid==='default') return false;
+  if(!canManageCampaign(cid)){
+    toast('🔒 Nur Spielleiter dieser Kampagne oder der Admin können Gegner hier zuordnen.');
+    return false;
+  }
+  const campName=getCampaigns().find(c=>c.id===cid)?.name||'Kampagne';
+  const ch=(CLOUD.list||[]).find(x=>x&&x.id===charId);
+  const nm=ch?.name||(S?.charId===charId?S.profile?.name:'')||'Gegner';
+  let added=false;
+  await updateEnemyMetaCloud(charId,m=>{
+    const idx=m.campaignIds.indexOf(cid);
+    if(idx>=0){
+      m.campaignIds.splice(idx,1);
+      if(m.diceVisibleByCamp) delete m.diceVisibleByCamp[cid];
+      added=false;
+    }else{
+      m.campaignIds.push(cid);
+      m.isEnemy=true;
+      m.archived=false;
+      added=true;
+    }
+  },added?`👹 „${nm}“ zu „${campName}“ hinzugefügt (noch verborgen im Würfelassistenten)`:`🗺️ „${nm}“ aus „${campName}“ entfernt`);
+  return true;
+}
+export async function toggleEnemyDiceVisibility(charId,campId){
+  const cid=String(campId||'').trim();
+  if(!cid||cid==='default') return false;
+  if(!canManageCampaign(cid)){
+    toast('🔒 Nur Spielleiter dieser Kampagne können die Sichtbarkeit im Würfelassistenten umschalten.');
+    return false;
+  }
+  const ch=(CLOUD.list||[]).find(x=>x&&x.id===charId);
+  const nm=ch?.name||(S?.charId===charId?S.profile?.name:'')||'Gegner';
+  let nowVis=false;
+  await updateEnemyMetaCloud(charId,m=>{
+    if(!m.isEnemy) m.isEnemy=true;
+    if(m.archived) m.archived=false;
+    if(!m.campaignIds.includes(cid)) m.campaignIds.push(cid);
+    if(!m.diceVisibleByCamp||typeof m.diceVisibleByCamp!=='object') m.diceVisibleByCamp={};
+    nowVis=!Boolean(m.diceVisibleByCamp[cid]);
+    if(nowVis) m.diceVisibleByCamp[cid]=true;
+    else delete m.diceVisibleByCamp[cid];
+  },nowVis?`👁️ „${nm}“ ist jetzt im Würfelassistenten auswählbar!`:`🙈 „${nm}“ im Würfelassistenten verborgen.`);
+  return nowVis;
+}
+export async function hideAllEnemiesInCampaignDice(campId){
+  const cid=String(campId||'').trim();
+  if(!cid||cid==='default'||!canManageCampaign(cid)) return 0;
+  const targets=(CLOUD.list||[]).filter(ch=>ch&&isEnemySheet(ch.id)&&getEnemyMeta(ch.id).diceVisibleByCamp?.[cid]);
+  if(!targets.length){toast('ℹ️ In dieser Kampagne sind bereits alle Gegner verborgen.');return 0;}
+  const nowMs=Date.now();
+  const validCampIds=new Set(getCampaigns().map(c=>c.id));
+  targets.forEach(ch=>{
+    const next=clone(getEnemyMeta(ch.id));
+    if(next.diceVisibleByCamp) delete next.diceVisibleByCamp[cid];
+    next.updatedAtMs=nowMs;
+    const norm=normalizeEnemyMeta(next,validCampIds);
+    CLOUD.registry.enemyMeta[ch.id]=clone(norm);
+    ch.enemyMeta=clone(norm);
+    if(S?.charId===ch.id){S.enemyMeta=clone(norm);save(false);}
+    publishLiveEnemyMeta(ch.id,norm,{name:ch.name||''});
+  });
+  saveRegistryLocal();
+  if(UI.inLobby){hooks.renderHeader?.();hooks.renderMain?.();}
+  if(D.open) hooks.renderDice?.();
+  toast(`🙈 ${targets.length} ${targets.length===1?'Gegner':'Gegner'} im Würfelassistenten verborgen.`);
+  await syncCloudRegistry(true);
+  return targets.length;
+}
+export async function toggleEnemyArchived(charId){
+  if(!canManageEnemySheet(charId)){
+    toast('🔒 Keine Berechtigung zum Wegsortieren/Wiederherstellen.');
+    return false;
+  }
+  const ch=(CLOUD.list||[]).find(x=>x&&x.id===charId);
+  const nm=ch?.name||(S?.charId===charId?S.profile?.name:'')||'Gegner';
+  let nowArch=false;
+  await updateEnemyMetaCloud(charId,m=>{
+    nowArch=!Boolean(m.archived);
+    m.archived=nowArch;
+    if(nowArch) m.diceVisibleByCamp={};
+  },nowArch?`📦 „${nm}“ wegsortiert (im Archiv & im Würfelassistenten verborgen)`:`↩️ „${nm}“ aus dem Archiv wiederhergestellt`);
+  return nowArch;
+}
+export async function cloneEnemyToCampaign(srcCharId,campId=''){
+  if(!CLOUD.currentUser&&!CLOUD.isAdmin){toast('🔒 Bitte zuerst anmelden.');return null;}
+  const cid=String(campId||'').trim();
+  const asEnemy=Boolean(cid&&cid!=='default'&&canManageCampaign(cid));
+  if(isEnemySheet(srcCharId)&&!canViewEnemySheet(srcCharId)){toast('🔒 Keine Berechtigung zum Kopieren.');return null;}
+  try{
+    let srcData=null;
+    if(UI.sheetLoaded&&S.charId===srcCharId&&!CLOUD.viewingRemote){srcData=clone(S);}
+    else{
+      const res=await fetch(`${getCloudEndpoint()}?id=${encodeURIComponent(srcCharId)}`,{headers:{'Accept':'application/json'}});
+      if(res.ok) srcData=await res.json();
+    }
+    if(!srcData||srcData.error){toast('⚠️ Vorlage konnte nicht geladen werden.');return null;}
+    const baseName=String(srcData.profile?.name||'Gegner').trim().replace(/\s+#\d+$/,'');
+    const existingNames=new Set((CLOUD.list||[]).filter(c=>c&&isEnemySheet(c.id)).map(c=>String(c.name||'').trim().toLowerCase()));
+    let nextName=asEnemy?`${baseName} #1`:`${baseName} (Kopie)`;
+    if(asEnemy){
+      let n=1;
+      while(existingNames.has(`${baseName} #${n}`.toLowerCase())) n++;
+      nextName=`${baseName} #${n}`;
+    }
+    const newId=uid(), newOwner=CLOUD.currentUser||srcData.owner||'';
+    const newMeta=normalizeEnemyMeta({
+      isEnemy:asEnemy,
+      campaignIds:asEnemy?[cid]:[],
+      diceVisibleByCamp:{},
+      archived:false,
+      category:srcData.enemyMeta?.category||'',
+      updatedAtMs:Date.now()
+    },new Set(getCampaigns().map(c=>c.id)));
+    srcData.charId=newId;
+    srcData.owner=newOwner;
+    srcData.campaignId='default';
+    srcData.sheetType='enemy';
+    srcData.enemyMeta=clone(newMeta);
+    if(!srcData.profile) srcData.profile={};
+    srcData.profile.name=nextName;
+    if(!srcData._summary||typeof srcData._summary!=='object') srcData._summary={};
+    srcData._summary.owner=newOwner;
+    srcData._summary.campaignId='default';
+    srcData._summary.sheetType='enemy';
+    srcData._summary.enemyMeta=clone(newMeta);
+    srcData._summary.updatedAt=stamp();
+    if(newOwner) CLOUD.registry.claims[newId]=newOwner;
+    CLOUD.registry.charCampaigns[newId]='default';
+    if(!CLOUD.registry.enemyMeta||typeof CLOUD.registry.enemyMeta!=='object') CLOUD.registry.enemyMeta={};
+    CLOUD.registry.enemyMeta[newId]=clone(newMeta);
+    await syncCloudRegistry(true);
+    await fetch(getCloudEndpoint(),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(srcData)});
+    publishLiveEnemyMeta(newId,newMeta,{name:nextName});
+    await fetchLobbyList(true);
+    toast(asEnemy?`⚡ Gegner-Instanz „${nextName}“ erstellt (noch verborgen im Würfelassistenten)`:`📋 Vorlagen-Kopie „${nextName}“ erstellt!`);
+    return newId;
+  }catch(err){
+    toast('⚠️ Erstellen der Kopie fehlgeschlagen.');
+    return null;
   }
 }
 export function normalizeLibraryPack(raw,origin='repo'){

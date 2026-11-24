@@ -8,7 +8,7 @@ import {
   hooks
 } from './ui-hooks.js';
 import {
-  S, D, UI, CLOUD, DUEL, COMBAT, LIVE_TAB_ID, diceLogs, getWeaponSubtype, getCharCampaignId, getCharOwner, getActiveLiveCampaignId, canManageCampaign, isGlobalGM, toast, triggerNiceEasterEgg, logChron, save
+  S, D, UI, CLOUD, DUEL, COMBAT, LIVE_TAB_ID, diceLogs, getWeaponSubtype, getCharCampaignId, getCharOwner, getActiveLiveCampaignId, canManageCampaign, isGlobalGM, isEnemySheet, getEnemyMeta, shouldHideOpponentDetails, toast, triggerNiceEasterEgg, logChron, save
 } from './state.js';
 import {
   calcActiveMods
@@ -17,7 +17,7 @@ import {
   getCachedForeignSheet, publishLiveRoll, sendLiveBroadcast, applyCloudResourceDelta, isSecretRollActive
 } from './cloud.js';
 import {
-  isLobbyNeutralDice, rollW100, renderDice
+  getActiveDiceCampaignId, isLobbyNeutralDice, rollW100, renderDice
 } from './dice.js';
 
 export function getWeaponAllTags(weapon, ammo = null){
@@ -470,7 +470,7 @@ export function rollCombatHitZone(){
     charId: isLob ? '' : (S.charId || ''),
     charName: COMBAT.attackerName || (isLob ? (CLOUD.currentUser || 'Gast') : (String(S.profile?.name || '').trim() || 'Unbenannter Held')),
     playerName: isLob ? '' : String(CLOUD.currentUser || S.owner || '').trim(),
-    campaignId: isLob ? getActiveLiveCampaignId() : getCharCampaignId(S.charId),
+    campaignId: getActiveDiceCampaignId(),
     label: targetLbl ? `🎯 Trefferzone (${targetLbl})` : '🎯 Trefferzonen-Wurf',
     vsCharId: COMBAT.targetCharId || undefined,
     vsCharName: targetLbl || undefined,
@@ -486,12 +486,22 @@ export function rollCombatHitZone(){
   renderDice();
 }
 
+function buildHiddenEnemyDmgFormula(calc){
+  const parts = [`${calc.eg} EG`];
+  if(calc.weaponDmg) parts.push(`+ ${calc.weaponDmg} Waffe${calc.ammo ? '/Mun.' : ''}`);
+  if(calc.verheerendBonus) parts.push(`+ ${calc.verheerendBonus} Verheerend`);
+  if(calc.dmgMod) parts.push(`${calc.dmgMod > 0 ? '+' : '−'} ${Math.abs(calc.dmgMod)} Mod`);
+  if(calc.blockRed) parts.push(`− ${calc.blockRed} Block`);
+  return `${parts.join(' ')} → ${calc.finalDmg} ${calc.poolLbl} (nach Gegner-Rüstung)`;
+}
+
 export function publishCombatDamageToFeed(){
   if(!COMBAT.active || !COMBAT.hitOk) return;
   const calc = calculateCombatDamage();
   const isLob = isLobbyNeutralDice();
   const atkName = COMBAT.attackerName || (isLob ? (CLOUD.currentUser || 'Gast') : (String(S.profile?.name || '').trim() || 'Unbenannter Held'));
   const dmgTypeLabel = calc.selOpt.shortLabel || calc.selOpt.label || 'Schaden';
+  const targetIsEnemy = Boolean(COMBAT.targetCharId && isEnemySheet(COMBAT.targetCharId));
   const title = calc.targetName
     ? `💥 Schaden: ${calc.weaponName} → ${calc.targetName} (${calc.zoneName})`
     : `💥 Schaden: ${calc.weaponName} (${calc.zoneName})`;
@@ -503,23 +513,23 @@ export function publishCombatDamageToFeed(){
     senderTabId: LIVE_TAB_ID,
     charId: isLob ? '' : (S.charId || ''),
     charName: atkName,
-    playerName: isLob ? '' : String(CLOUD.currentUser || S.owner || '').trim(),
-    campaignId: isLob ? getActiveLiveCampaignId() : getCharCampaignId(S.charId),
+    playerName: isLob ? '' : (isEnemySheet(S) ? 'SL' : String(CLOUD.currentUser || S.owner || '').trim()),
+    campaignId: getActiveDiceCampaignId(),
     label: title,
     isDamage: true,
     finalDmg: calc.finalDmg,
     rawDmg: calc.rawDmg,
-    armorTotal: calc.armor.total,
-    armorDetail: calc.armor.detailText,
+    armorTotal: targetIsEnemy ? 0 : calc.armor.total,
+    armorDetail: targetIsEnemy ? '' : calc.armor.detailText,
     blockRed: calc.blockRed,
     isBlocked: COMBAT.isBlocked,
     durchschlagApplied: calc.durchschlagApplied,
     dmgTypeLabel,
     pool: calc.pool,
     hzZone: calc.zoneName,
-    thresholdLevel: calc.threshold.level,
-    thresholdLabel: calc.threshold.label,
-    formula: calc.formula,
+    thresholdLevel: targetIsEnemy ? 'none' : calc.threshold.level,
+    thresholdLabel: targetIsEnemy ? '' : calc.threshold.label,
+    formula: targetIsEnemy ? buildHiddenEnemyDmgFormula(calc) : calc.formula,
     th: 100,
     chance: 100,
     res: [{ r: calc.finalDmg, ok: calc.finalDmg > 0, crit: false, eg: calc.eg, meg: 0 }]
@@ -533,7 +543,7 @@ export function publishCombatDamageToFeed(){
     t: new Date().toLocaleTimeString('de-DE'),
     lbl: title,
     isCustomDice: true,
-    sum: `💥 ${calc.finalDmg} ${calc.poolLbl}${calc.threshold.label ? ` (${calc.threshold.label})` : ''}`
+    sum: `💥 ${calc.finalDmg} ${calc.poolLbl}${(!targetIsEnemy && calc.threshold.label) ? ` (${calc.threshold.label})` : ''}`
   });
   if(diceLogs.length > 40) diceLogs.length = 40;
   COMBAT.posted = true;
@@ -548,6 +558,13 @@ const handledOfferIds = new Set();
 export function isDamageOfferTargetForMe(offer){
   if(!offer || !offer.targetCharId) return false;
   const tid = String(offer.targetCharId).trim();
+  if(isEnemySheet(tid)){
+    if(CLOUD.isAdmin) return true;
+    const ofCamp = String(offer.campaignId || '').trim();
+    if(ofCamp && ofCamp !== 'default' && canManageCampaign(ofCamp)) return true;
+    const meta = getEnemyMeta(tid);
+    return meta.campaignIds.some(cid => canManageCampaign(cid));
+  }
   if(!UI.inLobby && S?.charId && S.charId === tid) return true;
   const curUser = String(CLOUD.currentUser || '').trim().toLowerCase();
   if(curUser){
@@ -563,6 +580,12 @@ export function canDirectApplyCombatDamage(targetCharId = COMBAT.targetCharId){
   const tid = String(targetCharId || '').trim();
   if(!tid) return false;
   if(CLOUD.isAdmin) return true;
+  if(isEnemySheet(tid)){
+    const activeCamp = getActiveDiceCampaignId();
+    if(activeCamp && activeCamp !== 'default' && canManageCampaign(activeCamp)) return true;
+    const meta = getEnemyMeta(tid);
+    return meta.campaignIds.some(cid => canManageCampaign(cid));
+  }
   if(!UI.inLobby && S?.charId && S.charId === tid) return true;
   const curUser = String(CLOUD.currentUser || '').trim().toLowerCase();
   if(curUser){
@@ -589,7 +612,7 @@ export function sendCombatDamageOffer(){
   }
   const isLob = isLobbyNeutralDice();
   const atkName = COMBAT.attackerName || (isLob ? (CLOUD.currentUser || 'Gast') : (String(S.profile?.name || '').trim() || 'Unbenannter Held'));
-  const campId = isLob ? getActiveLiveCampaignId() : getCharCampaignId(S.charId || tid);
+  const campId = getActiveDiceCampaignId();
   const offerId = `dmg_${uid()}`;
   const offer = {
     type: 'combat_damage_offer',
@@ -616,9 +639,14 @@ export function sendCombatDamageOffer(){
   };
   COMBAT.offerId = offerId;
   COMBAT.offerStatus = 'sent';
-  COMBAT.offerNote = `📨 Schadensangebot (−${calc.finalDmg} ${calc.poolLbl}) an ${offer.targetName} gesendet...`;
+  const targetIsEnemy = isEnemySheet(tid);
+  COMBAT.offerNote = targetIsEnemy
+    ? `📨 Schadensangebot (−${calc.finalDmg} ${calc.poolLbl}) für ${offer.targetName} an die Spielleitung gesendet...`
+    : `📨 Schadensangebot (−${calc.finalDmg} ${calc.poolLbl}) an ${offer.targetName} gesendet...`;
   sendLiveBroadcast(offer);
-  toast(`💥 Schaden an ${offer.targetName} gesendet (−${calc.finalDmg} ${calc.poolLbl})!`);
+  toast(targetIsEnemy
+    ? `💥 Schaden für ${offer.targetName} an die Spielleitung gesendet (−${calc.finalDmg} ${calc.poolLbl})!`
+    : `💥 Schaden an ${offer.targetName} gesendet (−${calc.finalDmg} ${calc.poolLbl})!`);
   renderDice();
 }
 
@@ -635,6 +663,7 @@ export async function acceptCombatDamageOffer(offerId){
   const pool = offer.pool === 'mlp' ? 'mlp' : 'lp';
   const poolLbl = pool === 'mlp' ? 'mLP' : 'LP';
   const resKey = pool === 'mlp' ? 'mlpCurrent' : 'lpCurrent';
+  const targetIsEnemy = isEnemySheet(offer.targetCharId);
   const logText = `💥 Schaden erhalten (${offer.attackerName || 'Gegner'}, ${offer.weaponName || 'Angriff'}, ${offer.zoneName || 'Zone'}): −${amt} ${poolLbl}${offer.thresholdLabel ? ` [${offer.thresholdLabel}]` : ''}`;
   const isOwnOpen = Boolean(!UI.inLobby && S?.charId && S.charId === offer.targetCharId);
   let prevVal = null, newVal = null;
@@ -662,6 +691,7 @@ export async function acceptCombatDamageOffer(offerId){
   hooks.renderDuelBanner?.();
 
   const valSuffix = (prevVal !== null && newVal !== null) ? ` (${poolLbl} ${prevVal} → ${newVal})` : '';
+  const publicSuffix = targetIsEnemy ? '' : valSuffix;
   sendLiveBroadcast({
     type: 'combat_damage_applied',
     status: 'applied',
@@ -671,8 +701,8 @@ export async function acceptCombatDamageOffer(offerId){
     targetName: offer.targetName,
     pool,
     appliedAmount: amt,
-    prevVal,
-    newVal,
+    prevVal: targetIsEnemy ? null : prevVal,
+    newVal: targetIsEnemy ? null : newVal,
     responderName: String(CLOUD.currentUser || offer.targetName || 'Spieler').trim(),
     senderTabId: LIVE_TAB_ID,
     tsMs: Date.now()
@@ -685,17 +715,17 @@ export async function acceptCombatDamageOffer(offerId){
     senderTabId: LIVE_TAB_ID,
     charId: offer.targetCharId || '',
     charName: offer.targetName || 'Ziel',
-    playerName: String(CLOUD.currentUser || '').trim(),
+    playerName: targetIsEnemy ? 'SL' : String(CLOUD.currentUser || '').trim(),
     campaignId: offer.campaignId || getActiveLiveCampaignId(),
-    label: `✅ Schaden übernommen (${offer.attackerName || 'Angreifer'} • ${offer.zoneName || 'Zone'})${valSuffix}`,
+    label: `✅ Schaden übernommen (${offer.attackerName || 'Angreifer'} • ${offer.zoneName || 'Zone'})${publicSuffix}`,
     isDamage: true,
     finalDmg: amt,
     pool,
     hzZone: offer.zoneName || '',
     dmgTypeLabel: offer.dmgTypeLabel || 'Schaden',
-    thresholdLevel: amt > 0 ? (offer.thresholdLevel || 'none') : 'none',
-    thresholdLabel: amt > 0 ? (offer.thresholdLabel || '') : '',
-    formula: `−${amt} ${poolLbl}${valSuffix}`,
+    thresholdLevel: (!targetIsEnemy && amt > 0) ? (offer.thresholdLevel || 'none') : 'none',
+    thresholdLabel: (!targetIsEnemy && amt > 0) ? (offer.thresholdLabel || '') : '',
+    formula: `−${amt} ${poolLbl}${publicSuffix}`,
     th: 100,
     chance: 100,
     res: [{ r: amt, ok: amt > 0, crit: false, eg: 0, meg: 0 }]
@@ -809,20 +839,22 @@ export async function applyCombatDamageDirectly(){
   }
   const prevVal = res.before?.[resKey];
   const newVal = res.after?.[resKey] ?? res.secondary?.[resKey];
+  const targetIsEnemy = isEnemySheet(tid);
   const valTxt = (prevVal !== undefined && newVal !== undefined) ? `${calc.poolLbl} ${prevVal} → ${newVal}` : `−${calc.finalDmg} ${calc.poolLbl}`;
+  const publicValTxt = targetIsEnemy ? `−${calc.finalDmg} ${calc.poolLbl}` : valTxt;
   COMBAT.directAppliedNote = `✅ ${calc.targetName || 'Ziel'}: ${valTxt}`;
   if(COMBAT.offerId){
     sendLiveBroadcast({
       type: 'combat_damage_applied',
       status: 'applied',
       offerId: COMBAT.offerId,
-      campaignId: isLob ? getActiveLiveCampaignId() : getCharCampaignId(S.charId || tid),
+      campaignId: getActiveDiceCampaignId(),
       targetCharId: tid,
       targetName: calc.targetName || 'Ziel',
       pool: calc.pool,
       appliedAmount: calc.finalDmg,
-      prevVal,
-      newVal,
+      prevVal: targetIsEnemy ? null : prevVal,
+      newVal: targetIsEnemy ? null : newVal,
       responderName: String(CLOUD.currentUser || 'SL').trim(),
       senderTabId: LIVE_TAB_ID,
       tsMs: Date.now()
@@ -837,20 +869,20 @@ export async function applyCombatDamageDirectly(){
     senderTabId: LIVE_TAB_ID,
     charId: isLob ? '' : (S.charId || ''),
     charName: atkName,
-    playerName: isLob ? '' : String(CLOUD.currentUser || S.owner || '').trim(),
-    campaignId: isLob ? getActiveLiveCampaignId() : getCharCampaignId(S.charId || tid),
+    playerName: isLob ? '' : (isEnemySheet(S) ? 'SL' : String(CLOUD.currentUser || S.owner || '').trim()),
+    campaignId: getActiveDiceCampaignId(),
     vsCharId: tid,
     vsCharName: calc.targetName || 'Ziel',
-    label: `⚡ Schaden angewendet: ${calc.targetName || 'Ziel'} (${calc.zoneName}) • ${valTxt}`,
+    label: `⚡ Schaden angewendet: ${calc.targetName || 'Ziel'} (${calc.zoneName}) • ${publicValTxt}`,
     isDamage: true,
     finalDmg: calc.finalDmg,
     pool: calc.pool,
     hzZone: calc.zoneName,
     dmgTypeLabel: calc.selOpt.shortLabel || calc.selOpt.label || 'Schaden',
-    thresholdLevel: calc.threshold.level,
-    thresholdLabel: calc.threshold.label,
-    formula: `${calc.formula} • ${valTxt}`,
-    armorDetail: calc.armor.detailText,
+    thresholdLevel: targetIsEnemy ? 'none' : calc.threshold.level,
+    thresholdLabel: targetIsEnemy ? '' : calc.threshold.label,
+    formula: targetIsEnemy ? `${buildHiddenEnemyDmgFormula(calc)}` : `${calc.formula} • ${valTxt}`,
+    armorDetail: targetIsEnemy ? '' : calc.armor.detailText,
     th: 100,
     chance: 100,
     res: [{ r: calc.finalDmg, ok: true, crit: false, eg: calc.eg, meg: 0 }]
@@ -906,6 +938,8 @@ export function renderCombatDamageBox(){
 
   if(!COMBAT.hitOk) return '';
   const calc = calculateCombatDamage();
+  const hideTarget = Boolean(COMBAT.targetCharId && shouldHideOpponentDetails(COMBAT.targetCharId, getActiveDiceCampaignId()));
+  const targetIsEnemy = Boolean(COMBAT.targetCharId && isEnemySheet(COMBAT.targetCharId));
   const th = calc.threshold;
   const thCls = th.level === 'heavy'
     ? 'border-rose-500 bg-rose-500/20 text-rose-200'
@@ -919,7 +953,7 @@ export function renderCombatDamageBox(){
     <button type="button" data-action="combat-toggle-collapse" class="flex items-center gap-1.5 text-left min-w-0 flex-1 cursor-pointer">
       <span class="text-xs font-black text-rose-400 w-3.5 shrink-0">${COMBAT.collapsed ? '▸' : '▾'}</span>
       <span class="text-xs font-black text-rose-300 truncate">💥 Schadens- &amp; Rüstungsrechner</span>
-      ${calc.targetName ? `<span class="px-1.5 py-0.2 rounded text-[10px] font-extrabold bg-indigo-500/20 text-indigo-200 border border-indigo-400/40 truncate max-w-[140px]">→ ${esc(calc.targetName)}</span>` : ''}
+      ${calc.targetName ? `<span class="px-1.5 py-0.2 rounded text-[10px] font-extrabold bg-indigo-500/20 text-indigo-200 border border-indigo-400/40 truncate max-w-[140px]">→ ${targetIsEnemy ? '👹 ' : ''}${esc(calc.targetName)}</span>` : ''}
     </button>
     <div class="flex items-center gap-1.5 shrink-0">
       <span class="px-2 py-0.5 rounded-md bg-rose-600/85 text-white text-[11px] font-black tabular">${calc.finalDmg} ${calc.poolLbl}</span>
@@ -957,6 +991,28 @@ export function renderCombatDamageBox(){
     ? calc.armor.pieces.map(p => `<div class="flex items-center justify-between gap-2 text-[11px] tabular min-w-0"><span class="truncate font-bold">${esc(p.name)}</span><span class="t-mut shrink-0">${p.grp ? `gRP ${p.grp} + ` : ''}${esc(p.specDesc)} = <strong class="text-emerald-300">${p.total}</strong></span></div>`).join('')
     : `<div class="text-[11px] t-mut">${calc.targetSheet ? `Keine angelegte Rüstung deckt „${esc(calc.zoneName)}“ ab.` : 'Kein Ziel-Charakterbogen gewählt (Rüstung über ± manuell anpassbar).'}</div>`;
 
+  const armorSectionHtml = hideTarget
+    ? `<div class="p-2 rounded-lg bg-black/25 border bdr-line flex items-center justify-between gap-2 text-[11px] t-mut min-w-0">
+        <span class="font-bold text-emerald-300/90">🛡️ Rüstung (${esc(calc.zoneName)})</span>
+        <span class="text-[10px] font-semibold">🔒 Automatisch verrechnet (Details verborgen)</span>
+      </div>`
+    : `<div class="p-2 rounded-lg bg-black/25 border bdr-line space-y-1 min-w-0">
+        <div class="flex items-center justify-between gap-2 text-[10px] font-extrabold">
+          <span class="text-emerald-300 uppercase tracking-wider">🛡️ Rüstung (${esc(calc.zoneName)} • ${esc(calc.selOpt.shortLabel || calc.selOpt.label)})</span>
+          <span class="text-emerald-300 tabular">Gesamt: ${calc.armor.total}</span>
+        </div>
+        ${armorRowsHtml}
+        ${calc.armor.globalMod ? `<div class="flex items-center justify-between gap-2 text-[11px] tabular"><span class="t-mut">Aktive Effekte (Rüstungsschutz)</span><span class="font-bold text-emerald-300">${fmtSign(calc.armor.globalMod)}</span></div>` : ''}
+        ${calc.armor.manualMod ? `<div class="flex items-center justify-between gap-2 text-[11px] tabular"><span class="t-mut">Manueller Rüstungs-Mod</span><span class="font-bold">${fmtSign(calc.armor.manualMod)}</span></div>` : ''}
+      </div>`;
+
+  const thresholdSectionHtml = hideTarget
+    ? `<div class="inline-flex flex-wrap items-center justify-center gap-1 px-2.5 py-1 rounded-lg border bdr-line bg-black/20 t-mut text-[10px] font-bold max-w-full">🔒 Verwundungsschwellen des Gegners verborgen (SL sieht Details im Schadensangebot)</div>`
+    : `<div class="inline-flex flex-wrap items-center justify-center gap-1 px-2.5 py-1 rounded-lg border text-[11px] font-extrabold max-w-full ${thCls}">
+        ${th.label ? `<span>${esc(th.label)}</span>` : `<span>✓ Keine ${th.kindWord}sschwelle ausgelöst</span>`}
+        <span class="opacity-75 text-[10px]">(Stufen: ${th.light} / ${th.medium} / ${th.heavy})</span>
+      </div>`;
+
   const canDirect = canDirectApplyCombatDamage(COMBAT.targetCharId);
   const ammoBtnHtml = calc.ammo
     ? `<button type="button" data-action="combat-spend-ammo" ${toInt(calc.ammo.qty, 0) <= 0 ? 'disabled' : ''} class="btn w-full py-1.5 px-3 text-xs font-extrabold ${COMBAT.ammoSpent ? 'border-emerald-400/60 bg-emerald-500/15 text-emerald-200' : 'border-amber-400/50 bg-amber-500/10 text-amber-200 hover:bg-amber-500/20'}">${COMBAT.ammoSpent ? `✓ −1 ${esc(calc.ammoName)} verbraucht (Vorrat: ${toInt(calc.ammo.qty, 0)})` : `🏹 −1 ${esc(calc.ammoName)} verbrauchen (Vorrat: ${toInt(calc.ammo.qty, 0)})`}</button>`
@@ -965,8 +1021,8 @@ export function renderCombatDamageBox(){
   const applyActionsHtml = COMBAT.targetCharId
     ? `<div class="space-y-1.5 pt-1 border-t border-white/10">
         <div class="grid grid-cols-1 ${canDirect ? 'sm:grid-cols-2' : ''} gap-1.5">
-          <button type="button" data-action="combat-send-offer" ${calc.finalDmg <= 0 ? 'disabled' : ''} data-tip="Sendet ein Live-Aktionsbanner an den Spieler von ${esc(calc.targetName || 'Ziel')}, damit er den Schaden sicher auf seinem eigenen Bogen übernimmt" class="btn py-1.5 px-2.5 text-xs font-black border-rose-400/60 bg-rose-500/20 text-rose-100 hover:bg-rose-500/30">💥 Schaden an Ziel senden</button>
-          ${canDirect ? `<button type="button" data-action="combat-apply-direct" ${(calc.finalDmg <= 0 || COMBAT.directApplying) ? 'disabled' : ''} data-tip="Zieht den Schaden über den atomaren Server-Endpunkt direkt am Bogen ab (ideal für NSCs ohne aktiven Spieler)" class="btn py-1.5 px-2.5 text-xs font-black border-amber-400/65 bg-amber-500/20 text-amber-200 hover:bg-amber-500/30">${COMBAT.directApplying ? '⏳ Wende an...' : '⚡ Direkt am Bogen abziehen (SL)'}</button>` : ''}
+          <button type="button" data-action="combat-send-offer" ${calc.finalDmg <= 0 ? 'disabled' : ''} data-tip="Sendet ein Live-Aktionsbanner an ${targetIsEnemy ? 'die Spielleitung' : 'den Spieler von ' + esc(calc.targetName || 'Ziel')}, um den Schaden zu übernehmen" class="btn py-1.5 px-2.5 text-xs font-black border-rose-400/60 bg-rose-500/20 text-rose-100 hover:bg-rose-500/30">${targetIsEnemy ? '💥 Schaden an Spielleitung senden' : '💥 Schaden an Ziel senden'}</button>
+          ${canDirect ? `<button type="button" data-action="combat-apply-direct" ${(calc.finalDmg <= 0 || COMBAT.directApplying) ? 'disabled' : ''} data-tip="Zieht den Schaden über den atomaren Server-Endpunkt direkt am Bogen ab (ideal für Gegner/NSCs)" class="btn py-1.5 px-2.5 text-xs font-black border-amber-400/65 bg-amber-500/20 text-amber-200 hover:bg-amber-500/30">${COMBAT.directApplying ? '⏳ Wende an...' : '⚡ Direkt am Bogen abziehen (SL)'}</button>` : ''}
         </div>
         ${COMBAT.offerNote ? `<div class="text-[11px] font-extrabold px-2.5 py-1.5 rounded-lg border break-words ${COMBAT.offerStatus === 'applied' ? 'border-emerald-400/60 bg-emerald-500/15 text-emerald-200' : COMBAT.offerStatus === 'declined' ? 'border-amber-400/50 bg-amber-500/10 text-amber-200' : 'border-indigo-400/50 bg-indigo-500/15 text-indigo-200'}">${esc(COMBAT.offerNote)}</div>` : ''}
         ${(COMBAT.directAppliedNote && COMBAT.directAppliedNote !== COMBAT.offerNote) ? `<div class="text-[11px] font-extrabold px-2.5 py-1.5 rounded-lg border border-emerald-400/60 bg-emerald-500/15 text-emerald-200 break-words">${esc(COMBAT.directAppliedNote)}</div>` : ''}
@@ -1002,7 +1058,7 @@ export function renderCombatDamageBox(){
       ${blockToggleHtml}
     </div>
 
-    <div class="grid grid-cols-2 gap-2 pt-1.5 border-t border-white/10 tabular">
+    <div class="grid ${hideTarget ? 'grid-cols-1' : 'grid-cols-2'} gap-2 pt-1.5 border-t border-white/10 tabular">
       <div class="subcard p-1.5 flex items-center justify-between gap-1 min-w-0">
         <span class="text-[10px] font-extrabold t-mut truncate">Schaden ±</span>
         <div class="flex items-center gap-1 shrink-0">
@@ -1011,33 +1067,22 @@ export function renderCombatDamageBox(){
           <button type="button" data-action="combat-dmg-step" data-d="1" class="btn w-6 h-6 p-0 text-xs font-black">+</button>
         </div>
       </div>
-      <div class="subcard p-1.5 flex items-center justify-between gap-1 min-w-0">
+      ${hideTarget ? '' : `<div class="subcard p-1.5 flex items-center justify-between gap-1 min-w-0">
         <span class="text-[10px] font-extrabold t-mut truncate">Rüstung ±</span>
         <div class="flex items-center gap-1 shrink-0">
           <button type="button" data-action="combat-armor-step" data-d="-1" class="btn w-6 h-6 p-0 text-xs font-black">−</button>
           <span class="text-xs font-black min-w-[24px] text-center ${calc.armor.manualMod > 0 ? 'text-emerald-300' : calc.armor.manualMod < 0 ? 'text-rose-300' : ''}">${fmtSign(calc.armor.manualMod)}</span>
           <button type="button" data-action="combat-armor-step" data-d="1" class="btn w-6 h-6 p-0 text-xs font-black">+</button>
         </div>
-      </div>
+      </div>`}
     </div>
 
-    <div class="p-2 rounded-lg bg-black/25 border bdr-line space-y-1 min-w-0">
-      <div class="flex items-center justify-between gap-2 text-[10px] font-extrabold">
-        <span class="text-emerald-300 uppercase tracking-wider">🛡️ Rüstung (${esc(calc.zoneName)} • ${esc(calc.selOpt.shortLabel || calc.selOpt.label)})</span>
-        <span class="text-emerald-300 tabular">Gesamt: ${calc.armor.total}</span>
-      </div>
-      ${armorRowsHtml}
-      ${calc.armor.globalMod ? `<div class="flex items-center justify-between gap-2 text-[11px] tabular"><span class="t-mut">Aktive Effekte (Rüstungsschutz)</span><span class="font-bold text-emerald-300">${fmtSign(calc.armor.globalMod)}</span></div>` : ''}
-      ${calc.armor.manualMod ? `<div class="flex items-center justify-between gap-2 text-[11px] tabular"><span class="t-mut">Manueller Rüstungs-Mod</span><span class="font-bold">${fmtSign(calc.armor.manualMod)}</span></div>` : ''}
-    </div>
+    ${armorSectionHtml}
 
     <div class="p-2.5 rounded-xl border-2 ${calc.finalDmg > 0 ? 'border-rose-500/70 bg-rose-500/15' : 'border-emerald-500/50 bg-emerald-500/10'} text-center space-y-1.5 tabular">
-      <div class="text-[11px] t-mut break-words">${esc(calc.formula)}</div>
+      <div class="text-[11px] t-mut break-words">${esc(hideTarget ? buildHiddenEnemyDmgFormula(calc) : calc.formula)}</div>
       <div class="text-2xl sm:text-3xl font-black ${calc.finalDmg > 0 ? 'text-rose-300' : 'text-emerald-300'}">💥 ${calc.finalDmg} ${calc.poolLbl} Endschaden</div>
-      <div class="inline-flex flex-wrap items-center justify-center gap-1 px-2.5 py-1 rounded-lg border text-[11px] font-extrabold max-w-full ${thCls}">
-        ${th.label ? `<span>${esc(th.label)}</span>` : `<span>✓ Keine ${th.kindWord}sschwelle ausgelöst</span>`}
-        <span class="opacity-75 text-[10px]">(Stufen: ${th.light} / ${th.medium} / ${th.heavy})</span>
-      </div>
+      ${thresholdSectionHtml}
     </div>
 
     ${ammoBtnHtml}
