@@ -14,7 +14,7 @@ import {
   getStatusEffValues, formatPwUseCosts, getReservablePwCosts, getEffectivePoolCap, getPwBuilderToken, parseStatusTokens, getAllParsedEffectChips, invalidateModsCache, calcActiveMods, buildAttrTip, buildSecTip, syncCresRenameInTokens, syncSkillRenameInTokens, purgeExtraSecFromPowers, calcAutoSkCost, findDuplicatePwEntry, makeUniquePwName, updatePwNameDupHint, enforceUniquePwName, buildPowerExportPack, downloadPowerPackJson, resolveLibraryAugmentParentName, getSuggestedAugmentsForPower, importPowerPackIntoSheet, getTrCost, performSimpleRest, performFullRest, withPoolSync, linkAugToPower, unlinkAugFromPower, calcPwCost, calcSkCost, calcProg, getWeaponRollMeta, getTagDesc, cresName, makeExtraSec, getExtraSecName, getResLabel, escReStr, getAttrCol, getSecCol, getAttrTot, getLpBase, getLpMax, getMlpBase, getMlpMax, getLpRegenAuto, getMlpRegenAuto, hasLpRegenOvr, hasMlpRegenOvr, getLpRegen, getMlpRegen, getIniBase, getIniTot, getApBase, getApMax, getMapBase, getMapMax, getCresBase, getCresMax, getExtraSecBase, getBstAuto, hasBstOvr, getBstBase, getEffBst, getSkAutoBonus, hasSkBonusOvr, getSkBonus, findPwItem, findEqItem, getLinkedAugs, getValidPwSecId
 } from './calc.js';
 import {
-  updateLobbyLiveDiceDOM, initLiveDiceChannel, publishLiveRoll, revealSecretRoll, publishLiveCampNote, clearLiveDiceFeed, syncCloudRegistry, renameUserAccount, addCampaignAllowedUser, removeCampaignAllowedUser, toggleGlobalGMTag, addCampaignMainGM, removeCampaignMainGM, kickCharFromCampaign, duplicateCharacterSheet, getCampaignSharedPages, extractPublicPages, upsertPublicNoteEntry, fetchLobbyList, fetchForeignCharacterSheet, canWriteCurrentSheetToCloud, resetCloudSyncState, updateCloudSyncStatusDOM, scheduleCloudSync, pushToCloud, flushCloudSyncNow, flushBeforeCharacterSwitch, loadCloudCharacter, createNewUserCharacter, updateCloudCharacterMeta, deleteCloudCharacter, updateEnemyMetaCloud, createNewEnemyOrTemplate, toggleEnemyActiveStatus, toggleEnemyCampaignAssignment, toggleEnemyDiceVisibility, hideAllEnemiesInCampaignDice, toggleEnemyArchived, cloneEnemyToCampaign, stripLibraryPackMeta, getAllLibraryPacks, fetchPowerLibrary, publishPackToCloudLibrary, deletePackFromCloudLibrary, parsePatchnoteTsMs, getNewestPatchnoteId, isPatchnoteCollapsed, normalizePatchnoteEntry, fetchPatchnotes, savePatchnotesToServer, fetchFeedback, saveFeedbackStore, loadCustomIconsCache, fetchCustomIcons, saveCustomIconsToServer, loadNotifSeen, saveNotifSeen, markNotifRead, markAllNotifsRead, updateNotifBadges, refreshUserNotificationsBg, fetchAndSyncBasisPowers, isSecretRollActive
+  updateLobbyLiveDiceDOM, initLiveDiceChannel, publishLiveRoll, revealSecretRoll, publishLiveCampNote, clearLiveDiceFeed, syncCloudRegistry, renameUserAccount, addCampaignAllowedUser, removeCampaignAllowedUser, toggleGlobalGMTag, addCampaignMainGM, removeCampaignMainGM, kickCharFromCampaign, duplicateCharacterSheet, getCampaignSharedPages, extractPublicPages, upsertPublicNoteEntry, fetchLobbyList, fetchForeignCharacterSheet, canWriteCurrentSheetToCloud, resetCloudSyncState, updateCloudSyncStatusDOM, scheduleCloudSync, pushToCloud, flushCloudSyncNow, flushBeforeCharacterSwitch, loadCloudCharacter, createNewUserCharacter, updateCloudCharacterMeta, fetchTrashedCharacters, deleteCloudCharacter, restoreTrashedCharacter, permanentDeleteTrashedCharacter, emptyTrashedCharacters, updateEnemyMetaCloud, createNewEnemyOrTemplate, toggleEnemyActiveStatus, toggleEnemyCampaignAssignment, toggleEnemyDiceVisibility, hideAllEnemiesInCampaignDice, toggleEnemyArchived, cloneEnemyToCampaign, stripLibraryPackMeta, getAllLibraryPacks, fetchPowerLibrary, publishPackToCloudLibrary, deletePackFromCloudLibrary, parsePatchnoteTsMs, getNewestPatchnoteId, isPatchnoteCollapsed, normalizePatchnoteEntry, fetchPatchnotes, savePatchnotesToServer, fetchFeedback, saveFeedbackStore, loadCustomIconsCache, fetchCustomIcons, saveCustomIconsToServer, loadNotifSeen, saveNotifSeen, markNotifRead, markAllNotifsRead, updateNotifBadges, refreshUserNotificationsBg, fetchAndSyncBasisPowers, isSecretRollActive
 } from './cloud.js';
 import {
   resetDiceToLobbyNeutral, exitLobbyNeutralDice, ensureLobbyNeutralDiceOnOpen, applyDiceAutoAdvDis, calcThreshold, openWeaponRoll, syncDiceFromSheet, buildAdvDisInnerHtml, renderDice, renderLiveDice, rollW100, renderBlockFollowUpBox, executeBlockFollowUpRoll, executeDiceRoll, rollCustomDice, getCSkVal, getDSkVal, getEffC, getEffD, isLobbyNeutralDice, calcEgMultiplier, buildThresholdInnerHtml, activateVsCharMode, selectDiceOpponent, resolveOpponentComparison
@@ -2190,7 +2190,7 @@ document.addEventListener('click',async e=>{
     case 'admin-unlock': performAdminUnlock(); break;
     case 'admin-change-pin': performAdminChangePin(); break;
     case 'admin-logout': {
-      CLOUD.isAdmin=false; CLOUD.showAdminBar=false; CLOUD.userMgmtOpen=false; D.secretMode=false; UI.lastSecretRollId=''; UI.adminReturnModal=''; UI.adminPinError='';
+      CLOUD.isAdmin=false; CLOUD.showAdminBar=false; CLOUD.userMgmtOpen=false; CLOUD.trashedList=[]; CLOUD.confirmPermDelTrashId=null; CLOUD.confirmEmptyTrash=false; D.secretMode=false; UI.lastSecretRollId=''; UI.adminReturnModal=''; UI.adminPinError='';
       if(!UI.inLobby&&isEnemySheet(S)&&!canViewEnemySheet(S.charId)){
         CLOUD.viewingRemote=false; CLOUD.remoteCharId='';
         UI.inLobby=true;
@@ -2203,6 +2203,14 @@ document.addEventListener('click',async e=>{
       toast('🔒 Admin-Modus gesperrt');
       break;
     }
+    case 'admin-refresh-trash': if(!CLOUD.isAdmin) break; fetchTrashedCharacters(false); break;
+    case 'admin-restore-trash': if(!CLOUD.isAdmin) break; await restoreTrashedCharacter(el.dataset.id); break;
+    case 'admin-ask-perm-del-trash': if(!CLOUD.isAdmin) break; CLOUD.confirmPermDelTrashId=el.dataset.id||null; CLOUD.confirmEmptyTrash=false; renderModal(); break;
+    case 'admin-cancel-perm-del-trash': if(!CLOUD.isAdmin) break; CLOUD.confirmPermDelTrashId=null; renderModal(); break;
+    case 'admin-confirm-perm-del-trash': if(!CLOUD.isAdmin) break; await permanentDeleteTrashedCharacter(el.dataset.id); break;
+    case 'admin-ask-empty-trash': if(!CLOUD.isAdmin) break; CLOUD.confirmEmptyTrash=true; CLOUD.confirmPermDelTrashId=null; renderModal(); break;
+    case 'admin-cancel-empty-trash': if(!CLOUD.isAdmin) break; CLOUD.confirmEmptyTrash=false; renderModal(); break;
+    case 'admin-confirm-empty-trash': if(!CLOUD.isAdmin) break; await emptyTrashedCharacters(); break;
     case 'admin-del-user': {
       if(!CLOUD.isAdmin) break;
       const u=el.dataset.user;

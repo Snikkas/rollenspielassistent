@@ -134,7 +134,7 @@ export function openLobbyCharMenu(anchorEl,cid,forceOpen=false){
       items.push({
         icon:'⚠️',
         label:'Wirklich löschen? (2/2)',
-        sub:`„${dispName}“ dauerhaft aus der Lobby entfernen`,
+        sub:`„${dispName}“ in den Admin-Papierkorb verschieben`,
         danger:true,
         action:'cloud-del-yes',
         dataset:{id:cid}
@@ -148,7 +148,8 @@ export function openLobbyCharMenu(anchorEl,cid,forceOpen=false){
     }else{
       items.push({
         icon:'🗑️',
-        label:'Aus Lobby löschen',
+        label:'In Papierkorb verschieben',
+        sub:'Admin kann wiederherstellen oder endgültig löschen',
         danger:true,
         keepOpen:true,
         onClick:()=>{CLOUD.confirmDelCloudId=cid;openLobbyCharMenu(anchorEl,cid,true);}
@@ -358,7 +359,7 @@ export function openLobbyEnemyMenu(anchorEl,cid,contextCampId='',forceOpen=false
       items.push({
         icon:'⚠️',
         label:'Wirklich löschen? (2/2)',
-        sub:`„${dispName}“ dauerhaft entfernen`,
+        sub:`„${dispName}“ in den Admin-Papierkorb verschieben`,
         danger:true,
         action:'cloud-del-yes',
         dataset:{id:cid}
@@ -372,7 +373,8 @@ export function openLobbyEnemyMenu(anchorEl,cid,contextCampId='',forceOpen=false
     }else{
       items.push({
         icon:'🗑️',
-        label:'Dauerhaft löschen',
+        label:'In Papierkorb verschieben',
+        sub:'Admin kann wiederherstellen oder endgültig löschen',
         danger:true,
         keepOpen:true,
         onClick:()=>{CLOUD.confirmDelCloudId=cid;openLobbyEnemyMenu(anchorEl,cid,contextCampId,true);}
