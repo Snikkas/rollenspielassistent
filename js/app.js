@@ -17,7 +17,7 @@ import {
   updateLobbyLiveDiceDOM, initLiveDiceChannel, publishLiveRoll, revealSecretRoll, publishLiveCampNote, clearLiveDiceFeed, syncCloudRegistry, renameUserAccount, addCampaignAllowedUser, removeCampaignAllowedUser, toggleGlobalGMTag, addCampaignMainGM, removeCampaignMainGM, kickCharFromCampaign, duplicateCharacterSheet, getCampaignSharedPages, extractPublicPages, upsertPublicNoteEntry, fetchLobbyList, fetchForeignCharacterSheet, canWriteCurrentSheetToCloud, resetCloudSyncState, updateCloudSyncStatusDOM, scheduleCloudSync, pushToCloud, flushCloudSyncNow, flushBeforeCharacterSwitch, loadCloudCharacter, createNewUserCharacter, updateCloudCharacterMeta, fetchTrashedCharacters, deleteCloudCharacter, restoreTrashedCharacter, permanentDeleteTrashedCharacter, emptyTrashedCharacters, updateEnemyMetaCloud, createNewEnemyOrTemplate, toggleEnemyActiveStatus, toggleEnemyCampaignAssignment, toggleEnemyDiceVisibility, hideAllEnemiesInCampaignDice, toggleEnemyArchived, cloneEnemyToCampaign, stripLibraryPackMeta, getAllLibraryPacks, fetchPowerLibrary, publishPackToCloudLibrary, deletePackFromCloudLibrary, parsePatchnoteTsMs, getNewestPatchnoteId, isPatchnoteCollapsed, normalizePatchnoteEntry, fetchPatchnotes, savePatchnotesToServer, fetchFeedback, saveFeedbackStore, loadCustomIconsCache, fetchCustomIcons, saveCustomIconsToServer, loadNotifSeen, saveNotifSeen, markNotifRead, markAllNotifsRead, updateNotifBadges, refreshUserNotificationsBg, fetchAndSyncBasisPowers, isSecretRollActive
 } from './cloud.js';
 import {
-  resetDiceToLobbyNeutral, exitLobbyNeutralDice, ensureLobbyNeutralDiceOnOpen, applyDiceAutoAdvDis, calcThreshold, openWeaponRoll, syncDiceFromSheet, buildAdvDisInnerHtml, renderDice, renderLiveDice, rollW100, renderBlockFollowUpBox, executeBlockFollowUpRoll, executeDiceRoll, rollCustomDice, getCSkVal, getDSkVal, getEffC, getEffD, isLobbyNeutralDice, calcEgMultiplier, buildThresholdInnerHtml, activateVsCharMode, selectDiceOpponent, resolveOpponentComparison
+  resetDiceToLobbyNeutral, exitLobbyNeutralDice, ensureLobbyNeutralDiceOnOpen, applyDiceAutoAdvDis, calcThreshold, openWeaponRoll, selectDiceWeapon, syncDiceFromSheet, buildAdvDisInnerHtml, renderDice, renderLiveDice, rollW100, renderBlockFollowUpBox, executeBlockFollowUpRoll, executeDiceRoll, rollCustomDice, getCSkVal, getDSkVal, getEffC, getEffD, isLobbyNeutralDice, calcEgMultiplier, buildThresholdInnerHtml, activateVsCharMode, selectDiceOpponent, resolveOpponentComparison
 } from './dice.js';
 import {
   sendDuelChallenge, cancelOutgoingDuel, clearOutgoingDuel, handleLiveDuelEvent, ignoreIncomingDuel, openDuelReplyModal, closeDuelReplyModal, submitDuelReply, renderDuelBanner, renderDuelReplyModal
@@ -658,13 +658,49 @@ document.addEventListener('click',async e=>{
     case 'set-dice-wcat': {
       const wc=el.dataset.wcat||'Normaler Test';
       D.wRollCat=wc;D.sitActive={};
+      if(wc==='Normaler Test'||wc==='Ausweichen') D.wpEditOpen=false;
       if(D.dMode==='character'){
         if(wc==='Trefferwurf'){D.oppKind='preset';if(!['dodge','parry','block'].includes(D.oppPreset))D.oppPreset='dodge';D.oppSitActive={};}
         else if(wc==='Parieren'||wc==='Blocken'||wc==='Ausweichen'){D.oppKind='preset';D.oppPreset='attack';D.oppSitActive={};}
       }
       applyDiceAutoAdvDis(true);syncDiceFromSheet();renderDice();break;
     }
-    case 'clear-dice-weapon': D.weaponId=null; D.wRollCat='Normaler Test'; D.critOff=0; D.sitActive={}; applyDiceAutoAdvDis(true); syncDiceFromSheet(); renderDice(); break;
+    case 'set-dice-atkpool': {
+      D.atkPool=el.dataset.pool==='mlp'?'mlp':'lp';
+      D.sitActive={};
+      applyDiceAutoAdvDis(false);syncDiceFromSheet();renderDice();break;
+    }
+    case 'clear-dice-weapon': D.weaponId=null; D.wpEditOpen=false; D.wRollCat='Normaler Test'; D.critOff=0; D.sitActive={}; applyDiceAutoAdvDis(true); syncDiceFromSheet(); renderDice(); break;
+    case 'dice-clear-weapon-only': selectDiceWeapon('__none__'); break;
+    case 'toggle-dice-wp-edit': D.wpEditOpen=!D.wpEditOpen; renderDice(); break;
+    case 'toggle-dice-advsrc': D.advSrcOpen=!D.advSrcOpen; renderDice(); break;
+    case 'toggle-dice-log': D.logOpen=!D.logOpen; renderDice(); break;
+    case 'dice-wp-set-pool': {
+      const w=(S.weapons||[]).find(x=>x.id===el.dataset.id);
+      const pl=['lp','mlp','both'].includes(el.dataset.pool)?el.dataset.pool:'lp';
+      if(w){
+        w.dmgPool=pl;
+        invalidateModsCache();
+        syncDiceFromSheet();
+        if(S.activeTab==='equipment') renderMain();
+        renderDice();
+        save();
+      }
+      break;
+    }
+    case 'dice-wp-set-grip': {
+      const w=(S.weapons||[]).find(x=>x.id===el.dataset.id);
+      const g=['','1h','2h'].includes(el.dataset.grip)?el.dataset.grip:'';
+      if(w){
+        w.grip=g;
+        invalidateModsCache();
+        syncDiceFromSheet();
+        if(S.activeTab==='equipment') renderMain();
+        renderDice();
+        save();
+      }
+      break;
+    }
     case 'toggle-dice-sit': {const sk=el.dataset.sit;if(sk){if(!D.sitActive)D.sitActive={};D.sitActive[sk]=!D.sitActive[sk];applyDiceAutoAdvDis(false);renderDice();}break;}
     case 'dice-pick-lobby-attr': {const ak=el.dataset.attr||'ST';D.cAttr=50;D.cDirect=D.cMode==='breakdown'?50+getCSkVal():50;D.label='Freie Probe: '+ak+' (50)';D.attrKey=null;D.skillId=null;D.weaponId=null;applyDiceAutoAdvDis(false);renderDice();break;}
     case 'dice-pick-attr': {if(isLobbyNeutralDice()){const ak=el.dataset.attr||'ST';D.cAttr=50;D.cDirect=D.cMode==='breakdown'?50+getCSkVal():50;D.label='Freie Probe: '+ak+' (50)';D.attrKey=null;D.skillId=null;D.weaponId=null;applyDiceAutoAdvDis(false);renderDice();break;}const k=el.dataset.attr,av=getAttrTot(k);D.attrKey=k;if(D.weaponId){D.cMode='breakdown';syncDiceFromSheet();}else if(D.skillId){const sk=S.skills.find(x=>x.id===D.skillId);if(sk){const b=getSkBonus(sk);D.cMode='breakdown';D.cAttr=av;if(['0','10','15','20','30'].includes(String(b))){D.cSkill=String(b);}else{D.cSkill='custom';D.cCustom=b;}D.cDirect=av+b;D.label=`${sk.name} (${fmtSign(b)}) + ${k} (${av})`;applyDiceAutoAdvDis(false);}}else{D.cMode='breakdown';D.cAttr=av;D.cSkill='0';D.cDirect=av;D.label=`Attributsprobe: ${k} (${av})`;applyDiceAutoAdvDis(false);}renderDice();break;}
@@ -1218,6 +1254,16 @@ document.addEventListener('click',async e=>{
       const w=S.weapons.find(x=>x.id===el.dataset.id), g=el.dataset.grip;
       if(w&&(g==='1h'||g==='2h')){
         w.grip=w.grip===g?'':g;
+        invalidateModsCache(); syncDiceFromSheet();
+        renderMain(); if(D.open) renderDice(); save();
+      }
+      break;
+    }
+    case 'set-wp-dmgpool': {
+      const w=S.weapons.find(x=>x.id===el.dataset.id);
+      const pl=['lp','mlp','both'].includes(el.dataset.pool)?el.dataset.pool:'lp';
+      if(w){
+        w.dmgPool=pl;
         invalidateModsCache(); syncDiceFromSheet();
         renderMain(); if(D.open) renderDice(); save();
       }
@@ -3773,6 +3819,17 @@ document.addEventListener('input',e=>{
     return;
   }
   if(el.dataset.bio){S.bio[el.dataset.bio]=val;saveSoon();return;}
+  if(el.dataset.diceWpInp){
+    const [id,f]=el.dataset.diceWpInp.split(':');
+    const w=(S.weapons||[]).find(x=>x.id===id);
+    if(w&&['dmgCut','dmgPierce','dmgImpact'].includes(f)){
+      w[f]=el.value;
+      const twin=document.querySelector(`[data-wpf="${CSS.escape(`${id}:${f}`)}"]`);
+      if(twin&&twin!==el&&twin.value!==el.value) twin.value=el.value;
+      saveSoon();
+    }
+    return;
+  }
   if(el.dataset.diceCustom){
     const k=el.dataset.diceCustom;
     if(k==='cnt') D.customCnt=Math.max(1,Math.min(100,toInt(el.value,1)));
@@ -3797,7 +3854,7 @@ document.addEventListener('input',e=>{
       if(UI.lastBlockBaseHtml) UI.lastRollHtml=UI.lastBlockBaseHtml+renderBlockFollowUpBox();
       return;
     }
-    if(el.dataset.dice==='cDirect'){D.skillId=null;D.attrKey=null;D.weaponId=null;D.wRollCat='Normaler Test';}
+    if(el.dataset.dice==='cDirect'){D.skillId=null;D.attrKey=null;D.weaponId=null;D.wpEditOpen=false;D.wRollCat='Normaler Test';}
     if($('diceCMath')) $('diceCMath').textContent=`${D.cAttr} + ${getCSkVal()} = ${toInt(D.cAttr)+getCSkVal()}`;
     if($('diceDMath')) $('diceDMath').textContent=`${D.dAttr} + ${getDSkVal()} = ${toInt(D.dAttr)+getDSkVal()}`;
     const dRstBtn=$('btnResetDiceDiff');
@@ -4081,6 +4138,35 @@ document.addEventListener('change',e=>{
     if(S.charId===cid){S.campaignId=effCampId;save(false);}
     const charName=ch?.name||(S.charId===cid?S.profile.name:'')||'Charakter';
     updateCloudCharacterMeta(cid,d=>{d.campaignId=effCampId;if(d._summary)d._summary.campaignId=effCampId;},`🗺️ „${charName}“ in „${targetCamp.name}“ verschoben!`);
+    return;
+  }
+  if(el.dataset.diceWeaponSel){selectDiceWeapon(el.value);return;}
+  if(el.dataset.diceWpEdit){
+    const f=el.dataset.diceWpEdit, wid=el.dataset.wid;
+    const w=(S.weapons||[]).find(x=>x.id===wid);
+    if(w){
+      if(f==='wAttr'&&isWeaponMassiv(w)&&el.value!=='ST'){
+        w.wAttr='ST';
+        toast('Tag „Massiv“ aktiv: Attribut bleibt auf ST');
+      }else{
+        w[f]=el.value;
+      }
+      if(D.weaponId===w.id){
+        if(f==='wAttr') D.attrKey=isWeaponMassiv(w)?'ST':w.wAttr;
+        if(f==='skillId'){D.skillId=w.skillId||null; if(!D.skillId) D.cSkill='0';}
+      }
+      invalidateModsCache();
+      syncDiceFromSheet();
+      if(S.activeTab==='equipment') renderMain();
+      renderDice();
+      save();
+    }
+    return;
+  }
+  if(el.dataset.diceWpInp){
+    const [id]=el.dataset.diceWpInp.split(':');
+    if(COMBAT.active&&COMBAT.weaponId===id) renderDice();
+    save();
     return;
   }
   if(el.dataset.diceSel){const f=el.dataset.diceSel;if(f==='crit'){const T=calcThreshold(),si=Math.max(0,CRIT_SEQ.indexOf(el.value));D.critOff=si-T.autoCrit;D.crit=CRIT_SEQ[si];}else{D[f]=f==='cnt'?toInt(el.value,1):el.value;}renderDice();return;}

@@ -17,7 +17,7 @@ import {
   getCachedForeignSheet, publishLiveRoll, sendLiveBroadcast, applyCloudResourceDelta, isSecretRollActive
 } from './cloud.js';
 import {
-  getActiveDiceCampaignId, isLobbyNeutralDice, rollW100, renderDice
+  getActiveDiceCampaignId, isLobbyNeutralDice, rollW100, renderDice, getEffectiveDiceWeaponId, doesWeaponApplyToPool
 } from './dice.js';
 
 export function getWeaponAllTags(weapon, ammo = null){
@@ -273,7 +273,10 @@ export function evaluateThresholds(targetSheet, targetM, finalDmg, pool = 'lp'){
 
 export function calculateCombatDamage(){
   const isLob = isLobbyNeutralDice();
-  const weapon = (!isLob && COMBAT.weaponId) ? (S.weapons || []).find(w => w.id === COMBAT.weaponId) : null;
+  const pool = COMBAT.pool === 'mlp' ? 'mlp' : 'lp';
+  const rawWeapon = (!isLob && COMBAT.weaponId) ? (S.weapons || []).find(w => w.id === COMBAT.weaponId) : null;
+  const weaponApplies = rawWeapon ? doesWeaponApplyToPool(rawWeapon, pool, 'Trefferwurf') : false;
+  const weapon = weaponApplies ? rawWeapon : null;
   const ammo = (!isLob && weapon && weapon.wType === 'ranged' && (COMBAT.ammoId || weapon.ammoId))
     ? (S.ammos || []).find(a => a.id === (COMBAT.ammoId || weapon.ammoId))
     : null;
@@ -299,7 +302,6 @@ export function calculateCombatDamage(){
   const blockRed = (COMBAT.isBlocked && COMBAT.blockItemRed) ? 2 : 0;
   const afterBlock = Math.max(0, rawDmg - blockRed);
 
-  const pool = COMBAT.pool === 'mlp' ? 'mlp' : 'lp';
   const armor = getTargetZoneArmor(targetSheet, targetM, zoneName, selOpt, pool);
   const afterArmor = Math.max(0, afterBlock - armor.total);
 
@@ -319,11 +321,15 @@ export function calculateCombatDamage(){
     formula += ` → Durchschlag (${durchschlagX}) = ${finalDmg} ${poolLbl}`;
   }
 
-  const weaponName = weapon ? (String(weapon.name || '').trim() || getWeaponSubtype(weapon.wType).label) : 'Waffenlos / Angriff';
+  const weaponName = weapon
+    ? (String(weapon.name || '').trim() || getWeaponSubtype(weapon.wType).label)
+    : (pool === 'mlp' ? 'Mentaler Angriff / ohne Waffe' : 'Waffenlos / Angriff');
   const ammoName = ammo ? (String(ammo.name || '').trim() || 'Munition') : '';
   const targetName = targetSheet ? (String(targetSheet.profile?.name || '').trim() || COMBAT.targetName || 'Ziel') : (COMBAT.targetName || '');
 
   return {
+    rawWeapon,
+    weaponApplies,
     weapon,
     ammo,
     weaponName,
@@ -396,7 +402,9 @@ export function initCombatFromRoll({ T, res, isAtkBlk20 = false, attackerName = 
     return;
   }
   const isLob = isLobbyNeutralDice();
-  const weapon = (!isLob && D.weaponId) ? (S.weapons || []).find(w => w.id === D.weaponId) : null;
+  const initPool = D.atkPool === 'mlp' ? 'mlp' : 'lp';
+  const effWpId = isLob ? null : getEffectiveDiceWeaponId();
+  const weapon = effWpId ? (S.weapons || []).find(w => w.id === effWpId) : null;
   const ammo = (!isLob && weapon && weapon.wType === 'ranged' && weapon.ammoId)
     ? (S.ammos || []).find(a => a.id === weapon.ammoId)
     : null;
@@ -431,6 +439,7 @@ export function initCombatFromRoll({ T, res, isAtkBlk20 = false, attackerName = 
       COMBAT.blockItemRed = oppHasBlockItem;
       COMBAT.weaponId = weapon?.id || null;
       COMBAT.ammoId = ammo?.id || null;
+      COMBAT.pool = initPool;
       COMBAT.attackerName = attackerName;
       COMBAT.targetCharId = targetCharId;
       COMBAT.targetName = targetName;
@@ -465,7 +474,7 @@ export function initCombatFromRoll({ T, res, isAtkBlk20 = false, attackerName = 
   COMBAT.targetCharId = targetCharId;
   COMBAT.targetName = targetName;
   COMBAT.dmgType = defDmgType;
-  COMBAT.pool = 'lp';
+  COMBAT.pool = initPool;
   COMBAT.zoneName = defZone;
   COMBAT.lastHzRoll = null;
   COMBAT.dmgMod = 0;
@@ -1061,17 +1070,25 @@ export function renderCombatDamageBox(){
       </div>`
     : '';
 
+  const wpMismatchBanner = (calc.rawWeapon && !calc.weaponApplies)
+    ? `<div class="p-2 rounded-lg border border-amber-400/55 bg-amber-500/12 text-[11px] flex flex-wrap items-center justify-between gap-1.5">
+        <span class="font-bold text-amber-200 min-w-0">⚠️ <strong>${esc(String(calc.rawWeapon.name || '').trim() || getWeaponSubtype(calc.rawWeapon.wType).label)}</strong> gilt nur für ${calc.rawWeapon.dmgPool === 'mlp' ? '🧠 mLP' : '❤️ LP'} – Waffenschaden &amp; Tags pausiert.</span>
+        <button type="button" data-action="dice-wp-set-pool" data-id="${esc(calc.rawWeapon.id)}" data-pool="both" class="btn py-0.5 px-2 text-[10px] font-black border-purple-400/60 bg-purple-500/20 text-purple-200 shrink-0">Für Beide freigeben</button>
+      </div>`
+    : '';
+
   return `<div id="combatDamageBox" class="subcard p-3 border-2 border-rose-500/50 bg-rose-500/5 space-y-2.5 min-w-0">
     ${hdr}
     <div class="text-[11px] t-mut flex flex-wrap items-center gap-x-2 gap-y-0.5 tabular">
-      <span>🗡️ <strong>${esc(calc.weaponName)}</strong>${calc.ammoName ? ` + 🎯 ${esc(calc.ammoName)}` : ''}</span>
+      <span>${isMlpPool ? '🧠' : '🗡️'} <strong>${esc(calc.weaponName)}</strong>${calc.ammoName ? ` + 🎯 ${esc(calc.ammoName)}` : ''}</span>
       <span>•</span>
       <span>Grundschaden: <strong class="text-emerald-300">${calc.eg} EG</strong>${COMBAT.egMult > 1 ? ` (${COMBAT.baseEg} ×${COMBAT.egMult})` : ''}${COMBAT.isBlocked ? ' <span class="text-amber-300">(Geblockt)</span>' : ''}</span>
     </div>
+    ${wpMismatchBanner}
 
     <div class="space-y-1.5 pt-1.5 border-t border-white/10 min-w-0">
       <div class="flex flex-wrap items-center justify-between gap-1.5">
-        <span class="text-[10px] font-extrabold t-mut uppercase tracking-wider">🎯 Trefferzone${COMBAT.lastHzRoll !== null ? ` • W100 = <strong class="text-amber-300">${COMBAT.lastHzRoll}</strong>` : ''}</span>
+        <span class="text-[10px] font-extrabold t-mut uppercase tracking-wider">🎯 Trefferzone${isMlpPool ? ' <span class="font-semibold normal-case text-indigo-300/80">(bei mLP optional – mRS wirkt global)</span>' : ''}${COMBAT.lastHzRoll !== null ? ` • W100 = <strong class="text-amber-300">${COMBAT.lastHzRoll}</strong>` : ''}</span>
         <button type="button" data-action="combat-roll-hz" class="btn py-0.5 px-2 text-[11px] font-extrabold border-amber-400/55 bg-amber-500/15 text-amber-200 hover:bg-amber-500/25">🎯 Trefferzone auswürfeln</button>
       </div>
       <div class="flex flex-wrap gap-1 min-w-0">${zoneBtnsHtml}</div>

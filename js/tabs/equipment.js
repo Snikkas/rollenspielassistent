@@ -902,11 +902,14 @@ export function renderWeaponCard(w,idx,len){
     <button type="button" data-action="roll-weapon" data-id="${w.id}" data-wcat="Trefferwurf" data-tip="${hdrRollTip}" class="btn btn-pri h-8 sm:h-7 px-2 text-xs font-black shrink-0 tabular whitespace-nowrap">🎲 <span class="px-1 py-0.5 rounded bg-black/25 text-[11px] font-black">${wm.pool}</span></button>
     ${renderEqItemMenuBtn('weapon',w.id)}
   </div>`;
+  const wPool=['lp','mlp','both'].includes(w.dmgPool)?w.dmgPool:'lp';
+  const wPoolBadge=wPool==='mlp'?'<span class="pill cursor-default text-[11px] py-0.5 px-2 border-indigo-400/50 bg-indigo-500/15 text-indigo-300 font-black">🧠 mLP</span>':wPool==='both'?'<span class="pill cursor-default text-[11px] py-0.5 px-2 border-purple-400/50 bg-purple-500/15 text-purple-200 font-black">❤️+🧠 LP/mLP</span>':'';
   if(w.collapsed){
     return `<div data-eqitem="weapon:${w.id}" class="subcard py-2 px-2.5 sm:px-3 space-y-1.5 min-w-0" ${winStyle}>
       ${hdrRow}
       <div class="flex flex-wrap items-center gap-1.5 tabular min-w-0">
         <span class="pill cursor-default text-[11px] py-0.5 px-2">${esc(wSub.icon)} ${esc(wSub.label)}</span>
+        ${wPoolBadge}
         ${w.grip?`<span class="pill cursor-default text-[11px] py-0.5 px-2 text-acc">${w.grip==='1h'?'Einhändig':'Zweihändig'}</span>`:''}
         <span class="pill cursor-default text-[11px] py-0.5 px-2 max-w-full whitespace-normal break-words">Schnitt ${esc(w.dmgCut)} • Durchstoß ${esc(w.dmgPierce)} • Einschlag ${esc(w.dmgImpact)}${fmtCustomValSummarySuffix(w.customDmg)}</span>
         ${linkedAmmo?`<span class="pill cursor-default text-[11px] py-0.5 px-2 text-amber-400">🎯 <span data-linked-ammo-name="${linkedAmmo.id}">${esc(linkedAmmo.name||'Munition')}</span>: <span data-linked-ammo-qty="${linkedAmmo.id}">${linkedAmmo.qty}</span></span>`:''}
@@ -943,8 +946,15 @@ export function renderWeaponCard(w,idx,len){
       ${renderWeaponRollBtns(w,wm,true)}
     </div>
     <div class="space-y-1.5">
-      <div class="flex items-center justify-between gap-2">
-        <span class="text-[10px] font-extrabold t-mut uppercase tracking-wider">Schadenswerte</span>
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <div class="flex flex-wrap items-center gap-2">
+          <span class="text-[10px] font-extrabold t-mut uppercase tracking-wider">Schadenswerte</span>
+          <div class="inline-flex rounded-lg p-0.5 bg-black/25 border bdr-line text-[10px]" data-tip="Bestimmt, für welchen Schadenspool (LP oder mLP) diese Waffe im Würfelassistenten bei Trefferwürfen greift">
+            <button type="button" data-action="set-wp-dmgpool" data-id="${w.id}" data-pool="lp" class="px-2 py-0.5 rounded font-black transition-colors ${wPool==='lp'?'bg-rose-500/30 text-rose-200':'t-mut hover:text-white'}">❤️ LP</button>
+            <button type="button" data-action="set-wp-dmgpool" data-id="${w.id}" data-pool="mlp" class="px-2 py-0.5 rounded font-black transition-colors ${wPool==='mlp'?'bg-indigo-500/35 text-indigo-200':'t-mut hover:text-white'}">🧠 mLP</button>
+            <button type="button" data-action="set-wp-dmgpool" data-id="${w.id}" data-pool="both" class="px-2 py-0.5 rounded font-black transition-colors ${wPool==='both'?'bg-purple-500/35 text-purple-200':'t-mut hover:text-white'}">Beide</button>
+          </div>
+        </div>
         <button type="button" data-action="add-weapon-dmg" data-id="${w.id}" data-tip="Benutzerdefinierten Schadenswert hinzufügen (z.B. Energie, Feuer)" class="btn py-0.5 px-2 text-[11px]">+ Wert</button>
       </div>
       <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 tabular">
