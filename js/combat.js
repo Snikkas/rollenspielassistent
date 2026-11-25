@@ -224,17 +224,17 @@ export function evaluateThresholds(targetSheet, targetM, finalDmg, pool = 'lp'){
   const heavy = Math.max(1, toInt(isMlp ? thObj.traumaHeavy : thObj.woundHeavy, 9) + toInt(isMlp ? targetM?.traumaHeavy : targetM?.woundHeavy, 0));
   const kindWord = isMlp ? 'Trauma' : 'Verwundung';
   let level = 'none', label = '', thresholdVal = 0;
-  if(finalDmg >= heavy){
+  if(finalDmg > heavy){
     level = 'heavy';
-    label = isMlp ? `🔴 Schweres ${kindWord} (≥ ${heavy})` : `🔴 Schwere ${kindWord} (≥ ${heavy})`;
+    label = isMlp ? `🔴 Schweres ${kindWord} (> ${heavy})` : `🔴 Schwere ${kindWord} (> ${heavy})`;
     thresholdVal = heavy;
-  }else if(finalDmg >= medium){
+  }else if(finalDmg > medium){
     level = 'medium';
-    label = isMlp ? `🟠 Mittleres ${kindWord} (≥ ${medium})` : `🟠 Mittlere ${kindWord} (≥ ${medium})`;
+    label = isMlp ? `🟠 Mittleres ${kindWord} (> ${medium})` : `🟠 Mittlere ${kindWord} (> ${medium})`;
     thresholdVal = medium;
-  }else if(finalDmg >= light){
+  }else if(finalDmg > light){
     level = 'light';
-    label = isMlp ? `🟡 Leichtes ${kindWord} (≥ ${light})` : `🟡 Leichte ${kindWord} (≥ ${light})`;
+    label = isMlp ? `🟡 Leichtes ${kindWord} (> ${light})` : `🟡 Leichte ${kindWord} (> ${light})`;
     thresholdVal = light;
   }
   return { level, label, thresholdVal, light, medium, heavy, kindWord };
@@ -1009,8 +1009,8 @@ export function renderCombatDamageBox(){
   const thresholdSectionHtml = hideTarget
     ? `<div class="inline-flex flex-wrap items-center justify-center gap-1 px-2.5 py-1 rounded-lg border bdr-line bg-black/20 t-mut text-[10px] font-bold max-w-full">🔒 Verwundungsschwellen des Gegners verborgen (SL sieht Details im Schadensangebot)</div>`
     : `<div class="inline-flex flex-wrap items-center justify-center gap-1 px-2.5 py-1 rounded-lg border text-[11px] font-extrabold max-w-full ${thCls}">
-        ${th.label ? `<span>${esc(th.label)}</span>` : `<span>✓ Keine ${th.kindWord}sschwelle ausgelöst</span>`}
-        <span class="opacity-75 text-[10px]">(Stufen: ${th.light} / ${th.medium} / ${th.heavy})</span>
+        ${th.label ? `<span>${esc(th.label)}</span>` : `<span>✓ Keine ${th.kindWord}sschwelle überschritten</span>`}
+        <span class="opacity-75 text-[10px]">(Schwelle: &gt; ${th.light} / &gt; ${th.medium} / &gt; ${th.heavy})</span>
       </div>`;
 
   const canDirect = canDirectApplyCombatDamage(COMBAT.targetCharId);

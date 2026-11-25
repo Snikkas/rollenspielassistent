@@ -1253,7 +1253,7 @@ export function buildSecTip(key,M=null,sheet=S){
   const thNames={woundLight:'Verwundung (leicht)',woundMedium:'Verwundung (mittel)',woundHeavy:'Verwundung (schwer)',traumaLight:'Trauma (leicht)',traumaMedium:'Trauma (mittel)',traumaHeavy:'Trauma (schwer)'};
   if(thNames[key]){
     const base=toInt(sheet.thresholds[key],0),tot=base+(mods[key]||0),sl=fmtSrcLines(mods,key);
-    return `${thNames[key]} Gesamt: ${tot}\n• Basiswert: ${base}${sl?`\n${sl}`:''}`;
+    return `${thNames[key]} Gesamt: ${tot} (tritt ab ${tot+1} Schaden ein)\n• Basiswert: ${base}${sl?`\n${sl}`:''}`;
   }
   return '';
 }
