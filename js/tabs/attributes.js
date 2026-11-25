@@ -8,7 +8,7 @@ import {
   renderSystemIconHtml, S, isMobileLayout, UI
 } from '../state.js';
 import {
-  getStatusEffValues, getReservedTotals, getEffectivePoolCap, getReservedSrcList, calcActiveMods, buildAttrTip, buildSecTip, getTrCost, getResLabel, getAttrCol, getSecCol, getTrBonus, getAttrTot, getLpBase, getLpMax, getMlpBase, getMlpMax, getLpRegenAuto, getMlpRegenAuto, hasLpRegenOvr, hasMlpRegenOvr, getLpRegen, getMlpRegen, getIniBase, getIniTot, getApMax, getMapMax, getCresBase, getCresMax, getExtraSecBase, getBstAuto, hasBstOvr, getBstBase, getEffBst
+  getStatusEffValues, getReservedTotals, getEffectivePoolCap, getReservedSrcList, calcActiveMods, buildAttrTip, buildSecTip, getMentalArmorSummary, getTrCost, getResLabel, getAttrCol, getSecCol, getTrBonus, getAttrTot, getLpBase, getLpMax, getMlpBase, getMlpMax, getLpRegenAuto, getMlpRegenAuto, hasLpRegenOvr, hasMlpRegenOvr, getLpRegen, getMlpRegen, getIniBase, getIniTot, getApMax, getMapMax, getCresBase, getCresMax, getExtraSecBase, getBstAuto, hasBstOvr, getBstBase, getEffBst
 } from '../calc.js';
 import {
   renderRtfToolbarHtml
@@ -290,6 +290,7 @@ export function tplAttributes(){
       </div>`;
     }).join('')}</div>`;
   };
+  const mRsInfo=getMentalArmorSummary(M);
   const wL=toInt(S.thresholds.woundLight,0)+(M.woundLight||0), wM=toInt(S.thresholds.woundMedium,0)+(M.woundMedium||0), wH=toInt(S.thresholds.woundHeavy,0)+(M.woundHeavy||0);
   const tL=toInt(S.thresholds.traumaLight,0)+(M.traumaLight||0), tM=toInt(S.thresholds.traumaMedium,0)+(M.traumaMedium||0), tH=toInt(S.thresholds.traumaHeavy,0)+(M.traumaHeavy||0);
   const bstDelta0=bst-getBstAuto(), mv0=S.movements?.[0]||null;
@@ -387,6 +388,7 @@ export function tplAttributes(){
         </button>
         <span id="t1Prev_wound" class="px-2 py-0.5 rounded-md border text-[11px] font-black bg-black/20 tabular" style="color:${esc(getSecCol('lp'))};border-color:color-mix(in srgb,${esc(getSecCol('lp'))} 45%,var(--bdr))">Verw. ${wL}/${wM}/${wH}</span>
         <span id="t1Prev_trauma" class="px-2 py-0.5 rounded-md border text-[11px] font-black bg-black/20 tabular" style="color:${esc(getSecCol('mlp'))};border-color:color-mix(in srgb,${esc(getSecCol('mlp'))} 45%,var(--bdr))">Trauma ${tL}/${tM}/${tH}</span>
+        <span id="t1Prev_mRs" data-tip="${esc(mRsInfo.tip)}" class="px-2 py-0.5 rounded-md border border-indigo-400/50 bg-indigo-500/15 text-indigo-300 text-[11px] font-black cursor-help tabular ${mRsInfo.total?'':'hidden'}">🧠 mRS ${mRsInfo.total}</span>
       </div>
     </div>
     ${!thCol?`<div class="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4 tabular">${[['VERWUNDUNGSSCHWELLEN',getSecCol('lp'),[['woundLight','leicht','t-mut'],['woundMedium','mittel','text-amber-500'],['woundHeavy','schwer','text-rose-500']]],['TRAUMASCHWELLEN',getSecCol('mlp'),[['traumaLight','leicht','t-mut'],['traumaMedium','mittel','text-amber-500'],['traumaHeavy','schwer','text-indigo-400']]]].map(([h,hc,arr])=>`<div class="subcard p-3"><h4 class="text-xs font-extrabold tracking-wider mb-2" style="color:${esc(hc)}">${h}</h4><div class="grid grid-cols-3 gap-2 text-center">${arr.map(([k,l,c])=>{const b=toInt(S.thresholds[k],0),em=M[k]||0,eff=b+em,thTip=esc(buildSecTip(k,M));return `<div id="thBox_${k}" data-tip="${thTip}" class="rounded-lg border bdr-line bg-black/20 p-2 cursor-help min-w-0"><label class="block text-[11px] font-bold ${c} mb-1">${l} <span id="thEff_${k}" class="text-[10px] text-emerald-400 ${em?'':'hidden'}">(${b})</span></label><input id="thInp_${k}" data-th="${k}" type="text" inputmode="numeric" value="${eff}" class="inp w-full min-w-0 text-center text-lg font-black py-1 sm:py-0.5 ${em?'!border-emerald-500/60 text-emerald-300':''}"/></div>`;}).join('')}</div></div>`).join('')}</div>`:''}
@@ -417,6 +419,7 @@ export function tplAttributes(){
             <h3 class="text-sm sm:text-base font-extrabold cursor-pointer">Trefferzonen</h3>
           </button>
           ${M.armor?`<span class="tag">${fmtSign(M.armor)} RS</span>`:''}
+          <span id="t1Hz_mRs" data-tip="${esc(mRsInfo.tip)}" class="tag !border-indigo-400/55 !bg-indigo-500/15 !text-indigo-300 cursor-help ${mRsInfo.total?'':'hidden'}">🧠 ${mRsInfo.total} mRS</span>
           ${S.lastHzRoll!==null?`<span class="pill cursor-default text-amber-400 text-xs tabular">W100 = ${S.lastHzRoll}${hitHzObj?` • ${esc(hitHzObj.zone)}`:''}</span>`:''}
         </div>
         <div class="flex flex-wrap items-center gap-1.5 shrink-0">

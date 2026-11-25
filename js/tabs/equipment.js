@@ -2,7 +2,7 @@ import {
   ATTRS, SK_RANKS, BIO_FIELDS, WEAPON_SUBTYPES, DEF_EQ_SEC_ORDER
 } from '../constants.js';
 import {
-  $, uid, esc, clone, fmtSign, stripHtml, toRtfHtml, cardColorStyle, hasTagX, fmtTagLabel, canSetSecParent
+  $, uid, esc, clone, toInt, fmtSign, stripHtml, toRtfHtml, cardColorStyle, hasTagX, fmtTagLabel, canSetSecParent
 } from '../utils.js';
 import {
   hooks
@@ -11,7 +11,7 @@ import {
   openCtxMenu, toast, save, getWeaponSubtype, fmtCustomValSummarySuffix, renderLinkedAmmoCustomDmgHtml, isWeaponMassiv, S, D, isMobileLayout, UI
 } from '../state.js';
 import {
-  invalidateModsCache, calcActiveMods, getAdvDisForContext, getWeaponRollMeta, getTagDesc, fmtAdvSrcLines, getAttrTot, getSkBonus, findEqItem
+  invalidateModsCache, calcActiveMods, getAdvDisForContext, getWeaponRollMeta, getTagDesc, fmtAdvSrcLines, getAttrTot, getSkBonus, findEqItem, getMentalArmorSummary
 } from '../calc.js';
 import {
   applyDiceAutoAdvDis, syncDiceFromSheet, renderDice
@@ -1018,11 +1018,13 @@ export function renderArmorCard(ar,idx,len,hzNames){
     <button type="button" data-action="toggle-ar-eq" data-id="${ar.id}" data-tip="Rüstung an-/ablegen (steuert aktive Rüstungs-Tags bei Proben)" class="btn h-8 sm:h-7 px-2 text-[11px] font-extrabold shrink-0 whitespace-nowrap ${isEq?'btn-ok':'opacity-65'}">${isEq?'✓<span class="hidden sm:inline"> Angelegt</span>':'○<span class="hidden sm:inline"> Abgelegt</span>'}</button>
     ${renderEqItemMenuBtn('armor',ar.id)}
   </div>`;
+  const mProtVal=toInt(ar.mentalProt,0);
   if(ar.collapsed){
     return `<div data-eqitem="armor:${ar.id}" class="subcard py-2 px-2.5 sm:px-3 border-emerald-500/30 space-y-1.5 min-w-0" ${winStyle}>
       ${hdrRow}
       <div class="flex flex-wrap items-center gap-1.5 tabular min-w-0">
         <span class="pill cursor-default text-[11px] py-0.5 px-2 text-emerald-400 font-black">gRP ${esc(ar.grp)}</span>
+        ${mProtVal?`<span class="pill cursor-default text-[11px] py-0.5 px-2 border-indigo-400/50 bg-indigo-500/15 text-indigo-300 font-black">🧠 mRS ${esc(ar.mentalProt)}</span>`:''}
         <span class="pill cursor-default text-[11px] py-0.5 px-2 max-w-full whitespace-normal break-words">Schnitt ${esc(ar.protCut)} • Durchstoß ${esc(ar.protPierce)} • Einschlag ${esc(ar.protImpact)}${fmtCustomValSummarySuffix(ar.customProt)}</span>
         ${(ar.zones||[]).length?`<span class="pill cursor-default text-[11px] py-0.5 px-2 max-w-full whitespace-normal break-words">🎯 ${esc(ar.zones.join(', '))}</span>`:''}
       </div>
@@ -1035,8 +1037,9 @@ export function renderArmorCard(ar,idx,len,hzNames){
         <span class="text-[10px] font-extrabold text-emerald-400 uppercase tracking-wider">Schutzwerte</span>
         <button type="button" data-action="add-armor-prot" data-id="${ar.id}" data-tip="Benutzerdefinierten Schutzwert hinzufügen (z.B. Energie, Feuer)" class="btn py-0.5 px-2 text-[11px]">+ Wert</button>
       </div>
-      <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 tabular">
-        <div class="min-w-0 p-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/40"><label class="block text-[10px] font-extrabold text-emerald-400 text-center mb-0.5" data-tip="Generelle Rüstungspunkte (gRP)">gRP</label><input data-arf="${ar.id}:grp" type="text" value="${esc(ar.grp)}" placeholder="0" class="inp w-full min-w-0 text-center font-black py-1 px-1.5 text-xs border-emerald-500/50"/></div>
+      <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 tabular">
+        <div class="min-w-0 p-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/40"><label class="block text-[10px] font-extrabold text-emerald-400 text-center mb-0.5" data-tip="Generelle Rüstungspunkte (gRP) gegen physischen Schaden">gRP</label><input data-arf="${ar.id}:grp" type="text" value="${esc(ar.grp)}" placeholder="0" class="inp w-full min-w-0 text-center font-black py-1 px-1.5 text-xs border-emerald-500/50"/></div>
+        <div class="min-w-0 p-1.5 rounded-lg bg-indigo-500/10 border border-indigo-400/45"><label class="block text-[10px] font-extrabold text-indigo-300 text-center mb-0.5" data-tip="Mentaler Rüstungsschutz (mRS) gegen mLP-Schaden – wirkt bei angelegter Rüstung global, unabhängig von Trefferzonen">🧠 Ment. RS</label><input data-arf="${ar.id}:mentalProt" type="text" value="${esc(ar.mentalProt??'0')}" placeholder="0" class="inp w-full min-w-0 text-center font-black py-1 px-1.5 text-xs border-indigo-400/50 text-indigo-200"/></div>
         <div class="min-w-0 p-1.5 rounded-lg bg-black/20 border bdr-line"><label class="block text-[10px] font-bold t-mut text-center mb-0.5" data-tip="Rüstung gegen Schnitt">Schnitt</label><input data-arf="${ar.id}:protCut" type="text" value="${esc(ar.protCut)}" placeholder="0" class="inp w-full min-w-0 text-center font-black py-1 px-1.5 text-xs"/></div>
         <div class="min-w-0 p-1.5 rounded-lg bg-black/20 border bdr-line"><label class="block text-[10px] font-bold t-mut text-center mb-0.5" data-tip="Rüstung gegen Durchstoß">Durchstoß</label><input data-arf="${ar.id}:protPierce" type="text" value="${esc(ar.protPierce)}" placeholder="0" class="inp w-full min-w-0 text-center font-black py-1 px-1.5 text-xs"/></div>
         <div class="min-w-0 p-1.5 rounded-lg bg-black/20 border bdr-line"><label class="block text-[10px] font-bold t-mut text-center mb-0.5" data-tip="Rüstung gegen Einschlag">Einschlag</label><input data-arf="${ar.id}:protImpact" type="text" value="${esc(ar.protImpact)}" placeholder="0" class="inp w-full min-w-0 text-center font-black py-1 px-1.5 text-xs"/></div>
@@ -1185,8 +1188,10 @@ export function renderEquipCategorySec(secKey,secIdx,totalSecs,hzNames,eqH){
     </section>`;
   }
   if(secKey==='armors'){
+    const mRs=getMentalArmorSummary();
+    const mRsBadge=mRs.total?`<span id="eqMentalArmorPill" data-tip="${esc(mRs.tip)}" class="ml-1.5 px-2 py-0.5 rounded-md border border-indigo-400/50 bg-indigo-500/15 text-indigo-300 text-[11px] font-black cursor-help tabular">🧠 mRS ${mRs.total}</span>`:`<span id="eqMentalArmorPill" class="hidden"></span>`;
     return `<section data-eqsec="armors" class="card p-3 sm:p-4 space-y-3 min-w-0" ${winStyle}>
-      ${hdrCommon(`<span class="${meta.color?'':'text-emerald-400'}">🛡️ Rüstungen (${S.armors.length})</span>`,`<button type="button" data-action="add-armor" class="btn border-emerald-400/60 text-emerald-400 py-1 px-2.5 text-xs">+ Rüstung</button>`)}
+      ${hdrCommon(`<span class="${meta.color?'':'text-emerald-400'}">🛡️ Rüstungen (${S.armors.length})</span>${mRsBadge}`,`<button type="button" data-action="add-armor" class="btn border-emerald-400/60 text-emerald-400 py-1 px-2.5 text-xs">+ Rüstung</button>`)}
       ${!meta.collapsed?(!S.armors.length?`<div class="py-3 text-center text-xs t-mut">Noch keine Rüstungen eingetragen.</div>`:`<div class="space-y-2.5">${S.armors.map((ar,i)=>renderArmorCard(ar,i,S.armors.length,hzNames)).join('')}</div>`):''}
     </section>`;
   }

@@ -149,70 +149,101 @@ export function matchHitZoneByRoll(hitZones, roll){
 }
 
 export function getTargetZoneArmor(targetSheet, targetM, zoneName, dmgOpt, pool = 'lp'){
+  const isMlp = pool === 'mlp';
   const znLow = String(zoneName || '').trim().toLowerCase();
   const pieces = [];
   let pieceSum = 0;
-  if(targetSheet && znLow){
+  if(targetSheet){
     const equipped = (targetSheet.armors || []).filter(ar => ar && ar.equipped !== false);
-    equipped.forEach(ar => {
-      const zList = [...(Array.isArray(ar.zones) ? ar.zones : []), ...(Array.isArray(ar.extraZones) ? ar.extraZones : [])]
-        .map(z => String(z || '').trim().toLowerCase())
-        .filter(Boolean);
-      if(!zList.includes(znLow)) return;
-      const arName = String(ar.name || '').trim() || 'Rüstung';
-      const grp = pool === 'mlp' ? 0 : toInt(ar.grp, 0);
-      let spec = 0;
-      let specDesc = '';
-      if(dmgOpt?.key === 'cut'){
-        spec = toInt(ar.protCut, 0);
-        specDesc = `Schnitt ${spec}`;
-      }else if(dmgOpt?.key === 'pierce'){
-        spec = toInt(ar.protPierce, 0);
-        specDesc = `Durchstoß ${spec}`;
-      }else if(dmgOpt?.key === 'impact'){
-        spec = toInt(ar.protImpact, 0);
-        specDesc = `Einschlag ${spec}`;
-      }else if(dmgOpt?.key === 'impact_cut'){
-        const pC = toInt(ar.protCut, 0), pI = toInt(ar.protImpact, 0);
-        spec = Math.min(pC, pI);
-        specDesc = `min(Einschlag ${pI}, Schnitt ${pC})`;
-      }else if(dmgOpt?.key === 'impact_pierce'){
-        const pP = toInt(ar.protPierce, 0), pI = toInt(ar.protImpact, 0);
-        spec = Math.min(pP, pI);
-        specDesc = `min(Einschlag ${pI}, Durchstoß ${pP})`;
-      }else if(dmgOpt?.isCustom){
-        const cLow = String(dmgOpt.customLabel || '').trim().toLowerCase();
-        spec = (Array.isArray(ar.customProt) ? ar.customProt : [])
-          .filter(cp => String(cp?.label || '').trim().toLowerCase() === cLow)
-          .reduce((acc, cp) => acc + toInt(cp?.val, 0), 0);
-        specDesc = `${dmgOpt.customLabel} ${spec}`;
-      }
-      const tot = grp + spec;
-      pieceSum += tot;
-      pieces.push({
-        id: ar.id,
-        name: arName,
-        grp,
-        spec,
-        specDesc,
-        total: tot,
-        detail: grp > 0 ? `${arName} (gRP ${grp} + ${specDesc} = ${tot})` : `${arName} (${specDesc} = ${tot})`
+    if(isMlp){
+      equipped.forEach(ar => {
+        const arName = String(ar.name || '').trim() || 'Rüstung';
+        const mProt = toInt(ar.mentalProt, 0);
+        let customSpec = 0;
+        if(dmgOpt?.isCustom){
+          const cLow = String(dmgOpt.customLabel || '').trim().toLowerCase();
+          customSpec = (Array.isArray(ar.customProt) ? ar.customProt : [])
+            .filter(cp => String(cp?.label || '').trim().toLowerCase() === cLow)
+            .reduce((acc, cp) => acc + toInt(cp?.val, 0), 0);
+        }
+        const tot = mProt + customSpec;
+        if(!tot) return;
+        pieceSum += tot;
+        const specDesc = customSpec
+          ? `Ment. RS ${mProt} + ${dmgOpt.customLabel} ${customSpec}`
+          : `Ment. RS ${mProt}`;
+        pieces.push({
+          id: ar.id,
+          name: arName,
+          grp: 0,
+          spec: tot,
+          specDesc,
+          total: tot,
+          detail: `${arName} (${specDesc} = ${tot})`
+        });
       });
-    });
+    }else if(znLow){
+      equipped.forEach(ar => {
+        const zList = [...(Array.isArray(ar.zones) ? ar.zones : []), ...(Array.isArray(ar.extraZones) ? ar.extraZones : [])]
+          .map(z => String(z || '').trim().toLowerCase())
+          .filter(Boolean);
+        if(!zList.includes(znLow)) return;
+        const arName = String(ar.name || '').trim() || 'Rüstung';
+        const grp = toInt(ar.grp, 0);
+        let spec = 0;
+        let specDesc = '';
+        if(dmgOpt?.key === 'cut'){
+          spec = toInt(ar.protCut, 0);
+          specDesc = `Schnitt ${spec}`;
+        }else if(dmgOpt?.key === 'pierce'){
+          spec = toInt(ar.protPierce, 0);
+          specDesc = `Durchstoß ${spec}`;
+        }else if(dmgOpt?.key === 'impact'){
+          spec = toInt(ar.protImpact, 0);
+          specDesc = `Einschlag ${spec}`;
+        }else if(dmgOpt?.key === 'impact_cut'){
+          const pC = toInt(ar.protCut, 0), pI = toInt(ar.protImpact, 0);
+          spec = Math.min(pC, pI);
+          specDesc = `min(Einschlag ${pI}, Schnitt ${pC})`;
+        }else if(dmgOpt?.key === 'impact_pierce'){
+          const pP = toInt(ar.protPierce, 0), pI = toInt(ar.protImpact, 0);
+          spec = Math.min(pP, pI);
+          specDesc = `min(Einschlag ${pI}, Durchstoß ${pP})`;
+        }else if(dmgOpt?.isCustom){
+          const cLow = String(dmgOpt.customLabel || '').trim().toLowerCase();
+          spec = (Array.isArray(ar.customProt) ? ar.customProt : [])
+            .filter(cp => String(cp?.label || '').trim().toLowerCase() === cLow)
+            .reduce((acc, cp) => acc + toInt(cp?.val, 0), 0);
+          specDesc = `${dmgOpt.customLabel} ${spec}`;
+        }
+        const tot = grp + spec;
+        pieceSum += tot;
+        pieces.push({
+          id: ar.id,
+          name: arName,
+          grp,
+          spec,
+          specDesc,
+          total: tot,
+          detail: grp > 0 ? `${arName} (gRP ${grp} + ${specDesc} = ${tot})` : `${arName} (${specDesc} = ${tot})`
+        });
+      });
+    }
   }
-  const globalMod = pool === 'mlp' ? 0 : toInt(targetM?.armor, 0);
+  const globalMod = isMlp ? toInt(targetM?.mentalArmor, 0) : toInt(targetM?.armor, 0);
   const manualMod = toInt(COMBAT.armorMod, 0);
   const total = Math.max(0, pieceSum + globalMod + manualMod);
   const detailParts = pieces.map(p => p.detail);
-  if(globalMod) detailParts.push(`Effekte ${fmtSign(globalMod)}`);
+  if(globalMod) detailParts.push(`${isMlp ? 'Effekte (Ment. RS)' : 'Effekte'} ${fmtSign(globalMod)}`);
   if(manualMod) detailParts.push(`Mod ${fmtSign(manualMod)}`);
   return {
+    isMental: isMlp,
     pieces,
     pieceSum,
     globalMod,
     manualMod,
     total,
-    detailText: detailParts.length ? detailParts.join(' • ') : (targetSheet ? 'Keine Rüstung auf dieser Zone (0)' : 'Kein Zielbogen (0)')
+    detailText: detailParts.length ? detailParts.join(' • ') : (targetSheet ? (isMlp ? 'Keine mentale Rüstung (0)' : 'Keine Rüstung auf dieser Zone (0)') : 'Kein Zielbogen (0)')
   };
 }
 
@@ -281,7 +312,7 @@ export function calculateCombatDamage(){
   if(verheerendBonus) parts.push(`+ ${verheerendBonus} Verheerend`);
   if(dmgMod) parts.push(`${dmgMod > 0 ? '+' : '−'} ${Math.abs(dmgMod)} Mod`);
   if(blockRed) parts.push(`− ${blockRed} Block`);
-  if(armor.total) parts.push(`− ${armor.total} Rüstung`);
+  if(armor.total) parts.push(`− ${armor.total} ${pool === 'mlp' ? 'Ment. Rüstung' : 'Rüstung'}`);
   const poolLbl = pool === 'mlp' ? 'mLP' : 'LP';
   let formula = `${parts.join(' ')} = ${afterArmor} ${poolLbl}`;
   if(durchschlagApplied){
@@ -987,22 +1018,23 @@ export function renderCombatDamageBox(){
     ? `<div class="text-[10px] font-extrabold px-2 py-1 rounded-lg border tabular ${calc.verheerendBonus ? 'border-orange-400/60 bg-orange-500/20 text-orange-200' : 'bdr-line bg-black/20 t-mut'}">🔥 Verheerend (${calc.verheerendX}): ${calc.verheerendBonus ? `+${calc.verheerendBonus} Schaden aktiv (${calc.eg} ≥ 5 EG)` : `inaktiv (${calc.eg} < 5 EG)`}</div>`
     : '';
 
+  const isMlpPool = calc.pool === 'mlp';
   const armorRowsHtml = calc.armor.pieces.length
-    ? calc.armor.pieces.map(p => `<div class="flex items-center justify-between gap-2 text-[11px] tabular min-w-0"><span class="truncate font-bold">${esc(p.name)}</span><span class="t-mut shrink-0">${p.grp ? `gRP ${p.grp} + ` : ''}${esc(p.specDesc)} = <strong class="text-emerald-300">${p.total}</strong></span></div>`).join('')
-    : `<div class="text-[11px] t-mut">${calc.targetSheet ? `Keine angelegte Rüstung deckt „${esc(calc.zoneName)}“ ab.` : 'Kein Ziel-Charakterbogen gewählt (Rüstung über ± manuell anpassbar).'}</div>`;
+    ? calc.armor.pieces.map(p => `<div class="flex items-center justify-between gap-2 text-[11px] tabular min-w-0"><span class="truncate font-bold">${esc(p.name)}</span><span class="t-mut shrink-0">${p.grp ? `gRP ${p.grp} + ` : ''}${esc(p.specDesc)} = <strong class="${isMlpPool ? 'text-indigo-300' : 'text-emerald-300'}">${p.total}</strong></span></div>`).join('')
+    : `<div class="text-[11px] t-mut">${calc.targetSheet ? (isMlpPool ? 'Keine angelegte Rüstung bietet mentalen Schutz (mRS).' : `Keine angelegte Rüstung deckt „${esc(calc.zoneName)}“ ab.`) : 'Kein Ziel-Charakterbogen gewählt (Rüstung über ± manuell anpassbar).'}</div>`;
 
   const armorSectionHtml = hideTarget
     ? `<div class="p-2 rounded-lg bg-black/25 border bdr-line flex items-center justify-between gap-2 text-[11px] t-mut min-w-0">
-        <span class="font-bold text-emerald-300/90">🛡️ Rüstung (${esc(calc.zoneName)})</span>
+        <span class="font-bold ${isMlpPool ? 'text-indigo-300/90' : 'text-emerald-300/90'}">${isMlpPool ? '🧠 Mentale Rüstung' : `🛡️ Rüstung (${esc(calc.zoneName)})`}</span>
         <span class="text-[10px] font-semibold">🔒 Automatisch verrechnet (Details verborgen)</span>
       </div>`
-    : `<div class="p-2 rounded-lg bg-black/25 border bdr-line space-y-1 min-w-0">
+    : `<div class="p-2 rounded-lg bg-black/25 border ${isMlpPool ? 'border-indigo-400/35' : 'bdr-line'} space-y-1 min-w-0">
         <div class="flex items-center justify-between gap-2 text-[10px] font-extrabold">
-          <span class="text-emerald-300 uppercase tracking-wider">🛡️ Rüstung (${esc(calc.zoneName)} • ${esc(calc.selOpt.shortLabel || calc.selOpt.label)})</span>
-          <span class="text-emerald-300 tabular">Gesamt: ${calc.armor.total}</span>
+          <span class="${isMlpPool ? 'text-indigo-300' : 'text-emerald-300'} uppercase tracking-wider">${isMlpPool ? '🧠 Mentale Rüstung (global)' : `🛡️ Rüstung (${esc(calc.zoneName)} • ${esc(calc.selOpt.shortLabel || calc.selOpt.label)})`}</span>
+          <span class="${isMlpPool ? 'text-indigo-300' : 'text-emerald-300'} tabular">Gesamt: ${calc.armor.total}</span>
         </div>
         ${armorRowsHtml}
-        ${calc.armor.globalMod ? `<div class="flex items-center justify-between gap-2 text-[11px] tabular"><span class="t-mut">Aktive Effekte (Rüstungsschutz)</span><span class="font-bold text-emerald-300">${fmtSign(calc.armor.globalMod)}</span></div>` : ''}
+        ${calc.armor.globalMod ? `<div class="flex items-center justify-between gap-2 text-[11px] tabular"><span class="t-mut">Aktive Effekte (${isMlpPool ? 'Mentale Rüstung' : 'Rüstungsschutz'})</span><span class="font-bold ${isMlpPool ? 'text-indigo-300' : 'text-emerald-300'}">${fmtSign(calc.armor.globalMod)}</span></div>` : ''}
         ${calc.armor.manualMod ? `<div class="flex items-center justify-between gap-2 text-[11px] tabular"><span class="t-mut">Manueller Rüstungs-Mod</span><span class="font-bold">${fmtSign(calc.armor.manualMod)}</span></div>` : ''}
       </div>`;
 
