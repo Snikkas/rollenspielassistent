@@ -43,7 +43,7 @@ export const isWeaponMassiv=w=>Array.isArray(w?.tags)&&w.tags.some(t=>String(t?.
 export const makeWeapon=(wType='melee')=>({id:uid(),name:'',color:'',bgColor:'',collapsed:false,img:'',wType:normWeaponType(wType),wAttr:'PR',skillId:'',grip:'',ammoId:'',dmgCut:'0',dmgPierce:'0',dmgImpact:'0',customDmg:[],tags:[],notes:''});
 export const makeAmmo=(name='',qty=20)=>({id:uid(),name,color:'',bgColor:'',collapsed:false,img:'',qty:toInt(qty,20),dmgCut:'0',dmgPierce:'0',dmgImpact:'0',customDmg:[],tags:[],notes:''});
 export const makeArmor=()=>({id:uid(),name:'',color:'',bgColor:'',collapsed:false,equipped:true,img:'',grp:'0',protCut:'0',protPierce:'0',protImpact:'0',mentalProt:'0',customProt:[],zones:[],extraZones:[],tags:[],notes:''});
-export const makeInvItem=(secId='')=>({id:uid(),name:'',color:'',bgColor:'',collapsed:false,img:'',category:'Inventar',qty:'1',notes:'',sectionId:String(secId||'')});
+export const makeInvItem=(secId='')=>({id:uid(),name:'',color:'',bgColor:'',collapsed:false,img:'',category:'Inventar',qty:'1',notes:'',sectionId:String(secId||''),linkedEq:null});
 export const makeEqSecMeta=()=>({weapons:{collapsed:false,color:'',bgColor:''},ammos:{collapsed:false,color:'',bgColor:''},armors:{collapsed:false,color:'',bgColor:''},inventory:{collapsed:false,color:'',bgColor:''}});
 export const makeChrSecMeta=()=>({training:{collapsed:false,color:'',bgColor:''},skills:{collapsed:false,color:'',bgColor:''},powers:{collapsed:false,color:'',bgColor:''}});
 export const makeBaseSection=(parentSectionId='',extra={})=>({id:uid(),name:'Neue Sektion',color:'',bgColor:'',collapsed:false,...extra,parentSectionId:String(parentSectionId||'')});
@@ -1390,7 +1390,14 @@ function normalizeSheetObject(raw, { isForeign = false } = {}){
   sheet.weapons.forEach(w=>{if(w.ammoId&&!sheet.ammos.some(a=>a.id===w.ammoId))w.ammoId='';});
   sheet.invSections=Array.isArray(raw.invSections)?raw.invSections.map(sec=>({id:sec?.id||uid(),name:String(sec?.name||'Neuer Beutel'),color:isHex(sec?.color)?sec.color:'',bgColor:isHex(sec?.bgColor)?sec.bgColor:'',collapsed:Boolean(sec?.collapsed),parentSectionId:String(sec?.parentSectionId||'')})):[];
   sanitizeSecHierarchy(sheet.invSections);
-  sheet.inventory=Array.isArray(raw.inventory)?raw.inventory.map(it=>{const sid=(it?.sectionId&&sheet.invSections.some(s=>s.id===it.sectionId))?String(it.sectionId):'';return {...makeInvItem(sid),...(it||{}),id:it?.id||uid(),color:isHex(it?.color)?it.color:'',bgColor:isHex(it?.bgColor)?it.bgColor:'',collapsed:Boolean(it?.collapsed),img:String(it?.img||''),name:String(it?.name||''),category:String(it?.category||'Inventar'),qty:String(it?.qty??'1'),notes:String(it?.notes||''),sectionId:sid};}):def.inventory;
+  sheet.inventory=Array.isArray(raw.inventory)?raw.inventory.map(it=>{
+    const sid=(it?.sectionId&&sheet.invSections.some(s=>s.id===it.sectionId))?String(it.sectionId):'';
+    const rawLnk=(it?.linkedEq&&typeof it.linkedEq==='object'&&['weapon','armor','ammo'].includes(it.linkedEq.kind)&&String(it.linkedEq.id||'').trim())
+      ?{kind:it.linkedEq.kind,id:String(it.linkedEq.id).trim()}
+      :null;
+    return {...makeInvItem(sid),...(it||{}),id:it?.id||uid(),color:isHex(it?.color)?it.color:'',bgColor:isHex(it?.bgColor)?it.bgColor:'',collapsed:Boolean(it?.collapsed),img:String(it?.img||''),name:String(it?.name||''),category:String(it?.category||'Inventar'),qty:String(it?.qty??'1'),notes:String(it?.notes||''),sectionId:sid,linkedEq:rawLnk};
+  }):def.inventory;
+  syncEquipmentToInventory(sheet);
   sheet.bioImages=Array.isArray(raw.bioImages)?raw.bioImages.filter(im=>im&&im.url).map(im=>({id:im.id||uid(),url:String(im.url),caption:String(im.caption||'')})):[];
   sheet.bioBoxH={...def.bioBoxH,...(raw.bioBoxH&&typeof raw.bioBoxH==='object'?raw.bioBoxH:{})};
   const rawFolders=Array.isArray(raw.campNoteFolders)?raw.campNoteFolders:[];
@@ -1438,6 +1445,130 @@ function normalizeSheetObject(raw, { isForeign = false } = {}){
   }
   if(!sheet.campaignNotes.some(n=>n.id===sheet.activeCampNoteId)) sheet.activeCampNoteId=sheet.campaignNotes[0].id;
   return { sheet, sheetFallbackAppearance, sheetFallbackPalettes };
+}
+
+const AUTO_INV_CATS=new Set(['','inventar','waffe','nahkampfwaffe','fernkampfwaffe','rüstung','munition']);
+export function hasEquipmentContent(kind,src){
+  if(!src||typeof src!=='object') return false;
+  if(String(src.name||'').trim()||String(src.notes||'').trim()||String(src.img||'').trim()) return true;
+  if(Array.isArray(src.tags)&&src.tags.length) return true;
+  if(kind==='ammo') return true;
+  if(kind==='weapon'){
+    const nonZero=v=>{const s=String(v??'').trim();return Boolean(s&&s!=='0'&&s!=='-');};
+    return Boolean(src.grip||src.ammoId||src.skillId||nonZero(src.dmgCut)||nonZero(src.dmgPierce)||nonZero(src.dmgImpact)||(Array.isArray(src.customDmg)&&src.customDmg.length));
+  }
+  if(kind==='armor'){
+    const nonZero=v=>{const s=String(v??'').trim();return Boolean(s&&s!=='0'&&s!=='-');};
+    return Boolean(nonZero(src.grp)||nonZero(src.protCut)||nonZero(src.protPierce)||nonZero(src.protImpact)||nonZero(src.mentalProt)||(Array.isArray(src.zones)&&src.zones.length)||(Array.isArray(src.customProt)&&src.customProt.length));
+  }
+  return false;
+}
+export function syncEquipmentToInventory(sheet=S,{forceKeys=null}={}){
+  if(!sheet||typeof sheet!=='object') return false;
+  if(!Array.isArray(sheet.inventory)) sheet.inventory=[];
+  const forceSet=forceKeys instanceof Set?forceKeys:(Array.isArray(forceKeys)?new Set(forceKeys):null);
+  const sources=[];
+  const validKeys=new Set();
+  (sheet.weapons||[]).forEach(w=>{
+    if(!w||!w.id) return;
+    const key=`weapon:${w.id}`;
+    validKeys.add(key);
+    sources.push({
+      kind:'weapon',id:w.id,key,src:w,
+      cat:w.wType==='ranged'?'Fernkampfwaffe':'Nahkampfwaffe',
+      qty:'1',syncQty:false
+    });
+  });
+  (sheet.armors||[]).forEach(ar=>{
+    if(!ar||!ar.id) return;
+    const key=`armor:${ar.id}`;
+    validKeys.add(key);
+    sources.push({
+      kind:'armor',id:ar.id,key,src:ar,
+      cat:'Rüstung',
+      qty:'1',syncQty:false
+    });
+  });
+  (sheet.ammos||[]).forEach(am=>{
+    if(!am||!am.id) return;
+    const key=`ammo:${am.id}`;
+    validKeys.add(key);
+    sources.push({
+      kind:'ammo',id:am.id,key,src:am,
+      cat:'Munition',
+      qty:String(Math.max(0,toInt(am.qty,0))),syncQty:true
+    });
+  });
+
+  let changed=false;
+  const seenLinked=new Set();
+  const nextInv=[];
+  sheet.inventory.forEach(it=>{
+    if(!it||typeof it!=='object') return;
+    if(it.linkedEq&&typeof it.linkedEq==='object'){
+      const k=`${it.linkedEq.kind}:${it.linkedEq.id}`;
+      if(!validKeys.has(k)||seenLinked.has(k)){
+        changed=true;
+        return;
+      }
+      seenLinked.add(k);
+    }
+    nextInv.push(it);
+  });
+  if(nextInv.length!==sheet.inventory.length){
+    sheet.inventory=nextInv;
+  }
+
+  sources.forEach(entry=>{
+    const {kind,id,key,src,cat,qty,syncQty}=entry;
+    let inv=sheet.inventory.find(it=>it?.linkedEq&&it.linkedEq.kind===kind&&it.linkedEq.id===id)||null;
+    const shouldExist=Boolean(inv||(forceSet&&forceSet.has(key))||hasEquipmentContent(kind,src));
+    if(!shouldExist) return;
+    const srcName=String(src.name||'');
+    const srcNameLow=srcName.trim().toLowerCase();
+    if(!inv&&srcNameLow){
+      const matchUnlinked=sheet.inventory.find(it=>it&&!it.linkedEq&&String(it.name||'').trim().toLowerCase()===srcNameLow);
+      if(matchUnlinked){
+        matchUnlinked.linkedEq={kind,id};
+        inv=matchUnlinked;
+        changed=true;
+      }
+    }
+    if(!inv){
+      inv={
+        ...makeInvItem(''),
+        name:srcName,
+        category:cat,
+        qty,
+        notes:String(src.notes||''),
+        img:String(src.img||''),
+        color:isHex(src.color)?src.color:'',
+        bgColor:isHex(src.bgColor)?src.bgColor:'',
+        collapsed:true,
+        linkedEq:{kind,id}
+      };
+      sheet.inventory.push(inv);
+      changed=true;
+      return;
+    }
+    if(inv.name!==srcName){inv.name=srcName;changed=true;}
+    const curCatLow=String(inv.category||'').trim().toLowerCase();
+    if(AUTO_INV_CATS.has(curCatLow)&&inv.category!==cat){inv.category=cat;changed=true;}
+    if(syncQty){
+      if(String(inv.qty??'')!==qty){inv.qty=qty;changed=true;}
+    }else if(!String(inv.qty??'').trim()){
+      inv.qty=qty;changed=true;
+    }
+    const srcNotes=String(src.notes||'');
+    if(inv.notes!==srcNotes){inv.notes=srcNotes;changed=true;}
+    const srcImg=String(src.img||'');
+    if(inv.img!==srcImg){inv.img=srcImg;changed=true;}
+    const srcCol=isHex(src.color)?src.color:'';
+    if(inv.color!==srcCol){inv.color=srcCol;changed=true;}
+    const srcBg=isHex(src.bgColor)?src.bgColor:'';
+    if(inv.bgColor!==srcBg){inv.bgColor=srcBg;changed=true;}
+  });
+  return changed;
 }
 
 export function normalizeForeignSheet(raw){

@@ -8,7 +8,7 @@ import {
   registerHooks
 } from './ui-hooks.js';
 import {
-  syncPwUseCostsLegacy, makeDefaultStatusEffects, defaultState, setS, setD, clearDiceLogs, syncBodyScrollLock, positionFloatingMenu, closeCtxMenu, closePwDropdown, repositionOpenPwMenus, hydrateWinPrefs, saveWinPref, clearWinPref, applyWinFrame, setPwMode, normalizeCampaigns, normalizeEnemyMeta, getUserBgLocalKey, getCampaigns, setActiveCampaign, canManageCampaign, canClearLiveDice, getCreatableCampaigns, isEnemySheet, getEnemyMeta, canToggleEnemyStatus, canManageEnemySheet, canViewEnemySheet, ensureAllRegistryUsers, findUserKeyByName, findUserKeyById, getUserAvatar, canViewUserProfile, saveRegistryLocal, saveSecretRollsLocal, getActiveLiveCampaignId, captureScrollState, restoreScrollState, toast, triggerNiceEasterEgg, logChron, mergeLoaded, saveLastActiveTab, save, flushPendingSave, saveSoon, load, flushThemePrefsSync, cancelThemePrefsSync, applySessionTheme, persistCurrentThemeChange, syncPalDraftFromSlot, applyTheme, CUSTOM_ICONS, findMainArt, findActionSub, isReservedPwTerm, isWeaponMassiv, makeWeapon, makeAmmo, makeArmor, makeInvItem, makeEqSecMeta, makeChrSecMeta, makeSection, makeSkSection, makeInvSection, makePower, makeAugment, S, D, CN, LD, FBW, DUEL, COMBAT, isMobileLayout, CTX_MENU, getWinState, hasSavedWinPref, savedEffRanges, savedPwRanges, lastPwFieldById, pwQuickKey, UI, LIVE_TAB_ID, PATCHNOTES, FEEDBACK, CLOUD, CLOUD_SYNC, PWLIB, getCharOwner, getCharCampaignId, canManageChar, getEditStyleSlot
+  syncPwUseCostsLegacy, makeDefaultStatusEffects, defaultState, setS, setD, clearDiceLogs, syncBodyScrollLock, positionFloatingMenu, closeCtxMenu, closePwDropdown, repositionOpenPwMenus, hydrateWinPrefs, saveWinPref, clearWinPref, applyWinFrame, setPwMode, normalizeCampaigns, normalizeEnemyMeta, getUserBgLocalKey, getCampaigns, setActiveCampaign, canManageCampaign, canClearLiveDice, getCreatableCampaigns, isEnemySheet, getEnemyMeta, canToggleEnemyStatus, canManageEnemySheet, canViewEnemySheet, ensureAllRegistryUsers, findUserKeyByName, findUserKeyById, getUserAvatar, canViewUserProfile, saveRegistryLocal, saveSecretRollsLocal, getActiveLiveCampaignId, captureScrollState, restoreScrollState, toast, triggerNiceEasterEgg, logChron, mergeLoaded, saveLastActiveTab, save, flushPendingSave, saveSoon, load, flushThemePrefsSync, cancelThemePrefsSync, applySessionTheme, persistCurrentThemeChange, syncPalDraftFromSlot, applyTheme, CUSTOM_ICONS, findMainArt, findActionSub, isReservedPwTerm, isWeaponMassiv, makeWeapon, makeAmmo, makeArmor, makeInvItem, makeEqSecMeta, makeChrSecMeta, makeSection, makeSkSection, makeInvSection, makePower, makeAugment, syncEquipmentToInventory, S, D, CN, LD, FBW, DUEL, COMBAT, isMobileLayout, CTX_MENU, getWinState, hasSavedWinPref, savedEffRanges, savedPwRanges, lastPwFieldById, pwQuickKey, UI, LIVE_TAB_ID, PATCHNOTES, FEEDBACK, CLOUD, CLOUD_SYNC, PWLIB, getCharOwner, getCharCampaignId, canManageChar, getEditStyleSlot
 } from './state.js';
 import {
   getStatusEffValues, formatPwUseCosts, getReservablePwCosts, getEffectivePoolCap, getPwBuilderToken, parseStatusTokens, getAllParsedEffectChips, invalidateModsCache, calcActiveMods, buildAttrTip, buildSecTip, getMentalArmorSummary, syncCresRenameInTokens, syncSkillRenameInTokens, purgeExtraSecFromPowers, calcAutoSkCost, findDuplicatePwEntry, makeUniquePwName, updatePwNameDupHint, enforceUniquePwName, buildPowerExportPack, downloadPowerPackJson, resolveLibraryAugmentParentName, getSuggestedAugmentsForPower, importPowerPackIntoSheet, getTrCost, performSimpleRest, performFullRest, withPoolSync, linkAugToPower, unlinkAugFromPower, calcPwCost, calcSkCost, calcProg, getWeaponRollMeta, getTagDesc, cresName, makeExtraSec, getExtraSecName, getResLabel, escReStr, getAttrCol, getSecCol, getAttrTot, getLpBase, getLpMax, getMlpBase, getMlpMax, getLpRegenAuto, getMlpRegenAuto, hasLpRegenOvr, hasMlpRegenOvr, getLpRegen, getMlpRegen, getIniBase, getIniTot, getApBase, getApMax, getMapBase, getMapMax, getCresBase, getCresMax, getExtraSecBase, getBstAuto, hasBstOvr, getBstBase, getEffBst, getSkAutoBonus, hasSkBonusOvr, getSkBonus, findPwItem, findEqItem, getLinkedAugs, getValidPwSecId
@@ -41,7 +41,7 @@ import {
   buildPwCatPillsHtml, moveChrSecOrder, moveChrPwOrder, openChrSecMenu, openChrPwMenu, tplChronicle, applyEp
 } from './tabs/chronicle.js';
 import {
-  syncLinkedAmmoDOM, syncInvSecNameDOM, addEqTagToItem, openAddWeaponMenu, openEqTagPicker, openWpTypePicker, openWpAttrPicker, openWpSkillPicker, openWpAmmoPicker, openArZonePicker, openInvSecPicker, openInvSecParentPicker, isTab5EquipNotesCollapsed, isTab5BioGalleryCollapsed, isTab5BioFieldCollapsed, moveEqSecOrder, moveEqItemOrder, moveInvSecOrder, openEqItemMenu, openEqSecMenu, openInvSecMenu, tplEquipment
+  syncLinkedInvDOM, syncLinkedAmmoDOM, syncInvSecNameDOM, addEqTagToItem, openAddWeaponMenu, openEqTagPicker, openWpTypePicker, openWpAttrPicker, openWpSkillPicker, openWpAmmoPicker, openArZonePicker, openInvSecPicker, openInvSecParentPicker, isTab5EquipNotesCollapsed, isTab5BioGalleryCollapsed, isTab5BioFieldCollapsed, moveEqSecOrder, moveEqItemOrder, moveInvSecOrder, openEqItemMenu, openEqSecMenu, openInvSecMenu, tplEquipment
 } from './tabs/equipment.js';
 import {
   openLobbyCharMenu, openEnemyCampaignPicker, openGmTemplateAddPicker, openLobbyEnemyMenu, tplLobbyScreen, refreshGmEnemiesGridDOM, refreshTemplatesGridDOM
@@ -556,7 +556,13 @@ document.addEventListener('click',async e=>{
       if(UI.colTarget==='attr') UI.colDraft=DEF_ATTR_COLS[UI.attrGroupSel];
       else if(DUAL_COL_TARGETS.has(UI.colTarget)){
         const it=getColTargetObj();
-        if(it){if(UI.colMode==='bg')it.bgColor='';else it.color='';}
+        if(it){
+          if(UI.colMode==='bg')it.bgColor='';else it.color='';
+          if(UI.colTarget==='eq'){
+            if(UI.colPwKind==='inv'&&it.linkedEq){const src=findEqItem(it.linkedEq.kind,it.linkedEq.id);if(src){if(UI.colMode==='bg')src.bgColor='';else src.color='';}}
+            syncEquipmentToInventory(S);
+          }
+        }
         const wasCamp=UI.colTarget==='camp';
         UI.modal=null;
         if(wasCamp){saveRegistryLocal();syncCloudRegistry(true);}else save();
@@ -572,7 +578,13 @@ document.addEventListener('click',async e=>{
       if(UI.colTarget==='attr'){S.attrColors[UI.attrGroupSel]=fin;renderMain();save();renderModal();toast('Paarfarbe gespeichert');}
       else if(DUAL_COL_TARGETS.has(UI.colTarget)){
         const it=getColTargetObj();
-        if(it){if(UI.colMode==='bg')it.bgColor=fin;else it.color=fin;}
+        if(it){
+          if(UI.colMode==='bg')it.bgColor=fin;else it.color=fin;
+          if(UI.colTarget==='eq'){
+            if(UI.colPwKind==='inv'&&it.linkedEq){const src=findEqItem(it.linkedEq.kind,it.linkedEq.id);if(src){if(UI.colMode==='bg')src.bgColor=fin;else src.color=fin;}}
+            syncEquipmentToInventory(S);
+          }
+        }
         const wasCamp=UI.colTarget==='camp';
         UI.modal=null;
         if(wasCamp){saveRegistryLocal();syncCloudRegistry(true);}else save();
@@ -1126,8 +1138,25 @@ document.addEventListener('click',async e=>{
     case 'open-inv-sec-picker': openInvSecPicker(el,el.dataset.id); break;
     case 'open-invsec-parent-picker': openInvSecParentPicker(el,el.dataset.id); break;
     case 'move-eqitem': moveEqItemOrder(el.dataset.kind,el.dataset.id,el.dataset.dir); break;
-    case 'add-weapon': S.weapons.push(makeWeapon(el.dataset.wtype||WEAPON_SUBTYPES[0].key)); if(S.equipSecMeta?.weapons)S.equipSecMeta.weapons.collapsed=false; UI.openPwMenu=''; hideTooltip(); renderMain(); save(); break;
-    case 'del-weapon': S.weapons=S.weapons.filter(w=>w.id!==el.dataset.id); if(D.weaponId===el.dataset.id){D.weaponId=null;D.wRollCat='Normaler Test';D.sitActive={};applyDiceAutoAdvDis(true);if(D.open)renderDice();} renderMain(); save(); break;
+    case 'jump-eq-item': {
+      const k=el.dataset.kind, id=el.dataset.id;
+      const secKey=k==='weapon'?'weapons':k==='armor'?'armors':k==='ammo'?'ammos':'';
+      if(secKey&&S.equipSecMeta?.[secKey]) S.equipSecMeta[secKey].collapsed=false;
+      const src=findEqItem(k,id);
+      if(src&&src.collapsed){src.collapsed=false;renderMain();}
+      else if(secKey){renderMain();}
+      setTimeout(()=>{
+        const card=document.querySelector(`[data-eqitem="${k}:${id}"]`);
+        if(card){
+          card.scrollIntoView({behavior:'smooth',block:'center'});
+          card.classList.add('ring-2','ring-sky-400');
+          setTimeout(()=>card.classList.remove('ring-2','ring-sky-400'),1400);
+        }
+      },40);
+      break;
+    }
+    case 'add-weapon': {const nw=makeWeapon(el.dataset.wtype||WEAPON_SUBTYPES[0].key); S.weapons.push(nw); syncEquipmentToInventory(S,{forceKeys:[`weapon:${nw.id}`]}); if(S.equipSecMeta?.weapons)S.equipSecMeta.weapons.collapsed=false; UI.openPwMenu=''; hideTooltip(); renderMain(); save(); break;}
+    case 'del-weapon': S.weapons=S.weapons.filter(w=>w.id!==el.dataset.id); syncEquipmentToInventory(S); if(D.weaponId===el.dataset.id){D.weaponId=null;D.wRollCat='Normaler Test';D.sitActive={};applyDiceAutoAdvDis(true);if(D.open)renderDice();} renderMain(); save(); break;
     case 'add-weapon-dmg': {
       const w=S.weapons.find(x=>x.id===el.dataset.id);
       if(w){if(!Array.isArray(w.customDmg))w.customDmg=[];const entry={id:uid(),label:'',val:'0'};w.customDmg.push(entry);renderMain();save();setTimeout(()=>{document.querySelector(`input[data-eqcv="weapon:${w.id}:${entry.id}:label"]`)?.focus();},0);}
@@ -1161,12 +1190,14 @@ document.addEventListener('click',async e=>{
     case 'add-ammo': {
       const na=makeAmmo(`Munition #${S.ammos.length+1}`,20);
       S.ammos.push(na);
+      syncEquipmentToInventory(S,{forceKeys:[`ammo:${na.id}`]});
       if(S.equipSecMeta?.ammos) S.equipSecMeta.ammos.collapsed=false;
       renderMain(); if(UI.modal==='ammoList') renderModal(); save(); break;
     }
     case 'quick-new-ammo': {
       const na=makeAmmo(`Munition #${S.ammos.length+1}`,20);
       S.ammos.push(na);
+      syncEquipmentToInventory(S,{forceKeys:[`ammo:${na.id}`]});
       const w=S.weapons.find(x=>x.id===el.dataset.wid);
       if(w) w.ammoId=na.id;
       if(S.equipSecMeta?.ammos) S.equipSecMeta.ammos.collapsed=false;
@@ -1179,10 +1210,10 @@ document.addEventListener('click',async e=>{
       if(w){w.ammoId=el.dataset.aid;invalidateModsCache();syncDiceFromSheet();renderMain();renderModal();if(D.open)renderDice();save();toast('Munition zugeordnet');}
       break;
     }
-    case 'del-ammo': {const aid=el.dataset.id; S.ammos=S.ammos.filter(a=>a.id!==aid); S.weapons.forEach(w=>{if(w.ammoId===aid)w.ammoId='';}); invalidateModsCache(); syncDiceFromSheet(); renderMain(); if(UI.modal==='ammoList') renderModal(); if(D.open) renderDice(); save(); break;}
+    case 'del-ammo': {const aid=el.dataset.id; S.ammos=S.ammos.filter(a=>a.id!==aid); S.weapons.forEach(w=>{if(w.ammoId===aid)w.ammoId='';}); syncEquipmentToInventory(S); invalidateModsCache(); syncDiceFromSheet(); renderMain(); if(UI.modal==='ammoList') renderModal(); if(D.open) renderDice(); save(); break;}
     case 'ammo-step': {const am=S.ammos.find(a=>a.id===el.dataset.id);if(am){am.qty=Math.max(0,toInt(am.qty,0)+Number(el.dataset.delta));syncLinkedAmmoDOM(am.id);save();}break;}
-    case 'add-armor': S.armors.push(makeArmor()); if(S.equipSecMeta?.armors)S.equipSecMeta.armors.collapsed=false; renderMain(); save(); break;
-    case 'del-armor': S.armors=S.armors.filter(a=>a.id!==el.dataset.id); if(UI.arZoneDrafts) delete UI.arZoneDrafts[el.dataset.id]; invalidateModsCache(); syncDiceFromSheet(); renderMain(); if(D.open) renderDice(); save(); break;
+    case 'add-armor': {const na=makeArmor(); S.armors.push(na); syncEquipmentToInventory(S,{forceKeys:[`armor:${na.id}`]}); if(S.equipSecMeta?.armors)S.equipSecMeta.armors.collapsed=false; renderMain(); save(); break;}
+    case 'del-armor': S.armors=S.armors.filter(a=>a.id!==el.dataset.id); if(UI.arZoneDrafts) delete UI.arZoneDrafts[el.dataset.id]; syncEquipmentToInventory(S); invalidateModsCache(); syncDiceFromSheet(); renderMain(); if(D.open) renderDice(); save(); break;
     case 'set-wp-grip': {
       const w=S.weapons.find(x=>x.id===el.dataset.id), g=el.dataset.grip;
       if(w&&(g==='1h'||g==='2h')){
@@ -3666,7 +3697,7 @@ document.addEventListener('input',e=>{
     }
     return;
   }
-  if(el.dataset.wpf){const [id,f]=el.dataset.wpf.split(':'),w=S.weapons.find(x=>x.id===id);if(w){w[f]=el.value;if(f==='name'&&D.weaponId===id){syncDiceFromSheet();if(D.open)renderDice();}saveSoon();}return;}
+  if(el.dataset.wpf){const [id,f]=el.dataset.wpf.split(':'),w=S.weapons.find(x=>x.id===id);if(w){w[f]=el.value;syncLinkedInvDOM('weapon',id,el);if(f==='name'&&D.weaponId===id){syncDiceFromSheet();if(D.open)renderDice();}saveSoon();}return;}
   if(el.dataset.amf){
     const [id,f]=el.dataset.amf.split(':'),am=S.ammos.find(x=>x.id===id);
     if(am){
@@ -3686,7 +3717,7 @@ document.addEventListener('input',e=>{
     UI.arZoneDrafts[el.dataset.arZoneDraft]=el.value;
     return;
   }
-  if(el.dataset.arf){const [id,f]=el.dataset.arf.split(':'),ar=S.armors.find(x=>x.id===id);if(ar){ar[f]=el.value;if(f==='mentalProt'){const mp=$('eqMentalArmorPill');if(mp){const mRs=getMentalArmorSummary();mp.textContent=`🧠 mRS ${mRs.total}`;mp.dataset.tip=mRs.tip;mp.className=mRs.total?'ml-1.5 px-2 py-0.5 rounded-md border border-indigo-400/50 bg-indigo-500/15 text-indigo-300 text-[11px] font-black cursor-help tabular':'hidden';}if(D.open&&COMBAT.active)renderDice();}saveSoon();}return;}
+  if(el.dataset.arf){const [id,f]=el.dataset.arf.split(':'),ar=S.armors.find(x=>x.id===id);if(ar){ar[f]=el.value;syncLinkedInvDOM('armor',id,el);if(f==='mentalProt'){const mp=$('eqMentalArmorPill');if(mp){const mRs=getMentalArmorSummary();mp.textContent=`🧠 mRS ${mRs.total}`;mp.dataset.tip=mRs.tip;mp.className=mRs.total?'ml-1.5 px-2 py-0.5 rounded-md border border-indigo-400/50 bg-indigo-500/15 text-indigo-300 text-[11px] font-black cursor-help tabular':'hidden';}if(D.open&&COMBAT.active)renderDice();}saveSoon();}return;}
   if(el.dataset.eqcv){
     const [kind,id,cvId,field]=el.dataset.eqcv.split(':');
     const arrKey=kind==='weapon'?'weapons':kind==='ammo'?'ammos':kind==='armor'?'armors':'';
@@ -3716,7 +3747,31 @@ document.addEventListener('input',e=>{
     return;
   }
   if(el.dataset.bioimgCap){const im=S.bioImages.find(x=>x.id===el.dataset.bioimgCap);if(im){im.caption=el.value;saveSoon();}return;}
-  if(el.dataset.inv){const [id,f]=el.dataset.inv.split(':'),it=S.inventory.find(x=>x.id===id);if(it){it[f]=el.value;saveSoon();}return;}
+  if(el.dataset.inv){
+    const [id,f]=el.dataset.inv.split(':'),it=S.inventory.find(x=>x.id===id);
+    if(it){
+      it[f]=el.value;
+      if(it.linkedEq?.kind&&it.linkedEq.id){
+        const {kind,id:srcId}=it.linkedEq;
+        const src=findEqItem(kind,srcId);
+        if(src){
+          if(f==='name'||f==='notes'){
+            src[f]=el.value;
+            const attr=kind==='weapon'?'data-wpf':kind==='armor'?'data-arf':'data-amf';
+            document.querySelectorAll(`input[${attr}="${srcId}:${f}"]`).forEach(inp=>{if(inp!==el)inp.value=el.value;});
+            if(kind==='ammo') syncLinkedAmmoDOM(srcId,el);
+            if(kind==='weapon'&&f==='name'&&D.weaponId===srcId){syncDiceFromSheet();if(D.open)renderDice();}
+          }else if(f==='qty'&&kind==='ammo'){
+            const raw=String(el.value??'').trim();
+            src.qty=raw===''?0:Math.max(0,toInt(raw,0));
+            syncLinkedAmmoDOM(srcId,el);
+          }
+        }
+      }
+      saveSoon();
+    }
+    return;
+  }
   if(el.dataset.bio){S.bio[el.dataset.bio]=val;saveSoon();return;}
   if(el.dataset.diceCustom){
     const k=el.dataset.diceCustom;
@@ -4053,7 +4108,17 @@ document.addEventListener('change',e=>{
     }
     return;
   }
-  if(el.dataset.wpf||el.dataset.arf||el.dataset.eqcv||el.dataset.inv||el.dataset.eqtagX){save();return;}
+  if(el.dataset.wpf||el.dataset.arf){
+    const isW=Boolean(el.dataset.wpf);
+    const [id]=(isW?el.dataset.wpf:el.dataset.arf).split(':');
+    const kind=isW?'weapon':'armor';
+    syncEquipmentToInventory(S);
+    const inv=(S.inventory||[]).find(it=>it?.linkedEq&&it.linkedEq.kind===kind&&it.linkedEq.id===id);
+    if(inv&&!document.querySelector(`[data-inv-item="${inv.id}"]`)) renderMain();
+    save();
+    return;
+  }
+  if(el.dataset.eqcv||el.dataset.inv||el.dataset.eqtagX){save();return;}
   if(el.dataset.wpSel){
     const [id,f]=el.dataset.wpSel.split(':'),w=S.weapons.find(x=>x.id===id);
     if(w){

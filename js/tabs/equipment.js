@@ -8,7 +8,7 @@ import {
   hooks
 } from '../ui-hooks.js';
 import {
-  openCtxMenu, toast, save, getWeaponSubtype, fmtCustomValSummarySuffix, renderLinkedAmmoCustomDmgHtml, isWeaponMassiv, S, D, isMobileLayout, UI
+  openCtxMenu, toast, save, getWeaponSubtype, fmtCustomValSummarySuffix, renderLinkedAmmoCustomDmgHtml, isWeaponMassiv, syncEquipmentToInventory, S, D, isMobileLayout, UI
 } from '../state.js';
 import {
   invalidateModsCache, calcActiveMods, getAdvDisForContext, getWeaponRollMeta, getTagDesc, fmtAdvSrcLines, getAttrTot, getSkBonus, findEqItem, getMentalArmorSummary
@@ -20,6 +20,23 @@ import {
   renderRtfToolbarHtml
 } from '../notes.js';
 
+export function syncLinkedInvDOM(kind,srcId,sourceEl=null){
+  const hadInv=Boolean((S.inventory||[]).some(it=>it?.linkedEq&&it.linkedEq.kind===kind&&it.linkedEq.id===srcId));
+  syncEquipmentToInventory(S);
+  const inv=(S.inventory||[]).find(it=>it?.linkedEq&&it.linkedEq.kind===kind&&it.linkedEq.id===srcId);
+  if(!inv) return false;
+  const invCard=document.querySelector(`[data-inv-item="${inv.id}"]`);
+  if(!hadInv&&!invCard){
+    return 'created';
+  }
+  document.querySelectorAll(`input[data-inv="${inv.id}:name"]`).forEach(inp=>{if(inp!==sourceEl)inp.value=inv.name;});
+  document.querySelectorAll(`input[data-inv="${inv.id}:notes"]`).forEach(inp=>{if(inp!==sourceEl)inp.value=inv.notes;});
+  if(kind==='ammo'){
+    document.querySelectorAll(`input[data-inv="${inv.id}:qty"]`).forEach(inp=>{if(inp!==sourceEl)inp.value=String(inv.qty??'0');});
+    document.querySelectorAll(`[data-inv-collapsed-qty="${inv.id}"]`).forEach(el=>{el.textContent=`× ${String(inv.qty??'0')}`;});
+  }
+  return true;
+}
 export function syncLinkedAmmoDOM(ammoId,sourceEl=null){
   const am=S.ammos.find(a=>a.id===ammoId);
   if(!am) return;
@@ -46,6 +63,7 @@ export function syncLinkedAmmoDOM(ammoId,sourceEl=null){
     box.innerHTML=tagsHtml;
     box.classList.toggle('hidden',!tagsHtml);
   });
+  syncLinkedInvDOM('ammo',ammoId,sourceEl);
 }
 export function syncInvSecNameDOM(secId){
   const sec=(S.invSections||[]).find(s=>s.id===secId);
@@ -531,10 +549,12 @@ export function duplicateEqItem(kind,id){
   if(idx<0) return false;
   const copy=clone(arr[idx]);
   copy.id=uid();
+  if(kind==='inv') copy.linkedEq=null;
   if(String(copy.name||'').trim()) copy.name=`${String(copy.name).trim()} (Kopie)`;
   if(Array.isArray(copy.customDmg)) copy.customDmg=copy.customDmg.map(c=>({...c,id:uid()}));
   if(Array.isArray(copy.customProt)) copy.customProt=copy.customProt.map(c=>({...c,id:uid()}));
   arr.splice(idx+1,0,copy);
+  if(kind==='weapon'||kind==='armor'||kind==='ammo') syncEquipmentToInventory(S,{forceKeys:[`${kind}:${copy.id}`]});
   invalidateModsCache(); syncDiceFromSheet();
   hooks.renderMain?.(); if(D.open) renderDice(); save();
   toast('📋 Eintrag dupliziert');
@@ -544,22 +564,29 @@ export function deleteEqItem(kind,id){
   UI.confirmDelEqKey='';
   if(kind==='weapon'){
     S.weapons=S.weapons.filter(w=>w.id!==id);
+    syncEquipmentToInventory(S);
     if(D.weaponId===id){D.weaponId=null;D.wRollCat='Normaler Test';D.sitActive={};applyDiceAutoAdvDis(true);if(D.open)renderDice();}
     hooks.renderMain?.(); save(); return true;
   }
   if(kind==='ammo'){
     S.ammos=S.ammos.filter(a=>a.id!==id);
     S.weapons.forEach(w=>{if(w.ammoId===id)w.ammoId='';});
+    syncEquipmentToInventory(S);
     invalidateModsCache(); syncDiceFromSheet();
     hooks.renderMain?.(); if(UI.modal==='ammoList') hooks.renderModal?.(); if(D.open) renderDice(); save(); return true;
   }
   if(kind==='armor'){
     S.armors=S.armors.filter(a=>a.id!==id);
     if(UI.arZoneDrafts) delete UI.arZoneDrafts[id];
+    syncEquipmentToInventory(S);
     invalidateModsCache(); syncDiceFromSheet();
     hooks.renderMain?.(); if(D.open) renderDice(); save(); return true;
   }
   if(kind==='inv'){
+    const it=S.inventory.find(i=>i.id===id);
+    if(it?.linkedEq?.kind&&it.linkedEq.id){
+      return deleteEqItem(it.linkedEq.kind,it.linkedEq.id);
+    }
     S.inventory=S.inventory.filter(i=>i.id!==id);
     hooks.renderMain?.(); save(); return true;
   }
@@ -572,12 +599,17 @@ export function openEqItemMenu(anchorEl,kind,id,forceOpen=false){
   const {idx,len}=getEqItemSiblingInfo(kind,id);
   const delKey=`${kind}:${id}`;
   const isDelConfirm=UI.confirmDelEqKey===delKey;
+  const linkedKindLbl=it.linkedEq?({weapon:'Waffe',armor:'Rüstung',ammo:'Munition'}[it.linkedEq.kind]||'Ausrüstung'):'';
   const items=[];
   if(kind==='weapon'){
     items.push({type:'label',label:'Kampf-Aktionen'});
     items.push({icon:'🎲',label:'Trefferwurf würfeln',action:'roll-weapon',dataset:{id,wcat:'Trefferwurf'}});
     items.push({icon:'🛡️',label:'Parieren würfeln',action:'roll-weapon',dataset:{id,wcat:'Parieren'}});
     items.push({icon:'🛡️',label:'Blocken würfeln',action:'roll-weapon',dataset:{id,wcat:'Blocken'}});
+    items.push({sep:true});
+  }
+  if(kind==='inv'&&it.linkedEq){
+    items.push({icon:'↗',label:`Zur verknüpften ${linkedKindLbl} springen`,action:'jump-eq-item',dataset:{kind:it.linkedEq.kind,id:it.linkedEq.id}});
     items.push({sep:true});
   }
   items.push({type:'label',label:'Reihenfolge & Organisation'});
@@ -626,7 +658,7 @@ export function openEqItemMenu(anchorEl,kind,id,forceOpen=false){
     items.push({
       icon:'⚠️',
       label:'Wirklich löschen? (Bestätigen)',
-      sub:`„${titleName}“ dauerhaft entfernen`,
+      sub:linkedKindLbl?`Entfernt „${titleName}“ aus ${linkedKindLbl} & Inventar`:`„${titleName}“ dauerhaft entfernen`,
       danger:true,
       onClick:()=>{deleteEqItem(kind,id);}
     });
@@ -642,7 +674,7 @@ export function openEqItemMenu(anchorEl,kind,id,forceOpen=false){
   }else{
     items.push({
       icon:'🗑️',
-      label:'Löschen',
+      label:linkedKindLbl?`Aus ${linkedKindLbl} & Inventar löschen`:'Löschen',
       danger:true,
       keepOpen:true,
       onClick:()=>{
@@ -1088,20 +1120,32 @@ export function renderInvItemCard(it,idx,len,invSecs){
   const qtyTxt=String(it.qty??'').trim();
   const catTxt=String(it.category??'').trim();
   const noteTxt=String(it.notes??'').trim();
+  const lnk=it.linkedEq&&typeof it.linkedEq==='object'?it.linkedEq:null;
+  const lnkSrc=lnk?findEqItem(lnk.kind,lnk.id):null;
+  const lnkBadgeHtml=lnk?(()=>{
+    const cfg=lnk.kind==='weapon'
+      ?{ico:lnkSrc?.wType==='ranged'?'🏹':'⚔️',lbl:'Waffe',cls:'border-sky-400/50 bg-sky-500/15 text-sky-300'}
+      :lnk.kind==='armor'
+        ?{ico:'🛡️',lbl:lnkSrc?.equipped===false?'Rüstung (Abgel.)':'Rüstung',cls:'border-emerald-400/50 bg-emerald-500/15 text-emerald-300'}
+        :{ico:'🎯',lbl:'Munition',cls:'border-amber-400/50 bg-amber-500/15 text-amber-300'};
+    return `<button type="button" data-action="jump-eq-item" data-kind="${esc(lnk.kind)}" data-id="${esc(lnk.id)}" data-tip="Automatisch mit ${cfg.lbl} verknüpft – klicken zum Springen" class="px-1.5 py-0.5 rounded-md border text-[10px] font-black shrink-0 inline-flex items-center gap-1 cursor-pointer hover:brightness-110 ${cfg.cls}"><span>${cfg.ico}</span><span class="hidden sm:inline">${cfg.lbl}</span><span class="opacity-75">↗</span></button>`;
+  })():'';
+  const namePh=lnk?(lnk.kind==='weapon'?'Waffenname...':lnk.kind==='armor'?'Rüstungsname...':'Munitionsname...'):'Gegenstand...';
   const hdrRow=`<div class="flex items-center gap-1.5 min-w-0">
     <button type="button" data-action="toggle-eqitem-collapse" data-kind="inv" data-id="${it.id}" data-tip="${it.collapsed?'Gegenstand ausklappen':'Gegenstand einklappen'}" aria-expanded="${!it.collapsed}" class="btn w-8 h-8 sm:w-7 sm:h-7 p-0 text-xs font-black shrink-0">${it.collapsed?'▸':'▾'}</button>
     <span draggable="true" data-drag-invitem="${it.id}" data-tip="Ziehen zum Sortieren oder Verschieben in einen Beutel" class="w-7 h-7 rounded bg-black/25 border bdr-line t-mut text-xs font-black cursor-grab select-none shrink-0 inline-flex items-center justify-center">⠿</span>
     ${renderEqMiniThumb('inv',it.id,it.img)}
-    <input data-inv="${it.id}:name" type="text" value="${esc(it.name)}" ${colStyle} placeholder="Gegenstand..." class="inp-line flex-1 min-w-0 text-sm sm:text-base font-extrabold"/>
-    ${it.collapsed&&qtyTxt?`<span class="pill cursor-default text-[11px] py-0.5 px-2 tabular text-acc shrink-0">× ${esc(qtyTxt)}</span>`:''}
+    <input data-inv="${it.id}:name" type="text" value="${esc(it.name)}" ${colStyle} placeholder="${namePh}" class="inp-line flex-1 min-w-0 text-sm sm:text-base font-extrabold"/>
+    ${lnkBadgeHtml}
+    ${it.collapsed&&qtyTxt?`<span data-inv-collapsed-qty="${it.id}" class="pill cursor-default text-[11px] py-0.5 px-2 tabular text-acc shrink-0">× ${esc(qtyTxt)}</span>`:''}
     ${renderEqItemMenuBtn('inv',it.id)}
   </div>`;
   if(it.collapsed){
-    const hasBadges=Boolean((catTxt&&catTxt!=='Inventar')||curSecObj||noteTxt);
+    const hasBadges=Boolean((catTxt&&catTxt!=='Inventar'&&!lnk)||curSecObj||noteTxt);
     return `<div data-inv-item="${it.id}" class="subcard py-2 px-2.5 sm:px-3 space-y-1.5 min-w-0" ${winStyle}>
       ${hdrRow}
       ${hasBadges?`<div class="flex flex-wrap items-center gap-1.5 min-w-0">
-        ${catTxt&&catTxt!=='Inventar'?`<span class="pill cursor-default text-[11px] py-0.5 px-2">${esc(catTxt)}</span>`:''}
+        ${catTxt&&catTxt!=='Inventar'&&!lnk?`<span class="pill cursor-default text-[11px] py-0.5 px-2">${esc(catTxt)}</span>`:''}
         ${curSecObj?`<span class="pill cursor-default text-[11px] py-0.5 px-2 text-acc" data-inv-sec-lbl="${curSecObj.id}">🎒 ${esc(curSecObj.name||'Beutel')}</span>`:''}
         ${noteTxt?`<span class="text-[11px] t-mut truncate max-w-full">📝 ${esc(noteTxt)}</span>`:''}
       </div>`:''}
@@ -1111,7 +1155,7 @@ export function renderInvItemCard(it,idx,len,invSecs){
     ${hdrRow}
     <div class="pt-2 border-t bdr-line grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 items-end">
       <div class="min-w-0">
-        <label class="block text-[10px] font-bold t-mut mb-0.5">MENGE</label>
+        <label class="block text-[10px] font-bold t-mut mb-0.5">MENGE${lnk?.kind==='ammo'?' (SYNCHRON)':''}</label>
         <input data-inv="${it.id}:qty" type="text" value="${esc(it.qty)}" placeholder="1" class="inp w-full min-w-0 text-center font-bold py-1.5 px-2 text-xs"/>
       </div>
       <div class="min-w-0">

@@ -8,7 +8,7 @@ import {
   hooks
 } from './ui-hooks.js';
 import {
-  renderSystemIconHtml, syncBodyScrollLock, bindSwipeDownClose, closeCtxMenu, openCtxMenu, applyWinFrame, renderWinCtrlBtns, renderWinResizeHandles, setModalSwipeCleanup, cleanupModalSwipe, isOversizedBgDataUrl, compressBgDataUrlForProfile, getCampaigns, isGlobalGM, canManageCampaign, canToggleEnemyStatus, isEnemySheet, getEnemyMeta, canManageEnemySheet, isEnemyDiceVisibleInCampaign, ensureUserRecord, ensureAllRegistryUsers, findUserKeyByName, findUserKeyById, getUserAvatar, canViewUserProfile, renderUserNamePill, saveRegistryLocal, getCampaignFilteredDiceFeed, captureScrollState, restoreScrollState, toast, save, persistCurrentThemeChange, applyTheme, CUSTOM_ICONS, getPwTermTip, fmtCustomValSummarySuffix, S, D, CN, LD, FBW, isMobileLayout, CTX_MENU, UI, PATCHNOTES, FEEDBACK, CLOUD, CLOUD_SYNC, PWLIB, getCharOwner, getEditStyleSlot
+  renderSystemIconHtml, syncBodyScrollLock, bindSwipeDownClose, closeCtxMenu, openCtxMenu, applyWinFrame, renderWinCtrlBtns, renderWinResizeHandles, setModalSwipeCleanup, cleanupModalSwipe, isOversizedBgDataUrl, compressBgDataUrlForProfile, getCampaigns, isGlobalGM, canManageCampaign, canToggleEnemyStatus, isEnemySheet, getEnemyMeta, canManageEnemySheet, isEnemyDiceVisibleInCampaign, ensureUserRecord, ensureAllRegistryUsers, findUserKeyByName, findUserKeyById, getUserAvatar, canViewUserProfile, renderUserNamePill, saveRegistryLocal, getCampaignFilteredDiceFeed, captureScrollState, restoreScrollState, toast, save, persistCurrentThemeChange, applyTheme, CUSTOM_ICONS, getPwTermTip, fmtCustomValSummarySuffix, syncEquipmentToInventory, S, D, CN, LD, FBW, isMobileLayout, CTX_MENU, UI, PATCHNOTES, FEEDBACK, CLOUD, CLOUD_SYNC, PWLIB, getCharOwner, getEditStyleSlot
 } from './state.js';
 import {
   formatPwUseCosts, getEffectivePoolCap, getReservedSrcList, calcActiveMods, buildPowerExportPack, getSuggestedAugmentsForPower, calcPwCost, calcProg, getPwSecOptionsFlat, cresName, getResLabel, getLpRegen, getMlpRegen, findPwItem, findEqItem
@@ -1069,7 +1069,12 @@ export function applyImgUrlForContext(ctx,url,fromDrop=false){
     return;
   }else if(['weapon','ammo','armor','inv'].includes(ctx.kind)){
     const k={weapon:'weapons',armor:'armors',ammo:'ammos',inv:'inventory'}[ctx.kind], it=(S[k]||[]).find(x=>x.id===ctx.id);
-    if(it){it.img=url; hooks.renderMain?.(); save(); toast(`Gegenstandsbild${dSfx} gespeichert`);}
+    if(it){
+      it.img=url;
+      if(ctx.kind==='inv'&&it.linkedEq){const src=findEqItem(it.linkedEq.kind,it.linkedEq.id);if(src)src.img=url;}
+      syncEquipmentToInventory(S);
+      hooks.renderMain?.(); save(); toast(`Gegenstandsbild${dSfx} gespeichert`);
+    }
   }else if(ctx.kind==='bio'){
     const ex=ctx.id?(S.bioImages||[]).find(x=>x.id===ctx.id):null;
     if(ex){ex.url=url; hooks.renderMain?.(); save(); toast(`Aussehen-Bild${dSfx} aktualisiert`);}
@@ -1121,7 +1126,12 @@ export function removeImgForCurrentTarget(){
     }
   }else if(['weapon','ammo','armor','inv'].includes(ctx.kind)){
     const k={weapon:'weapons',armor:'armors',ammo:'ammos',inv:'inventory'}[ctx.kind], it=(S[k]||[]).find(x=>x.id===ctx.id);
-    if(it){it.img=''; hooks.renderMain?.(); save(); toast('🗑️ Gegenstandsbild entfernt.');}
+    if(it){
+      it.img='';
+      if(ctx.kind==='inv'&&it.linkedEq){const src=findEqItem(it.linkedEq.kind,it.linkedEq.id);if(src)src.img='';}
+      syncEquipmentToInventory(S);
+      hooks.renderMain?.(); save(); toast('🗑️ Gegenstandsbild entfernt.');
+    }
   }else if(ctx.kind==='bio'){
     S.bioImages=S.bioImages.filter(im=>im.id!==ctx.id); hooks.renderMain?.(); save(); toast('🗑️ Aussehen-Bild entfernt.');
   }else if(ctx.kind==='bg'){
