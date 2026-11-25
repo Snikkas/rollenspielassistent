@@ -8,13 +8,13 @@ import {
   hooks
 } from './ui-hooks.js';
 import {
-  renderSystemIconHtml, syncBodyScrollLock, bindSwipeDownClose, closeCtxMenu, openCtxMenu, applyWinFrame, renderWinCtrlBtns, renderWinResizeHandles, setModalSwipeCleanup, cleanupModalSwipe, isOversizedBgDataUrl, compressBgDataUrlForProfile, getCampaigns, isGlobalGM, canManageCampaign, canToggleEnemyStatus, isEnemySheet, getEnemyMeta, canManageEnemySheet, isEnemyDiceVisibleInCampaign, ensureUserRecord, ensureAllRegistryUsers, findUserKeyByName, findUserKeyById, getUserAvatar, canViewUserProfile, renderUserNamePill, saveRegistryLocal, getCampaignFilteredDiceFeed, captureScrollState, restoreScrollState, toast, save, persistCurrentThemeChange, applyTheme, CUSTOM_ICONS, getPwTermTip, fmtCustomValSummarySuffix, S, D, CN, LD, FBW, isMobileLayout, CTX_MENU, UI, PATCHNOTES, FEEDBACK, CLOUD, CLOUD_SYNC, PWLIB, getCharOwner, getEditStyleSlot
+  renderSystemIconHtml, syncBodyScrollLock, bindSwipeDownClose, closeCtxMenu, openCtxMenu, applyWinFrame, renderWinCtrlBtns, renderWinResizeHandles, setModalSwipeCleanup, cleanupModalSwipe, isOversizedBgDataUrl, compressBgDataUrlForProfile, getCampaigns, isGlobalGM, canManageCampaign, canToggleEnemyStatus, isEnemySheet, getEnemyMeta, canManageEnemySheet, isEnemyDiceVisibleInCampaign, ensureUserRecord, ensureAllRegistryUsers, findUserKeyByName, findUserKeyById, getUserAvatar, canViewUserProfile, renderUserNamePill, saveRegistryLocal, getCampaignFilteredDiceFeed, captureScrollState, restoreScrollState, toast, save, persistCurrentThemeChange, applyTheme, CUSTOM_ICONS, getPwTermTip, fmtCustomValSummarySuffix, syncEquipmentToInventory, S, D, CN, LD, FBW, isMobileLayout, CTX_MENU, UI, PATCHNOTES, FEEDBACK, CLOUD, CLOUD_SYNC, PWLIB, getCharOwner, getEditStyleSlot
 } from './state.js';
 import {
   formatPwUseCosts, getEffectivePoolCap, getReservedSrcList, calcActiveMods, buildPowerExportPack, getSuggestedAugmentsForPower, calcPwCost, calcProg, getPwSecOptionsFlat, cresName, getResLabel, getLpRegen, getMlpRegen, findPwItem, findEqItem
 } from './calc.js';
 import {
-  updateLobbyLiveDiceDOM, syncCloudRegistry, renderCloudSyncBadgeHtml, getAllLibraryPacks, getSortedPatchnoteEntries, getNewestPatchnoteId, isPatchnoteCollapsed, saveCustomIconsToServer, renderNotifBellBtnHtml, renderNotifsModalHtml, refreshUserNotificationsBg, isSecretRollActive
+  updateLobbyLiveDiceDOM, syncCloudRegistry, renderCloudSyncBadgeHtml, getAllLibraryPacks, getSortedPatchnoteEntries, getNewestPatchnoteId, isPatchnoteCollapsed, saveCustomIconsToServer, renderNotifBellBtnHtml, renderNotifsModalHtml, refreshUserNotificationsBg, isSecretRollActive, fetchTrashedCharacters
 } from './cloud.js';
 import {
   renderDice
@@ -1069,7 +1069,12 @@ export function applyImgUrlForContext(ctx,url,fromDrop=false){
     return;
   }else if(['weapon','ammo','armor','inv'].includes(ctx.kind)){
     const k={weapon:'weapons',armor:'armors',ammo:'ammos',inv:'inventory'}[ctx.kind], it=(S[k]||[]).find(x=>x.id===ctx.id);
-    if(it){it.img=url; hooks.renderMain?.(); save(); toast(`Gegenstandsbild${dSfx} gespeichert`);}
+    if(it){
+      it.img=url;
+      if(ctx.kind==='inv'&&it.linkedEq){const src=findEqItem(it.linkedEq.kind,it.linkedEq.id);if(src)src.img=url;}
+      syncEquipmentToInventory(S);
+      hooks.renderMain?.(); save(); toast(`Gegenstandsbild${dSfx} gespeichert`);
+    }
   }else if(ctx.kind==='bio'){
     const ex=ctx.id?(S.bioImages||[]).find(x=>x.id===ctx.id):null;
     if(ex){ex.url=url; hooks.renderMain?.(); save(); toast(`Aussehen-Bild${dSfx} aktualisiert`);}
@@ -1121,7 +1126,12 @@ export function removeImgForCurrentTarget(){
     }
   }else if(['weapon','ammo','armor','inv'].includes(ctx.kind)){
     const k={weapon:'weapons',armor:'armors',ammo:'ammos',inv:'inventory'}[ctx.kind], it=(S[k]||[]).find(x=>x.id===ctx.id);
-    if(it){it.img=''; hooks.renderMain?.(); save(); toast('🗑️ Gegenstandsbild entfernt.');}
+    if(it){
+      it.img='';
+      if(ctx.kind==='inv'&&it.linkedEq){const src=findEqItem(it.linkedEq.kind,it.linkedEq.id);if(src)src.img='';}
+      syncEquipmentToInventory(S);
+      hooks.renderMain?.(); save(); toast('🗑️ Gegenstandsbild entfernt.');
+    }
   }else if(ctx.kind==='bio'){
     S.bioImages=S.bioImages.filter(im=>im.id!==ctx.id); hooks.renderMain?.(); save(); toast('🗑️ Aussehen-Bild entfernt.');
   }else if(ctx.kind==='bg'){
@@ -1268,11 +1278,15 @@ export function getActiveModalScrollKey(){
 export function openAdminPanel(){
   closeCtxMenu();
   CLOUD.showAdminBar=false;
+  CLOUD.confirmPermDelTrashId=null;
+  CLOUD.confirmEmptyTrash=false;
   UI.adminReturnModal='';
   UI.adminPinError='';
   UI.modal='adminPanel';
   renderModal(false,true);
-  if(!CLOUD.isAdmin){
+  if(CLOUD.isAdmin){
+    fetchTrashedCharacters(true);
+  }else{
     setTimeout(()=>{const p=$('inpAdminMasterPin');if(p){p.focus();}},40);
   }
 }
@@ -1283,16 +1297,18 @@ export function renderAdminPanelModalHtml(){
   const regUsers=Object.keys(CLOUD.registry?.users||{}).filter(k=>CLOUD.registry.users[k]&&!CLOUD.registry.users[k]._deleted).sort((a,b)=>a.localeCompare(b,'de'));
   const globalGms=Array.isArray(CLOUD.registry?.gmUsers)?[...new Set(CLOUD.registry.gmUsers.map(u=>String(u||'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'de')):[];
   const allCamps=getCampaigns();
+  const campNameMap=new Map(allCamps.map(c=>[c.id,c.name||'Kampagne']));
   const customIconCnt=Object.keys(CUSTOM_ICONS?.icons||{}).length;
   const fbItems=Array.isArray(FEEDBACK?.items)?FEEDBACK.items:[];
   const fbBacklog=Array.isArray(FEEDBACK?.backlog)?FEEDBACK.backlog:[];
+  const trashedList=Array.isArray(CLOUD.trashedList)?CLOUD.trashedList:[];
   const logoUrl=String(CLOUD.registry?.lobbyLogo||'');
   const secAct=isSecretRollActive();
   const secRollCnt=Array.isArray(CLOUD.secretRolls)?CLOUD.secretRolls.length:0;
 
   const titleHtml=isAdm?'👑 Admin-Verwaltung':'👑 Admin-Anmeldung';
   const subHtml=isAdm
-    ?'Zentrale Steuerung für Accounts, Spielleiter, Icons, Feedback, Lobby-Logo &amp; Sicherheit'
+    ?'Zentrale Steuerung für Accounts, Spielleiter, Papierkorb, Icons, Feedback, Lobby-Logo &amp; Sicherheit'
     :(hasHash?'Master-PIN eingeben, um die Admin-Verwaltung freizuschalten':'Ersteinrichtung: Neue Admin-Master-PIN für das Backend festlegen');
 
   let bodyHtml='';
@@ -1321,6 +1337,58 @@ export function renderAdminPanelModalHtml(){
     </div>`;
     footHtml=`<button type="button" data-action="close-modal" class="btn px-5">Schließen</button>`;
   }else{
+    const trashSectionHtml=`<div class="subcard p-3.5 space-y-3 border ${trashedList.length?'border-rose-400/45 bg-rose-500/5':''}">
+      <div class="flex flex-wrap items-center justify-between gap-2 border-b bdr-line pb-2">
+        <div class="min-w-0">
+          <div class="text-xs sm:text-sm font-black text-rose-300 flex items-center gap-1.5">
+            <span>🗑️ Papierkorb (Gelöschte Charakterbögen)</span>
+            <span class="px-2 py-0.5 rounded-full text-[10px] font-black tabular ${trashedList.length?'bg-rose-500/25 text-rose-200 border border-rose-400/50':'bg-black/25 t-mut border bdr-line'}">${trashedList.length}</span>
+          </div>
+          <div class="text-[11px] t-mut">Gelöschte Helden, Gegner &amp; Vorlagen landen zuerst hier und können wiederhergestellt oder endgültig entfernt werden.</div>
+        </div>
+        <div class="flex flex-wrap items-center gap-1.5 shrink-0">
+          <button type="button" data-action="admin-refresh-trash" ${CLOUD.trashedLoading?'disabled':''} data-tip="Papierkorb vom Server neu laden" class="btn py-1 px-2 text-xs font-extrabold ${CLOUD.trashedLoading?'animate-spin':''}">🔄</button>
+          ${trashedList.length?(CLOUD.confirmEmptyTrash
+            ?`<span class="inline-flex items-center gap-1"><button type="button" data-action="admin-confirm-empty-trash" class="btn bg-rose-600 text-white border-rose-500 py-1 px-2.5 text-[11px] font-black">Alle ${trashedList.length} endgültig löschen? (2/2)</button><button type="button" data-action="admin-cancel-empty-trash" class="btn py-1 px-2 text-xs">✕</button></span>`
+            :`<button type="button" data-action="admin-ask-empty-trash" class="btn btn-err py-1 px-2.5 text-[11px] font-extrabold">🔥 Papierkorb leeren</button>`):''}
+        </div>
+      </div>
+      ${CLOUD.trashedError?`<div class="text-[11px] text-rose-300 font-bold bg-rose-500/10 rounded-lg p-2 border border-rose-500/35">⚠️ ${esc(CLOUD.trashedError)}</div>`:''}
+      ${CLOUD.trashedLoading && !trashedList.length
+        ?`<div class="text-xs t-mut text-center py-4">⏳ Lade Papierkorb vom Server...</div>`
+        :(trashedList.length
+          ?`<div class="space-y-2 max-h-72 overflow-y-auto pr-0.5" data-scroll-key="adminTrashList">${trashedList.map(ch=>{
+            const isEn=ch.sheetType==='enemy';
+            const typeBadge=isEn?(ch.enemyMeta?.isEnemy?'👹 Gegner':'📋 Vorlage'):'👤 Held';
+            const campNm=campNameMap.get(ch.campaignId||'default')||'Allgemein';
+            const isConfirm=CLOUD.confirmPermDelTrashId===ch.id;
+            return `<div class="p-2.5 rounded-xl bg-black/25 border bdr-line flex flex-wrap items-center justify-between gap-2.5 text-xs min-w-0">
+              <div class="flex items-center gap-2.5 min-w-0 flex-1">
+                <div class="w-9 h-9 rounded-lg overflow-hidden border bdr-line bg-black/35 shrink-0 flex items-center justify-center">
+                  ${ch.avatar?`<img src="${ch.avatar}" class="w-full h-full object-cover" alt=""/>`:`<span class="text-sm leading-none">${isEn?'👹':'👤'}</span>`}
+                </div>
+                <div class="min-w-0 flex-1">
+                  <div class="flex flex-wrap items-center gap-1.5 min-w-0">
+                    <span class="font-black text-xs sm:text-sm truncate">${esc(ch.name||'Unbenannter Charakter')}</span>
+                    <span class="px-1.5 py-0.2 rounded text-[10px] font-extrabold ${isEn?'bg-rose-500/20 text-rose-200 border border-rose-400/40':'bg-acc-soft text-acc border bdr-acc'} shrink-0">${typeBadge}</span>
+                    <span class="px-1.5 py-0.2 rounded text-[10px] font-bold bg-black/30 t-mut tabular shrink-0">St. ${ch.level||1}</span>
+                  </div>
+                  <div class="text-[11px] t-mut truncate">
+                    ${ch.owner?`👤 ${esc(ch.owner)} • `:''}📁 ${esc(campNm)}${ch.trashedAt?` • 🗑️ ${esc(ch.trashedAt)}`:''}${ch.trashedBy?` (von ${esc(ch.trashedBy)})`:''}
+                  </div>
+                </div>
+              </div>
+              <div class="flex flex-wrap items-center gap-1.5 shrink-0">
+                <button type="button" data-action="admin-restore-trash" data-id="${esc(ch.id)}" data-tip="Charakterbogen komplett wiederherstellen" class="btn btn-ok py-1 px-2.5 text-[11px] font-black">↩️ Wiederherstellen</button>
+                ${isConfirm
+                  ?`<button type="button" data-action="admin-confirm-perm-del-trash" data-id="${esc(ch.id)}" class="btn bg-rose-600 text-white border-rose-500 py-1 px-2.5 text-[11px] font-black">Endgültig? (2/2)</button><button type="button" data-action="admin-cancel-perm-del-trash" class="btn py-1 px-2 text-[11px]">✕</button>`
+                  :`<button type="button" data-action="admin-ask-perm-del-trash" data-id="${esc(ch.id)}" data-tip="Charakterbogen endgültig und unwiderruflich löschen" class="btn btn-err py-1 px-2.5 text-[11px] font-black">🔥 Permanent</button>`}
+              </div>
+            </div>`;
+          }).join('')}</div>`
+          :`<div class="text-xs t-mut text-center py-3">Der Papierkorb ist leer.</div>`)}
+    </div>`;
+
     bodyHtml=`<div class="space-y-4">
       <!-- 1. Status & Sitzung -->
       <div class="subcard p-3.5 border-2 border-amber-400/50 bg-amber-500/10 space-y-2.5">
@@ -1335,13 +1403,17 @@ export function renderAdminPanelModalHtml(){
           <span class="pill cursor-default py-0.5 px-2 tabular">👥 ${regUsers.length} ${regUsers.length===1?'Account':'Accounts'}</span>
           <span class="pill cursor-default py-0.5 px-2 tabular">🎲 ${globalGms.length} Spielleiter</span>
           <span class="pill cursor-default py-0.5 px-2 tabular">🗺️ ${allCamps.length} ${allCamps.length===1?'Kampagne':'Kampagnen'}</span>
+          <span class="pill cursor-default py-0.5 px-2 tabular ${trashedList.length?'border-rose-400/60 bg-rose-500/15 text-rose-200':''}">🗑️ ${trashedList.length} im Papierkorb</span>
           <span class="pill cursor-default py-0.5 px-2 tabular">🎨 ${customIconCnt}/${SYSTEM_ICON_DEFS.length} Icons</span>
           <span class="pill cursor-default py-0.5 px-2 tabular">💬 ${fbItems.length} offenes Feedback</span>
         </div>
-        <p class="text-[11px] text-amber-200/90 leading-relaxed">Du kannst alle Kampagnen verwalten, Spieler zuordnen sowie Charakter-Besitzer und Kampagnen-Zugehörigkeiten jederzeit ändern.</p>
+        <p class="text-[11px] text-amber-200/90 leading-relaxed">Du kannst alle Kampagnen verwalten, Spieler zuordnen, gelöschte Bögen aus dem Papierkorb wiederherstellen sowie Charakter-Besitzer und Kampagnen-Zugehörigkeiten jederzeit ändern.</p>
       </div>
 
-      <!-- 2. Zentrale Admin-Werkzeuge -->
+      <!-- 2. Papierkorb -->
+      ${trashSectionHtml}
+
+      <!-- 3. Zentrale Admin-Werkzeuge -->
       <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
         <!-- Standard-Icons -->
         <div class="subcard p-3.5 space-y-2.5 flex flex-col justify-between">
@@ -2607,6 +2679,7 @@ export function performAdminUnlock(){
     UI.adminPinError='';
     try{localStorage.setItem('scherbensturm_cloud_admin','1');}catch(e){}
     refreshUserNotificationsBg(false);
+    fetchTrashedCharacters(true);
     syncCloudRegistry(true);
     renderHeader(); hooks.renderMain?.(); renderModal(false,true);
     if(D.open) renderDice();
@@ -2617,6 +2690,7 @@ export function performAdminUnlock(){
     UI.adminPinError='';
     try{localStorage.setItem('scherbensturm_cloud_admin','1');}catch(e){}
     refreshUserNotificationsBg(false);
+    fetchTrashedCharacters(true);
     renderHeader(); hooks.renderMain?.(); renderModal(false,true);
     if(D.open) renderDice();
     updateLobbyLiveDiceDOM();

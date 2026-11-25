@@ -1,5 +1,5 @@
 import {
-  ATTRS, CRIT_SEQ, WIN_DEFAULTS
+  ATTRS, CRIT_SEQ, WIN_DEFAULTS, SK_RANKS
 } from './constants.js';
 import {
   $, uid, esc, toInt, fmtSign
@@ -8,7 +8,7 @@ import {
   hooks
 } from './ui-hooks.js';
 import {
-  applyWinFrame, renderWinCtrlBtns, renderWinResizeHandles, getCampaigns, isUserInCampaign, canManageCampaign, getActiveLiveCampaignId, getCampaignFilteredDiceFeed, captureScrollState, restoreScrollState, save, getWeaponSubtype, S, D, LD, DUEL, diceLogs, isMobileLayout, UI, LIVE_TAB_ID, CLOUD, getCharCampaignId, isEnemySheet, getEnemyMeta, isEnemyDiceVisibleInCampaign, canSeeEnemyInDice, shouldHideOpponentDetails
+  applyWinFrame, renderWinCtrlBtns, renderWinResizeHandles, getCampaigns, isUserInCampaign, canManageCampaign, getActiveLiveCampaignId, getCampaignFilteredDiceFeed, captureScrollState, restoreScrollState, save, getWeaponSubtype, isWeaponMassiv, S, D, LD, DUEL, diceLogs, isMobileLayout, UI, LIVE_TAB_ID, CLOUD, getCharCampaignId, isEnemySheet, getEnemyMeta, isEnemyDiceVisibleInCampaign, canSeeEnemyInDice, shouldHideOpponentDetails
 } from './state.js';
 import {
   calcActiveMods, getAdvDisForContext, getWeaponRollMeta, fmtAdvSrcLines, getAttrTot, getSkBonus
@@ -401,10 +401,24 @@ export function buildAdvSrcShortList(T){
   return parts;
 }
 export const isLobbyNeutralDice=()=>Boolean(UI.inLobby);
+export function doesWeaponApplyToPool(weapon, atkPool = D.atkPool, wRollCat = D.wRollCat){
+  if(!weapon) return false;
+  if(wRollCat !== 'Trefferwurf') return true;
+  const wpPool = ['lp','mlp','both'].includes(weapon.dmgPool) ? weapon.dmgPool : 'lp';
+  if(wpPool === 'both') return true;
+  return wpPool === (atkPool === 'mlp' ? 'mlp' : 'lp');
+}
+export function getEffectiveDiceWeaponId(){
+  if(isLobbyNeutralDice() || !D.weaponId) return null;
+  const w = (S.weapons || []).find(x => x.id === D.weaponId);
+  if(!w) return null;
+  if(!doesWeaponApplyToPool(w, D.atkPool, D.wRollCat)) return null;
+  return w.id;
+}
 export function resetDiceToLobbyNeutral(){
   hooks.clearOutgoingDuel?.({notifyCancel:true,silent:true});
   hooks.resetCombatState?.();
-  D.weaponId=null; D.skillId=null; D.attrKey=null; D.wRollCat='Normaler Test'; D.sitActive={}; D.oppSitActive={}; D.critOff=0; D.advAdj=0; D.disAdj=0; D.adv=0; D.dis=0;
+  D.weaponId=null; D.skillId=null; D.attrKey=null; D.wRollCat='Normaler Test'; D.atkPool='lp'; D.wpEditOpen=false; D.sitActive={}; D.oppSitActive={}; D.critOff=0; D.advAdj=0; D.disAdj=0; D.adv=0; D.dis=0;
   D.label='Freie Probe (Lobby)';
   D.cMode='direct'; D.cDirect=50; D.cAttr=50; D.cSkill='0';
   D.dMode='direct'; D.dDirect=40; D.oppCharId='';
@@ -424,11 +438,12 @@ export function applyDiceAutoAdvDis(resetManual=false,M=isLobbyNeutralDice()?{te
   const normCat=D.wRollCat==='Parade'?'Parieren':D.wRollCat;
   const effCat=['Normaler Test','Trefferwurf','Parieren','Blocken','Ausweichen'].includes(normCat)?normCat:(D.weaponId?'Trefferwurf':'Normaler Test');
   D.wRollCat=effCat;
+  const effWeaponId=getEffectiveDiceWeaponId();
   const opp=D.dMode==='character'?resolveOpponentComparison(effCat):null;
   const oppDefCat=(opp&&opp.ready)?opp.oppRollCat:'';
   const r1=isLobbyNeutralDice()
     ?{autoAdv:0,autoDis:0,rawAutoAdv:0,rawAutoDis:0,src:[],autoCrit:0,critSrc:[],autoRollMod:0,rollModSrc:[],sitOptions:[]}
-    :getAdvDisForContext({weaponId:D.weaponId||null,wRollCat:effCat,skillId:D.skillId||null,attrKey:D.attrKey||null,sitActive:D.sitActive||{},includeInspiration:true,oppDefenseCat:oppDefCat},M);
+    :getAdvDisForContext({weaponId:effWeaponId,wRollCat:effCat,skillId:D.skillId||null,attrKey:D.attrKey||null,sitActive:D.sitActive||{},includeInspiration:true,oppDefenseCat:oppDefCat},M);
   const oppAutoAdv=(opp&&opp.ready)?(opp.ad.autoAdv||0):0;
   const oppAutoDis=(opp&&opp.ready)?(opp.ad.autoDis||0):0;
   const oppAdvSrc=(opp&&opp.ready)?(opp.ad.src||[]).map(s=>({...s,fromOpponent:true,oppName:opp.oppName,oppOrigKind:s.kind,kind:s.kind==='dis'?'adv':'dis'})):[];
@@ -466,12 +481,51 @@ export function calcThreshold(){
   D.crit=effCrit;
   return {cv,dv,effAdv:D.adv,effDis:D.dis,autoAdv:ad.autoAdv,autoDis:ad.autoDis,c1AutoAdv:ad.c1AutoAdv||0,c1AutoDis:ad.c1AutoDis||0,c1AdvSrc:ad.c1AdvSrc||[],opp:ad.opp||null,oppAutoAdv:ad.oppAutoAdv||0,oppAutoDis:ad.oppAutoDis||0,oppAdvSrc:ad.oppAdvSrc||[],oppSitOptions:ad.oppSitOptions||[],advAdj:toInt(D.advAdj,0),disAdj:toInt(D.disAdj,0),advSrc:ad.src,sitOptions:ad.sitOptions||[],autoCrit:ad.autoCrit||0,critSrc:ad.critSrc||[],rollMod:ad.autoRollMod||0,rollModSrc:ad.rollModSrc||[],effCrit,effCritIdx,rawNet,net,bonus,th,egMult:calcEgMultiplier(th),effTh:M.testTh||0,chance:Math.max(1,Math.min(99,th))};
 }
+export function selectDiceWeapon(weaponId){
+  if(isLobbyNeutralDice()) return;
+  const wid=String(weaponId||'').trim();
+  if(!wid||wid==='__none__'){
+    D.weaponId=null;
+    D.wpEditOpen=false;
+    D.sitActive={};
+    D.critOff=0;
+    syncDiceFromSheet();
+    applyDiceAutoAdvDis(false);
+    renderDice();
+    return;
+  }
+  const w=(S.weapons||[]).find(x=>x.id===wid);
+  if(!w) return;
+  if(D.wRollCat==='Normaler Test') D.wRollCat='Trefferwurf';
+  const wm=getWeaponRollMeta(w);
+  D.weaponId=w.id;
+  D.critOff=0;
+  D.sitActive={};
+  D.attrKey=wm.attrKey;
+  D.skillId=wm.sk?wm.sk.id:null;
+  if(D.wRollCat==='Trefferwurf'){
+    const wpPool=['lp','mlp','both'].includes(w.dmgPool)?w.dmgPool:'lp';
+    if(wpPool==='mlp') D.atkPool='mlp';
+    else if(wpPool==='lp') D.atkPool='lp';
+  }
+  D.cMode='breakdown';
+  D.cAttr=wm.attrVal;
+  if(wm.sk){
+    if(['0','10','15','20','30'].includes(String(wm.skBonus))){D.cSkill=String(wm.skBonus);}
+    else{D.cSkill='custom';D.cCustom=wm.skBonus;}
+  }else{D.cSkill='0';}
+  D.cDirect=wm.pool;
+  syncDiceFromSheet();
+  applyDiceAutoAdvDis(false);
+  renderDice();
+}
 export function openWeaponRoll(weaponId,wRollCat='Trefferwurf'){
   const w=S.weapons.find(x=>x.id===weaponId); if(!w) return;
   const normCat=wRollCat==='Parade'?'Parieren':wRollCat;
   const cat=['Normaler Test','Trefferwurf','Parieren','Blocken','Ausweichen'].includes(normCat)?normCat:'Trefferwurf';
   const wm=getWeaponRollMeta(w);
   D.weaponId=w.id; D.wRollCat=cat; D.critOff=0; D.sitActive={};
+  D.atkPool=(w.dmgPool==='mlp')?'mlp':'lp';
   D.attrKey=wm.attrKey; D.skillId=wm.sk?wm.sk.id:null;
   if(D.dMode==='character'){
     D.oppKind='preset';
@@ -486,7 +540,8 @@ export function openWeaponRoll(weaponId,wRollCat='Trefferwurf'){
   }else{D.cSkill='0';}
   D.cDirect=wm.pool;
   const wName=String(w.name||'').trim()||getWeaponSubtype(w.wType).label;
-  D.label=wm.sk?`${cat}: ${wName} • ${wm.sk.name} (${fmtSign(wm.skBonus)}) + ${wm.attrKey} (${wm.attrVal})`:`${cat}: ${wName} • ${wm.attrKey} (${wm.attrVal})`;
+  const poolSfx=(cat==='Trefferwurf'&&D.atkPool==='mlp')?' [mLP]':'';
+  D.label=wm.sk?`${cat}${poolSfx}: ${wName} • ${wm.sk.name} (${fmtSign(wm.skBonus)}) + ${wm.attrKey} (${wm.attrVal})`:`${cat}${poolSfx}: ${wName} • ${wm.attrKey} (${wm.attrVal})`;
   D.open=true;
   hooks.renderHeader?.(); renderDice();
 }
@@ -496,27 +551,29 @@ export function syncDiceFromSheet(){
   if(!['Normaler Test','Trefferwurf','Parieren','Blocken','Ausweichen'].includes(D.wRollCat)){
     D.wRollCat=D.weaponId?'Trefferwurf':'Normaler Test';
   }
+  const poolSfx=(D.wRollCat==='Trefferwurf'&&D.atkPool==='mlp')?' [mLP]':'';
   if(D.weaponId){
     const w=S.weapons.find(x=>x.id===D.weaponId);
     if(w){
       const wm=getWeaponRollMeta(w), cat=D.wRollCat||'Trefferwurf';
+      const applies=doesWeaponApplyToPool(w,D.atkPool,cat);
       const ak=D.attrKey||wm.attrKey, av=getAttrTot(ak);
       const sk=D.skillId?S.skills.find(s=>s.id===D.skillId):null, b=sk?getSkBonus(sk):0;
       D.attrKey=ak; D.cAttr=av;
       if(sk){if(['0','10','15','20','30'].includes(String(b))){D.cSkill=String(b);}else{D.cSkill='custom';D.cCustom=b;}}
       const effSk=sk?b:(D.cMode==='breakdown'?getCSkVal():0);
       D.cDirect=av+effSk;
-      const wName=String(w.name||'').trim()||getWeaponSubtype(w.wType).label;
-      D.label=sk?`${cat}: ${wName} • ${sk.name} (${fmtSign(b)}) + ${ak} (${av})`:`${cat}: ${wName} • ${ak} (${av})`;
+      const wName=applies?(String(w.name||'').trim()||getWeaponSubtype(w.wType).label):'Ohne Waffe';
+      D.label=sk?`${cat}${poolSfx}: ${wName} • ${sk.name} (${fmtSign(b)}) + ${ak} (${av})`:`${cat}${poolSfx}: ${wName} • ${ak} (${av})`;
       applyDiceAutoAdvDis(false);
       return;
-    }else{D.weaponId=null;D.wRollCat='Normaler Test';D.sitActive={};}
+    }else{D.weaponId=null;D.wpEditOpen=false;D.wRollCat='Normaler Test';D.sitActive={};}
   }
   const isNorm=D.wRollCat==='Normaler Test';
-  const catPfx=D.wRollCat?`${D.wRollCat}: `:'';
+  const catPfx=D.wRollCat?`${D.wRollCat}${poolSfx}: `:'';
   if(D.skillId){const sk=S.skills.find(x=>x.id===D.skillId);if(sk){const ak=D.attrKey||sk.linkedAttr,av=getAttrTot(ak),b=getSkBonus(sk);D.cAttr=av;if(['0','10','15','20','30'].includes(String(b))){D.cSkill=String(b);}else{D.cSkill='custom';D.cCustom=b;}D.cDirect=av+b;D.label=`${catPfx}${sk.name} (${fmtSign(b)}) + ${ak} (${av})`;}else{D.skillId=null;}}
   else if(D.attrKey){const av=getAttrTot(D.attrKey);D.cAttr=av;if(D.cMode==='direct')D.cDirect=av;D.label=isNorm?`Normaler Test: ${D.attrKey} (${av})`:`${catPfx}${D.attrKey} (${av})`;}
-  else if(!isNorm&&D.wRollCat){D.label=D.wRollCat==='Trefferwurf'?'Trefferwurf (Freie Probe)':`Abwehrprobe: ${D.wRollCat}`;}
+  else if(!isNorm&&D.wRollCat){D.label=D.wRollCat==='Trefferwurf'?`Trefferwurf${poolSfx} (Freie Probe)`:`Abwehrprobe: ${D.wRollCat}`;}
   else if(/^(?:Abwehrprobe:|Trefferwurf)/.test(D.label)){D.label='Freie Probe';}
   applyDiceAutoAdvDis(false);
 }
@@ -556,39 +613,64 @@ export function buildAdvDisInnerHtml(T){
   const manChips=[];
   if(T.advAdj){
     const isPos=T.advAdj>0;
-    manChips.push(`<span class="inline-flex flex-wrap items-center gap-1 px-1.5 py-0.5 rounded border text-[10px] leading-snug max-w-full min-w-0 break-words ${isPos?'bg-emerald-500/15 text-emerald-200 border-emerald-500/35':'bg-amber-500/15 text-amber-200 border-amber-400/45'}"><span class="px-1 rounded font-black tabular shrink-0 ${isPos?'bg-emerald-500/25 text-emerald-300':'bg-amber-500/25 text-amber-300'}">${fmtSign(T.advAdj)}V</span><span class="font-bold">Manuell</span><span class="opacity-80">• Vorteile</span></span>`);
+    manChips.push(`<span class="inline-flex flex-wrap items-center gap-1 px-1.5 py-0.5 rounded border text-[10px] leading-snug max-w-full min-w-0 break-words ${isPos?'bg-emerald-500/15 text-emerald-200 border-emerald-500/35':'bg-amber-500/15 text-amber-200 border-amber-400/45'}"><span class="px-1 rounded font-black tabular shrink-0 ${isPos?'bg-emerald-500/25 text-emerald-300':'bg-amber-500/25 text-amber-300'}">${fmtSign(T.advAdj)}V</span><span class="font-bold">Manuell</span></span>`);
   }
   if(T.disAdj){
     const isPos=T.disAdj>0;
-    manChips.push(`<span class="inline-flex flex-wrap items-center gap-1 px-1.5 py-0.5 rounded border text-[10px] leading-snug max-w-full min-w-0 break-words ${isPos?'bg-rose-500/15 text-rose-200 border-rose-500/35':'bg-amber-500/15 text-amber-200 border-amber-400/45'}"><span class="px-1 rounded font-black tabular shrink-0 ${isPos?'bg-rose-500/25 text-rose-300':'bg-amber-500/25 text-amber-300'}">${fmtSign(T.disAdj)}N</span><span class="font-bold">Manuell</span><span class="opacity-80">• Nachteile</span></span>`);
+    manChips.push(`<span class="inline-flex flex-wrap items-center gap-1 px-1.5 py-0.5 rounded border text-[10px] leading-snug max-w-full min-w-0 break-words ${isPos?'bg-rose-500/15 text-rose-200 border-rose-500/35':'bg-amber-500/15 text-amber-200 border-amber-400/45'}"><span class="px-1 rounded font-black tabular shrink-0 ${isPos?'bg-rose-500/25 text-rose-300':'bg-amber-500/25 text-amber-300'}">${fmtSign(T.disAdj)}N</span><span class="font-bold">Manuell</span></span>`);
   }
-  const oppSummaryBadge=T.opp?.ready
-    ?(hideOpp
-      ?`<span class="text-[10px] font-bold text-indigo-300 tabular truncate">⚔️ ${esc(c1Name)} (${T.c1AutoAdv}V/${T.c1AutoDis}N) vs. 👹 ${esc(T.opp.oppName)} (Details verborgen)</span>`
-      :`<span class="text-[10px] font-bold text-indigo-300 tabular truncate">⚔️ ${esc(c1Name)} (${T.c1AutoAdv}V/${T.c1AutoDis}N) vs. ${esc(T.opp.oppName)} (${T.oppAutoAdv}V→N / ${T.oppAutoDis}N→V)</span>`)
-    :'';
-  return `<div class="flex flex-wrap items-center justify-between gap-1.5 pb-0.5 min-w-0">
-    <span class="text-[10px] font-extrabold t-mut uppercase tracking-wider">VORTEILE &amp; NACHTEILE</span>
-    ${oppSummaryBadge}
+  const srcCount=c1Src.length+oppSrc.length+(T.critSrc?.length||0)+(T.rollModSrc?.length||0)+(T.advAdj?1:0)+(T.disAdj?1:0)+(hasHiddenOppModNote?1:0);
+  const netCls=T.net>0?'bg-emerald-500/20 text-emerald-300 border-emerald-500/40':T.net<0?'bg-rose-500/20 text-rose-300 border-rose-500/40':'bg-black/25 t-mut bdr-line';
+  const netShort=T.net>0?`${fmtSign(netBonus)} (${Math.abs(T.rawNet)}V)`:T.net<0?`${netBonus} (${Math.abs(T.rawNet)}N)`:'±0';
+  return `<div class="grid grid-cols-[1fr_auto_1fr] gap-1.5 items-center min-w-0 tabular">
+    <div ${aTip} class="min-w-0 flex items-center justify-between gap-1 px-2 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/25 ${aTip?'cursor-help':''}">
+      <div class="min-w-0">
+        <div class="text-[9px] font-extrabold text-emerald-400 uppercase tracking-wider leading-none">Vorteile</div>
+        <div class="font-black text-sm leading-tight mt-0.5 flex items-baseline gap-1"><span>${D.adv}</span>${(T.autoAdv||T.advAdj)?`<span class="text-[10px] font-bold text-emerald-400/90">(${T.autoAdv}${T.advAdj?fmtSign(T.advAdj):''})</span>`:''}</div>
+      </div>
+      <div class="flex gap-1 shrink-0"><button type="button" data-action="adv-step" data-d="-1" ${D.adv<=0?'disabled':''} aria-label="Vorteile minus 1" class="btn w-7 h-7 p-0">−</button><button type="button" data-action="adv-step" data-d="1" aria-label="Vorteile plus 1" class="btn btn-ok w-7 h-7 p-0">+</button></div>
+    </div>
+    <div class="flex flex-col items-center gap-0.5 shrink-0">
+      <span class="px-2 py-0.5 rounded-md border text-[11px] font-black leading-tight ${netCls}" data-tip="${T.net>0?`${Math.abs(T.rawNet)} Netto-Vorteil (${fmtSign(netBonus)})`:T.net<0?`${Math.abs(T.rawNet)} Netto-Nachteil (${netBonus})`:'Ausgeglichen (±0)'}">${netShort}</span>
+      ${hasAdvDisAdj?`<button type="button" data-action="reset-dice-advdis" data-tip="Auf automatisch berechnete Vor-/Nachteile zurücksetzen" class="text-[10px] font-black text-amber-300 hover:underline leading-none cursor-pointer">↺ Auto</button>`:''}
+    </div>
+    <div ${dTip} class="min-w-0 flex items-center justify-between gap-1 px-2 py-1.5 rounded-lg bg-rose-500/10 border border-rose-500/25 ${dTip?'cursor-help':''}">
+      <div class="min-w-0">
+        <div class="text-[9px] font-extrabold text-rose-400 uppercase tracking-wider leading-none">Nachteile</div>
+        <div class="font-black text-sm leading-tight mt-0.5 flex items-baseline gap-1"><span>${D.dis}</span>${(T.autoDis||T.disAdj)?`<span class="text-[10px] font-bold text-rose-400/90">(${T.autoDis}${T.disAdj?fmtSign(T.disAdj):''})</span>`:''}</div>
+      </div>
+      <div class="flex gap-1 shrink-0"><button type="button" data-action="dis-step" data-d="-1" ${D.dis<=0?'disabled':''} aria-label="Nachteile minus 1" class="btn w-7 h-7 p-0">−</button><button type="button" data-action="dis-step" data-d="1" aria-label="Nachteile plus 1" class="btn bg-rose-600 text-white border-rose-600 w-7 h-7 p-0">+</button></div>
+    </div>
   </div>
-  <div class="grid grid-cols-11 gap-1.5 items-center min-w-0">
-    <div ${aTip} class="col-span-5 min-w-0 flex items-center justify-between gap-1 p-2 rounded-lg bg-emerald-500/10 border border-emerald-500/25 ${aTip?'cursor-help':''}"><div class="min-w-0"><div class="text-[10px] font-bold text-emerald-500">VORTEILE</div><div class="font-black text-sm tabular flex flex-wrap items-baseline gap-x-1"><span>${D.adv}</span>${(T.autoAdv||T.advAdj)?`<span class="text-[10px] font-bold text-emerald-400">(${T.autoAdv} Auto${T.advAdj?fmtSign(T.advAdj):''})</span>`:''}</div></div><div class="flex gap-1 shrink-0"><button type="button" data-action="adv-step" data-d="-1" ${D.adv<=0?'disabled':''} class="btn w-7 h-7 p-0">−</button><button type="button" data-action="adv-step" data-d="1" class="btn btn-ok w-7 h-7 p-0">+</button></div></div>
-    <div class="col-span-1 flex justify-center"><button type="button" data-action="reset-dice-advdis" data-tip="Auf automatisch berechnete Vor-/Nachteile zurücksetzen" class="btn px-1.5 py-2 text-xs font-black ${hasAdvDisAdj?'!border-amber-400 !bg-amber-500/25 text-amber-300':'text-amber-500 opacity-75'}">↺</button></div>
-    <div ${dTip} class="col-span-5 min-w-0 flex items-center justify-between gap-1 p-2 rounded-lg bg-rose-500/10 border border-rose-500/25 ${dTip?'cursor-help':''}"><div class="min-w-0"><div class="text-[10px] font-bold text-rose-500">NACHTEILE</div><div class="font-black text-sm tabular flex flex-wrap items-baseline gap-x-1"><span>${D.dis}</span>${(T.autoDis||T.disAdj)?`<span class="text-[10px] font-bold text-rose-400">(${T.autoDis} Auto${T.disAdj?fmtSign(T.disAdj):''})</span>`:''}</div></div><div class="flex gap-1 shrink-0"><button type="button" data-action="dis-step" data-d="-1" ${D.dis<=0?'disabled':''} class="btn w-7 h-7 p-0">−</button><button type="button" data-action="dis-step" data-d="1" class="btn bg-rose-600 text-white border-rose-600 w-7 h-7 p-0">+</button></div></div>
-  </div>
-  ${(hasC1Auto||hasOppAuto||hasHiddenOppModNote||hasAdvDisAdj)?`<div class="p-2 rounded-lg bg-black/25 border bdr-line space-y-1.5 min-w-0">${hasC1Auto?`<div class="space-y-1 min-w-0"><div class="text-[10px] font-extrabold text-acc leading-tight">${T.opp?.ready?`Eigene Quellen – ${esc(c1Name)} (${esc(D.wRollCat||'Normaler Test')})`:`Automatische Quellen (${esc(D.wRollCat||'Normaler Test')})`}:</div><div class="flex flex-wrap items-center gap-1 min-w-0">${c1Src.map(fmtSrcChip).join('')}${(T.critSrc||[]).map(c=>`<span data-tip="${esc(`${c.srcName} (${c.srcKind}): Kritische Ziffer ${fmtSign(c.val)}`)}" class="inline-flex flex-wrap items-center gap-1 px-1.5 py-0.5 rounded border text-[10px] leading-snug max-w-full min-w-0 break-words font-bold tabular cursor-help bg-amber-500/15 text-amber-300 border-amber-400/45">${fmtSign(c.val)} Krit. Ziffer (${esc(c.tagLbl||c.srcName)})</span>`).join('')}${(T.rollModSrc||[]).map(rm=>`<span data-tip="${esc(`${rm.srcName} (${rm.srcKind}): ${fmtSign(rm.val)} auf das geworfene W100-Ergebnis`)}" class="inline-flex flex-wrap items-center gap-1 px-1.5 py-0.5 rounded border text-[10px] leading-snug max-w-full min-w-0 break-words font-bold tabular cursor-help bg-cyan-500/15 text-cyan-300 border-cyan-400/45">🎲 ${fmtSign(rm.val)} Würfelergebnis (${esc(rm.tagLbl||rm.srcName)})</span>`).join('')}</div></div>`:''}${hasOppAuto?`<div class="${hasC1Auto?'pt-1.5 border-t border-white/10 ':''}space-y-1 min-w-0"><div class="text-[10px] font-extrabold text-indigo-300 leading-tight">⚔️ Gegner-Quellen – ${esc(T.opp.oppName)} (${esc(T.opp.oppRollCat||'Normaler Test')} • invertiert verrechnet):</div><div class="flex flex-wrap items-center gap-1 min-w-0">${oppSrc.map(fmtSrcChip).join('')}</div></div>`:''}${hasHiddenOppModNote?`<div class="${hasC1Auto?'pt-1.5 border-t border-white/10 ':''}text-[10px] font-bold text-indigo-300/90">🔒 Gegner-Modifikatoren von ${esc(T.opp.oppName)} werden automatisch verrechnet (Quellen verborgen).</div>`:''}${hasAdvDisAdj?`<div class="${(hasC1Auto||hasOppAuto||hasHiddenOppModNote)?'pt-1.5 border-t border-white/10 ':''}space-y-1 min-w-0"><div class="text-[10px] font-extrabold text-amber-300 leading-tight">Manuell:</div><div class="flex flex-wrap items-center gap-1 min-w-0">${manChips.join('')}</div></div>`:''}</div>`:''}
-  ${(T.sitOptions&&T.sitOptions.length)?`<div class="pt-1 border-t bdr-line space-y-1 min-w-0"><div class="text-[10px] font-extrabold t-mut uppercase tracking-wider">Situative Schalter${T.opp?.ready?` (${esc(c1Name)})`:' (bei Bedarf anklicken)'}</div><div class="flex flex-wrap items-center gap-1.5 min-w-0">${T.sitOptions.map(so=>{const badge=so.reduceDis?`−${so.reduceDis} Nacht.`:so.adv?`+${so.adv} Vort.`:so.dis?`+${so.dis} Nacht.`:'±0';const tipTxt=so.items.map(i=>`${i.srcName}: ${i.label}`).join('\n')+(so.counterNote?`\nVerrechnung: ${so.counterNote}`:'');return `<button type="button" data-action="toggle-dice-sit" data-sit="${esc(so.sitKey)}" data-tip="${esc(tipTxt)}" class="btn py-1 px-2.5 text-[11px] font-bold tabular max-w-full ${so.active?(so.dis>0&&!so.adv?'bg-rose-600 text-white border-rose-500':'btn-ok'):'opacity-85 hover:opacity-100'}"><span>${so.active?'☑':'☐'}</span><span class="break-words">${esc(so.sitLabel)} (${badge})</span>${so.counterNote?`<span class="text-[10px] opacity-85">[${esc(so.counterNote)}]</span>`:''}</button>`;}).join('')}</div></div>`:''}
-  ${(!hideOpp&&T.opp?.ready&&T.oppSitOptions&&T.oppSitOptions.length)?`<div class="pt-1 border-t bdr-line space-y-1 min-w-0"><div class="text-[10px] font-extrabold text-indigo-300 uppercase tracking-wider">⚔️ Situative Schalter (${esc(T.opp.oppName)} • invertiert)</div><div class="flex flex-wrap items-center gap-1.5 min-w-0">${T.oppSitOptions.map(so=>{const badge=so.reduceDis?`Gegner −${so.reduceDis}N`:so.adv?`Gegner +${so.adv}V → +${so.adv}N`:so.dis?`Gegner +${so.dis}N → +${so.dis}V`:'±0';const tipTxt=so.items.map(i=>`${i.srcName}: ${i.label}`).join('\n');return `<button type="button" data-action="toggle-dice-opp-sit" data-sit="${esc(so.sitKey)}" data-tip="${esc(tipTxt)}" class="btn py-1 px-2.5 text-[11px] font-bold tabular max-w-full ${so.active?(so.adv>0&&!so.dis?'bg-rose-600 text-white border-rose-500':'btn-ok'):'opacity-85 hover:opacity-100'}"><span>${so.active?'☑':'☐'}</span><span class="break-words">${esc(so.sitLabel)} (${badge})</span></button>`;}).join('')}</div></div>`:''}
-  <div class="text-center text-xs font-bold py-1 rounded-lg ${T.net>0?'bg-emerald-500/15 text-emerald-500':T.net<0?'bg-rose-500/15 text-rose-500':'bg-black/15 t-mut'}">${T.net>0?`${Math.abs(T.rawNet)} Netto-Vorteil (${fmtSign(netBonus)})`:T.net<0?`${Math.abs(T.rawNet)} Netto-Nachteil (${netBonus})`:'Ausgeglichen (±0)'}</div>`;
+  ${srcCount>0?`<div class="rounded-lg bg-black/20 border bdr-line px-2 py-1.5 space-y-1.5 min-w-0">
+    <button type="button" data-action="toggle-dice-advsrc" aria-expanded="${D.advSrcOpen?'true':'false'}" class="w-full flex items-center justify-between gap-2 text-left cursor-pointer min-w-0">
+      <span class="text-[10px] font-extrabold text-acc truncate">${D.advSrcOpen?'▾':'▸'} ⚡ ${srcCount} aktive ${srcCount===1?'Quelle':'Quellen'}${T.opp?.ready?(hideOpp?` • 👹 ${esc(T.opp.oppName)} (verborgen)`:` • vs. ${esc(T.opp.oppName)}`):''}</span>
+      <span class="text-[10px] t-mut shrink-0">${D.advSrcOpen?'Ausblenden':'Details'}</span>
+    </button>
+    ${D.advSrcOpen?`<div class="space-y-1.5 pt-1 border-t border-white/10 min-w-0">
+      ${hasC1Auto?`<div class="flex flex-wrap items-center gap-1 min-w-0">${c1Src.map(fmtSrcChip).join('')}${(T.critSrc||[]).map(c=>`<span data-tip="${esc(`${c.srcName} (${c.srcKind}): Kritische Ziffer ${fmtSign(c.val)}`)}" class="inline-flex flex-wrap items-center gap-1 px-1.5 py-0.5 rounded border text-[10px] leading-snug max-w-full min-w-0 break-words font-bold tabular cursor-help bg-amber-500/15 text-amber-300 border-amber-400/45">${fmtSign(c.val)} Krit. (${esc(c.tagLbl||c.srcName)})</span>`).join('')}${(T.rollModSrc||[]).map(rm=>`<span data-tip="${esc(`${rm.srcName} (${rm.srcKind}): ${fmtSign(rm.val)} auf das geworfene W100-Ergebnis`)}" class="inline-flex flex-wrap items-center gap-1 px-1.5 py-0.5 rounded border text-[10px] leading-snug max-w-full min-w-0 break-words font-bold tabular cursor-help bg-cyan-500/15 text-cyan-300 border-cyan-400/45">🎲 ${fmtSign(rm.val)} Wurf (${esc(rm.tagLbl||rm.srcName)})</span>`).join('')}</div>`:''}
+      ${hasOppAuto?`<div class="${hasC1Auto?'pt-1 border-t border-white/10 ':''}space-y-1 min-w-0"><div class="text-[10px] font-extrabold text-indigo-300 leading-tight">⚔️ ${esc(T.opp.oppName)} (${esc(T.opp.oppRollCat||'Test')} • invertiert):</div><div class="flex flex-wrap items-center gap-1 min-w-0">${oppSrc.map(fmtSrcChip).join('')}</div></div>`:''}
+      ${hasHiddenOppModNote?`<div class="${hasC1Auto?'pt-1 border-t border-white/10 ':''}text-[10px] font-bold text-indigo-300/90">🔒 Gegner-Modifikatoren von ${esc(T.opp.oppName)} werden im Hintergrund verrechnet.</div>`:''}
+      ${hasAdvDisAdj?`<div class="${(hasC1Auto||hasOppAuto||hasHiddenOppModNote)?'pt-1 border-t border-white/10 ':''}flex flex-wrap items-center gap-1 min-w-0">${manChips.join('')}</div>`:''}
+    </div>`:''}
+  </div>`:''}
+  ${(T.sitOptions&&T.sitOptions.length)?`<div class="flex flex-wrap items-center gap-1 pt-0.5 min-w-0"><span class="text-[10px] font-extrabold t-mut uppercase mr-0.5">Situativ:</span>${T.sitOptions.map(so=>{const badge=so.reduceDis?`−${so.reduceDis}N`:so.adv?`+${so.adv}V`:so.dis?`+${so.dis}N`:'±0';const tipTxt=so.items.map(i=>`${i.srcName}: ${i.label}`).join('\n')+(so.counterNote?`\nVerrechnung: ${so.counterNote}`:'');return `<button type="button" data-action="toggle-dice-sit" data-sit="${esc(so.sitKey)}" data-tip="${esc(tipTxt)}" class="btn py-0.5 px-2 text-[11px] font-bold tabular max-w-full ${so.active?(so.dis>0&&!so.adv?'bg-rose-600 text-white border-rose-500':'btn-ok'):'opacity-85 hover:opacity-100'}"><span>${so.active?'☑':'☐'}</span><span class="break-words">${esc(so.sitLabel)} (${badge})</span></button>`;}).join('')}</div>`:''}
+  ${(!hideOpp&&T.opp?.ready&&T.oppSitOptions&&T.oppSitOptions.length)?`<div class="flex flex-wrap items-center gap-1 pt-0.5 min-w-0"><span class="text-[10px] font-extrabold text-indigo-300 uppercase mr-0.5">⚔️ ${esc(T.opp.oppName)}:</span>${T.oppSitOptions.map(so=>{const badge=so.reduceDis?`−${so.reduceDis}N`:so.adv?`+${so.adv}V→N`:so.dis?`+${so.dis}N→V`:'±0';const tipTxt=so.items.map(i=>`${i.srcName}: ${i.label}`).join('\n');return `<button type="button" data-action="toggle-dice-opp-sit" data-sit="${esc(so.sitKey)}" data-tip="${esc(tipTxt)}" class="btn py-0.5 px-2 text-[11px] font-bold tabular max-w-full ${so.active?(so.adv>0&&!so.dis?'bg-rose-600 text-white border-rose-500':'btn-ok'):'opacity-85 hover:opacity-100'}"><span>${so.active?'☑':'☐'}</span><span class="break-words">${esc(so.sitLabel)} (${badge})</span></button>`;}).join('')}</div>`:''}`;
 }
 export const buildThresholdInnerHtml=T=>{
   const c1Lbl=T.opp?.ready?(isLobbyNeutralDice()?(CLOUD.currentUser||'Gast'):(String(S.profile?.name||'').trim()||'Wert')):'Wert';
   const dLbl=T.opp?.ready?T.opp.oppName:'Schw.';
   const hideOpp=Boolean(T.opp?.ready&&T.opp?.hideDetails);
   const formulaLine=hideOpp
-    ?`${T.cv} (${esc(c1Lbl)}) vs. 👹 ${esc(dLbl)} (Werte verborgen) → Schwelle <strong>${T.th}</strong>`
-    :`${T.cv} (${esc(c1Lbl)}) + 50 − ${T.dv} (${esc(dLbl)}) ${T.bonus>=0?'+ '+T.bonus:'− '+Math.abs(T.bonus)}${T.effTh?` (inkl. ${fmtSign(T.effTh)} Effekt)`:''} = <strong>${T.th}</strong>`;
-  return `<div class="text-[11px] font-semibold t-mut">Testschwelle (W100 ≤ Schwelle) • <span class="text-acc font-bold tabular">Chance: ${T.chance}%</span></div><div class="text-4xl font-black tabular my-0.5">${T.th}</div><div class="text-[11px] t-mut tabular break-words">${formulaLine}</div>${T.egMult>1?`<div class="mt-1.5 inline-flex items-center justify-center px-2.5 py-0.5 rounded-lg bg-amber-500/20 border border-amber-400/60 text-amber-300 text-[11px] font-black tabular">✨ Schwelle ${T.th}: EG ×${T.egMult} bei Erfolg (100 = Patzer)</div>`:''}${T.rollMod?`<div class="text-[11px] font-extrabold text-cyan-300 mt-1">⚡ Würfelergebnis-Modifikator: Geworfene Zahl ${fmtSign(T.rollMod)} (${esc((T.rollModSrc||[]).map(x=>x.tagLbl||x.srcName).join(', '))})</div>`:''}`;
+    ?`${T.cv} (${esc(c1Lbl)}) vs. 👹 ${esc(dLbl)} (verborgen)`
+    :`${T.cv} + 50 − ${T.dv} ${T.bonus>=0?'+ '+T.bonus:'− '+Math.abs(T.bonus)}${T.effTh?` (inkl. ${fmtSign(T.effTh)})`:''}`;
+  return `<div class="flex items-baseline gap-2 flex-wrap min-w-0">
+    <span class="text-3xl sm:text-4xl font-black tabular leading-none">${T.th}</span>
+    <span class="px-1.5 py-0.5 rounded-md bg-acc-soft border bdr-acc text-acc text-[11px] font-black tabular">${T.chance}%</span>
+    ${T.egMult>1?`<span class="px-1.5 py-0.5 rounded-md bg-amber-500/20 border border-amber-400/60 text-amber-300 text-[10px] font-black tabular">✨ EG ×${T.egMult}</span>`:''}
+  </div>
+  <div class="text-[10px] t-mut tabular truncate mt-0.5" data-tip="${esc(formulaLine+' = '+T.th)}">Schwelle ≤ ${T.th} • ${formulaLine}</div>
+  ${T.rollMod?`<div class="text-[10px] font-extrabold text-cyan-300 mt-0.5">⚡ Wurf ${fmtSign(T.rollMod)} (${esc((T.rollModSrc||[]).map(x=>x.tagLbl||x.srcName).join(', '))})</div>`:''}`;
 };
 
 export function renderDice(){
@@ -598,232 +680,399 @@ export function renderDice(){
   applyWinFrame('dice', mount, bd, WIN_DEFAULTS.dice.dockClass); if(!D.open){mount.innerHTML='';return;}
   const isNeutral=isLobbyNeutralDice(), secAct=isSecretRollActive();
   const T=calcThreshold(), ci=CRIT_SEQ.indexOf(D.crit), cs=getCSkVal(), ds=getDSkVal();
-  const adminToggleBarHtml=CLOUD.isAdmin?`<div class="subcard p-2.5 border-2 ${secAct?'border-amber-400 bg-gradient-to-r from-amber-500/20 via-purple-500/20 to-amber-500/20 shadow-lg ring-1 ring-purple-400/40':'bdr-line bg-black/20'} flex flex-wrap items-center justify-between gap-2">
-    <button type="button" data-action="toggle-dice-secret" data-tip="Schaltet zwischen öffentlichem Live-Feed und geheimen Admin-Würfen um" class="btn py-1.5 px-3 text-xs font-black ${secAct?'bg-amber-500 text-slate-950 border-amber-300 shadow':'bdr-acc bg-acc-soft text-acc'}">${secAct?'🕵️ GEHEIMER WURF (Privat)':'👁️ Öffentlich (Live-Feed)'}</button>
-    <span class="text-[11px] font-bold ${secAct?'text-amber-200':'t-mut'}">${secAct?'Geht nicht in den Live-Feed • später enthüllbar':'👑 Admin: Würfe gehen in den Live-Feed'}</span>
-  </div>`:'';
+
   let secretBannerHtml='';
   if(CLOUD.isAdmin && UI.lastSecretRollId){
     const sr=(CLOUD.secretRolls||[]).find(x=>x&&x.id===UI.lastSecretRollId);
     if(sr){
       secretBannerHtml=!sr.revealed
-        ?`<div class="subcard p-2.5 border-2 border-amber-400 bg-gradient-to-r from-amber-500/20 via-purple-500/20 to-amber-500/20 space-y-2 shadow-lg">
-          <div class="flex flex-wrap items-center justify-between gap-2">
-            <span class="text-xs font-black text-amber-200">🕵️ GEHEIMER ADMIN-WURF (nur für dich sichtbar)</span>
-            <span class="text-[10px] font-bold text-purple-200 tabular">${esc(sr.originalTs||sr.ts||'')}</span>
-          </div>
-          <button type="button" data-action="reveal-secret-roll" data-id="${esc(sr.id)}" class="btn w-full py-1.5 px-3 text-xs font-black bg-amber-500 text-slate-950 border-amber-300 hover:brightness-110 shadow">👁️ Jetzt im Live-Feed enthüllen (Reveal)</button>
+        ?`<div class="subcard p-2 border-2 border-amber-400 bg-gradient-to-r from-amber-500/20 via-purple-500/20 to-amber-500/20 flex flex-wrap items-center justify-between gap-2 shadow">
+          <span class="text-xs font-black text-amber-200">🕵️ Geheimwurf (${esc(sr.originalTs||sr.ts||'')})</span>
+          <button type="button" data-action="reveal-secret-roll" data-id="${esc(sr.id)}" class="btn py-1 px-2.5 text-xs font-black bg-amber-500 text-slate-950 border-amber-300 hover:brightness-110">👁️ Im Live-Feed enthüllen</button>
         </div>`
-        :`<div class="subcard p-2.5 border-2 border-emerald-500/70 bg-emerald-500/15 text-emerald-300 text-xs font-extrabold flex items-center justify-between gap-2">
-          <span>✓ Dieser Geheimwurf wurde im Live-Feed enthüllt (${esc(sr.revealedAt||'')})</span>
-        </div>`;
+        :`<div class="subcard py-1.5 px-2.5 border border-emerald-500/60 bg-emerald-500/15 text-emerald-300 text-xs font-extrabold">✓ Geheimwurf enthüllt (${esc(sr.revealedAt||'')})</div>`;
     }
   }
   const secretListArr=CLOUD.isAdmin?(CLOUD.secretRolls||[]):[];
-  const secretListHtml=secretListArr.length?`<div class="subcard p-2.5 border border-purple-400/45 bg-purple-500/10 space-y-2">
-    <div class="flex flex-wrap items-center justify-between gap-2">
+  const secretListHtml=secretListArr.length?`<div class="subcard py-2 px-2.5 border border-purple-400/40 bg-purple-500/5 space-y-2">
+    <div class="flex items-center justify-between gap-2">
       <button type="button" data-action="toggle-secret-list" class="flex items-center gap-1.5 text-left min-w-0 flex-1 cursor-pointer">
-        <span class="text-xs font-black text-amber-300 w-4 shrink-0">${UI.secretRollsCollapsed?'▸':'▾'}</span>
-        <span class="text-xs font-extrabold text-amber-200 truncate">🕵️ Geheime Admin-Würfe (${secretListArr.length})</span>
+        <span class="text-xs font-black text-amber-300 w-3.5 shrink-0">${UI.secretRollsCollapsed?'▸':'▾'}</span>
+        <span class="text-xs font-extrabold text-amber-200 truncate">🕵️ Geheimwürfe (${secretListArr.length})</span>
       </button>
-      <button type="button" data-action="clear-secret-rolls" class="btn btn-err py-0.5 px-2 text-[10px] font-extrabold shrink-0">🗑️ Liste leeren</button>
+      <button type="button" data-action="clear-secret-rolls" class="text-[10px] font-bold t-mut hover:text-rose-400 cursor-pointer shrink-0">Leeren</button>
     </div>
-    ${!UI.secretRollsCollapsed?`<div data-scroll-key="diceSecretLog" class="space-y-1.5 max-h-56 overflow-y-auto pr-0.5">${secretListArr.map(r=>`<div class="subcard py-1.5 px-2.5 space-y-1 border ${r.revealed?'border-emerald-500/40 bg-emerald-500/10':'border-amber-400/40 bg-black/25'} min-w-0">
-      <div class="flex items-center justify-between gap-2 min-w-0">
-        <span class="text-xs font-extrabold truncate text-acc">${esc(r.label||'Freie Probe')}</span>
-        <span class="text-[10px] t-mut tabular shrink-0">${esc(r.originalTs||r.ts||'')}</span>
-      </div>
-      <div class="flex flex-wrap items-center justify-between gap-1.5 min-w-0">
-        <span class="text-[11px] font-bold tabular break-words min-w-0">${esc(formatSecretRollSummary(r))}</span>
-        ${!r.revealed
-          ?`<button type="button" data-action="reveal-secret-roll" data-id="${esc(r.id)}" class="btn py-0.5 px-2 text-[10px] font-black bg-amber-500 text-slate-950 border-amber-300 shrink-0">👁️ Enthüllen</button>`
-          :`<span class="px-2 py-0.5 rounded-md bg-emerald-500/20 border border-emerald-400/50 text-emerald-300 text-[10px] font-extrabold tabular shrink-0">✓ Enthüllt (${esc(r.revealedAt||'')})</span>`}
-      </div>
+    ${!UI.secretRollsCollapsed?`<div data-scroll-key="diceSecretLog" class="space-y-1.5 max-h-48 overflow-y-auto pr-0.5">${secretListArr.map(r=>`<div class="p-1.5 px-2 rounded-lg space-y-0.5 border ${r.revealed?'border-emerald-500/40 bg-emerald-500/10':'border-amber-400/40 bg-black/25'} min-w-0">
+      <div class="flex items-center justify-between gap-2 min-w-0"><span class="text-[11px] font-extrabold truncate text-acc">${esc(r.label||'Freie Probe')}</span><span class="text-[10px] t-mut tabular shrink-0">${esc(r.originalTs||r.ts||'')}</span></div>
+      <div class="flex flex-wrap items-center justify-between gap-1.5 min-w-0"><span class="text-[11px] font-bold tabular break-words min-w-0">${esc(formatSecretRollSummary(r))}</span>${!r.revealed?`<button type="button" data-action="reveal-secret-roll" data-id="${esc(r.id)}" class="btn py-0.5 px-2 text-[10px] font-black bg-amber-500 text-slate-950 border-amber-300 shrink-0">👁️ Enthüllen</button>`:`<span class="text-[10px] font-extrabold text-emerald-300 tabular shrink-0">✓ Enthüllt</span>`}</div>
     </div>`).join('')}</div>`:''}
   </div>`:'';
+
   const skOpts=cur=>['0','10','15','20','30','custom'].map(v=>`<option value="${v}" ${cur===v?'selected':''}>${v==='custom'?'Eigener...':'+'+v}</option>`).join('');
   const DIFF_PRESETS=[20,30,40,50,60,70,80];
-  const renderOppBoxBody=()=>{
-    const opps=getCampaignOpponents();
+
+  const opps=D.dMode==='character'?getCampaignOpponents():[];
+  const renderOppTopCompact=()=>{
     const activeCamp=getActiveDiceCampaignId();
     const isGmHere=canManageCampaign(activeCamp);
     const enemyOpps=opps.filter(o=>o.isEnemy);
     const charOpps=opps.filter(o=>!o.isEnemy);
     const fmtOppOpt=o=>{
       const pfx=o.isEnemy?(isGmHere?(o.diceVisible?'👹 👁️ ':'👹 🙈 '):'👹 '):'';
-      const sfx=o.isSelf?' (Aktiver Bogen)':(o.isEnemy&&isGmHere&&!o.diceVisible?' (Nur SL)':'');
+      const sfx=o.isSelf?' (Aktiv)':(o.isEnemy&&isGmHere&&!o.diceVisible?' (SL)':'');
       return `<option value="${esc(o.id)}" ${D.oppCharId===o.id?'selected':''}>${pfx}${esc(o.name)}${sfx}</option>`;
     };
     const pickerOptsHtml=opps.length
       ?(enemyOpps.length&&charOpps.length
         ?`<optgroup label="👹 Gegner (${enemyOpps.length})">${enemyOpps.map(fmtOppOpt).join('')}</optgroup><optgroup label="👥 Charaktere (${charOpps.length})">${charOpps.map(fmtOppOpt).join('')}</optgroup>`
         :opps.map(fmtOppOpt).join(''))
-      :'<option value="">Keine Charaktere in Kampagne</option>';
+      :'<option value="">Keine Ziele in Kampagne</option>';
+    const opp=T.opp;
+    const loading=Boolean(opp?.loading||isForeignSheetLoading(D.oppCharId));
+    const hideOpp=Boolean(opp?.hideDetails);
+    const summaryChip=opp?.ready
+      ?(hideOpp?`<div class="text-[11px] font-bold text-indigo-300 truncate">🔒 ${esc(opp.oppKind==='attr'?opp.attrKey:opp.oppRollCat)} (verborgen)</div>`
+        :`<div class="text-xs font-extrabold text-indigo-300 truncate tabular">${esc(opp.oppShortLabel)}</div>`)
+      :(loading?`<div class="text-[11px] text-acc font-bold">⏳ Lade Ziel...</div>`:`<div class="text-[11px] t-mut">Ziel auswählen</div>`);
+    return `<div class="flex items-center gap-1.5 min-w-0">
+      <select data-dice-opp="charId" aria-label="Gegner-Charakter wählen" class="inp flex-1 min-w-0 font-bold text-xs py-1">${pickerOptsHtml}</select>
+      <button type="button" data-action="refresh-dice-opp" data-tip="Aktuellen Stand des Gegners aus der Cloud nachladen" class="btn w-7 h-7 p-0 text-xs shrink-0 ${loading?'animate-spin':''}" ${loading?'disabled':''}>🔄</button>
+    </div>
+    <div class="flex items-center justify-between gap-1.5 pt-0.5 min-w-0">${summaryChip}</div>`;
+  };
+
+  const renderOppDetailTray=()=>{
+    if(D.dMode!=='character') return '';
     const opp=T.opp;
     const hideOpp=Boolean(opp?.hideDetails);
     const loading=Boolean(opp?.loading||isForeignSheetLoading(D.oppCharId));
     const errMsg=opp?.error||getForeignSheetError(D.oppCharId);
-    const charPicker=`<div class="flex items-center gap-1.5 min-w-0">
-      <select data-dice-opp="charId" aria-label="Gegner-Charakter wählen" class="inp flex-1 min-w-0 font-bold text-xs py-1.5">${pickerOptsHtml}</select>
-      <button type="button" data-action="refresh-dice-opp" data-tip="Aktuellen Stand des Gegners aus der Cloud nachladen" class="btn w-8 h-8 p-0 text-xs shrink-0 ${loading?'animate-spin':''}" ${loading?'disabled':''}>🔄</button>
-    </div>`;
     if(!opps.length){
-      return `${charPicker}<div class="text-[11px] t-mut bg-black/20 rounded-lg p-2 border bdr-line">Noch keine Charaktere oder freigeschalteten Gegner in dieser Kampagne geladen. Klicke auf <strong>🔄</strong> zum Aktualisieren.</div>`;
+      return `<div class="subcard py-2 px-2.5 border border-indigo-400/40 bg-indigo-500/5 text-[11px] t-mut">Noch keine Charaktere oder freigeschalteten Gegner in dieser Kampagne geladen. Klicke oben auf <strong>🔄</strong>.</div>`;
     }
     if(loading&&!opp?.ready){
-      return `${charPicker}<div class="text-[11px] text-acc font-bold bg-black/20 rounded-lg p-2 border bdr-acc">⏳ Lade Daten aus der Cloud...</div>`;
+      return `<div class="subcard py-2 px-2.5 border border-indigo-400/40 bg-indigo-500/5 text-[11px] text-acc font-bold">⏳ Lade Ziel-Daten aus der Cloud...</div>`;
     }
     if(!opp?.ready){
-      return `${charPicker}${errMsg?`<div class="text-[11px] text-rose-400 font-bold bg-rose-500/10 rounded-lg p-2 border border-rose-500/35">⚠️ ${esc(errMsg)}</div>`:`<div class="text-[11px] t-mut bg-black/20 rounded-lg p-2 border bdr-line">Bitte einen Gegner oder Charakter auswählen.</div>`}`;
+      return errMsg?`<div class="subcard py-2 px-2.5 border border-rose-500/40 bg-rose-500/10 text-[11px] text-rose-300 font-bold">⚠️ ${esc(errMsg)}</div>`:'';
     }
     const oppSheet=opp.oppSheet, oppM=opp.oppM;
     const oppSkills=[...(oppSheet.skills||[])].filter(s=>s&&String(s.name||'').trim()).sort((a,b)=>String(a.name).localeCompare(String(b.name),'de'));
     const oppWeapons=[...(oppSheet.weapons||[])].filter(Boolean);
     const kindBar=hideOpp
-      ?`<div class="grid grid-cols-2 gap-1">
-          <button type="button" data-action="dice-opp-kind" data-kind="preset" class="btn py-1 px-1 text-[11px] font-extrabold ${opp.oppKind==='preset'?'btn-pri':''}">🛡️ Abwehr</button>
-          <button type="button" data-action="dice-opp-kind" data-kind="attr" class="btn py-1 px-1 text-[11px] font-extrabold ${opp.oppKind==='attr'?'btn-pri':''}">⚡ Attribut</button>
+      ?`<div class="inline-flex rounded-lg p-0.5 bg-black/25 border bdr-line text-[11px] shrink-0">
+          <button type="button" data-action="dice-opp-kind" data-kind="preset" class="px-2 py-0.5 rounded font-extrabold ${opp.oppKind==='preset'?'bg-indigo-500/35 text-indigo-100':'t-mut'}">🛡️ Abwehr</button>
+          <button type="button" data-action="dice-opp-kind" data-kind="attr" class="px-2 py-0.5 rounded font-extrabold ${opp.oppKind==='attr'?'bg-indigo-500/35 text-indigo-100':'t-mut'}">⚡ Attribut</button>
         </div>`
-      :`<div class="grid grid-cols-3 gap-1">
-          <button type="button" data-action="dice-opp-kind" data-kind="preset" class="btn py-1 px-1 text-[11px] font-extrabold ${opp.oppKind==='preset'?'btn-pri':''}">🛡️ Abwehr</button>
-          <button type="button" data-action="dice-opp-kind" data-kind="attr" class="btn py-1 px-1 text-[11px] font-extrabold ${opp.oppKind==='attr'?'btn-pri':''}">⚡ Attribut</button>
-          <button type="button" data-action="dice-opp-kind" data-kind="skill" class="btn py-1 px-1 text-[11px] font-extrabold ${opp.oppKind==='skill'?'btn-pri':''}">🎯 Fertigk.</button>
+      :`<div class="inline-flex rounded-lg p-0.5 bg-black/25 border bdr-line text-[11px] shrink-0">
+          <button type="button" data-action="dice-opp-kind" data-kind="preset" class="px-2 py-0.5 rounded font-extrabold ${opp.oppKind==='preset'?'bg-indigo-500/35 text-indigo-100':'t-mut'}">🛡️ Abwehr</button>
+          <button type="button" data-action="dice-opp-kind" data-kind="attr" class="px-2 py-0.5 rounded font-extrabold ${opp.oppKind==='attr'?'bg-indigo-500/35 text-indigo-100':'t-mut'}">⚡ Attr.</button>
+          <button type="button" data-action="dice-opp-kind" data-kind="skill" class="px-2 py-0.5 rounded font-extrabold ${opp.oppKind==='skill'?'bg-indigo-500/35 text-indigo-100':'t-mut'}">🎯 Fert.</button>
         </div>`;
+
+    const outDuel=(DUEL.outgoing&&DUEL.outgoing.targetCharId===D.oppCharId)?DUEL.outgoing:null;
+    let duelRightHtml='', duelStatusBanner='';
+    if(outDuel&&outDuel.status==='waiting'){
+      const remSec=Math.max(0,Math.ceil((toInt(outDuel.expiresAt,Date.now())-Date.now())/1000));
+      duelStatusBanner=`<div class="p-1.5 px-2 rounded-lg border border-indigo-400/55 bg-indigo-500/15 flex flex-wrap items-center justify-between gap-1.5 text-[11px]">
+        <span class="font-extrabold text-indigo-200 truncate">⏳ Warte auf Konter (<span id="duelWaitCountdown" class="tabular">${remSec} s</span>)</span>
+        <div class="flex items-center gap-1 shrink-0">
+          <button type="button" data-action="duel-roll-now" class="btn btn-pri py-0.5 px-2 text-[10px] font-extrabold">🎲 Direkt würfeln</button>
+          <button type="button" data-action="duel-cancel" class="btn py-0.5 px-1.5 text-[10px]">✕</button>
+        </div>
+      </div>`;
+    }else if(outDuel&&outDuel.status==='responded'&&outDuel.response?.snapshot){
+      const sp=outDuel.response.snapshot;
+      const modTxt=(sp.autoAdv||sp.autoDis)?` (${sp.autoAdv?`+${sp.autoAdv}V`:''}${sp.autoAdv&&sp.autoDis?'/':''}${sp.autoDis?`+${sp.autoDis}N`:''})`:'';
+      duelStatusBanner=`<div class="p-1.5 px-2 rounded-lg border border-emerald-400/60 bg-emerald-500/15 flex items-center justify-between gap-2 text-[11px]">
+        <span class="font-extrabold text-emerald-200 truncate">${hideOpp?`✅ ${esc(opp.oppName)} hat gekontert (verborgen)`:`✅ Konter: ${esc(sp.oppShortLabel)}${esc(modTxt)}${outDuel.response.useInspiration?' • ✨':''}`}</span>
+        <button type="button" data-action="duel-clear-status" data-tip="Live-Antwort lösen" class="btn w-5 h-5 p-0 text-[10px] shrink-0">✕</button>
+      </div>`;
+    }else if(outDuel&&(outDuel.status==='timeout'||outDuel.status==='declined')){
+      const reason=outDuel.status==='declined'?'Ignoriert':'Timeout';
+      duelStatusBanner=`<div class="p-1.5 px-2 rounded-lg border border-amber-400/50 bg-amber-500/10 flex items-center justify-between gap-1.5 text-[10px]">
+        <span class="font-bold text-amber-200">⏱️ ${reason} – lokaler Stand aktiv</span>
+        <div class="flex items-center gap-1"><button type="button" data-action="duel-send" class="btn py-0.5 px-1.5 text-[10px]">🔄 Erneut</button><button type="button" data-action="duel-clear-status" class="btn w-5 h-5 p-0 text-[10px]">✕</button></div>
+      </div>`;
+    }else if(opp.charId){
+      duelRightHtml=`<button type="button" data-action="duel-send" data-tip="Schickt ${opp.isEnemy?'der Spielleitung':'dem Spieler von '+esc(opp.oppName)} eine Live-Konter-Anfrage" class="btn py-0.5 px-2 text-[11px] font-extrabold border-indigo-400/50 bg-indigo-500/15 text-indigo-200 hover:bg-indigo-500/25 shrink-0">📨 Konter</button>`;
+    }
+
     let detailHtml='';
     if(opp.oppKind==='preset'){
       const showAtkPreset=Boolean(D.wRollCat==='Parieren'||D.wRollCat==='Blocken'||D.wRollCat==='Ausweichen'||opp.oppPreset==='attack');
       const presetBtns=[
-        {k:'dodge',l:'💨 Ausw.',tip:'Ausweichen (GW + passende Fertigkeit)'},
-        {k:'parry',l:'🛡️ Par.',tip:'Parieren (PR + Waffe + passende Fertigkeit)'},
-        {k:'block',l:'🧱 Block.',tip:'Blocken (ST + Waffe/Schild + passende Fertigkeit)'}
+        {k:'dodge',l:'💨 Ausw.',tip:'Ausweichen (GW + Fertigkeit)'},
+        {k:'parry',l:'🛡️ Par.',tip:'Parieren (PR + Waffe + Fertigkeit)'},
+        {k:'block',l:'🧱 Block.',tip:'Blocken (ST + Waffe/Schild + Fertigkeit)'}
       ];
       if(showAtkPreset) presetBtns.push({k:'attack',l:'⚔️ Angr.',tip:'Waffenangriff des Gegners'});
       if(hideOpp){
-        detailHtml=`<div class="grid ${presetBtns.length===4?'grid-cols-2 sm:grid-cols-4':'grid-cols-3'} gap-1">${presetBtns.map(pb=>`<button type="button" data-action="dice-opp-preset" data-preset="${pb.k}" data-tip="${esc(pb.tip)}" class="btn py-1 px-1 text-[11px] font-extrabold ${opp.oppPreset===pb.k?'btn-pri':''}">${pb.l}</button>`).join('')}</div>
-        <div class="text-[10px] t-mut bg-black/20 rounded-lg px-2 py-1.5 border bdr-line">🔒 Gegnerwerte, Waffen &amp; Fertigkeiten bleiben verborgen und werden automatisch im Hintergrund verrechnet.</div>`;
+        detailHtml=`<div class="grid ${presetBtns.length===4?'grid-cols-2 sm:grid-cols-4':'grid-cols-3'} gap-1">${presetBtns.map(pb=>`<button type="button" data-action="dice-opp-preset" data-preset="${pb.k}" data-tip="${esc(pb.tip)}" class="btn py-1 px-1 text-[11px] font-extrabold ${opp.oppPreset===pb.k?'btn-pri':''}">${pb.l}</button>`).join('')}</div>`;
       }else{
         const needsWeapon=opp.oppPreset==='parry'||opp.oppPreset==='block'||opp.oppPreset==='attack';
         const curWpVal=D.oppWeaponId==='__none__'?'__none__':(opp.oppWeapon?.id||'__none__');
         const curSkVal=D.oppSkillId==='__none__'?'__none__':(opp.sk?.id||'__none__');
         detailHtml=`<div class="grid ${presetBtns.length===4?'grid-cols-2 sm:grid-cols-4':'grid-cols-3'} gap-1">${presetBtns.map(pb=>`<button type="button" data-action="dice-opp-preset" data-preset="${pb.k}" data-tip="${esc(pb.tip)}" class="btn py-1 px-1 text-[11px] font-extrabold ${opp.oppPreset===pb.k?'btn-pri':''}">${pb.l}</button>`).join('')}</div>
-        ${needsWeapon?`<div class="min-w-0"><label class="block text-[10px] font-bold t-mut mb-0.5">Waffe / Schild des Gegners</label><select data-dice-opp="weaponId" class="inp w-full text-xs font-bold py-1"><option value="__none__" ${curWpVal==='__none__'?'selected':''}>Ohne Waffe</option>${oppWeapons.map(w=>{const wn=String(w.name||'').trim()||getWeaponSubtype(w.wType).label;const tagsTxt=(w.tags||[]).map(t=>t?.name).filter(Boolean).slice(0,2).join(', ');return `<option value="${esc(w.id)}" ${curWpVal===w.id?'selected':''}>${esc(wn)}${tagsTxt?` (${esc(tagsTxt)})`:''}</option>`;}).join('')}</select></div>`:''}
-        <div class="min-w-0"><label class="block text-[10px] font-bold t-mut mb-0.5">Fertigkeit des Gegners (${opp.attrKey} ${opp.attrVal})</label><select data-dice-opp="skillId" class="inp w-full text-xs font-bold py-1"><option value="__none__" ${curSkVal==='__none__'?'selected':''}>Ohne Fertigkeit (+0)</option>${oppSkills.map(sk=>{const b=getSkBonus(sk);return `<option value="${esc(sk.id)}" ${curSkVal===sk.id?'selected':''}>${esc(sk.name)} (${fmtSign(b)})</option>`;}).join('')}</select></div>`;
+        <div class="grid grid-cols-1 ${needsWeapon?'sm:grid-cols-2':''} gap-1.5">
+          ${needsWeapon?`<select data-dice-opp="weaponId" aria-label="Waffe des Gegners" class="inp w-full text-xs font-bold py-1"><option value="__none__" ${curWpVal==='__none__'?'selected':''}>Ohne Waffe</option>${oppWeapons.map(w=>{const wn=String(w.name||'').trim()||getWeaponSubtype(w.wType).label;return `<option value="${esc(w.id)}" ${curWpVal===w.id?'selected':''}>🗡️ ${esc(wn)}</option>`;}).join('')}</select>`:''}
+          <select data-dice-opp="skillId" aria-label="Fertigkeit des Gegners" class="inp w-full text-xs font-bold py-1"><option value="__none__" ${curSkVal==='__none__'?'selected':''}>${opp.attrKey} ${opp.attrVal} (Ohne Fert.)</option>${oppSkills.map(sk=>{const b=getSkBonus(sk);return `<option value="${esc(sk.id)}" ${curSkVal===sk.id?'selected':''}>🎯 ${esc(sk.name)} (${fmtSign(b)})</option>`;}).join('')}</select>
+        </div>`;
       }
     }else if(opp.oppKind==='attr'){
-      detailHtml=`<div class="grid grid-cols-4 gap-1">${ATTRS.map(a=>{const v=getAttrTot(a.k,oppM,oppSheet);return `<button type="button" data-action="dice-opp-attr" data-attr="${a.k}" class="btn py-1 px-0.5 flex-col gap-0 ${opp.attrKey===a.k?'btn-pri':''}"><span class="text-[10px]">${a.k}</span><span class="text-xs font-black tabular">${hideOpp?'??':v}</span></button>`;}).join('')}</div>`;
+      detailHtml=`<div class="grid grid-cols-4 sm:grid-cols-8 gap-1">${ATTRS.map(a=>{const v=getAttrTot(a.k,oppM,oppSheet);return `<button type="button" data-action="dice-opp-attr" data-attr="${a.k}" class="btn py-1 px-0.5 flex-col gap-0 ${opp.attrKey===a.k?'btn-pri':''}"><span class="text-[9px]">${a.k}</span><span class="text-xs font-black tabular">${hideOpp?'??':v}</span></button>`;}).join('')}</div>`;
     }else{
       if(oppSkills.length){
         const curSkId=opp.sk?.id||oppSkills[0].id;
-        detailHtml=`<div class="min-w-0"><label class="block text-[10px] font-bold t-mut mb-0.5">Fertigkeit des Gegners</label><select data-dice-opp="skillId" class="inp w-full text-xs font-bold py-1">${oppSkills.map(sk=>{const av=getAttrTot(sk.linkedAttr||'PR',oppM,oppSheet),b=getSkBonus(sk);return `<option value="${esc(sk.id)}" ${curSkId===sk.id?'selected':''}>${esc(sk.name)} • ${sk.linkedAttr||'PR'} ${av} ${fmtSign(b)} = ${av+b}</option>`;}).join('')}</select></div>`;
+        detailHtml=`<select data-dice-opp="skillId" aria-label="Fertigkeit des Gegners" class="inp w-full text-xs font-bold py-1">${oppSkills.map(sk=>{const av=getAttrTot(sk.linkedAttr||'PR',oppM,oppSheet),b=getSkBonus(sk);return `<option value="${esc(sk.id)}" ${curSkId===sk.id?'selected':''}>${esc(sk.name)} • ${sk.linkedAttr||'PR'} ${av} ${fmtSign(b)} = ${av+b}</option>`;}).join('')}</select>`;
       }else{
-        detailHtml=`<div class="text-[11px] t-mut bg-black/20 rounded-lg p-2 border bdr-line">Dieser Charakter hat keine Fertigkeiten eingetragen.</div>`;
+        detailHtml=`<div class="text-[11px] t-mut">Dieser Charakter hat keine Fertigkeiten eingetragen.</div>`;
       }
     }
-    const outDuel=(DUEL.outgoing&&DUEL.outgoing.targetCharId===D.oppCharId)?DUEL.outgoing:null;
-    let liveDuelBarHtml='';
-    if(outDuel&&outDuel.status==='waiting'){
-      const remSec=Math.max(0,Math.ceil((toInt(outDuel.expiresAt,Date.now())-Date.now())/1000));
-      liveDuelBarHtml=`<div class="p-2 rounded-lg border border-indigo-400/55 bg-indigo-500/15 space-y-1.5 min-w-0">
-        <div class="flex items-center justify-between gap-2 text-[11px] font-extrabold text-indigo-200 min-w-0">
-          <span class="truncate">⏳ Warte auf Konter von ${esc(opp.oppName)}...</span>
-          <span id="duelWaitCountdown" class="tabular shrink-0 text-indigo-300">${remSec} s</span>
+    return `<div class="subcard p-2.5 border border-indigo-400/45 bg-indigo-500/8 space-y-2 min-w-0">
+      <div class="flex flex-wrap items-center justify-between gap-1.5 min-w-0">
+        <div class="flex items-center gap-1.5 min-w-0">
+          <span class="text-[10px] font-black text-indigo-300 uppercase tracking-wider shrink-0">⚔️ Ziel</span>
+          ${kindBar}
         </div>
-        <div class="flex flex-wrap items-center gap-1.5">
-          <button type="button" data-action="duel-roll-now" class="btn btn-pri flex-1 py-1 px-2 text-[11px] font-extrabold">🎲 Doch direkt würfeln</button>
-          <button type="button" data-action="duel-cancel" class="btn py-1 px-2 text-[11px] font-bold opacity-85 hover:opacity-100">✕ Abbrechen</button>
-        </div>
-      </div>`;
-    }else if(outDuel&&outDuel.status==='responded'&&outDuel.response?.snapshot){
-      const sp=outDuel.response.snapshot;
-      const modTxt=(sp.autoAdv||sp.autoDis)?` (${sp.autoAdv?`+${sp.autoAdv}V`:''}${sp.autoAdv&&sp.autoDis?' / ':''}${sp.autoDis?`+${sp.autoDis}N`:''})`:'';
-      liveDuelBarHtml=`<div class="p-2 rounded-lg border border-emerald-400/60 bg-emerald-500/15 flex items-center justify-between gap-2 min-w-0">
-        <div class="text-[11px] font-extrabold text-emerald-200 break-words min-w-0">${hideOpp?`✅ ${esc(opp.oppName)} hat gekontert (Werte verborgen)`:`✅ ${esc(opp.oppName)} kontert mit <span class="text-white">${esc(sp.oppShortLabel)}</span>${esc(modTxt)}${outDuel.response.useInspiration?' • ✨ Inspiration':''}`}</div>
-        <button type="button" data-action="duel-clear-status" data-tip="Live-Antwort lösen und wieder lokal anpassen" class="btn w-6 h-6 p-0 text-[10px] font-black shrink-0">✕</button>
-      </div>`;
-    }else if(outDuel&&(outDuel.status==='timeout'||outDuel.status==='declined')){
-      const reason=outDuel.status==='declined'?'Anfrage ignoriert':'Keine Antwort (Timeout)';
-      liveDuelBarHtml=`<div class="p-2 rounded-lg border border-amber-400/50 bg-amber-500/10 flex flex-wrap items-center justify-between gap-1.5 min-w-0">
-        <span class="text-[10px] font-bold text-amber-200 break-words">⏱️ ${reason} – lokaler Stand aktiv</span>
-        <div class="flex items-center gap-1 shrink-0">
-          <button type="button" data-action="duel-send" class="btn py-0.5 px-2 text-[10px] font-extrabold">🔄 Erneut</button>
-          <button type="button" data-action="duel-clear-status" class="btn w-6 h-6 p-0 text-[10px] font-black">✕</button>
-        </div>
-      </div>`;
-    }else if(opp.charId){
-      liveDuelBarHtml=`<div class="flex items-center justify-between gap-1.5 min-w-0">
-        <button type="button" data-action="duel-send" data-tip="Schickt ${opp.isEnemy?'der Spielleitung':'dem Spieler von '+esc(opp.oppName)} eine Live-Konter-Anfrage (du kannst trotzdem jederzeit direkt würfeln)" class="btn w-full py-1 px-2.5 text-[11px] font-extrabold border-indigo-400/50 bg-indigo-500/15 text-indigo-200 hover:bg-indigo-500/25">📨 Konter anfragen (Live)</button>
-      </div>`;
-    }
-    const oppFootLine=hideOpp
-      ?`👹 ${opp.oppName} • ${opp.oppKind==='attr'?opp.attrKey:opp.oppRollCat} (Details verborgen)`
-      :opp.oppBreak;
-    return `${charPicker}${errMsg?`<div class="text-[10px] text-amber-300 font-bold">⚠️ ${esc(errMsg)} (zeige zwischengespeicherten Stand)</div>`:''}${liveDuelBarHtml}${kindBar}${detailHtml}<div class="text-xs font-extrabold text-indigo-300 text-right tabular break-words pt-0.5 border-t border-white/10">${esc(oppFootLine)}</div>`;
+        ${duelRightHtml}
+      </div>
+      ${errMsg?`<div class="text-[10px] text-amber-300 font-bold">⚠️ ${esc(errMsg)}</div>`:''}
+      ${duelStatusBanner}
+      ${detailHtml}
+      <div class="text-[10px] font-bold text-indigo-300/90 text-right tabular truncate">${esc(hideOpp?`🔒 ${opp.oppName} • Details verborgen`:opp.oppBreak)}</div>
+    </div>`;
   };
+
   const vbox=(ttl,mAct,mode,dirF,aF,sF,cF,mId,mCol,sVal,aL,sL)=>{
     const wKey=dirF==='cDirect'?'c':'d';
     const isDiffChanged=wKey==='d'&&(getEffD()!==40||D.dMode!=='direct');
-    const diffResetBtn=wKey==='d'?`<button type="button" id="btnResetDiceDiff" data-action="reset-dice-diff" data-tip="Nur Schwierigkeit auf Standardwert 40 zurücksetzen (Eigener Wert &amp; Vor-/Nachteile bleiben erhalten)" class="btn py-0.5 px-1.5 text-[10px] font-extrabold tabular transition-all ${isDiffChanged?'!border-amber-400 !bg-amber-500/25 text-amber-300 shadow-sm':'opacity-70 hover:opacity-100'}">↺ 40</button>`:'';
-    const diffPresetBar=(wKey==='d'&&mode!=='character')?`<div class="grid grid-cols-7 gap-1 pt-0.5" data-diff-presets="1">${DIFF_PRESETS.map(v=>{const active=D.dMode==='direct'&&toInt(D.dDirect)===v;return `<button type="button" data-action="dice-set-diff" data-val="${v}" data-tip="Schwierigkeit direkt auf ${v} setzen" class="btn py-0.5 px-0 text-[11px] tabular ${active?'btn-pri font-black':'opacity-85 hover:opacity-100'}">${v}</button>`;}).join('')}</div>`:'';
+    const diffResetBtn=wKey==='d'?`<button type="button" id="btnResetDiceDiff" data-action="reset-dice-diff" data-tip="Schwierigkeit auf 40 zurücksetzen" class="btn py-0 px-1.5 h-5 text-[10px] font-extrabold tabular ${isDiffChanged?'!border-amber-400 !bg-amber-500/25 text-amber-300':'opacity-65 hover:opacity-100'}">↺40</button>`:'';
+    const diffPresetBar=(wKey==='d'&&mode!=='character')?`<div class="grid grid-cols-7 gap-0.5 pt-0.5" data-diff-presets="1">${DIFF_PRESETS.map(v=>{const active=D.dMode==='direct'&&toInt(D.dDirect)===v;return `<button type="button" data-action="dice-set-diff" data-val="${v}" class="btn py-0.5 px-0 text-[10px] tabular ${active?'btn-pri font-black':'opacity-80 hover:opacity-100'}">${v}</button>`;}).join('')}</div>`:'';
     const modeBtns=wKey==='d'
-      ?`<div class="inline-flex flex-wrap rounded-lg p-0.5 bg-black/20 border bdr-line text-[11px] shrink-0"><button type="button" data-action="${mAct}" data-mode="direct" class="px-1.5 sm:px-2 py-0.5 rounded font-bold ${mode==='direct'?'bg-acc-soft text-acc':''}">Direkt</button><button type="button" data-action="${mAct}" data-mode="breakdown" class="px-1.5 sm:px-2 py-0.5 rounded font-bold ${mode==='breakdown'?'bg-acc-soft text-acc':''}">Aufgeschl.</button><button type="button" data-action="${mAct}" data-mode="character" data-tip="Gegen einen Charakterbogen oder freigeschalteten Gegner der aktiven Kampagne würfeln" class="px-1.5 sm:px-2 py-0.5 rounded font-bold ${mode==='character'?'bg-indigo-500/30 text-indigo-200':''}">⚔️ <span class="hidden sm:inline">Gegen Ziel</span><span class="sm:hidden">Ziel</span></button></div>`
-      :`<div class="inline-flex rounded-lg p-0.5 bg-black/20 border bdr-line text-[11px] shrink-0"><button type="button" data-action="${mAct}" data-mode="direct" class="px-2 py-0.5 rounded font-bold ${mode==='direct'?'bg-acc-soft text-acc':''}">Direkt</button><button type="button" data-action="${mAct}" data-mode="breakdown" class="px-2 py-0.5 rounded font-bold ${mode==='breakdown'?'bg-acc-soft text-acc':''}">Aufgeschl.</button></div>`;
+      ?`<div class="inline-flex rounded-lg p-0.5 bg-black/25 border bdr-line text-[10px] shrink-0"><button type="button" data-action="${mAct}" data-mode="direct" class="px-1.5 py-0.5 rounded font-bold ${mode==='direct'?'bg-acc-soft text-acc':'t-mut'}">Direkt</button><button type="button" data-action="${mAct}" data-mode="breakdown" class="px-1.5 py-0.5 rounded font-bold ${mode==='breakdown'?'bg-acc-soft text-acc':'t-mut'}">Split</button><button type="button" data-action="${mAct}" data-mode="character" data-tip="Gegen Charakterbogen oder Gegner würfeln" class="px-1.5 py-0.5 rounded font-bold ${mode==='character'?'bg-indigo-500/35 text-indigo-200':'t-mut'}">⚔️ Ziel</button></div>`
+      :`<div class="inline-flex rounded-lg p-0.5 bg-black/25 border bdr-line text-[10px] shrink-0"><button type="button" data-action="${mAct}" data-mode="direct" class="px-1.5 py-0.5 rounded font-bold ${mode==='direct'?'bg-acc-soft text-acc':'t-mut'}">Direkt</button><button type="button" data-action="${mAct}" data-mode="breakdown" class="px-1.5 py-0.5 rounded font-bold ${mode==='breakdown'?'bg-acc-soft text-acc':'t-mut'}">Aufgeschl.</button></div>`;
     const bodyContent=(wKey==='d'&&mode==='character')
-      ?renderOppBoxBody()
+      ?renderOppTopCompact()
       :(mode==='direct'
-        ?`<input data-dice="${dirF}" data-tip="Tipp: Feld anklicken und Mausrad drehen für ±1" type="text" inputmode="numeric" value="${D[dirF]}" class="inp w-full text-lg font-black tabular"/>`
-        :`<div class="grid grid-cols-2 gap-1.5"><div><label class="block text-[10px] font-bold t-mut">${aL}</label><input data-dice="${aF}" data-tip="Tipp: Feld anklicken und Mausrad drehen für ±1" type="text" inputmode="numeric" value="${D[aF]}" class="inp w-full font-bold tabular"/></div><div><label class="block text-[10px] font-bold t-mut">${sL}</label><select data-dice-sel="${sF}" class="inp w-full font-bold">${skOpts(D[sF])}</select></div></div>${D[sF]==='custom'?`<input data-dice="${cF}" data-tip="Tipp: Feld anklicken und Mausrad drehen für ±1" type="text" inputmode="numeric" value="${D[cF]}" class="inp w-full text-xs font-bold"/>`:''}<div id="${mId}" class="text-xs font-extrabold ${mCol} text-right tabular">${D[aF]} + ${sVal} = ${toInt(D[aF])+sVal}</div>`);
-    return `<div class="subcard space-y-2 min-w-0 ${wKey==='d'&&mode==='character'?'border-indigo-400/50 bg-indigo-500/5':''}"><div class="flex flex-wrap items-center justify-between gap-1.5"><div class="flex items-center gap-1.5 min-w-0"><span class="text-xs font-extrabold truncate">${ttl}</span>${diffResetBtn}</div>${modeBtns}</div>${bodyContent}${diffPresetBar}</div>`;
+        ?`<input data-dice="${dirF}" data-tip="Mausrad drehen für ±1" type="text" inputmode="numeric" value="${D[dirF]}" class="inp w-full text-lg font-black tabular py-1"/>`
+        :`<div class="grid grid-cols-2 gap-1.5"><div><label class="block text-[9px] font-bold t-mut uppercase">${aL}</label><input data-dice="${aF}" data-tip="Mausrad drehen für ±1" type="text" inputmode="numeric" value="${D[aF]}" class="inp w-full font-bold tabular py-1"/></div><div><label class="block text-[9px] font-bold t-mut uppercase">${sL}</label><select data-dice-sel="${sF}" class="inp w-full font-bold py-1">${skOpts(D[sF])}</select></div></div>${D[sF]==='custom'?`<input data-dice="${cF}" type="text" inputmode="numeric" value="${D[cF]}" class="inp w-full text-xs font-bold py-1"/>`:''}<div id="${mId}" class="text-[11px] font-extrabold ${mCol} text-right tabular">${D[aF]} + ${sVal} = ${toInt(D[aF])+sVal}</div>`);
+    return `<div class="subcard p-2.5 space-y-1.5 min-w-0 ${wKey==='d'&&mode==='character'?'border-indigo-400/55 bg-indigo-500/5':''}"><div class="flex items-center justify-between gap-1 min-w-0"><div class="flex items-center gap-1 min-w-0"><span class="text-[11px] font-extrabold uppercase tracking-wider truncate">${ttl}</span>${diffResetBtn}</div>${modeBtns}</div>${bodyContent}${diffPresetBar}</div>`;
   };
-  const mob=isMobileLayout();
-  const hdrOppSub=T.opp?.ready?(T.opp.hideDetails?` ⚔️ vs. 👹 ${esc(T.opp.oppName)}`:` ⚔️ vs. ${esc(T.opp.oppName)} (${esc(T.opp.oppShortLabel)})`):'';
-  p.innerHTML=`<div class="card p-0 ${mob?'rounded-none border-0':'rounded-2xl'} flex-1 h-full flex flex-col min-h-0 overflow-hidden shadow-2xl relative"><div data-win-drag="dice" class="shrink-0 z-10 flex flex-wrap items-center justify-between gap-1.5 sm:gap-2 px-3 sm:px-4 py-2.5 sm:py-3 border-b bdr-line win-drag-hdr" style="background:var(--surf2)"><div class="min-w-0 flex-1"><h2 class="text-sm font-extrabold truncate">🎲 Würfelassistent</h2><p class="text-[11px] text-acc font-bold truncate">${esc(D.label)}${hdrOppSub}</p></div><div class="flex items-center gap-1 sm:gap-1.5 shrink-0"><button type="button" data-action="toggle-livedice" aria-label="Live-Würfel umschalten" data-tip="Live-Würfel-Fenster daneben ein-/ausblenden" class="btn py-1 px-2 text-xs ${LD.open?'btn-pri':''}">📡 <span class="hidden sm:inline">Live</span></button>${renderWinCtrlBtns('dice')}${xl&&!UI.inLobby?`<button type="button" data-action="toggle-dock" class="hidden xl:inline-flex btn py-1 px-2 text-xs">${D.docked?'🗗 Overlay':'📌 Andocken'}</button>`:''}<button type="button" data-action="reset-dice" class="btn btn-err py-1 px-2 text-xs">Reset</button><button type="button" data-action="close-dice" aria-label="Schließen" class="btn btn-err ${mob?'w-9 h-9 p-0 text-sm':'py-1 px-2 text-xs'} font-black shrink-0">✕</button></div></div>
-  <div data-dice-scroll-body="1" class="p-3.5 sm:p-4 space-y-3.5 min-w-0 flex-1 min-h-0 overflow-y-auto overscroll-contain${mob?' safe-pb':''}">
-    ${adminToggleBarHtml}
-    ${isNeutral?`<div class="subcard py-2 px-3 border bdr-acc bg-acc-soft/30 text-xs font-extrabold text-acc flex items-center justify-between gap-2"><span>🏰 Lobby-Modus (Neutral • Absender: ${esc(CLOUD.currentUser || 'Gast')})</span></div>`:''}
-    ${(!isNeutral&&S.inspirationActive)?`<div class="subcard p-2.5 border-2 border-amber-400 bg-amber-500/20 flex items-center justify-between gap-2 shadow-lg"><div class="flex items-center gap-2"><span class="text-base">✨</span><div><div class="text-xs font-black text-amber-300">✨ Inspiration aktiv (+1 Vorteil)</div><div class="text-[10px] text-amber-200/90">Automatisch +1 Vorteil verrechnet • setzt sich nach dem Wurf zurück</div></div></div><button type="button" data-action="cancel-inspiration" data-tip="Inspiration doch nicht für diesen Wurf nutzen (1 Stapel zurücklegen)" class="btn py-0.5 px-2 text-[10px] border-amber-400/60 text-amber-200 shrink-0">↺ Zurücklegen</button></div>`:''}
-    ${isNeutral?'':(()=>{const aw=D.weaponId?S.weapons.find(x=>x.id===D.weaponId):null,rawCat=D.wRollCat==='Parade'?'Parieren':D.wRollCat,curCat=['Normaler Test','Trefferwurf','Parieren','Blocken','Ausweichen'].includes(rawCat)?rawCat:(aw?'Trefferwurf':'Normaler Test'),modeIcon=c=>c==='Normaler Test'?'📋 ':c==='Trefferwurf'?'🎲 ':c==='Parieren'?'🛡️ ':c==='Blocken'?'🧱 ':'💨 ';if(aw){const awSub=getWeaponSubtype(aw.wType),wNm=esc(String(aw.name||'').trim()||awSub.label);return `<div class="subcard p-2.5 border bdr-acc bg-acc-soft/40 space-y-2"><div class="flex items-center justify-between gap-2"><div class="min-w-0"><div class="text-[10px] font-extrabold text-acc uppercase tracking-wider">${esc(awSub.icon)} Aktiver Waffen-Kontext • Modus: ${curCat}</div><div class="text-xs font-black truncate">${wNm}</div></div><button type="button" data-action="clear-dice-weapon" data-tip="Waffen-Kontext lösen & auf Normaler Test wechseln" class="btn btn-err py-0.5 px-2 text-[11px] shrink-0">✕ Lösen</button></div><div class="flex flex-wrap items-center gap-1">${['Normaler Test','Trefferwurf','Parieren','Blocken','Ausweichen'].map(c=>`<button type="button" data-action="set-dice-wcat" data-wcat="${c}" class="btn py-0.5 px-2 text-[11px] font-extrabold ${curCat===c?'btn-pri':''}">${modeIcon(c)}${c}</button>`).join('')}</div></div>`;}return `<div class="subcard p-2.5 space-y-1.5"><div class="flex items-center justify-between gap-2"><div class="text-[10px] font-extrabold t-mut uppercase tracking-wider">🎯 Wurf-Modus (Strikte Isolation)</div>${curCat!=='Normaler Test'?`<button type="button" data-action="clear-dice-weapon" data-tip="Zurück auf Normaler Test" class="btn py-0.5 px-2 text-[10px]">↺ Normaler Test</button>`:''}</div><div class="flex flex-wrap items-center gap-1">${['Normaler Test','Trefferwurf','Parieren','Blocken','Ausweichen'].map(c=>`<button type="button" data-action="set-dice-wcat" data-wcat="${c}" class="btn py-0.5 px-2 text-[11px] font-extrabold ${curCat===c?'btn-pri':''}">${modeIcon(c)}${c}</button>`).join('')}</div></div>`;})()}
-    <div class="subcard p-2.5 space-y-1.5"><div class="text-[10px] font-extrabold t-mut">${isNeutral?'STANDARD-ATTRIBUTE (NEUTRAL 50)':'ATTRIBUT WÄHLEN'}</div><div class="grid grid-cols-4 sm:grid-cols-8 gap-1">${ATTRS.map(a=>isNeutral?`<button type="button" data-action="dice-pick-lobby-attr" data-attr="${a.k}" class="btn py-1 px-0.5 flex-col gap-0 ${D.label===`Freie Probe: ${a.k} (50)`?'btn-pri':''}"><span class="text-[10px]">${a.k}</span><span class="text-xs font-black tabular">50</span></button>`:`<button type="button" data-action="dice-pick-attr" data-attr="${a.k}" class="btn py-1 px-0.5 flex-col gap-0 ${D.attrKey===a.k?'btn-pri':''}"><span class="text-[10px]">${a.k}</span><span class="text-xs font-black tabular">${getAttrTot(a.k)}</span></button>`).join('')}</div></div>
-    <div class="grid grid-cols-1 ${D.dMode==='character'?'':'sm:grid-cols-2'} gap-3">${vbox('Eigener Wert','c-mode',D.cMode,'cDirect','cAttr','cSkill','cCustom','diceCMath','text-acc',cs,'Attribut','Fertigkeit')}${vbox('Schwierigkeit','d-mode',D.dMode,'dDirect','dAttr','dSkill','dCustom','diceDMath','text-indigo-400',ds,'Gegner-Attr.','Gegner-Fert.')}</div>
-    <div id="diceAdvDisBox" class="subcard space-y-2">${buildAdvDisInnerHtml(T)}</div>
-    <div id="diceThBox" class="subcard text-center">${buildThresholdInnerHtml(T)}</div>
-    <div class="dice-bar">
-      <div><div class="subcard py-1.5 px-2 flex items-center justify-between gap-1 h-[44px]"><span class="text-[10px] font-extrabold t-mut">WÜRFE</span><div class="flex items-center gap-1"><button type="button" data-action="cnt-step" data-d="-1" ${D.cnt<=1?'disabled':''} class="btn w-6 h-6 p-0">−</button><select data-dice-sel="cnt" class="inp py-0.5 px-1 text-xs font-extrabold tabular">${[1,2,3,4,5,6,7,8,9,10].map(n=>`<option value="${n}" ${D.cnt===n?'selected':''}>${n}</option>`).join('')}</select><button type="button" data-action="cnt-step" data-d="1" ${D.cnt>=10?'disabled':''} class="btn w-6 h-6 p-0">+</button></div></div></div>
-      <div class="justify-self-center order-first sm:order-none w-full sm:w-auto"><button type="button" data-action="roll-d100" class="btn ${secAct?'bg-gradient-to-r from-amber-500 to-purple-600 text-white border-amber-300 ring-2 ring-amber-400/60 shadow-lg':'btn-pri'} w-full sm:w-auto sm:min-w-[144px] max-w-full h-[44px] text-sm font-black px-5">${secAct?'🕵️ ':'🎲 '}${D.cnt===1?(secAct?'Geheim würfeln!':'Würfeln!'):D.cnt+(secAct?'× Geheim!':'× Würfeln!')}</button></div>
-      <div class="flex flex-col items-end"><div ${T.critSrc?.length?`data-tip="${esc('Automatischer Krit-Bonus:\n'+T.critSrc.map(c=>`• ${c.srcName}: +${c.val}`).join('\n'))}"`:''} class="subcard py-1.5 px-2 flex items-center justify-between gap-1 h-[44px] w-full sm:w-auto ${T.autoCrit?'border-amber-400 bg-amber-500/15 cursor-help':'border-amber-500/40'}"><span class="text-[10px] font-extrabold text-amber-500">KRIT.${T.autoCrit?` <span class="text-amber-300">(+${T.autoCrit})</span>`:''}</span><div class="flex items-center gap-1"><button type="button" data-action="crit-step" data-d="-1" ${ci<=0?'disabled':''} class="btn w-6 h-6 p-0">−</button><select data-dice-sel="crit" class="inp py-0.5 px-1 text-xs font-extrabold tabular text-amber-500">${CRIT_SEQ.map(c=>`<option value="${c}" ${D.crit===c?'selected':''}>${c}</option>`).join('')}</select><button type="button" data-action="crit-step" data-d="1" ${ci>=CRIT_SEQ.length-1?'disabled':''} class="btn w-6 h-6 p-0">+</button></div></div>${D.crit!=='1'?`<button type="button" data-action="crit-mode" class="mt-1 text-[10px] font-bold px-2 py-0.5 rounded bg-amber-500/15 text-amber-500">${D.critMode==='range'?`Modus: 1–${D.crit} ↻`:`Modus: nur ${D.crit} ↻`}${T.autoCrit?` • ⚡ Krit +${T.autoCrit}`:''}</button>`:''}</div>
-    </div>
-    ${(D.wRollCat==='Trefferwurf')?`<div class="flex justify-center"><button type="button" data-action="roll-blocked-hit-20" data-tip="Behält deinen aktuellen Trefferwert bei, setzt die Schwierigkeit auf 20 und würfelt direkt die Erfolgsgrade (EG) für den Grundschaden gegen die Rüstung aus." class="btn w-full py-1.5 px-3 text-xs font-extrabold border-amber-400/60 bg-amber-500/15 text-amber-300 hover:bg-amber-500/25">${secAct?'🕵️ ':''}🛡️ Wurde geblockt (Folgewurf vs. Schw. 20)</button></div>`:''}
-    ${(()=>{const cCnt=Math.max(1,Math.min(100,toInt(D.customCnt,1))), cSides=Math.max(1,toInt(D.customSides,20)), cForm=`${cCnt}W${cSides}`;return `<div class="subcard p-2.5 space-y-2 border border-sky-400/35 bg-sky-500/5">
-      <div class="flex items-center justify-between gap-2">
-        <button type="button" data-action="toggle-dice-custom" class="flex items-center gap-1.5 text-left min-w-0 flex-1 cursor-pointer">
-          <span class="text-xs font-black text-sky-400 w-4 shrink-0">${D.customOpen?'▾':'▸'}</span>
-          <span class="text-xs font-extrabold text-sky-300 truncate">🎲 Benutzerdefinierte Würfel</span>
-        </button>
-        <span id="lblCustomFormulaPill" class="px-2 py-0.5 rounded-md bg-sky-500/15 border border-sky-400/40 text-sky-300 text-[11px] font-black tabular shrink-0">${esc(cForm)}</span>
-      </div>
-      ${D.customOpen?`<div class="space-y-2 pt-1.5 border-t bdr-line">
-        <div class="grid grid-cols-7 gap-1">${[4,6,8,10,12,20,100].map(sd=>`<button type="button" data-action="dice-custom-preset" data-sides="${sd}" class="btn py-1 px-0 text-[11px] tabular ${cSides===sd?'btn-pri font-black':'opacity-85 hover:opacity-100'}">W${sd}</button>`).join('')}</div>
-        <div class="grid grid-cols-12 gap-2 items-end tabular">
-          <div class="col-span-5">
-            <label class="block text-[10px] font-bold t-mut mb-0.5">Anzahl</label>
-            <input data-dice-custom="cnt" type="text" inputmode="numeric" value="${esc(D.customCnt)}" placeholder="1" class="inp w-full text-center font-black py-1 px-1"/>
-          </div>
-          <div class="col-span-7">
-            <label class="block text-[10px] font-bold t-mut mb-0.5">Würfel (Seitenzahl)</label>
-            <div class="flex items-center gap-1.5">
-              <span class="text-sm font-black text-sky-400 shrink-0">W</span>
-              <input data-dice-custom="sides" type="text" inputmode="numeric" value="${esc(D.customSides)}" placeholder="20" class="inp w-full text-center font-black py-1 px-1"/>
+
+  const renderContextCard=()=>{
+    const rawCat=D.wRollCat==='Parade'?'Parieren':D.wRollCat;
+    const curCat=['Normaler Test','Trefferwurf','Parieren','Blocken','Ausweichen'].includes(rawCat)?rawCat:(D.weaponId?'Trefferwurf':'Normaler Test');
+    const modeBtns=[
+      {c:'Normaler Test',l:'📋 Test'},
+      {c:'Trefferwurf',l:'⚔️ Treffer'},
+      {c:'Parieren',l:'🛡️ Par.'},
+      {c:'Blocken',l:'🧱 Block'},
+      {c:'Ausweichen',l:'💨 Ausw.'}
+    ];
+    const aw=(!isNeutral&&D.weaponId)?(S.weapons||[]).find(x=>x.id===D.weaponId):null;
+    const wpApplies=aw?doesWeaponApplyToPool(aw,D.atkPool,curCat):true;
+    const isHitMode=curCat==='Trefferwurf';
+    const atkPool=D.atkPool==='mlp'?'mlp':'lp';
+    const showWeaponBar=!isNeutral&&(isHitMode||curCat==='Parieren'||curCat==='Blocken'||Boolean(aw));
+
+    let weaponRowHtml='';
+    if(showWeaponBar){
+      const weapons=S.weapons||[];
+      const wpOpts=weapons.map(w=>{
+        const wSub=getWeaponSubtype(w.wType);
+        const wNm=String(w.name||'').trim()||wSub.label;
+        const wpPool=['lp','mlp','both'].includes(w.dmgPool)?w.dmgPool:'lp';
+        const pTag=wpPool==='mlp'?' [mLP]':wpPool==='both'?' [LP+mLP]':'';
+        const wm=getWeaponRollMeta(w);
+        return `<option value="${esc(w.id)}" ${D.weaponId===w.id?'selected':''}>${wSub.icon} ${esc(wNm)}${pTag} (${wm.pool})</option>`;
+      }).join('');
+      const mismatchHtml=(aw&&!wpApplies)?`<div class="p-2 rounded-lg border border-amber-400/55 bg-amber-500/12 text-[11px] flex flex-wrap items-center justify-between gap-1.5">
+        <span class="font-bold text-amber-200 min-w-0">⚠️ <strong>${esc(String(aw.name||'').trim()||getWeaponSubtype(aw.wType).label)}</strong> gilt nur für ${aw.dmgPool==='mlp'?'🧠 mLP':'❤️ LP'} – pausiert für diesen ${atkPool==='mlp'?'🧠 mLP':'❤️ LP'}-Trefferwurf (keine Waffen-Tags/Schaden).</span>
+        <div class="flex items-center gap-1 shrink-0">
+          <button type="button" data-action="dice-wp-set-pool" data-id="${esc(aw.id)}" data-pool="both" class="btn py-0.5 px-2 text-[10px] font-black border-purple-400/60 bg-purple-500/20 text-purple-200">Für Beide freigeben</button>
+          <button type="button" data-action="dice-clear-weapon-only" class="btn py-0.5 px-2 text-[10px] font-bold">Ohne Waffe</button>
+        </div>
+      </div>`:'';
+
+      let quickEditHtml='';
+      if(aw&&D.wpEditOpen){
+        const wPool=['lp','mlp','both'].includes(aw.dmgPool)?aw.dmgPool:'lp';
+        const hasMas=isWeaponMassiv(aw);
+        const isRng=aw.wType==='ranged';
+        quickEditHtml=`<div class="p-2.5 rounded-lg border bdr-acc bg-black/25 space-y-2 text-xs min-w-0">
+          <div class="flex flex-wrap items-center justify-between gap-1.5 border-b border-white/10 pb-1.5">
+            <span class="text-[10px] font-black text-acc uppercase tracking-wider">⚙️ Waffe im Bogen anpassen</span>
+            <div class="inline-flex rounded-lg p-0.5 bg-black/30 border bdr-line text-[10px]">
+              <button type="button" data-action="dice-wp-set-pool" data-id="${esc(aw.id)}" data-pool="lp" class="px-1.5 py-0.5 rounded font-black ${wPool==='lp'?'bg-rose-500/35 text-rose-200':'t-mut'}">❤️ LP</button>
+              <button type="button" data-action="dice-wp-set-pool" data-id="${esc(aw.id)}" data-pool="mlp" class="px-1.5 py-0.5 rounded font-black ${wPool==='mlp'?'bg-indigo-500/35 text-indigo-200':'t-mut'}">🧠 mLP</button>
+              <button type="button" data-action="dice-wp-set-pool" data-id="${esc(aw.id)}" data-pool="both" class="px-1.5 py-0.5 rounded font-black ${wPool==='both'?'bg-purple-500/35 text-purple-200':'t-mut'}">Beide</button>
             </div>
           </div>
+          <div class="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
+            <div class="min-w-0">
+              <label class="block text-[9px] font-bold t-mut uppercase mb-0.5">Attribut${hasMas?' (Massiv→ST)':''}</label>
+              <select data-dice-wp-edit="wAttr" data-wid="${esc(aw.id)}" ${hasMas?'disabled':''} class="inp w-full text-xs font-bold py-1">${ATTRS.map(a=>`<option value="${a.k}" ${(hasMas?'ST':aw.wAttr)===a.k?'selected':''}>${a.k} (${getAttrTot(a.k)})</option>`).join('')}</select>
+            </div>
+            <div class="min-w-0">
+              <label class="block text-[9px] font-bold t-mut uppercase mb-0.5">Fertigkeit</label>
+              <select data-dice-wp-edit="skillId" data-wid="${esc(aw.id)}" class="inp w-full text-xs font-bold py-1"><option value="" ${!aw.skillId?'selected':''}>Keine (+0)</option>${(S.skills||[]).map(sk=>`<option value="${esc(sk.id)}" ${aw.skillId===sk.id?'selected':''}>${esc(sk.name||'Fert.')} (${fmtSign(getSkBonus(sk))})</option>`).join('')}</select>
+            </div>
+            <div class="min-w-0 col-span-2 sm:col-span-1">
+              <label class="block text-[9px] font-bold t-mut uppercase mb-0.5">Führung</label>
+              <div class="grid grid-cols-3 gap-1">
+                <button type="button" data-action="dice-wp-set-grip" data-id="${esc(aw.id)}" data-grip="" class="btn py-1 px-1 text-[10px] ${!aw.grip?'btn-pri':''}">—</button>
+                <button type="button" data-action="dice-wp-set-grip" data-id="${esc(aw.id)}" data-grip="1h" class="btn py-1 px-1 text-[10px] ${aw.grip==='1h'?'btn-ok':''}">1H</button>
+                <button type="button" data-action="dice-wp-set-grip" data-id="${esc(aw.id)}" data-grip="2h" class="btn py-1 px-1 text-[10px] ${aw.grip==='2h'?'btn-ok':''}">2H</button>
+              </div>
+            </div>
+          </div>
+          ${isRng?`<div class="min-w-0">
+            <label class="block text-[9px] font-bold text-amber-400 uppercase mb-0.5">🎯 Munition</label>
+            <select data-dice-wp-edit="ammoId" data-wid="${esc(aw.id)}" class="inp w-full text-xs font-bold py-1"><option value="" ${!aw.ammoId?'selected':''}>— Keine Munition —</option>${(S.ammos||[]).map(am=>`<option value="${esc(am.id)}" ${aw.ammoId===am.id?'selected':''}>${esc(am.name||'Munition')} (${am.qty} Stk.)</option>`).join('')}</select>
+          </div>`:''}
+          <div class="grid grid-cols-3 gap-1.5 tabular">
+            <div><label class="block text-[9px] font-bold t-mut text-center mb-0.5">Schnitt</label><input data-dice-wp-inp="${esc(aw.id)}:dmgCut" type="text" value="${esc(aw.dmgCut)}" class="inp w-full text-center font-black py-1 text-xs"/></div>
+            <div><label class="block text-[9px] font-bold t-mut text-center mb-0.5">Durchstoß</label><input data-dice-wp-inp="${esc(aw.id)}:dmgPierce" type="text" value="${esc(aw.dmgPierce)}" class="inp w-full text-center font-black py-1 text-xs"/></div>
+            <div><label class="block text-[9px] font-bold t-mut text-center mb-0.5">Einschlag</label><input data-dice-wp-inp="${esc(aw.id)}:dmgImpact" type="text" value="${esc(aw.dmgImpact)}" class="inp w-full text-center font-black py-1 text-xs"/></div>
+          </div>
+        </div>`;
+      }
+
+      weaponRowHtml=`<div class="space-y-1.5 pt-1.5 border-t border-white/10 min-w-0">
+        <div class="flex items-center gap-1.5 min-w-0">
+          <select data-dice-weapon-sel="1" aria-label="Waffe aus Charakterbogen wählen" class="inp flex-1 min-w-0 text-xs font-bold py-1 ${aw&&!wpApplies?'border-amber-400/60 text-amber-200':''}">
+            <option value="__none__" ${!aw?'selected':''}>✊ Ohne Waffe / Waffenlos</option>
+            ${wpOpts}
+          </select>
+          ${aw?`<button type="button" data-action="toggle-dice-wp-edit" data-tip="Waffe direkt im Würfelassistenten anpassen (LP/mLP, Attribut, Fertigkeit, Munition, Schaden)" class="btn py-1 px-2 text-xs font-extrabold shrink-0 ${D.wpEditOpen?'btn-pri':''}">⚙️ <span class="hidden sm:inline">Anpassen</span></button>`:''}
         </div>
-        <button type="button" id="btnRollCustomDice" data-action="roll-custom-dice" class="btn w-full py-1.5 px-3 text-xs font-black ${secAct?'border-amber-400 bg-amber-500/20 text-amber-200 hover:bg-amber-500/30':'border-sky-400/60 bg-sky-500/20 text-sky-200 hover:bg-sky-500/30'}">${secAct?'🕵️ 🎲 ':'🎲 '}${esc(cForm)}${secAct?' geheim würfeln':' würfeln'}</button>
-      </div>`:''}
-    </div>`;})()}
-    ${secretBannerHtml}
-    <div>${UI.lastRollHtml||`<div class="subcard border-dashed text-center text-xs t-mut py-3">Bereit zum Würfeln!</div>`}</div>
-    ${hooks.renderCombatDamageBox?.()||''}
-    ${secretListHtml}
-    <div class="border-t bdr-line pt-2.5"><div class="flex justify-between mb-1.5"><span class="text-xs font-extrabold t-mut">Würfel-Log (${diceLogs.length})</span><button type="button" data-action="clear-dice-log" class="text-[11px] font-bold t-mut hover:text-rose-500">Leeren</button></div><div data-scroll-key="diceLog" class="space-y-1 max-h-36 overflow-y-auto text-xs">${diceLogs.map(l=>`<div class="subcard py-1 px-2.5 space-y-0.5 min-w-0"><div class="flex justify-between gap-2 min-w-0"><span class="truncate"><strong>${esc(l.lbl)}</strong>${l.isCustomDice?`: ${esc(l.sum)}`:` [≤${l.th}]: ${l.sum}`}</span><span class="text-[10px] t-mut tabular shrink-0">${l.t}</span></div>${l.advSrc?`<div class="text-[10px] t-mut break-words">↳ ${esc(l.advSrc)}</div>`:''}</div>`).join('')}</div></div>
-  </div>${renderWinResizeHandles('dice')}</div>`;
+        ${mismatchHtml}
+        ${quickEditHtml}
+      </div>`;
+    }
+
+    const attrStripHtml=`<div class="grid grid-cols-4 sm:grid-cols-8 gap-1 pt-1.5 border-t border-white/10">${ATTRS.map(a=>isNeutral
+      ?`<button type="button" data-action="dice-pick-lobby-attr" data-attr="${a.k}" class="btn py-1 px-0.5 flex-col gap-0 ${D.label===`Freie Probe: ${a.k} (50)`?'btn-pri':''}"><span class="text-[9px] leading-none">${a.k}</span><span class="text-xs font-black tabular leading-tight">50</span></button>`
+      :`<button type="button" data-action="dice-pick-attr" data-attr="${a.k}" class="btn py-1 px-0.5 flex-col gap-0 ${D.attrKey===a.k?'btn-pri':''}"><span class="text-[9px] leading-none">${a.k}</span><span class="text-xs font-black tabular leading-tight">${getAttrTot(a.k)}</span></button>`).join('')}</div>`;
+
+    return `<div class="subcard p-2.5 space-y-2 min-w-0">
+      ${isNeutral
+        ?`<div class="flex items-center justify-between gap-2 text-[11px] font-extrabold text-acc"><span>🏰 Lobby-Modus (Neutral)</span><span class="t-mut font-semibold">${esc(CLOUD.currentUser||'Gast')}</span></div>`
+        :`<div class="flex flex-wrap items-center justify-between gap-1.5 min-w-0">
+          <div class="flex flex-wrap items-center gap-1 min-w-0">${modeBtns.map(m=>`<button type="button" data-action="set-dice-wcat" data-wcat="${m.c}" class="btn py-0.5 px-2 text-[11px] font-extrabold ${curCat===m.c?'btn-pri':'opacity-85 hover:opacity-100'}">${m.l}</button>`).join('')}</div>
+          ${isHitMode?`<div class="inline-flex rounded-lg p-0.5 bg-black/30 border bdr-line text-[11px] shrink-0" data-tip="Ziel-Pool für Trefferwurf & Schaden: Physische LP oder Mentale mLP (beeinflusst, welche Waffen greifen)">
+            <button type="button" data-action="set-dice-atkpool" data-pool="lp" class="px-2 py-0.5 rounded font-black transition-colors ${atkPool==='lp'?'bg-rose-500/35 text-rose-200':'t-mut hover:text-white'}">❤️ LP</button>
+            <button type="button" data-action="set-dice-atkpool" data-pool="mlp" class="px-2 py-0.5 rounded font-black transition-colors ${atkPool==='mlp'?'bg-indigo-500/40 text-indigo-200':'t-mut hover:text-white'}">🧠 mLP</button>
+          </div>`:''}
+        </div>`}
+      ${weaponRowHtml}
+      ${attrStripHtml}
+    </div>`;
+  };
+
+  const mob=isMobileLayout();
+  const hdrOppSub=T.opp?.ready?(T.opp.hideDetails?` ⚔️ vs. 👹 ${esc(T.opp.oppName)}`:` ⚔️ vs. ${esc(T.opp.oppName)} (${esc(T.opp.oppShortLabel)})`):'';
+  const adminSecretHdrBtn=CLOUD.isAdmin
+    ?`<button type="button" data-action="toggle-dice-secret" data-tip="${secAct?'Geheimwurf aktiv – geht nicht in den Live-Feed (klicken für Öffentlich)':'Öffentlicher Live-Feed (klicken für geheimen Admin-Wurf)'}" class="btn py-1 px-2 text-xs font-black shrink-0 ${secAct?'bg-amber-500 text-slate-950 border-amber-300 shadow':'opacity-80'}">${secAct?'🕵️ Geheim':'👁️'}</button>`
+    :'';
+  const cCnt=Math.max(1,Math.min(100,toInt(D.customCnt,1))), cSides=Math.max(1,Math.min(1000,toInt(D.customSides,20))), cForm=`${cCnt}W${cSides}`;
+
+  p.innerHTML=`<div class="card p-0 ${mob?'rounded-none border-0':'rounded-2xl'} ${secAct?'ring-2 ring-amber-400/70':''} flex-1 h-full flex flex-col min-h-0 overflow-hidden shadow-2xl relative">
+    <div data-win-drag="dice" class="shrink-0 z-10 flex flex-wrap items-center justify-between gap-1.5 px-3 sm:px-3.5 py-2 border-b bdr-line win-drag-hdr" style="background:var(--surf2)">
+      <div class="min-w-0 flex-1">
+        <div class="flex items-center gap-1.5 min-w-0">
+          <h2 class="text-sm font-black truncate">🎲 Würfelassistent</h2>
+          ${secAct?'<span class="px-1.5 py-0.2 rounded text-[9px] font-black bg-amber-500/25 text-amber-300 border border-amber-400/50 shrink-0">PRIVAT</span>':''}
+        </div>
+        <p class="text-[11px] text-acc font-bold truncate">${esc(D.label)}${hdrOppSub}</p>
+      </div>
+      <div class="flex items-center gap-1 shrink-0">
+        ${adminSecretHdrBtn}
+        <button type="button" data-action="toggle-livedice" aria-label="Live-Würfel umschalten" data-tip="Live-Würfel-Fenster daneben ein-/ausblenden" class="btn py-1 px-2 text-xs ${LD.open?'btn-pri':''}">📡</button>
+        ${renderWinCtrlBtns('dice')}
+        ${xl&&!UI.inLobby?`<button type="button" data-action="toggle-dock" data-tip="${D.docked?'Als Overlay lösen':'Rechts andocken'}" class="hidden xl:inline-flex btn py-1 px-2 text-xs">${D.docked?'🗗':'📌'}</button>`:''}
+        <button type="button" data-action="reset-dice" data-tip="Würfelassistent zurücksetzen" class="btn btn-err py-1 px-2 text-xs">↺</button>
+        <button type="button" data-action="close-dice" aria-label="Schließen" class="btn btn-err ${mob?'w-9 h-9 p-0 text-sm':'py-1 px-2 text-xs'} font-black shrink-0">✕</button>
+      </div>
+    </div>
+
+    <div data-dice-scroll-body="1" class="p-3 space-y-2.5 min-w-0 flex-1 min-h-0 overflow-y-auto overscroll-contain${mob?' safe-pb':''}">
+      ${(!isNeutral&&S.inspirationActive)?`<div class="subcard py-1.5 px-2.5 border border-amber-400 bg-amber-500/15 flex items-center justify-between gap-2"><span class="text-xs font-black text-amber-300">✨ Inspiration aktiv (+1 Vorteil für diesen Wurf)</span><button type="button" data-action="cancel-inspiration" class="btn py-0.5 px-2 text-[10px] border-amber-400/60 text-amber-200 shrink-0">↺ Zurück</button></div>`:''}
+
+      ${renderContextCard()}
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+        ${vbox('Eigener Wert','c-mode',D.cMode,'cDirect','cAttr','cSkill','cCustom','diceCMath','text-acc',cs,'Attribut','Fertigkeit')}
+        ${vbox('Schwierigkeit','d-mode',D.dMode,'dDirect','dAttr','dSkill','dCustom','diceDMath','text-indigo-400',ds,'Gegner-Attr.','Gegner-Fert.')}
+      </div>
+
+      ${renderOppDetailTray()}
+
+      <div id="diceAdvDisBox" class="subcard p-2.5 space-y-1.5">${buildAdvDisInnerHtml(T)}</div>
+
+      <div class="subcard p-3 border-2 ${secAct?'border-amber-400/70 bg-amber-500/5':'bdr-acc bg-acc-soft/15'} space-y-2.5">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 min-w-0">
+          <div id="diceThBox" class="min-w-0 flex-1">${buildThresholdInnerHtml(T)}</div>
+          <button type="button" data-action="roll-d100" class="btn ${secAct?'bg-gradient-to-r from-amber-500 to-purple-600 text-white border-amber-300 ring-2 ring-amber-400/50 shadow-lg':'btn-pri'} w-full sm:w-auto sm:min-w-[152px] h-[44px] text-sm font-black px-5 shrink-0">${secAct?'🕵️ ':'🎲 '}${D.cnt===1?(secAct?'Geheim würfeln!':'Würfeln!'):D.cnt+(secAct?'× Geheim!':'× Würfeln!')}</button>
+        </div>
+        <div class="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-white/10 tabular">
+          <div class="inline-flex items-center gap-1">
+            <span class="text-[10px] font-extrabold t-mut uppercase mr-0.5">Würfe</span>
+            <button type="button" data-action="cnt-step" data-d="-1" ${D.cnt<=1?'disabled':''} class="btn w-6 h-6 p-0">−</button>
+            <select data-dice-sel="cnt" aria-label="Anzahl Würfe" class="inp py-0.5 px-1 text-xs font-extrabold tabular">${[1,2,3,4,5,6,7,8,9,10].map(n=>`<option value="${n}" ${D.cnt===n?'selected':''}>${n}</option>`).join('')}</select>
+            <button type="button" data-action="cnt-step" data-d="1" ${D.cnt>=10?'disabled':''} class="btn w-6 h-6 p-0">+</button>
+          </div>
+          <div class="inline-flex flex-wrap items-center gap-1.5">
+            <div ${T.critSrc?.length?`data-tip="${esc('Automatischer Krit-Bonus:\n'+T.critSrc.map(c=>`• ${c.srcName}: +${c.val}`).join('\n'))}"`:''} class="inline-flex items-center gap-1 ${T.autoCrit?'cursor-help':''}">
+              <span class="text-[10px] font-extrabold text-amber-400 uppercase">Krit${T.autoCrit?` (+${T.autoCrit})`:''}</span>
+              <button type="button" data-action="crit-step" data-d="-1" ${ci<=0?'disabled':''} class="btn w-6 h-6 p-0">−</button>
+              <select data-dice-sel="crit" aria-label="Kritische Endziffer" class="inp py-0.5 px-1 text-xs font-extrabold tabular text-amber-400">${CRIT_SEQ.map(c=>`<option value="${c}" ${D.crit===c?'selected':''}>${c}</option>`).join('')}</select>
+              <button type="button" data-action="crit-step" data-d="1" ${ci>=CRIT_SEQ.length-1?'disabled':''} class="btn w-6 h-6 p-0">+</button>
+            </div>
+            ${D.crit!=='1'?`<button type="button" data-action="crit-mode" class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-400 cursor-pointer">${D.critMode==='range'?`1–${D.crit} ↻`:`nur ${D.crit} ↻`}</button>`:''}
+          </div>
+        </div>
+        ${(D.wRollCat==='Trefferwurf')?`<button type="button" data-action="roll-blocked-hit-20" data-tip="Behält deinen aktuellen Trefferwert bei, setzt die Schwierigkeit auf 20 und würfelt direkt die EG für den Grundschaden gegen die Rüstung." class="btn w-full py-1 px-2.5 text-[11px] font-extrabold border-amber-400/50 bg-amber-500/10 text-amber-300 hover:bg-amber-500/20">${secAct?'🕵️ ':''}🛡️ Wurde geblockt (Folgewurf vs. Schw. 20)</button>`:''}
+      </div>
+
+      ${secretBannerHtml}
+      ${UI.lastRollHtml?`<div>${UI.lastRollHtml}</div>`:''}
+      ${hooks.renderCombatDamageBox?.()||''}
+
+      <div class="space-y-1.5 pt-1 border-t border-white/10">
+        <div class="subcard py-2 px-2.5 space-y-2 border border-sky-400/30 bg-sky-500/5">
+          <div class="flex items-center justify-between gap-2">
+            <button type="button" data-action="toggle-dice-custom" class="flex items-center gap-1.5 text-left min-w-0 flex-1 cursor-pointer">
+              <span class="text-xs font-black text-sky-400 w-3.5 shrink-0">${D.customOpen?'▾':'▸'}</span>
+              <span class="text-xs font-extrabold text-sky-300 truncate">🎲 Freie Würfel</span>
+            </button>
+            <span id="lblCustomFormulaPill" class="px-2 py-0.5 rounded-md bg-sky-500/15 border border-sky-400/35 text-sky-300 text-[11px] font-black tabular shrink-0">${esc(cForm)}</span>
+          </div>
+          ${D.customOpen?`<div class="space-y-2 pt-1.5 border-t bdr-line">
+            <div class="grid grid-cols-7 gap-1">${[4,6,8,10,12,20,100].map(sd=>`<button type="button" data-action="dice-custom-preset" data-sides="${sd}" class="btn py-1 px-0 text-[11px] tabular ${cSides===sd?'btn-pri font-black':'opacity-85 hover:opacity-100'}">W${sd}</button>`).join('')}</div>
+            <div class="grid grid-cols-12 gap-2 items-end tabular">
+              <div class="col-span-5"><label class="block text-[10px] font-bold t-mut mb-0.5">Anzahl</label><input data-dice-custom="cnt" type="text" inputmode="numeric" value="${esc(D.customCnt)}" placeholder="1" class="inp w-full text-center font-black py-1 px-1"/></div>
+              <div class="col-span-7"><label class="block text-[10px] font-bold t-mut mb-0.5">Seitenzahl</label><div class="flex items-center gap-1.5"><span class="text-sm font-black text-sky-400 shrink-0">W</span><input data-dice-custom="sides" type="text" inputmode="numeric" value="${esc(D.customSides)}" placeholder="20" class="inp w-full text-center font-black py-1 px-1"/></div></div>
+            </div>
+            <button type="button" id="btnRollCustomDice" data-action="roll-custom-dice" class="btn w-full py-1.5 px-3 text-xs font-black ${secAct?'border-amber-400 bg-amber-500/20 text-amber-200':'border-sky-400/60 bg-sky-500/20 text-sky-200'}">${secAct?'🕵️ 🎲 ':'🎲 '}${esc(cForm)}${secAct?' geheim würfeln':' würfeln'}</button>
+          </div>`:''}
+        </div>
+
+        ${secretListHtml}
+
+        <div class="subcard py-2 px-2.5 space-y-1.5">
+          <div class="flex items-center justify-between gap-2">
+            <button type="button" data-action="toggle-dice-log" class="flex items-center gap-1.5 text-left min-w-0 flex-1 cursor-pointer">
+              <span class="text-xs font-black t-mut w-3.5 shrink-0">${D.logOpen?'▾':'▸'}</span>
+              <span class="text-xs font-extrabold t-mut truncate">📜 Würfel-Log (${diceLogs.length})</span>
+            </button>
+            ${diceLogs.length?`<button type="button" data-action="clear-dice-log" class="text-[10px] font-bold t-mut hover:text-rose-400 cursor-pointer shrink-0">Leeren</button>`:''}
+          </div>
+          ${D.logOpen?(diceLogs.length?`<div data-scroll-key="diceLog" class="space-y-1 max-h-40 overflow-y-auto text-xs pt-1 border-t border-white/10">${diceLogs.map(l=>`<div class="p-1.5 px-2 rounded-lg bg-black/25 border bdr-line space-y-0.5 min-w-0"><div class="flex justify-between gap-2 min-w-0"><span class="truncate"><strong>${esc(l.lbl)}</strong>${l.isCustomDice?`: ${esc(l.sum)}`:` [≤${l.th}]: ${l.sum}`}</span><span class="text-[10px] t-mut tabular shrink-0">${l.t}</span></div>${l.advSrc?`<div class="text-[10px] t-mut break-words">↳ ${esc(l.advSrc)}</div>`:''}</div>`).join('')}</div>`:`<div class="text-[11px] t-mut pt-1 border-t border-white/10">Noch keine Würfe im Verlauf.</div>`):''}
+        </div>
+      </div>
+    </div>${renderWinResizeHandles('dice')}</div>`;
   if(snap) restoreScrollState(mount, snap);
   if(LD.open) renderLiveDice();
 }
@@ -912,7 +1161,7 @@ export function executeBlockFollowUpRoll(){
   publishLiveRoll({
     id:uid(),tsMs:Date.now(),ts:new Date().toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit',second:'2-digit'}),
     senderTabId:LIVE_TAB_ID,charId:isLobBlk?'':(S.charId||''),charName:isLobBlk?(CLOUD.currentUser?CLOUD.currentUser:'Gast'):(String(S.profile.name||'').trim()||'Unbenannter Held'),
-    playerName:isLobBlk?'':String(CLOUD.currentUser||S.owner||'').trim(),campaignId:getActiveDiceCampaignId(),label:lbl,weaponId:isLobBlk?null:(D.weaponId||null),wRollCat:'Blocken',
+    playerName:isLobBlk?'':String(CLOUD.currentUser||S.owner||'').trim(),campaignId:getActiveDiceCampaignId(),label:lbl,weaponId:isLobBlk?null:(getEffectiveDiceWeaponId()||null),wRollCat:'Blocken',
     th,egMult,chance,cv:atkVal,dv:20,adv:0,dis:0,net:0,bonus:0,effTh:0,
     cBreak:`Aggressor-Trefferwert ${atkVal}`,dBreak:'20 (Block-Folgewurf)',advBreak:'±0',critLbl:'Endziffer 1',
     formula:`${atkVal} (Aggressor) + 50 − 20 (Schw.) = ${th} (${chance}%)`,cnt:1,res:[{r,ok,crit,baseEg,eg,egMult,meg}]
@@ -932,6 +1181,7 @@ export function executeDiceRoll(opts={}){
     res.push({r,rawR,rollMod,ok,crit,baseEg,eg,egMult:T.egMult,meg});
   }
   const isLobRoll=Boolean(UI.inLobby);
+  const effWeaponId=isLobRoll?null:getEffectiveDiceWeaponId();
   const rollerIsEnemy=Boolean(!isLobRoll&&isEnemySheet(S));
   const c1Name=isLobRoll?(CLOUD.currentUser?CLOUD.currentUser:'Gast'):(String(S.profile.name||'').trim()||(rollerIsEnemy?'Gegner':'Unbenannter Held'));
   const isVsOpp=Boolean(!isAtkBlk20&&T.opp&&T.opp.ready);
@@ -940,7 +1190,7 @@ export function executeDiceRoll(opts={}){
   let vsSummary='', vsSummaryFeed='';
   if(isVsOpp){
     const c1Sk=(!isLobRoll&&D.skillId)?(S.skills||[]).find(x=>x.id===D.skillId):null;
-    const c1Wp=(!isLobRoll&&D.weaponId)?(S.weapons||[]).find(x=>x.id===D.weaponId):null;
+    const c1Wp=effWeaponId?(S.weapons||[]).find(x=>x.id===effWeaponId):null;
     const c1WpName=c1Wp?(String(c1Wp.name||'').trim()||getWeaponSubtype(c1Wp.wType).label):'';
     let c1Short=`Wert ${T.cv}`;
     if(c1Sk) c1Short=`${c1Sk.name} ${T.cv}`;
@@ -1019,7 +1269,7 @@ export function executeDiceRoll(opts={}){
     playerName:isLobRoll?'':(rollerIsEnemy?'SL':String(CLOUD.currentUser||S.owner||'').trim()),
     campaignId:getActiveDiceCampaignId(),
     label:feedTitle||'Freie Probe',
-    weaponId:isLobRoll?null:(D.weaponId||null),
+    weaponId:effWeaponId||null,
     wRollCat:D.wRollCat||null,
     th:T.th,
     egMult:T.egMult,

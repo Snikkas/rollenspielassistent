@@ -115,7 +115,7 @@ export function getStatGroups(sheet=S){
     ['Attribute',['ST','KO','PR','GW','WA','IN','AU','WK','Alle Attribute']],
     ['Sekundärwerte',['LP-Max','mLP-Max','LP-Regeneration','mLP-Regeneration','Regeneration (LP & mLP)','Ini','AP-Max','mAP-Max',`${cn}-Max`,...exMax,'SP-Mod']],
     ['Schwellenwerte',['Verwundungsschwellen','Alle Verwundungsstufen','Verwundung (leicht)','Verwundung (mittel)','Verwundung (schwer)','Traumaschwellen','Alle Traumastufen','Trauma (leicht)','Trauma (mittel)','Trauma (schwer)']],
-    ['Kampf & Bewegung',['BSt','Basis-Bewegung','Rüstungsschutz','Testschwelle','Kritische Ziffer (Trefferwürfe)','Kritische Ziffer (Alle Tests)']],
+    ['Kampf & Bewegung',['BSt','Basis-Bewegung','Rüstungsschutz','Mentale Rüstung','Testschwelle','Kritische Ziffer (Trefferwürfe)','Kritische Ziffer (Alle Tests)']],
     ['Vor- & Nachteile',['Vorteile (Trefferwürfe)','Nachteile (Trefferwürfe)','Vorteile (Abwehr/Parieren/Blocken)','Nachteile (Abwehr/Parieren/Blocken)','Vorteile (Parieren)','Nachteile (Parieren)','Vorteile (Blocken)','Nachteile (Blocken)','Vorteile (Ausweichen)','Nachteile (Ausweichen)','Vorteile (Alle Proben)','Nachteile (Alle Proben)']],
     ['Statuseffekte (nur bei ⚡ Einsetzen)',STATUS_DEFS.map(d=>`Status: ${d.name}`)]
   ];
@@ -243,6 +243,11 @@ export function getDynamicVarEntries(M=null,sheet=S){
   addVar('LP-Reg',getLpRegen(mods,sheet));
   addVar('mLP-Regeneration',getMlpRegen(mods,sheet));
   addVar('mLP-Reg',getMlpRegen(mods,sheet));
+  addVar('Rüstungsschutz',mods.armor||0);
+  const mRsTot=getMentalArmorSummary(mods,sheet).total;
+  addVar('Mentaler Rüstungsschutz',mRsTot);
+  addVar('Mentale Rüstung',mRsTot);
+  addVar('mRS',mRsTot);
   const cn=cresName(sheet), cnMax=getCresMax(mods,sheet);
   addVar(`${cn}-Max`,cnMax);
   addVar(cn,cnMax);
@@ -512,7 +517,7 @@ export function parseEffectTokens(text,sheet=S){
     if(/^(?:vorteil|nachteil|status\s*:)/i.test(m[2].trim())) continue;
     out.push({raw:m[0],val:parseInt(m[1],10),name:m[2].trim(),idx:m.index,len:m[0].length});
   }
-  const cn=cresName(sheet), exKnown=(sheet.extraSecList||[]).flatMap(x=>[`${getExtraSecName(x)}-Max`,getExtraSecName(x)]), known=['Alle Attribute','LP-Max','mLP-Max','LP-Regeneration','mLP-Regeneration','Regeneration (LP & mLP)','Alle Regenerationsraten','Regenerationsrate','LP-Reg','mLP-Reg','AP-Max','mAP-Max',`${cn}-Max`,cn,...exKnown,'SP-Mod','SP','Alle Verwundungsstufen','Verwundungsstufen','Alle Verwundungsschwellen','Verwundungsschwellen','Verwundung (leicht)','Verwundung (mittel)','Verwundung (schwer)','Alle Traumastufen','Traumastufen','Alle Traumaschwellen','Traumaschwellen','Trauma (leicht)','Trauma (mittel)','Trauma (schwer)','Basis-Bewegung','Rüstungsschutz','Testschwelle','Kritische Ziffer (Trefferwürfe)','Kritische Ziffer (Alle Tests)','Kritische Ziffer (Alle Proben)','Kritische Ziffer','Initiative','Ini','BSt','mLP','mAP','LP','AP','ST','KO','PR','GW','WA','IN','AU','WK',...(sheet.customStats||[])].filter(Boolean).sort((a,b)=>b.length-a.length).map(s=>s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'));
+  const cn=cresName(sheet), exKnown=(sheet.extraSecList||[]).flatMap(x=>[`${getExtraSecName(x)}-Max`,getExtraSecName(x)]), known=['Alle Attribute','LP-Max','mLP-Max','LP-Regeneration','mLP-Regeneration','Regeneration (LP & mLP)','Alle Regenerationsraten','Regenerationsrate','LP-Reg','mLP-Reg','AP-Max','mAP-Max',`${cn}-Max`,cn,...exKnown,'SP-Mod','SP','Alle Verwundungsstufen','Verwundungsstufen','Alle Verwundungsschwellen','Verwundungsschwellen','Verwundung (leicht)','Verwundung (mittel)','Verwundung (schwer)','Alle Traumastufen','Traumastufen','Alle Traumaschwellen','Traumaschwellen','Trauma (leicht)','Trauma (mittel)','Trauma (schwer)','Basis-Bewegung','Mentaler Rüstungsschutz','Mentale Rüstung','Rüstungsschutz','mRS','Testschwelle','Kritische Ziffer (Trefferwürfe)','Kritische Ziffer (Alle Tests)','Kritische Ziffer (Alle Proben)','Kritische Ziffer','Initiative','Ini','BSt','mLP','mAP','LP','AP','ST','KO','PR','GW','WA','IN','AU','WK',...(sheet.customStats||[])].filter(Boolean).sort((a,b)=>b.length-a.length).map(s=>s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'));
   const reP=new RegExp(`([+-]\\d+)\\s+(${known.join('|')})(?![a-zA-ZäöüÄÖÜß])`,'gi');
   while((m=reP.exec(plain))!==null){
     const s=m.index, e=s+m[0].length;
@@ -723,7 +728,7 @@ export function calcActiveMods(sheet=S){
   const target=sheet||S;
   const cached=_modsCacheMap.get(target);
   if(cached) return cached;
-  const keys=['ST','KO','PR','GW','WA','IN','AU','WK','lpMax','mlpMax','lpRegen','mlpRegen','ini','apMax','mapMax','cresMax','spMod','woundLight','woundMedium','woundHeavy','traumaLight','traumaMedium','traumaHeavy','bst','moveBase','armor','testTh','critHit','critAll'];
+  const keys=['ST','KO','PR','GW','WA','IN','AU','WK','lpMax','mlpMax','lpRegen','mlpRegen','ini','apMax','mapMax','cresMax','spMod','woundLight','woundMedium','woundHeavy','traumaLight','traumaMedium','traumaHeavy','bst','moveBase','armor','mentalArmor','testTh','critHit','critAll'];
   const M={src:{},extraSec:{},advDis:[],crits:[]}; keys.forEach(k=>{M[k]=0;M.src[k]=[];});
   (target.extraSecList||[]).forEach(x=>{M.extraSec[x.id]=0;M.src['ex_'+x.id]=[];});
   const add=(k,v,it,isAug)=>{if(!v)return;M[k]+=v;const nm=String(it.name||'').trim()||(isAug?'Unbenanntes Augment':'Unbenannte Kraft');M.src[k].push({val:v,name:nm,kind:isAug?'Augment':'Kraft'});};
@@ -756,6 +761,7 @@ export function calcActiveMods(sheet=S){
       else if(nl==='bst') add('bst',val,it,isAug);
       else if(nl==='basis-bewegung') add('moveBase',val,it,isAug);
       else if(nl==='rüstungsschutz') add('armor',val,it,isAug);
+      else if(nl==='mentale rüstung'||nl==='mentaler rüstungsschutz'||nl==='mentale ruestung'||nl==='mentaler ruestungsschutz'||nl==='mrs') add('mentalArmor',val,it,isAug);
       else if(nl==='testschwelle') add('testTh',val,it,isAug);
       else if(nl==='kritische ziffer (trefferwürfe)'||nl==='kritische ziffer (trefferwuerfe)'||nl==='kritische ziffer (trefferwurf)'){
         add('critHit',val,it,isAug);
@@ -1253,9 +1259,33 @@ export function buildSecTip(key,M=null,sheet=S){
   const thNames={woundLight:'Verwundung (leicht)',woundMedium:'Verwundung (mittel)',woundHeavy:'Verwundung (schwer)',traumaLight:'Trauma (leicht)',traumaMedium:'Trauma (mittel)',traumaHeavy:'Trauma (schwer)'};
   if(thNames[key]){
     const base=toInt(sheet.thresholds[key],0),tot=base+(mods[key]||0),sl=fmtSrcLines(mods,key);
-    return `${thNames[key]} Gesamt: ${tot}\n• Basiswert: ${base}${sl?`\n${sl}`:''}`;
+    return `${thNames[key]} Gesamt: ${tot} (tritt ab ${tot+1} Schaden ein)\n• Basiswert: ${base}${sl?`\n${sl}`:''}`;
   }
   return '';
+}
+
+export function getMentalArmorSummary(M=null,sheet=S){
+  const target=sheet||S;
+  const mods=M||calcActiveMods(target);
+  const equipPieces=[];
+  let equipSum=0;
+  (target.armors||[]).forEach(ar=>{
+    if(!ar||ar.equipped===false) return;
+    const v=toInt(ar.mentalProt,0);
+    if(!v) return;
+    equipSum+=v;
+    equipPieces.push({id:ar.id,name:String(ar.name||'').trim()||'Rüstung',val:v});
+  });
+  const modSum=toInt(mods?.mentalArmor,0);
+  const modSources=Array.isArray(mods?.src?.mentalArmor)?mods.src.mentalArmor:[];
+  const total=Math.max(0,equipSum+modSum);
+  const lines=[`Mentale Rüstung (mRS) Gesamt: ${total}`];
+  equipPieces.forEach(p=>lines.push(`• Ausrüstung: ${p.name} (${fmtSign(p.val)})`));
+  modSources.forEach(s=>lines.push(`• ${s.kind}: ${s.name} (${fmtSign(s.val)})`));
+  if(!equipPieces.length&&!modSources.length){
+    lines.push('• Kein mentaler Rüstungsschutz aktiv (über Rüstungen in Tab 5 oder Kräfte/Augmente [+X Mentale Rüstung] konfigurierbar)');
+  }
+  return {total,equipSum,modSum,equipPieces,modSources,tip:lines.join('\n')};
 }
 
 export function syncCresRenameInTokens(oldN,newN){

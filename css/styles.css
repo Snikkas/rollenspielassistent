@@ -196,6 +196,6 @@ body{max-width:100%;overflow-x:hidden;overflow-x:clip}
 @media (max-width:767px), ((max-height:540px) and (pointer:coarse)){
   .duel-sheet-backdrop{padding:0;align-items:flex-end}
   .duel-sheet-panel{max-width:100%!important;max-height:92dvh;border-radius:1.25rem 1.25rem 0 0!important;border-bottom:none!important;border-left:none!important;border-right:none!important}
-  .duel-sheet-panel .inp,.duel-sheet-panel select{font-size:16px!important;min-width:0!important;max-width:100%!important}
+  .duel-sheet-panel .inp,.duel-sheet-panel select,#diceMount .inp,#diceMount select{font-size:16px!important;min-width:0!important;max-width:100%!important}
 }
 
