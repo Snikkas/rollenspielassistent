@@ -132,7 +132,7 @@ export function defaultState(){
   return {
     version:11,charId:uid(),owner:'',campaignId:'default',sheetType:'character',enemyMeta:makeDefaultEnemyMeta(),cloudAutoSync:true,activeTab:'attributes',quickTab:'bestehen',phase:'ebbe',
     profile:{name:'',ancestry:'',concept:'',avatar:''},
-    appearance:{dark:true,mode:'global',editScope:'attributes',global:makeStyleSlot(),lobby:makeStyleSlot(),tabs:tabStyles},
+    appearance:{dark:true,lobbyDark:true,mode:'global',editScope:'attributes',global:makeStyleSlot(),lobby:makeStyleSlot(),tabs:tabStyles},
     attrColors:{...DEF_ATTR_COLS},secColors:{...DEF_SEC_COLS},
     artList:[...DEF_MAIN_ARTS],actionSubList:[...DEF_ACTION_SUBS],pwTagList:[...DEF_PW_TAGS],useResList:[...DEF_USERES],customStats:[],
     weaponTagList:clone(DEF_WEAPON_TAGS),armorTagList:clone(DEF_ARMOR_TAGS),ammoTagList:[],
@@ -2089,86 +2089,91 @@ export function applySessionTheme(opts={}){
   const isLoggedIn=Boolean(CLOUD.currentUser);
   const cid=String(S.charId||'').trim();
 
+  const buildDefaultTabs=()=>{
+    const tabsObj={};
+    TABS.forEach(t=>{tabsObj[t.id]=makeStyleSlot();});
+    return tabsObj;
+  };
+  const resolveCharTheme=(charEntry,localBgMap,customPals)=>{
+    if(charEntry){
+      const tabsObj={};
+      TABS.forEach(t=>{
+        tabsObj[t.id]=localBgMap
+          ?hydrateThemeSlotBg(charEntry.tabs?.[t.id],localBgMap,`char:${cid}:tab:${t.id}`)
+          :normalizeThemeSlot(charEntry.tabs?.[t.id],customPals);
+      });
+      return {
+        darkVal:Boolean(charEntry.dark),
+        modeVal:charEntry.mode==='perTab'?'perTab':'global',
+        globalSlot:localBgMap
+          ?hydrateThemeSlotBg(charEntry.global,localBgMap,`char:${cid}:global`)
+          :normalizeThemeSlot(charEntry.global,customPals),
+        tabsObj
+      };
+    }
+    if(allowSheetFallback&&fbAp){
+      const tabsObj={};
+      TABS.forEach(t=>{tabsObj[t.id]=normalizeThemeSlot(fbAp.tabs?.[t.id],customPals);});
+      return {
+        darkVal:fbAp.dark!==undefined?Boolean(fbAp.dark):true,
+        modeVal:fbAp.mode==='perTab'?'perTab':'global',
+        globalSlot:normalizeThemeSlot(fbAp.global,customPals),
+        tabsObj
+      };
+    }
+    return {
+      darkVal:true,
+      modeVal:'global',
+      globalSlot:makeStyleSlot(),
+      tabsObj:buildDefaultTabs()
+    };
+  };
+
   if(isLoggedIn){
     const uk=findUserKeyByName(CLOUD.currentUser);
     const userKey=uk||String(CLOUD.currentUser).trim();
     const tp=uk?normalizeThemePrefs(CLOUD.registry?.users?.[uk]?.themePrefs):null;
     const localBgMap=loadUserLocalBgMap(userKey);
     if(tp){
-      const customPals=clone(tp.customPalettes||[]);
-      S.customPalettes=customPals;
+      const customPals=normalizeCustomPalettesList([...(tp.customPalettes||[]),...(allowSheetFallback?fbPals:[])]);
+      S.customPalettes=clone(customPals);
+      const lobbyDark=Boolean(tp.dark);
       const lobbySlot=hydrateThemeSlotBg(tp.lobby,localBgMap,'lobby');
       const charEntry=(cid&&tp.sheetByChar?.[cid])?tp.sheetByChar[cid]:null;
-      let darkVal=tp.dark, modeVal='global', globalSlot=makeStyleSlot(), tabsObj={};
-      if(charEntry){
-        darkVal=forSheet?charEntry.dark:tp.dark;
-        modeVal=charEntry.mode;
-        globalSlot=hydrateThemeSlotBg(charEntry.global,localBgMap,`char:${cid}:global`);
-        TABS.forEach(t=>{tabsObj[t.id]=hydrateThemeSlotBg(charEntry.tabs?.[t.id],localBgMap,`char:${cid}:tab:${t.id}`);});
-      }else if(tp.sheetCustomized||!allowSheetFallback||!fbAp){
-        darkVal=tp.dark;
-        modeVal=tp.sheet.mode;
-        globalSlot=hydrateThemeSlotBg(tp.sheet.global,localBgMap,'sheet:global');
-        TABS.forEach(t=>{tabsObj[t.id]=hydrateThemeSlotBg(tp.sheet.tabs?.[t.id],localBgMap,`sheet:tab:${t.id}`);});
-      }else{
-        darkVal=tp.dark;
-        modeVal=fbAp.mode==='perTab'?'perTab':'global';
-        globalSlot=normalizeThemeSlot(fbAp.global,customPals);
-        TABS.forEach(t=>{tabsObj[t.id]=normalizeThemeSlot(fbAp.tabs?.[t.id],customPals);});
-      }
-      S.appearance={dark:darkVal,mode:modeVal,editScope:nextScope,global:globalSlot,lobby:lobbySlot,tabs:tabsObj};
+      const {darkVal,modeVal,globalSlot,tabsObj}=resolveCharTheme(charEntry,localBgMap,customPals);
+      S.appearance={dark:darkVal,lobbyDark,mode:modeVal,editScope:nextScope,global:globalSlot,lobby:lobbySlot,tabs:tabsObj};
     }else{
       const legLobby=getLegacyUserLobbySlot(userKey);
       const customPals=allowSheetFallback?fbPals:[];
       S.customPalettes=clone(customPals);
+      const lobbyDark=true;
       const lobbySlot=hydrateThemeSlotBg(normalizeThemeSlot(legLobby||makeStyleSlot(),customPals),localBgMap,'lobby');
-      let darkVal=true, modeVal='global', globalSlot=makeStyleSlot(), tabsObj={};
-      if(allowSheetFallback&&fbAp){
-        darkVal=fbAp.dark!==undefined?Boolean(fbAp.dark):true;
-        modeVal=fbAp.mode==='perTab'?'perTab':'global';
-        globalSlot=normalizeThemeSlot(fbAp.global,customPals);
-        TABS.forEach(t=>{tabsObj[t.id]=normalizeThemeSlot(fbAp.tabs?.[t.id],customPals);});
-      }else{
-        TABS.forEach(t=>{tabsObj[t.id]=makeStyleSlot();});
-      }
-      S.appearance={dark:darkVal,mode:modeVal,editScope:nextScope,global:globalSlot,lobby:lobbySlot,tabs:tabsObj};
+      const {darkVal,modeVal,globalSlot,tabsObj}=resolveCharTheme(null,null,customPals);
+      S.appearance={dark:darkVal,lobbyDark,mode:modeVal,editScope:nextScope,global:globalSlot,lobby:lobbySlot,tabs:tabsObj};
     }
     return;
   }
 
-  // Gast-Modus (nicht eingeloggt): strikt über separaten lokalen Key
+  // Gast-Modus (nicht eingeloggt): strikt über separaten lokalen Key, ebenfalls pro Charakterbogen getrennt
   const gp=loadGuestThemePrefs();
-  const guestPals=normalizeCustomPalettesList(allowSheetFallback&&!gp.updatedAtMs?[...(gp.customPalettes||[]),...fbPals]:(gp.customPalettes||[]));
+  const guestPals=normalizeCustomPalettesList([...(gp.customPalettes||[]),...(allowSheetFallback?fbPals:[])]);
   S.customPalettes=clone(guestPals);
+  const lobbyDark=Boolean(gp.dark);
   const lobbySlot=normalizeThemeSlot(gp.lobby,guestPals);
   const charEntry=(cid&&gp.sheetByChar?.[cid])?gp.sheetByChar[cid]:null;
-  let darkVal=gp.dark, modeVal='global', globalSlot=makeStyleSlot(), tabsObj={};
-  if(charEntry){
-    darkVal=forSheet?charEntry.dark:gp.dark;
-    modeVal=charEntry.mode;
-    globalSlot=normalizeThemeSlot(charEntry.global,guestPals);
-    TABS.forEach(t=>{tabsObj[t.id]=normalizeThemeSlot(charEntry.tabs?.[t.id],guestPals);});
-  }else if(gp.sheetCustomized||!allowSheetFallback||!fbAp){
-    darkVal=gp.dark;
-    modeVal=gp.sheet.mode;
-    globalSlot=normalizeThemeSlot(gp.sheet.global,guestPals);
-    TABS.forEach(t=>{tabsObj[t.id]=normalizeThemeSlot(gp.sheet.tabs?.[t.id],guestPals);});
-  }else{
-    darkVal=gp.updatedAtMs>0?gp.dark:(fbAp.dark!==undefined?Boolean(fbAp.dark):true);
-    modeVal=fbAp.mode==='perTab'?'perTab':'global';
-    globalSlot=normalizeThemeSlot(fbAp.global,guestPals);
-    TABS.forEach(t=>{tabsObj[t.id]=normalizeThemeSlot(fbAp.tabs?.[t.id],guestPals);});
-  }
-  S.appearance={dark:darkVal,mode:modeVal,editScope:nextScope,global:globalSlot,lobby:lobbySlot,tabs:tabsObj};
+  const {darkVal,modeVal,globalSlot,tabsObj}=resolveCharTheme(charEntry,null,guestPals);
+  S.appearance={dark:darkVal,lobbyDark,mode:modeVal,editScope:nextScope,global:globalSlot,lobby:lobbySlot,tabs:tabsObj};
 }
 export function persistCurrentThemeChange(opts={}){
   const rawScope=opts.scope||'auto';
-  const isLobbyTarget=rawScope==='lobby'||(rawScope==='auto'&&(UI.inLobby||S.appearance.editScope==='lobby'));
-  const isSheetTarget=rawScope==='sheet'||(rawScope==='auto'&&!isLobbyTarget)||(!UI.inLobby&&S.appearance.editScope!=='lobby'&&rawScope==='palettes');
+  const inLobbyScope=Boolean(UI.inLobby||S.appearance.editScope==='lobby');
+  const isLobbyTarget=rawScope==='lobby'||(rawScope==='auto'&&inLobbyScope)||(rawScope==='dark'&&inLobbyScope);
+  const isSheetTarget=rawScope==='sheet'||(rawScope==='auto'&&!isLobbyTarget)||(rawScope==='dark'&&!isLobbyTarget&&!UI.inLobby)||(!inLobbyScope&&rawScope==='palettes');
   const nowMs=Date.now();
   const curPals=normalizeCustomPalettesList(S.customPalettes||[]);
   S.customPalettes=curPals;
   const curLobby=normalizeThemeSlot(getLobbyStyleSlot(),curPals);
+  const curLobbyDark=S.appearance.lobbyDark!==undefined?Boolean(S.appearance.lobbyDark):Boolean(S.appearance.dark);
   const curSheet=normalizeThemeSheet({mode:S.appearance.mode,global:S.appearance.global,tabs:S.appearance.tabs},curPals);
   const cid=String(S.charId||'').trim();
 
@@ -2183,38 +2188,28 @@ export function persistCurrentThemeChange(opts={}){
     const baseTp=normalizeThemePrefs(curRec?.themePrefs)||createDefaultThemePrefs();
     const localBgMap=loadUserLocalBgMap(uk);
     baseTp.customPalettes=clone(curPals);
-    if(rawScope==='dark'){
-      baseTp.dark=Boolean(S.appearance.dark);
-      if(!UI.inLobby&&UI.sheetLoaded&&S.appearance.editScope!=='lobby'&&cid&&baseTp.sheetByChar?.[cid]){
-        baseTp.sheetByChar[cid].dark=baseTp.dark;
-        baseTp.sheetByChar[cid].updatedAtMs=nowMs;
-      }
-    }
-    if(isLobbyTarget||rawScope==='palettes'){
+    if(isLobbyTarget){
+      if(rawScope==='dark') baseTp.dark=curLobbyDark;
+      baseTp.lobby=clone(curLobby);
+    }else if(rawScope==='palettes'){
       baseTp.lobby=clone(curLobby);
     }
-    if(isSheetTarget){
-      baseTp.sheet=clone(curSheet);
-      baseTp.sheetCustomized=true;
-      if(UI.sheetLoaded&&cid){
-        baseTp.sheetByChar[cid]={
-          dark:Boolean(S.appearance.dark),
-          mode:curSheet.mode,
-          global:clone(curSheet.global),
-          tabs:clone(curSheet.tabs),
-          updatedAtMs:nowMs
-        };
-      }
+    if(isSheetTarget&&cid&&(!UI.inLobby||UI.sheetLoaded)){
+      baseTp.sheetByChar[cid]={
+        dark:Boolean(S.appearance.dark),
+        mode:curSheet.mode,
+        global:clone(curSheet.global),
+        tabs:clone(curSheet.tabs),
+        updatedAtMs:nowMs
+      };
     }
     if(opts.clearBgSlot){
       if(isLobbyTarget){
         delete localBgMap.lobby;
       }else if(S.appearance.mode==='perTab'){
         const tid=S.appearance.editScope||S.activeTab||'attributes';
-        delete localBgMap[`sheet:tab:${tid}`];
         if(cid) delete localBgMap[`char:${cid}:tab:${tid}`];
       }else{
-        delete localBgMap['sheet:global'];
         if(cid) delete localBgMap[`char:${cid}:global`];
       }
       saveUserLocalBgMap(uk,localBgMap);
@@ -2231,37 +2226,29 @@ export function persistCurrentThemeChange(opts={}){
     return;
   }
 
-  // Gast-Modus: ausschließlich lokal unter GUEST_THEME_KEY speichern (niemals User-Records verändern)
+  // Gast-Modus: ausschließlich lokal unter GUEST_THEME_KEY speichern (pro Charakterbogen getrennt)
   const gp=loadGuestThemePrefs();
   gp.customPalettes=clone(curPals);
-  if(rawScope==='dark'){
-    gp.dark=Boolean(S.appearance.dark);
-    if(!UI.inLobby&&UI.sheetLoaded&&cid&&gp.sheetByChar?.[cid]){
-      gp.sheetByChar[cid].dark=gp.dark;
-      gp.sheetByChar[cid].updatedAtMs=nowMs;
-    }
-  }
-  if(isLobbyTarget||rawScope==='palettes'){
+  if(isLobbyTarget){
+    if(rawScope==='dark') gp.dark=curLobbyDark;
+    gp.lobby=clone(curLobby);
+  }else if(rawScope==='palettes'){
     gp.lobby=clone(curLobby);
   }
-  if(isSheetTarget){
-    gp.sheet=clone(curSheet);
-    gp.sheetCustomized=true;
-    if(UI.sheetLoaded&&cid){
-      gp.sheetByChar[cid]={
-        dark:Boolean(S.appearance.dark),
-        mode:curSheet.mode,
-        global:clone(curSheet.global),
-        tabs:clone(curSheet.tabs),
-        updatedAtMs:nowMs
-      };
-    }
+  if(isSheetTarget&&cid&&(!UI.inLobby||UI.sheetLoaded)){
+    gp.sheetByChar[cid]={
+      dark:Boolean(S.appearance.dark),
+      mode:curSheet.mode,
+      global:clone(curSheet.global),
+      tabs:clone(curSheet.tabs),
+      updatedAtMs:nowMs
+    };
   }
   gp.updatedAtMs=nowMs;
   saveGuestThemePrefs(gp);
 }
 
-export function resolvePaletteColors(sc){
+export function resolvePaletteColors(sc,isLobbyCtx=false){
   if(sc?.customColors&&isHex(sc.customColors.bg)){
     const cc=sc.customColors;
     return [cc.isLt?1:0,cc.bg,cc.acc||'#0ea5e9',cc.acc2||'#6366f1',cc.txt||'#f1f5f9',cc.mut||'#94a3b8',cc.btnTxt||'#ffffff'];
@@ -2269,11 +2256,15 @@ export function resolvePaletteColors(sc){
   const cp=(S.customPalettes||[]).find(p=>p.id===sc?.palette);
   if(cp) return [cp.isLt?1:0,cp.bg,cp.acc,cp.acc2,cp.txt,cp.mut,cp.btnTxt];
   const pal=PALETTES[sc?.palette]||PALETTES.azur;
-  return S.appearance.dark?pal[3]:pal[4];
+  const useDark=isLobbyCtx
+    ?(S.appearance.lobbyDark!==undefined?Boolean(S.appearance.lobbyDark):Boolean(S.appearance.dark))
+    :Boolean(S.appearance.dark);
+  return useDark?pal[3]:pal[4];
 }
 
 export function syncPalDraftFromSlot(sc=getEditStyleSlot()){
-  const [isLt,bg,acc,acc2,txt,mut,btnTxt]=resolvePaletteColors(sc);
+  const isLobbyEdit=Boolean(UI.inLobby||S.appearance.editScope==='lobby');
+  const [isLt,bg,acc,acc2,txt,mut,btnTxt]=resolvePaletteColors(sc,isLobbyEdit);
   const cp=(S.customPalettes||[]).find(p=>p.id===sc?.palette);
   UI.palDraft={
     name:cp?cp.name:'',
@@ -2288,7 +2279,8 @@ export function syncPalDraftFromSlot(sc=getEditStyleSlot()){
 }
 
 export function applyTheme(){
-  const sc=getDisplayStyleSlot(), [isLt,bg,acc,acc2,txt,mut,btnTxt]=resolvePaletteColors(sc);
+  const isLobbyDisplay=Boolean(isEditingLobbyStyle()||UI.inLobby);
+  const sc=getDisplayStyleSlot(), [isLt,bg,acc,acc2,txt,mut,btnTxt]=resolvePaletteColors(sc,isLobbyDisplay);
   document.documentElement.classList.toggle('dark',!isLt);
   const st=document.documentElement.style;
   st.setProperty('--bg',bg); st.setProperty('--txt',txt); st.setProperty('--mut',mut); st.setProperty('--acc',acc); st.setProperty('--acc2',acc2); st.setProperty('--btnTxt',btnTxt);

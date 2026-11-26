@@ -3022,6 +3022,7 @@ document.addEventListener('click',async e=>{
         S.enemyMeta=normalizeEnemyMeta({isEnemy:false,campaignIds:[],diceVisibleByCamp:{},archived:false,category:S.enemyMeta?.category||''});
       }
       resetCloudSyncState({clearMeta:true,status:'saved',lastSyncTs:''});
+      persistCurrentThemeChange({scope:'sheet'});
       renderAll(true); toast(isEnemySheet(S)?'📥 Als eigene Gegner-Vorlage übernommen!':'📥 Charakter als eigene Kopie übernommen!');
       break;
     }
@@ -3550,29 +3551,40 @@ document.addEventListener('click',async e=>{
       savePatchnotesToServer(nextEntries,'🗑️ Patchnotes-Eintrag gelöscht.');
       break;
     }
-    case 'toggle-dark': S.appearance.dark=!S.appearance.dark; syncPalDraftFromSlot(); applyTheme(); persistCurrentThemeChange({scope:'dark'}); renderModal(); if(!UI.inLobby) save(); break;
+    case 'toggle-dark': {
+      const isLobbyScope=UI.inLobby||S.appearance.editScope==='lobby';
+      if(isLobbyScope){
+        S.appearance.lobbyDark=!(S.appearance.lobbyDark!==undefined?S.appearance.lobbyDark:S.appearance.dark);
+        if(UI.inLobby) S.appearance.dark=S.appearance.lobbyDark;
+      }else{
+        S.appearance.dark=!S.appearance.dark;
+      }
+      syncPalDraftFromSlot(); applyTheme(); persistCurrentThemeChange({scope:'dark'}); renderModal(); if(!isLobbyScope&&!UI.inLobby) save(); break;
+    }
     case 'app-mode': S.appearance.mode=el.dataset.mode; S.appearance.editScope=S.activeTab; syncPalDraftFromSlot(); applyTheme(); persistCurrentThemeChange({scope:'sheet'}); renderModal(); if(!UI.inLobby) save(); break;
     case 'edit-scope': S.appearance.editScope=el.dataset.scope; syncPalDraftFromSlot(); applyTheme(); renderModal(); break;
-    case 'pick-pal': {const sl=getEditStyleSlot();sl.palette=el.dataset.pal;sl.customColors=null;syncPalDraftFromSlot(sl);applyTheme();persistCurrentThemeChange({scope:'auto'});renderModal();if(!UI.inLobby) save();break;}
+    case 'pick-pal': {const isLob=UI.inLobby||S.appearance.editScope==='lobby';const sl=getEditStyleSlot();sl.palette=el.dataset.pal;sl.customColors=null;syncPalDraftFromSlot(sl);applyTheme();persistCurrentThemeChange({scope:'auto'});renderModal();if(!isLob&&!UI.inLobby) save();break;}
     case 'toggle-pal-builder': UI.palBuilderOpen=!UI.palBuilderOpen; if(UI.palBuilderOpen)syncPalDraftFromSlot(); renderModal(); break;
-    case 'pal-draft-islt': {UI.palDraft.isLt=!UI.palDraft.isLt;const sl=getEditStyleSlot();sl.customColors={...UI.palDraft};applyTheme();persistCurrentThemeChange({scope:'auto'});renderModal();if(!UI.inLobby) save();break;}
+    case 'pal-draft-islt': {const isLob=UI.inLobby||S.appearance.editScope==='lobby';UI.palDraft.isLt=!UI.palDraft.isLt;const sl=getEditStyleSlot();sl.customColors={...UI.palDraft};applyTheme();persistCurrentThemeChange({scope:'auto'});renderModal();if(!isLob&&!UI.inLobby) save();break;}
     case 'save-custom-pal': {
+      const isLob=UI.inLobby||S.appearance.editScope==='lobby';
       const nm=(($('inpCustomPalName')?.value||UI.palDraft.name||'').trim())||`Eigene Palette ${(S.customPalettes?.length||0)+1}`;
       const np={id:'cp_'+uid(),name:nm,isLt:Boolean(UI.palDraft.isLt),bg:UI.palDraft.bg||'#020617',acc:UI.palDraft.acc||'#0ea5e9',acc2:UI.palDraft.acc2||'#6366f1',txt:UI.palDraft.txt||'#f1f5f9',mut:UI.palDraft.mut||'#94a3b8',btnTxt:UI.palDraft.btnTxt||'#ffffff'};
       if(!Array.isArray(S.customPalettes)) S.customPalettes=[];
       S.customPalettes.push(np);
       const sl=getEditStyleSlot(); sl.palette=np.id; sl.customColors=null;
       UI.palDraft.name=np.name;
-      applyTheme(); persistCurrentThemeChange({scope:'palettes'}); renderModal(); if(!UI.inLobby) save(); toast(`🎨 Farbpalette „${nm}“ gespeichert!`);
+      applyTheme(); persistCurrentThemeChange({scope:'palettes'}); renderModal(); if(!isLob&&!UI.inLobby) save(); toast(`🎨 Farbpalette „${nm}“ gespeichert!`);
       break;
     }
     case 'update-custom-pal': {
+      const isLob=UI.inLobby||S.appearance.editScope==='lobby';
       const cp=(S.customPalettes||[]).find(p=>p.id===el.dataset.id);
       if(cp){
         const nm=(($('inpCustomPalName')?.value||UI.palDraft.name||cp.name).trim())||cp.name;
         Object.assign(cp,{name:nm,isLt:Boolean(UI.palDraft.isLt),bg:UI.palDraft.bg,acc:UI.palDraft.acc,acc2:UI.palDraft.acc2,txt:UI.palDraft.txt,mut:UI.palDraft.mut,btnTxt:UI.palDraft.btnTxt});
         const sl=getEditStyleSlot(); sl.palette=cp.id; sl.customColors=null;
-        applyTheme(); persistCurrentThemeChange({scope:'palettes'}); renderModal(); if(!UI.inLobby) save(); toast(`✓ Farbpalette „${nm}“ aktualisiert!`);
+        applyTheme(); persistCurrentThemeChange({scope:'palettes'}); renderModal(); if(!isLob&&!UI.inLobby) save(); toast(`✓ Farbpalette „${nm}“ aktualisiert!`);
       }
       break;
     }
