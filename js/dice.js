@@ -1,5 +1,5 @@
 import {
-  ATTRS, CRIT_SEQ, WIN_DEFAULTS, SK_RANKS
+  ATTRS, CRIT_SEQ, WIN_DEFAULTS, SK_RANKS, DEF_HZ, HZ_SIZE_OPTS
 } from './constants.js';
 import {
   $, uid, esc, toInt, fmtSign
@@ -11,7 +11,7 @@ import {
   applyWinFrame, renderWinCtrlBtns, renderWinResizeHandles, getCampaigns, isUserInCampaign, canManageCampaign, getActiveLiveCampaignId, getCampaignFilteredDiceFeed, getInitiativeCampaignsForChar, isCharInCampaignInitiative, captureScrollState, restoreScrollState, save, getWeaponSubtype, isWeaponMassiv, isWeaponBlockable, isArmorShield, S, D, LD, DUEL, diceLogs, isMobileLayout, UI, LIVE_TAB_ID, CLOUD, getCharCampaignId, isEnemySheet, getEnemyMeta, isEnemyDiceVisibleInCampaign, canSeeEnemyInDice, shouldHideOpponentDetails
 } from './state.js';
 import {
-  calcActiveMods, getAdvDisForContext, getWeaponRollMeta, getShieldRollMeta, getSheetShields, getSheetBlockOptions, resolveCombatItemByRef, formatBlockModShort, formatBlockModLong, getWeaponDualWieldInfo, fmtAdvSrcLines, getAttrTot, getSkBonus, getCharSizeInfo, getRelativeSizeHitMod
+  calcActiveMods, getAdvDisForContext, getWeaponRollMeta, getShieldRollMeta, getSheetShields, getSheetBlockOptions, resolveCombatItemByRef, formatBlockModShort, formatBlockModLong, getWeaponDualWieldInfo, fmtAdvSrcLines, getAttrTot, getSkBonus, getCharSizeInfo, getRelativeSizeHitMod, normHitZoneSize, getHitZoneSizeMeta
 } from './calc.js';
 import {
   renderLobbyLiveDiceHtml, publishLiveRoll, formatSecretRollSummary, isSecretRollActive, getCachedForeignSheet, getForeignSheetLoadedAt, isForeignSheetLoading, getForeignSheetError, fetchForeignCharacterSheet, fetchLobbyList
@@ -155,6 +155,7 @@ export function selectDiceOpponent(charId,{force=false,silent=true}={}){
     D.oppWeaponId='';
     D.oppSkillId='';
     D.oppSitActive={};
+    D.aimSizeOvr='auto';
   }
   if(id) fetchForeignCharacterSheet(id,{force,silent});
   renderDice();
@@ -433,6 +434,7 @@ export function formatSrcOriginLabel(s){
   }
   if(s.srcKind==='Inspiration') return '✨ Inspiration';
   if(s.srcKind==='Vorbereitung') return `🎯 ${s.srcName||'Vorbereitung'}`;
+  if(s.srcKind==='Zielen') return `🎯 ${s.srcName||'Zielen'}`;
   if(s.srcKind==='Größe') return `📏 ${s.srcName||'Größenunterschied'}`;
   if(s.srcKind==='Mehrhändig') return s.srcName||'Mehrhändiger Kampf';
   if(s.srcKind==='Waffenwurf') return `Waffenwurf: ${s.srcName||'Waffe'}`;
@@ -442,7 +444,7 @@ export function formatSrcOriginLabel(s){
 }
 export function formatAdvSrcScope(s){
   if(!s) return '';
-  if(s.srcKind==='Vorbereitung') return '';
+  if(s.srcKind==='Vorbereitung'||s.srcKind==='Zielen') return '';
   if(s.scope==='attr'&&s.attrKey) return s.attrKey;
   if(s.scope==='skill') return s.skillName||s.label||'';
   if(s.scope==='dodge') return 'Ausweichen';
@@ -500,7 +502,7 @@ export function getEffectiveDiceShieldId(){
 export function resetDiceToLobbyNeutral(){
   hooks.clearOutgoingDuel?.({notifyCancel:true,silent:true});
   hooks.resetCombatState?.();
-  D.weaponId=null; D.shieldId=null; D.skillId=null; D.attrKey=null; D.wRollCat='Normaler Test'; D.atkPool='lp'; D.dualWieldOvr='auto'; D.wpEditOpen=false; D.sitActive={}; D.oppSitActive={}; D.prepPaused=false; D.critOff=0; D.advAdj=0; D.disAdj=0; D.adv=0; D.dis=0;
+  D.weaponId=null; D.shieldId=null; D.skillId=null; D.attrKey=null; D.wRollCat='Normaler Test'; D.atkPool='lp'; D.dualWieldOvr='auto'; D.aimActive=false; D.aimZone=''; D.aimSizeOvr='auto'; D.wpEditOpen=false; D.sitActive={}; D.oppSitActive={}; D.prepPaused=false; D.critOff=0; D.advAdj=0; D.disAdj=0; D.adv=0; D.dis=0;
   D.label='Freie Probe (Lobby)';
   D.cMode='direct'; D.cDirect=50; D.cAttr=50; D.cSkill='0';
   D.dMode='direct'; D.dDirect=40; D.oppCharId='';
@@ -514,6 +516,30 @@ export function ensureLobbyNeutralDiceOnOpen(){
   if(isLobbyNeutralDice()&&(!D._lobbyNeutral||D.weaponId||D.shieldId||D.skillId||D.attrKey)){
     resetDiceToLobbyNeutral();
   }
+}
+export function resolveDiceAimInfo(opp=null){
+  const targetZones=(opp?.ready&&Array.isArray(opp.oppSheet?.hitZones)&&opp.oppSheet.hitZones.length)?opp.oppSheet.hitZones:DEF_HZ;
+  const rawZone=String(D.aimZone||'').trim();
+  const matchedZone=rawZone
+    ?targetZones.find(z=>String(z?.zone||'').trim().toLowerCase()===rawZone.toLowerCase())
+    :null;
+  const zoneObj=matchedZone||targetZones.find(z=>normHitZoneSize(z?.size,z?.zone)==='groß')||targetZones[0]||DEF_HZ[1];
+  const zoneName=String(zoneObj?.zone||'Rumpf').trim()||'Rumpf';
+  const baseMeta=getHitZoneSizeMeta(zoneObj?.size,zoneName);
+  const ovr=['groß','normal','klein'].includes(D.aimSizeOvr)?D.aimSizeOvr:'auto';
+  const effMeta=ovr!=='auto'?getHitZoneSizeMeta(ovr,zoneName):baseMeta;
+  const isOvr=Boolean(ovr!=='auto'&&effMeta.key!==baseMeta.key);
+  return {
+    active:Boolean(D.aimActive),
+    zones:targetZones,
+    zoneObj,
+    zoneName,
+    baseMeta,
+    ovr,
+    effMeta,
+    isOvr,
+    mod:effMeta.mod
+  };
 }
 export function applyDiceAutoAdvDis(resetManual=false,M=isLobbyNeutralDice()?{testTh:0}:calcActiveMods()){
   if(resetManual){D.advAdj=0;D.disAdj=0;}
@@ -532,6 +558,20 @@ export function applyDiceAutoAdvDis(resetManual=false,M=isLobbyNeutralDice()?{te
   let c1RawAutoAdv=r1.rawAutoAdv||0;
   let c1RawAutoDis=r1.rawAutoDis||0;
   const c1AdvSrc=[...(r1.src||[])];
+  const aimInfo=effCat==='Trefferwurf'?resolveDiceAimInfo(opp):null;
+  if(effCat==='Trefferwurf'&&aimInfo&&aimInfo.active){
+    const ovrSfx=aimInfo.isOvr?' • Overwrite':'';
+    if(aimInfo.mod>0){
+      c1AutoAdv+=aimInfo.mod;
+      c1RawAutoAdv+=aimInfo.mod;
+      c1AdvSrc.push({val:aimInfo.mod,kind:'adv',scope:'hit',label:`${aimInfo.zoneName} (${aimInfo.effMeta.label}${ovrSfx})`,srcName:`Zielen: ${aimInfo.zoneName} (${aimInfo.effMeta.label}${ovrSfx})`,srcKind:'Zielen'});
+    }else if(aimInfo.mod<0){
+      const dAbs=Math.abs(aimInfo.mod);
+      c1AutoDis+=dAbs;
+      c1RawAutoDis+=dAbs;
+      c1AdvSrc.push({val:dAbs,kind:'dis',scope:'hit',label:`${aimInfo.zoneName} (${aimInfo.effMeta.label}${ovrSfx})`,srcName:`Zielen: ${aimInfo.zoneName} (${aimInfo.effMeta.label}${ovrSfx})`,srcKind:'Zielen'});
+    }
+  }
   let oppAutoAdv=(opp&&opp.ready)?(opp.ad.autoAdv||0):0;
   let oppAutoDis=(opp&&opp.ready)?(opp.ad.autoDis||0):0;
   let oppRawAutoAdv=(opp&&opp.ready)?(opp.ad.rawAutoAdv||opp.ad.autoAdv||0):0;
@@ -571,6 +611,7 @@ export function applyDiceAutoAdvDis(resetManual=false,M=isLobbyNeutralDice()?{te
   D.dis=Math.max(0,totalAutoDis+toInt(D.disAdj,0));
   return {
     ...r1,
+    aimInfo,
     c1AutoAdv,
     c1AutoDis,
     c1AdvSrc,
@@ -597,7 +638,7 @@ export function calcThreshold(){
   const bonus=(net===0?0:Math.sign(net)*(10+(Math.abs(net)-1)*5))+(M.testTh||0), th=cv+50-dv+bonus;
   const effCritIdx=Math.max(0,Math.min(CRIT_SEQ.length-1,(ad.autoCrit||0)+toInt(D.critOff,0))), effCrit=CRIT_SEQ[effCritIdx];
   D.crit=effCrit;
-  return {cv,dv,effAdv:D.adv,effDis:D.dis,autoAdv:ad.autoAdv,autoDis:ad.autoDis,c1AutoAdv:ad.c1AutoAdv||0,c1AutoDis:ad.c1AutoDis||0,c1AdvSrc:ad.c1AdvSrc||[],opp:ad.opp||null,oppAutoAdv:ad.oppAutoAdv||0,oppAutoDis:ad.oppAutoDis||0,oppAdvSrc:ad.oppAdvSrc||[],oppSitOptions:ad.oppSitOptions||[],advAdj:toInt(D.advAdj,0),disAdj:toInt(D.disAdj,0),advSrc:ad.src,sitOptions:ad.sitOptions||[],matchedPrep:ad.matchedPrep||null,pausedPrep:ad.pausedPrep||null,autoCrit:ad.autoCrit||0,critSrc:ad.critSrc||[],rollMod:ad.autoRollMod||0,rollModSrc:ad.rollModSrc||[],effCrit,effCritIdx,rawNet,net,bonus,th,egMult:1,effTh:M.testTh||0,chance:Math.max(1,Math.min(99,th))};
+  return {cv,dv,effAdv:D.adv,effDis:D.dis,autoAdv:ad.autoAdv,autoDis:ad.autoDis,c1AutoAdv:ad.c1AutoAdv||0,c1AutoDis:ad.c1AutoDis||0,c1AdvSrc:ad.c1AdvSrc||[],opp:ad.opp||null,oppAutoAdv:ad.oppAutoAdv||0,oppAutoDis:ad.oppAutoDis||0,oppAdvSrc:ad.oppAdvSrc||[],oppSitOptions:ad.oppSitOptions||[],advAdj:toInt(D.advAdj,0),disAdj:toInt(D.disAdj,0),advSrc:ad.src,sitOptions:ad.sitOptions||[],matchedPrep:ad.matchedPrep||null,pausedPrep:ad.pausedPrep||null,aimInfo:ad.aimInfo||null,autoCrit:ad.autoCrit||0,critSrc:ad.critSrc||[],rollMod:ad.autoRollMod||0,rollModSrc:ad.rollModSrc||[],effCrit,effCritIdx,rawNet,net,bonus,th,egMult:1,effTh:M.testTh||0,chance:Math.max(1,Math.min(99,th))};
 }
 export function selectDiceWeapon(itemRef){
   if(isLobbyNeutralDice()) return;
@@ -1294,6 +1335,37 @@ export function renderDice(){
       </div>`;
     }
 
+    let aimBarHtml='';
+    if(isHitMode){
+      const aim=T.aimInfo||resolveDiceAimInfo(T.opp);
+      const aimOn=Boolean(aim&&aim.active);
+      const modBadge=aim.mod>0?'+1V':aim.mod<0?'+1N':'±0';
+      const modBadgeCls=aim.mod>0?'bg-emerald-500/25 text-emerald-300 border-emerald-400/50':aim.mod<0?'bg-rose-500/25 text-rose-300 border-rose-400/50':'bg-black/30 t-mut bdr-line';
+      aimBarHtml=`<div class="pt-1.5 border-t border-white/10 space-y-1.5 min-w-0">
+        <div class="flex flex-wrap items-center justify-between gap-1.5 min-w-0">
+          <button type="button" data-action="toggle-dice-aim" aria-pressed="${aimOn?'true':'false'}" data-tip="Zielen auf eine bestimmte Körperzone: Groß = +1 Vorteil, Normal = ±0, Klein = +1 Nachteil (mit Größen-Overwrite)." class="btn py-0.5 px-2.5 text-[11px] font-extrabold ${aimOn?'border-cyan-400 bg-cyan-500/25 text-cyan-100':'opacity-85 hover:opacity-100'}">${aimOn?'☑':'☐'} 🎯 Zielen${aimOn?`: ${esc(aim.zoneName)}`:''}</button>
+          ${aimOn?`<span class="px-1.5 py-0.5 rounded-md border text-[10px] font-black tabular ${modBadgeCls}">${esc(aim.effMeta.label)} (${modBadge})${aim.isOvr?' • Overwrite':''}</span>`:`<span class="text-[10px] t-mut">Groß +1V • Normal ±0 • Klein +1N</span>`}
+        </div>
+        ${aimOn?`<div class="p-2 rounded-lg border border-cyan-400/40 bg-cyan-500/8 space-y-1.5 min-w-0">
+          <div class="flex flex-wrap items-center gap-1 min-w-0">
+            ${(aim.zones||[]).map(z=>{
+              const zn=String(z?.zone||'').trim();
+              if(!zn) return '';
+              const zm=getHitZoneSizeMeta(z?.size,zn);
+              const isSel=zn.toLowerCase()===aim.zoneName.toLowerCase();
+              const szCol=zm.key==='groß'?'text-emerald-300':zm.key==='klein'?'text-rose-300':'t-mut';
+              return `<button type="button" data-action="dice-aim-zone" data-zone="${esc(zn)}" data-tip="Anvisieren: ${esc(zn)} (${esc(zm.short)})" class="btn py-0.5 px-2 text-[11px] font-extrabold ${isSel?'btn-pri':'opacity-85 hover:opacity-100'}">${esc(zn)} <span class="text-[9px] font-black ${isSel?'opacity-90':szCol}">(${zm.tag})</span></button>`;
+            }).join('')}
+          </div>
+          <div class="flex flex-wrap items-center gap-1 pt-1 border-t border-white/10 text-[10px]">
+            <span class="t-mut font-bold mr-0.5">Größe:</span>
+            <button type="button" data-action="dice-aim-ovr" data-ovr="auto" class="btn py-0.5 px-1.5 text-[10px] font-extrabold ${aim.ovr==='auto'?'btn-pri':''}">Auto (${esc(aim.baseMeta.label)})</button>
+            ${HZ_SIZE_OPTS.map(o=>`<button type="button" data-action="dice-aim-ovr" data-ovr="${o.k}" class="btn py-0.5 px-1.5 text-[10px] font-extrabold ${aim.ovr===o.k?(o.mod>0?'btn-ok':o.mod<0?'bg-rose-600 text-white border-rose-500':'btn-pri'):''}">${esc(o.short)}</button>`).join('')}
+          </div>
+        </div>`:''}
+      </div>`;
+    }
+
     const attrStripHtml=`<div class="grid grid-cols-4 sm:grid-cols-8 gap-1 pt-1.5 border-t border-white/10">${ATTRS.map(a=>isNeutral
       ?`<button type="button" data-action="dice-pick-lobby-attr" data-attr="${a.k}" class="btn py-1 px-0.5 flex-col gap-0 ${D.label===`Freie Probe: ${a.k} (50)`?'btn-pri':''}"><span class="text-[9px] leading-none">${a.k}</span><span class="text-xs font-black tabular leading-tight">50</span></button>`
       :`<button type="button" data-action="dice-pick-attr" data-attr="${a.k}" class="btn py-1 px-0.5 flex-col gap-0 ${D.attrKey===a.k?'btn-pri':''}"><span class="text-[9px] leading-none">${a.k}</span><span class="text-xs font-black tabular leading-tight">${getAttrTot(a.k)}</span></button>`).join('')}</div>`;
@@ -1309,6 +1381,7 @@ export function renderDice(){
           </div>`:''}
         </div>`}
       ${weaponRowHtml}
+      ${aimBarHtml}
       ${attrStripHtml}
     </div>`;
   };
@@ -1523,8 +1596,9 @@ export function executeDiceRoll(opts={}){
       ?`${c1Name} (${c1FeedShort}) vs. ${T.opp.oppName}`
       :`${c1Name} (${c1FeedShort}) vs. ${T.opp.oppName} (${T.opp.oppShortLabel})`;
   }
-  const rollTitle=isVsOpp?vsSummary:D.label;
-  const feedTitle=isVsOpp?vsSummaryFeed:(rollerIsEnemy?(D.wRollCat&&D.wRollCat!=='Normaler Test'?`${D.wRollCat}`:'Probe'):D.label);
+  const aimTitleSfx=(D.wRollCat==='Trefferwurf'&&T.aimInfo&&T.aimInfo.active)?` • 🎯 ${T.aimInfo.zoneName}`:'';
+  const rollTitle=(isVsOpp?vsSummary:D.label)+aimTitleSfx;
+  const feedTitle=(isVsOpp?vsSummaryFeed:(rollerIsEnemy?(D.wRollCat&&D.wRollCat!=='Normaler Test'?`${D.wRollCat}`:'Probe'):D.label))+aimTitleSfx;
   const rawAdvSrcParts=buildAdvSrcShortList(T);
   const noOppAdvT=hideOppLocal||hideOppInFeed?{...T,advSrc:(T.advSrc||[]).filter(s=>!s?.fromOpponent)}:T;
   const advSrcParts=hideOppLocal?buildAdvSrcShortList(noOppAdvT):rawAdvSrcParts;

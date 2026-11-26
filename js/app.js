@@ -11,13 +11,13 @@ import {
   syncPwUseCostsLegacy, makeDefaultStatusEffects, defaultState, setS, setD, clearDiceLogs, syncBodyScrollLock, positionFloatingMenu, openCtxMenu, closeCtxMenu, closePwDropdown, repositionOpenPwMenus, hydrateWinPrefs, saveWinPref, clearWinPref, applyWinFrame, setPwMode, normalizeCampaigns, normalizeEnemyMeta, getUserBgLocalKey, getCampaigns, getActiveCampaigns, setActiveCampaign, canManageCampaign, canClearLiveDice, getCreatableCampaigns, isEnemySheet, getEnemyMeta, canToggleEnemyStatus, canManageEnemySheet, canViewEnemySheet, ensureAllRegistryUsers, findUserKeyByName, findUserKeyById, getUserAvatar, canViewUserProfile, saveRegistryLocal, saveSecretRollsLocal, getActiveLiveCampaignId, captureScrollState, restoreScrollState, toast, triggerNiceEasterEgg, logChron, mergeLoaded, saveLastActiveTab, save, flushPendingSave, saveSoon, load, flushThemePrefsSync, cancelThemePrefsSync, applySessionTheme, persistCurrentThemeChange, syncPalDraftFromSlot, applyTheme, CUSTOM_ICONS, findMainArt, findActionSub, isReservedPwTerm, getWeaponSubtype, isWeaponMassiv, isArmorShield, isWeaponBlockable, makeWeapon, makeAmmo, makeArmor, makeInvItem, makeEqSecMeta, makeChrSecMeta, makeSection, makeSkSection, makeInvSection, makePower, makeAugment, syncEquipmentToInventory, S, D, CN, LD, INI, FBW, DUEL, COMBAT, isMobileLayout, CTX_MENU, getWinState, hasSavedWinPref, savedEffRanges, savedPwRanges, lastPwFieldById, pwQuickKey, UI, LIVE_TAB_ID, PATCHNOTES, FEEDBACK, CLOUD, CLOUD_SYNC, PWLIB, getCharOwner, getCharCampaignId, canManageChar, getEditStyleSlot
 } from './state.js';
 import {
-  getStatusEffValues, formatPwUseCosts, getReservablePwCosts, getEffectivePoolCap, getPwBuilderToken, parseStatusTokens, getAllParsedEffectChips, invalidateModsCache, calcActiveMods, buildAttrTip, buildSecTip, getMentalArmorSummary, syncCresRenameInTokens, syncSkillRenameInTokens, purgeExtraSecFromPowers, calcAutoSkCost, findDuplicatePwEntry, makeUniquePwName, updatePwNameDupHint, enforceUniquePwName, buildPowerExportPack, downloadPowerPackJson, resolveLibraryAugmentParentName, getSuggestedAugmentsForPower, importPowerPackIntoSheet, getTrCost, performSimpleRest, performFullRest, withPoolSync, linkAugToPower, unlinkAugFromPower, calcPwCost, calcSkCost, calcProg, getWeaponRollMeta, getShieldRollMeta, getSheetBlockOptions, getEquippedWeaponsForSkill, getEquippedShieldsForSkill, formatBlockModShort, getWeaponDualWieldInfo, getTagDesc, cresName, makeExtraSec, getExtraSecName, getResLabel, escReStr, getAttrCol, getSecCol, getAttrTot, getLpBase, getLpMax, getMlpBase, getMlpMax, getLpRegenAuto, getMlpRegenAuto, hasLpRegenOvr, hasMlpRegenOvr, getLpRegen, getMlpRegen, getIniBase, getIniTot, getApBase, getApMax, getMapBase, getMapMax, getCresBase, getCresMax, getExtraSecBase, getBstAuto, hasBstOvr, getBstBase, getEffBst, getSkAutoBonus, hasSkBonusOvr, getSkBonus, findPwItem, findEqItem, getLinkedAugs, getValidPwSecId
+  getStatusEffValues, formatPwUseCosts, getReservablePwCosts, getEffectivePoolCap, getPwBuilderToken, parseStatusTokens, getAllParsedEffectChips, invalidateModsCache, calcActiveMods, buildAttrTip, buildSecTip, getMentalArmorSummary, syncCresRenameInTokens, syncSkillRenameInTokens, purgeExtraSecFromPowers, calcAutoSkCost, findDuplicatePwEntry, makeUniquePwName, updatePwNameDupHint, enforceUniquePwName, buildPowerExportPack, downloadPowerPackJson, resolveLibraryAugmentParentName, getSuggestedAugmentsForPower, importPowerPackIntoSheet, getTrCost, performSimpleRest, performFullRest, withPoolSync, linkAugToPower, unlinkAugFromPower, calcPwCost, calcSkCost, calcProg, getWeaponRollMeta, getShieldRollMeta, getSheetBlockOptions, getEquippedWeaponsForSkill, getEquippedShieldsForSkill, formatBlockModShort, getWeaponDualWieldInfo, getTagDesc, cresName, makeExtraSec, getExtraSecName, getResLabel, escReStr, getAttrCol, getSecCol, getAttrTot, getLpBase, getLpMax, getMlpBase, getMlpMax, getLpRegenAuto, getMlpRegenAuto, hasLpRegenOvr, hasMlpRegenOvr, getLpRegen, getMlpRegen, getIniBase, getIniTot, getApBase, getApMax, getMapBase, getMapMax, getCresBase, getCresMax, getExtraSecBase, getBstAuto, hasBstOvr, getBstBase, getEffBst, getSkAutoBonus, hasSkBonusOvr, getSkBonus, findPwItem, findEqItem, getLinkedAugs, getValidPwSecId, getDefaultHitZoneSize
 } from './calc.js';
 import {
   updateLobbyLiveDiceDOM, initLiveDiceChannel, publishLiveRoll, revealSecretRoll, publishLiveCampNote, clearLiveDiceFeed, syncCloudRegistry, renameUserAccount, addCampaignAllowedUser, removeCampaignAllowedUser, archiveCampaignById, restoreCampaignById, deleteCampaignById, toggleGlobalGMTag, addCampaignMainGM, removeCampaignMainGM, kickCharFromCampaign, duplicateCharacterSheet, getCampaignSharedPages, extractPublicPages, upsertPublicNoteEntry, fetchLobbyList, fetchForeignCharacterSheet, canWriteCurrentSheetToCloud, resetCloudSyncState, updateCloudSyncStatusDOM, scheduleCloudSync, pushToCloud, flushCloudSyncNow, flushBeforeCharacterSwitch, loadCloudCharacter, createNewUserCharacter, updateCloudCharacterMeta, fetchTrashedCharacters, deleteCloudCharacter, restoreTrashedCharacter, permanentDeleteTrashedCharacter, emptyTrashedCharacters, updateEnemyMetaCloud, createNewEnemyOrTemplate, toggleEnemyActiveStatus, toggleEnemyCampaignAssignment, toggleEnemyDiceVisibility, hideAllEnemiesInCampaignDice, toggleEnemyArchived, cloneEnemyToCampaign, stripLibraryPackMeta, getAllLibraryPacks, fetchPowerLibrary, publishPackToCloudLibrary, deletePackFromCloudLibrary, parsePatchnoteTsMs, getNewestPatchnoteId, isPatchnoteCollapsed, normalizePatchnoteEntry, fetchPatchnotes, savePatchnotesToServer, fetchFeedback, saveFeedbackStore, loadCustomIconsCache, fetchCustomIcons, saveCustomIconsToServer, loadNotifSeen, saveNotifSeen, markNotifRead, markAllNotifsRead, updateNotifBadges, refreshUserNotificationsBg, fetchAndSyncBasisPowers, isSecretRollActive
 } from './cloud.js';
 import {
-  resetDiceToLobbyNeutral, exitLobbyNeutralDice, ensureLobbyNeutralDiceOnOpen, applyDiceAutoAdvDis, calcThreshold, openWeaponRoll, openShieldRoll, selectDiceWeapon, syncDiceFromSheet, buildAdvDisInnerHtml, renderDice, renderLiveDice, rollW100, renderBlockFollowUpBox, executeBlockFollowUpRoll, executeDiceRoll, rollCustomDice, getCSkVal, getDSkVal, getEffC, getEffD, isLobbyNeutralDice, calcEgMultiplier, buildThresholdInnerHtml, activateVsCharMode, selectDiceOpponent, resolveOpponentComparison
+  resetDiceToLobbyNeutral, exitLobbyNeutralDice, ensureLobbyNeutralDiceOnOpen, applyDiceAutoAdvDis, calcThreshold, openWeaponRoll, openShieldRoll, selectDiceWeapon, syncDiceFromSheet, buildAdvDisInnerHtml, renderDice, renderLiveDice, rollW100, renderBlockFollowUpBox, executeBlockFollowUpRoll, executeDiceRoll, rollCustomDice, getCSkVal, getDSkVal, getEffC, getEffD, isLobbyNeutralDice, calcEgMultiplier, buildThresholdInnerHtml, activateVsCharMode, selectDiceOpponent, resolveOpponentComparison, resolveDiceAimInfo
 } from './dice.js';
 import {
   sendDuelChallenge, cancelOutgoingDuel, clearOutgoingDuel, handleLiveDuelEvent, ignoreIncomingDuel, openDuelReplyModal, closeDuelReplyModal, submitDuelReply, renderDuelBanner, renderDuelReplyModal
@@ -437,6 +437,31 @@ document.addEventListener('click',async e=>{
       toast('✓ Vorbereitung verbraucht.');
       break;
     }
+    case 'toggle-dice-aim':{
+      D.aimActive=!D.aimActive;
+      if(D.aimActive&&!String(D.aimZone||'').trim()){
+        const opp=D.dMode==='character'?resolveOpponentComparison('Trefferwurf'):null;
+        D.aimZone=resolveDiceAimInfo(opp).zoneName;
+      }
+      applyDiceAutoAdvDis(false);
+      renderDice();
+      break;
+    }
+    case 'dice-aim-zone':{
+      D.aimActive=true;
+      D.aimZone=String(el.dataset.zone||'').trim();
+      D.aimSizeOvr='auto';
+      applyDiceAutoAdvDis(false);
+      renderDice();
+      break;
+    }
+    case 'dice-aim-ovr':{
+      const ovr=String(el.dataset.ovr||'auto').trim();
+      D.aimSizeOvr=['groß','normal','klein'].includes(ovr)?ovr:'auto';
+      applyDiceAutoAdvDis(false);
+      renderDice();
+      break;
+    }
     case 'toggle-status-sec': {
       const next=!isTab1SecCollapsed('status');
       UI.tab1.status=next;
@@ -781,6 +806,16 @@ document.addEventListener('click',async e=>{
       if(hz&&Array.isArray(hz.subZones)&&sid){
         hz.subZones=hz.subZones.filter(sz=>sz.id!==sid);
         renderMain(); save();
+      }
+      break;
+    }
+    case 'reset-hz-size': {
+      const z=S.hitZones.find(x=>x.id===el.dataset.id);
+      if(z){
+        z.size=getDefaultHitZoneSize(z.zone);
+        renderMain();
+        if(D.open){applyDiceAutoAdvDis(false);renderDice();}
+        save();
       }
       break;
     }
@@ -4143,7 +4178,7 @@ document.addEventListener('input',e=>{
   if(el.dataset.th){const k=el.dataset.th,M=calcActiveMods();S.thresholds[k]=toInt(el.value,0)-(M[k]||0);syncLiveCalculations();return;}
   if(el.dataset.mv){const [id,f]=el.dataset.mv.split(':'),m=S.movements.find(x=>x.id===id);if(m){m[f]=el.value;syncLiveCalculations();}return;}
   if(el.dataset.hzSub){const [hid,sid,f]=el.dataset.hzSub.split(':'),z=S.hitZones.find(x=>x.id===hid),sz=(z&&Array.isArray(z.subZones))?z.subZones.find(s=>s.id===sid):null;if(sz&&(f==='range'||f==='zone')){sz[f]=el.value;saveSoon();}return;}
-  if(el.dataset.hz){const [id,f]=el.dataset.hz.split(':'),z=S.hitZones.find(x=>x.id===id);if(z){z[f]=el.value;saveSoon();}return;}
+  if(el.dataset.hz){const [id,f]=el.dataset.hz.split(':'),z=S.hitZones.find(x=>x.id===id);if(z){z[f]=el.value;if(f!=='size') saveSoon();}return;}
   if(el.dataset.fbNewFolder){
     FEEDBACK.newFolderName=el.value;
     return;
@@ -4616,6 +4651,14 @@ document.addEventListener('change',e=>{
       S.charSize.ovr=(num===toInt(S.charSize.level,0))?'':String(num);
     }
     renderMain(); if(D.open){applyDiceAutoAdvDis(false);renderDice();} save();
+    return;
+  }
+  if(el.dataset.hz&&el.dataset.hz.endsWith(':size')){
+    const [id]=el.dataset.hz.split(':'), z=S.hitZones.find(x=>x.id===id);
+    if(z){
+      z.size=String(el.value||'normal');
+      renderMain(); if(D.open){applyDiceAutoAdvDis(false);renderDice();} save();
+    }
     return;
   }
   if(t.dataset.cnFolderSel){

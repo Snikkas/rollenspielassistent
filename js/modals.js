@@ -2449,6 +2449,9 @@ export function renderInfoDiceWikiHtml(){
               </tr>`).join('')}
             </tbody>
           </table>
+          <div class="text-[11px] t-mut leading-relaxed pt-1 border-t border-white/10">
+            <strong class="text-cyan-300">Zielen:</strong> Bei einem Trefferwurf kann gezielt auf eine Zone gewürfelt werden — <strong class="text-emerald-300">Groß (+1 Vorteil)</strong>, <strong>Normal (±0)</strong>, <strong class="text-rose-300">Klein (+1 Nachteil)</strong>. Zonengrößen sind im Charakterbogen anpassbar.
+          </div>
         </div>
       </div>
     </section>

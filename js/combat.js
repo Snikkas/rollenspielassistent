@@ -682,6 +682,10 @@ export function initCombatFromRoll({ T, res, isManualBlocked = false, isAtkBlk20
   const targetSheet = resolveCombatTargetSheet(targetCharId);
   const hitZones = getTargetHitZones(targetSheet);
   const defZone = (hitZones[1]?.zone || hitZones[0]?.zone || 'Rumpf');
+  const rawAimZone = (D.aimActive && T?.aimInfo?.zoneName) ? String(T.aimInfo.zoneName).trim() : '';
+  const aimedZoneMatch = rawAimZone
+    ? (hitZones.find(z => String(z?.zone || '').trim().toLowerCase() === rawAimZone.toLowerCase())?.zone || rawAimZone)
+    : '';
 
   COMBAT.active = true;
   COMBAT.collapsed = false;
@@ -713,9 +717,10 @@ export function initCombatFromRoll({ T, res, isManualBlocked = false, isAtkBlk20
     blockShieldId: rh.blockShieldId || '',
     blockShieldName: rh.blockShieldName || '',
     blockItemRed: Boolean(rh.blockItemRed),
+    aimedZone: (!rh.isBlocked && aimedZoneMatch) ? aimedZoneMatch : '',
     dmgType: defDmgType,
     pool: initPool,
-    zoneName: defZone,
+    zoneName: (!rh.isBlocked && aimedZoneMatch) ? aimedZoneMatch : defZone,
     subZoneName: '',
     lastHzRoll: null,
     lastSubHzRoll: null,
@@ -1743,7 +1748,7 @@ function renderSingleCombatHitBodyHtml(hitEntry, hitIdx, isMulti){
 
     <div class="space-y-1.5 pt-1.5 border-t border-white/10 min-w-0">
       <div class="flex flex-wrap items-center justify-between gap-1.5">
-        <span class="text-[10px] font-extrabold t-mut uppercase tracking-wider">🎯 Trefferzone${isMlpPool ? ' <span class="font-semibold normal-case text-indigo-300/80">(bei mLP optional – mRS wirkt global)</span>' : ''}${hitEntry.lastHzRoll !== null ? ` • W100 = <strong class="text-amber-300">${hitEntry.lastHzRoll}</strong>` : ''}</span>
+        <span class="text-[10px] font-extrabold t-mut uppercase tracking-wider">🎯 Trefferzone${hitEntry.aimedZone&&!hitEntry.isBlocked?` <span class="normal-case px-1.5 py-0.5 rounded bg-cyan-500/20 border border-cyan-400/50 text-cyan-200 font-black">Gezielt: ${esc(hitEntry.aimedZone)}</span>`:''}${isMlpPool ? ' <span class="font-semibold normal-case text-indigo-300/80">(bei mLP optional – mRS wirkt global)</span>' : ''}${hitEntry.lastHzRoll !== null ? ` • W100 = <strong class="text-amber-300">${hitEntry.lastHzRoll}</strong>` : ''}</span>
         <button type="button" data-action="combat-roll-hz" ${hiAttr} class="btn py-0.5 px-2 text-[11px] font-extrabold border-amber-400/55 bg-amber-500/15 text-amber-200 hover:bg-amber-500/25">🎯 Trefferzone auswürfeln</button>
       </div>
       <div class="flex flex-wrap gap-1 min-w-0">${zoneBtnsHtml}</div>

@@ -134,6 +134,7 @@ export const GLOSSARY=[
   ["Vor. / Nacht.","Vorteile & Nachteile","Verrechnen sich 1:1 zur Netto-Differenz (gedeckelt bei ±5): ±1 = ±10, ±2 = ±15, ±3 = ±20, ±4 = ±25, ±5+ = ±30 auf die Testschwelle.","Würfel & Kampf"],
   ["Blocken","Blocken (1-Wurf-System)","Es gibt nur noch einen Trefferwurf gegen den Blocker. Schafft der Angreifer den Wurf, trifft er durch den Block (normale EG + ggf. Krit). Scheitert er am Block (außer Patzer 100), gilt der Treffer statisch als 3 EG ohne kritischen Treffer — der Verteidiger bestimmt die geblockte Trefferzone (mit Schild / blockfähiger Waffe + dahinterliegender Rüstung).","Würfel & Kampf"],
   ["Zonen / GRP","Trefferzonen & Rüstung","W100-Trefferzonentabelle (Kopf 01–10, Rumpf 11–50, Arme 51–74, Beine 75–100) sowie Rüstungsschutz gegen Schnitt, Stich, Einschlag und Gesamt-Rüstungspunkte (GRP).","Würfel & Kampf"],
+  ["Zielen","🎯 Gezielter Trefferwurf","Erlaubt das Anvisieren einer Körperzone beim Trefferwurf: Große Zone (Standard: Rumpf) = +1 Vorteil, Normale/Mittlere Zone (Standard: Arme, Beine) = ±0, Kleine Zone (Standard: Kopf) = +1 Nachteil. Pro Trefferzone anpassbar und beim Zielen per Overwrite überschreibbar.","Würfel & Kampf"],
   ["Größe","Charaktergröße & Trefferwürfe","Größenkategorien von Sehr klein (−2) über Klein (−1), Normal (0), Groß (+1) bis Sehr Groß (+2) sowie frei erweiterbare Stufen (±3+). Bei Trefferwürfen gilt relativ zum Ziel: Ziel-Stufe − Angreifer-Stufe = Vorteile (+) bzw. Nachteile (−) ausschließlich auf Trefferwürfe.","Würfel & Kampf"],
   ["Aktionsarten","Frei-, Schnell-, Grundaktion & Einsatz","Freiaktionen beliebig oft im Zug; erste Schnellaktion pro Phase frei (weitere = Grundaktion); 1 Grundaktion pro Phase; Einsatz außerhalb des Kampfes. Ergänzend: Reaktion & Sofortaktion.","Aktionen, Zustände & Ressourcen"],
   ["Flut / Ebbe","Phasen & Kraftaktion","Kraftaktionen können nur in einer Flutphase eingesetzt werden; danach ist die nächste eigene Phase automatisch eine Ebbephase.","Aktionen, Zustände & Ressourcen"],
@@ -144,6 +145,11 @@ export const GLOSSARY=[
   ["Pause / Rast","Erholung & Regeneration","Pause stellt AP & mAP wieder her (keine ausgebrannten Sekundärattribute). Erholsame Rast heilt 2× LP- & mLP-Regenerationsrate und stellt AP, mAP sowie ausgebrannte Sekundärattribute wieder her.","Aktionen, Zustände & Ressourcen"],
   ["EP / SP / MsP","Erfahrung, Steigerung & Meisterschaft","100 EP = +1 Stufe (mit Rest-Übertrag). Pro Stufe +5 SP; jede 10. Stufe +1 MsP.","Fortschritt & Kräfte"],
   ["Kräfte / Augm.","Basisaktionen, Kräfte & Augmente","Basisaktionen kosten 0 SP; Kräfte/Augmente kosten Marginal (Options) 1 SP, Fundamental (Core) 2 SP, Exzeptionell (Ace) 3 SP oder Grandios (Game Changer) 3 SP + 1 MsP. Bis zu 3 Augmente pro Kraft, kollektiv max. 1 MsP pro Kraft-Gruppe.","Fortschritt & Kräfte"]
+];
+export const HZ_SIZE_OPTS=[
+  {k:'groß',l:'Groß',short:'Groß (+1V)',mod:1},
+  {k:'normal',l:'Normal / Mittel',short:'Normal (±0)',mod:0},
+  {k:'klein',l:'Klein',short:'Klein (+1N)',mod:-1}
 ];
 export const DEF_SIZE_CATS = [
   { level: -2, label: 'Sehr klein' },
@@ -162,7 +168,7 @@ export const ARMOR_SUBTYPES = [
 ];
 export const DEF_EQ_SEC_ORDER=['weapons','ammos','armors','inventory'];
 export const DEF_CHR_SEC_ORDER=['training','skills','powers'];
-export const DICE_DEF={open:false,docked:false,floating:false,x:null,y:null,w:0,h:0,z:50,label:'Freie Probe',skillId:null,attrKey:null,weaponId:null,shieldId:null,wRollCat:'Normaler Test',atkPool:'lp',dualWieldOvr:'auto',wpEditOpen:false,advSrcOpen:false,logOpen:false,cMode:'direct',cDirect:0,cAttr:0,cSkill:'0',cCustom:25,dMode:'direct',dDirect:40,dAttr:30,dSkill:'10',dCustom:25,oppCharId:'',oppKind:'preset',oppPreset:'dodge',oppAttrKey:'GW',oppSkillId:'',oppWeaponId:'',oppSitActive:{},adv:0,dis:0,advAdj:0,disAdj:0,cnt:1,crit:'1',critOff:0,critMode:'range',sitActive:{},prepPaused:false,blockFollowAtk:40,customCnt:1,customSides:20,customMod:0,customOpen:false,_lobbyNeutral:false,secretMode:false};
+export const DICE_DEF={open:false,docked:false,floating:false,x:null,y:null,w:0,h:0,z:50,label:'Freie Probe',skillId:null,attrKey:null,weaponId:null,shieldId:null,wRollCat:'Normaler Test',atkPool:'lp',dualWieldOvr:'auto',aimActive:false,aimZone:'',aimSizeOvr:'auto',wpEditOpen:false,advSrcOpen:false,logOpen:false,cMode:'direct',cDirect:0,cAttr:0,cSkill:'0',cCustom:25,dMode:'direct',dDirect:40,dAttr:30,dSkill:'10',dCustom:25,oppCharId:'',oppKind:'preset',oppPreset:'dodge',oppAttrKey:'GW',oppSkillId:'',oppWeaponId:'',oppSitActive:{},adv:0,dis:0,advAdj:0,disAdj:0,cnt:1,crit:'1',critOff:0,critMode:'range',sitActive:{},prepPaused:false,blockFollowAtk:40,customCnt:1,customSides:20,customMod:0,customOpen:false,_lobbyNeutral:false,secretMode:false};
 export const CNOTES_DEF={open:false,docked:false,floating:false,x:null,y:null,w:0,h:0,z:50,tocOpen:true,confirmDelId:null,confirmDelFolderId:null,newFolderOpen:false,newFolderName:'',newFolderPublic:false};
 export const LIVEDICE_DEF={open:false,docked:false,floating:false,x:null,y:null,w:0,h:0,z:50};
 export const INI_DEF={open:false,docked:false,floating:false,compact:false,collapsed:false,pickerHidden:false,x:null,y:null,w:0,h:0,z:50,addCustomOpen:false,customName:'',customIni:'0',customIsEnemy:true,customHidden:false};

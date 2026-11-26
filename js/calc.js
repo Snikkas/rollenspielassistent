@@ -2447,3 +2447,26 @@ export function getRelativeSizeHitMod(attackerSheet,targetSheet){
   return {diff,atkInfo,targetInfo};
 }
 
+export function getDefaultHitZoneSize(zoneName=''){
+  const low=String(zoneName||'').trim().toLowerCase();
+  if(/kopf|head|schädel|schaedel/.test(low)) return 'klein';
+  if(/rumpf|torso|körper|koerper|brust/.test(low)) return 'groß';
+  return 'normal';
+}
+
+export function normHitZoneSize(rawSize,zoneName=''){
+  const s=String(rawSize||'').trim().toLowerCase();
+  if(/gro(?:ß|ss)|large|big/.test(s)) return 'groß';
+  if(/klein|small|tiny/.test(s)) return 'klein';
+  if(/normal|mittel|medium/.test(s)) return 'normal';
+  return getDefaultHitZoneSize(zoneName);
+}
+
+export function getHitZoneSizeMeta(rawSize,zoneName=''){
+  const k=normHitZoneSize(rawSize,zoneName);
+  if(k==='groß') return {key:'groß',label:'Groß',short:'Groß (+1V)',tag:'Gr',mod:1};
+  if(k==='klein') return {key:'klein',label:'Klein',short:'Klein (+1N)',tag:'Kl',mod:-1};
+  return {key:'normal',label:'Normal',short:'Normal (±0)',tag:'N',mod:0};
+}
+
+

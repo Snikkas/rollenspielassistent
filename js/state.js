@@ -1553,7 +1553,10 @@ function normalizeSheetObject(raw, { isForeign = false } = {}){
     const rawSubs=Array.isArray(hz?.subZones)
       ?hz.subZones.filter(sz=>sz&&typeof sz==='object').map(sz=>({id:String(sz.id||'').trim()||uid(),range:String(sz.range??'01 - 50'),zone:String(sz.zone??'')}))
       :(defMatch?clone(defMatch.subZones):[]);
-    return {id:String(hz?.id||'').trim()||uid(),range:String(hz?.range??'01 - 10'),zone:zName||'Zone',size:String(hz?.size??'normal'),armor:String(hz?.armor??''),subZones:rawSubs};
+    const rawSz=String(hz?.size??'').trim().toLowerCase();
+    const defSz=defMatch?defMatch.size:(/(rumpf|torso|körper|brust|bauch|oberkörper)/.test(zName.toLowerCase())?'groß':/(kopf|gesicht|hals|hand|hände|fuß|füße|auge)/.test(zName.toLowerCase())?'klein':'normal');
+    const normSz=(rawSz==='groß'||rawSz==='gross'||rawSz==='large'||rawSz==='g')?'groß':(rawSz==='klein'||rawSz==='small'||rawSz==='k')?'klein':(rawSz==='normal'||rawSz==='mittel'||rawSz==='medium'||rawSz==='m'||rawSz==='n')?'normal':defSz;
+    return {id:String(hz?.id||'').trim()||uid(),range:String(hz?.range??'01 - 10'),zone:zName||'Zone',size:normSz,armor:String(hz?.armor??''),subZones:rawSubs};
   });
   sheet.lastSubHzRoll=raw.lastSubHzRoll!==undefined&&raw.lastSubHzRoll!==null?toInt(raw.lastSubHzRoll,null):null;
   sheet.lastSubHzZone=String(raw.lastSubHzZone||'');
