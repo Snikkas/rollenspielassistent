@@ -471,7 +471,8 @@ export function loadAllWinPrefs(){
       const x=(p.x!==null&&p.x!==undefined&&p.x!==''&&Number.isFinite(Number(p.x)))?Math.round(Number(p.x)):null;
       const y=(p.y!==null&&p.y!==undefined&&p.y!==''&&Number.isFinite(Number(p.y)))?Math.round(Number(p.y)):null;
       const floating=Boolean(p.floating);
-      out[k]={w,h,x,y,floating};
+      const compact=Boolean(p.compact);
+      out[k]={w,h,x,y,floating,compact};
     });
     return out;
   }catch(e){return {};}
@@ -491,6 +492,7 @@ export function hydrateWinPrefs(){
     const st=getWinState(k);
     if(!st) return;
     st.w=p.w; st.h=p.h; st.x=p.x; st.y=p.y; st.floating=Boolean(p.floating);
+    if(k==='ini'&&'compact' in st) st.compact=Boolean(p.compact);
     if(st.floating) st.docked=false;
   });
 }
@@ -504,7 +506,8 @@ export function saveWinPref(k){
     h:st.h>0?Math.round(st.h):0,
     x:(st.x!==null&&st.x!==undefined&&Number.isFinite(Number(st.x)))?Math.round(Number(st.x)):null,
     y:(st.y!==null&&st.y!==undefined&&Number.isFinite(Number(st.y)))?Math.round(Number(st.y)):null,
-    floating:Boolean(st.floating)
+    floating:Boolean(st.floating),
+    ...(k==='ini'?{compact:Boolean(st.compact)}:{})
   };
   writeAllWinPrefs(all);
 }
@@ -549,21 +552,29 @@ export function applyWinFrame(k,mount,bd,defWClass){
   }else if(st.floating){
     const pad=12;
     const maxW=Math.max(240,vw-pad*2);
-    const maxH=Math.max(200,vh-pad*2);
-    const minW=Math.min(320,maxW);
-    const minH=Math.min(280,maxH);
-    const defFloatW=Math.min(defCfg.w,Math.max(minW,vw-48));
-    const w=Math.max(minW,Math.min(maxW,st.w>280?st.w:defFloatW));
-    const defFloatH=Math.min(720,Math.max(minH,vh-80));
+    const maxH=Math.max(120,vh-pad*2);
+    const isIniCompact=Boolean(k==='ini'&&st.compact);
+    const isIniCollapsed=Boolean(k==='ini'&&st.collapsed);
+    const minW=Math.min(isIniCompact?260:320,maxW);
+    const minH=Math.min(isIniCollapsed?56:(isIniCompact?200:280),maxH);
+    const defFloatW=Math.min(isIniCompact?340:defCfg.w,Math.max(minW,vw-48));
+    const customW=(st.w>=(isIniCompact?240:280))?st.w:0;
+    const w=Math.max(minW,Math.min(maxW,isIniCompact&&!customW?defFloatW:(customW||defFloatW)));
+    const defFloatH=isIniCompact?Math.min(460,Math.max(minH,vh-120)):Math.min(720,Math.max(minH,vh-80));
     const h=Math.max(minH,Math.min(maxH,st.h>0?st.h:defFloatH));
     const maxX=Math.max(pad,vw-w-pad);
-    const maxY=Math.max(pad,vh-h-pad);
-    const x=st.x!==null?Math.max(pad,Math.min(maxX,st.x)):Math.max(pad,Math.round((vw-w)/2));
-    const y=st.y!==null?Math.max(pad,Math.min(maxY,st.y)):Math.max(pad,Math.min(maxY,70));
+    const maxY=Math.max(pad,vh-(isIniCollapsed?64:h)-pad);
+    const defX=k==='ini'?Math.max(pad,vw-w-16):Math.max(pad,Math.round((vw-w)/2));
+    const x=st.x!==null?Math.max(pad,Math.min(maxX,st.x)):defX;
+    const y=st.y!==null?Math.max(pad,Math.min(maxY,st.y)):Math.max(pad,Math.min(maxY,74));
     const availH=Math.max(minH,Math.min(maxH,vh-y-pad));
     const effH=Math.min(h,availH);
-    mount.className='fixed z-50 overflow-hidden flex flex-col shadow-2xl rounded-2xl';
-    mount.style.cssText=`position:fixed!important;left:${x}px;top:${y}px;width:${w}px;max-width:${maxW}px;height:${effH}px;max-height:${availH}px;z-index:${st.z||50};margin:0;right:auto;bottom:auto`;
+    mount.className=`fixed z-50 overflow-hidden flex flex-col shadow-2xl rounded-2xl${k==='ini'?' ini-floating-overlay':''}`;
+    if(isIniCollapsed){
+      mount.style.cssText=`position:fixed!important;left:${x}px;top:${y}px;width:${w}px;max-width:${maxW}px;height:auto;max-height:${availH}px;z-index:${st.z||50};margin:0;right:auto;bottom:auto`;
+    }else{
+      mount.style.cssText=`position:fixed!important;left:${x}px;top:${y}px;width:${w}px;max-width:${maxW}px;height:${effH}px;max-height:${availH}px;z-index:${st.z||50};margin:0;right:auto;bottom:auto`;
+    }
   }else{
     const maxDw=Math.max(240,vw-32);
     const minDw=Math.min(320,maxDw);

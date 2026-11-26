@@ -11,7 +11,7 @@ import {
   renderRtfToolbarHtml
 } from './notes.js';
 import {
-  renderLobbyInitiativeCardHtml
+  renderLobbyInitiativeCardHtml, getEnemyInitiativeCount
 } from './initiative.js';
 
 export function setLobbyCharCampaign(cid,newCampId){
@@ -334,8 +334,24 @@ export function openLobbyEnemyMenu(anchorEl,cid,contextCampId='',forceOpen=false
       });
     }
     if(effCamp){
+      const iniCnt=getEnemyInitiativeCount(effCamp,cid);
       items.push({
         icon:'⚡',
+        label:'In Initiative aufnehmen',
+        sub:`Fügt Instanz in die Initiative von „${effCampName}“ ein`,
+        badge:iniCnt>0?`${iniCnt}×`:'',
+        action:'ini-add-enemy',
+        dataset:{id:cid,camp:effCamp}
+      });
+      items.push({
+        icon:'🙈',
+        label:'Verborgen in Initiative (Hinterhalt)',
+        sub:'Nur für die Spielleitung sichtbar in der Reihenfolge',
+        action:'ini-add-enemy-hidden',
+        dataset:{id:cid,camp:effCamp}
+      });
+      items.push({
+        icon:'🧬',
         label:`Als Instanz für „${effCampName}“ klonen`,
         sub:'Legt z. B. „… #1“ als eigenständigen Gegner an',
         onClick:()=>{cloneEnemyToCampaign(cid,effCamp);}
@@ -533,9 +549,10 @@ export function renderGmEnemiesListInnerHtml(activeCamp){
 
         <div class="flex items-center gap-1.5 pt-2 border-t bdr-line min-w-0">
           <button type="button" data-action="cloud-edit-char" data-id="${esc(ch.id)}" data-tip="Gegnerbogen öffnen und bearbeiten" class="btn btn-pri min-h-[38px] py-1.5 px-2.5 text-xs font-black flex-1 min-w-0"><span class="truncate">✏️ Öffnen</span></button>
-          <button type="button" data-action="open-enemy-camp-picker" data-id="${esc(ch.id)}" aria-haspopup="menu" data-tip="Kampagnen-Zuordnung per Checkbox ändern" class="btn min-h-[38px] py-1.5 px-2.5 text-xs font-extrabold shrink-0">🗺️ <span class="tabular">${m.campaignIds.length}</span></button>
-          <button type="button" data-action="clone-enemy-camp" data-id="${esc(ch.id)}" data-camp="${esc(campId)}" data-tip="Klon für diese Kampagne anlegen (z. B. #1, #2)" class="btn min-h-[38px] py-1.5 px-2.5 text-xs font-extrabold shrink-0" aria-label="Gegner für Kampagne klonen">⚡</button>
-          <button type="button" data-action="open-lobby-enemy-menu" data-id="${esc(ch.id)}" data-camp="${esc(campId)}" aria-haspopup="menu" aria-label="Weitere Aktionen für ${esc(ch.name||'Gegner')}" data-tip="Weitere Aktionen (Klonen, Wegsortieren, Vorlage, Löschen)" class="btn min-h-[38px] min-w-[38px] py-1.5 px-2 text-base font-black shrink-0">⋮</button>
+          ${!m.archived?(()=>{const iniCnt=getEnemyInitiativeCount(campId,ch.id);return `<button type="button" data-action="ini-add-enemy" data-id="${esc(ch.id)}" data-camp="${esc(campId)}" data-tip="${iniCnt>0?`Bereits ${iniCnt}× in der Initiative – erneut klicken für weitere Instanz`:'Diesen Gegner direkt in die Initiative dieser Kampagne aufnehmen'}" class="btn min-h-[38px] py-1.5 px-2.5 text-xs font-black shrink-0 tabular ${iniCnt>0?'border-amber-400/70 bg-amber-500/20 text-amber-200':'border-amber-400/45 bg-amber-500/10 text-amber-200'}">⚡${iniCnt>0?` ${iniCnt}×`:' Ini'}</button>`;})():''}
+          <button type="button" data-action="open-enemy-camp-picker" data-id="${esc(ch.id)}" aria-haspopup="menu" data-tip="Kampagnen-Zuordnung per Checkbox ändern" class="btn min-h-[38px] py-1.5 px-2 text-xs font-extrabold shrink-0">🗺️ <span class="tabular">${m.campaignIds.length}</span></button>
+          <button type="button" data-action="clone-enemy-camp" data-id="${esc(ch.id)}" data-camp="${esc(campId)}" data-tip="Klon für diese Kampagne anlegen (z. B. #1, #2)" class="btn min-h-[38px] py-1.5 px-2 text-xs font-extrabold shrink-0" aria-label="Gegner für Kampagne klonen">🧬</button>
+          <button type="button" data-action="open-lobby-enemy-menu" data-id="${esc(ch.id)}" data-camp="${esc(campId)}" aria-haspopup="menu" aria-label="Weitere Aktionen für ${esc(ch.name||'Gegner')}" data-tip="Weitere Aktionen (In Ini, Klonen, Wegsortieren, Vorlage, Löschen)" class="btn min-h-[38px] min-w-[38px] py-1.5 px-2 text-base font-black shrink-0">⋮</button>
         </div>
       </div>`;
     }).join('')}
@@ -567,6 +584,7 @@ export function renderGmEnemiesPanelHtml(activeCamp){
       <div class="flex flex-wrap items-center gap-1.5 min-w-0 max-w-full">
         <button type="button" data-action="open-new-template" data-camp="${esc(campId)}" data-tip="Neuen Gegner direkt für diese Kampagne erstellen" class="btn bg-rose-600/85 hover:bg-rose-600 text-white border-rose-400/60 py-1 px-2.5 text-xs font-extrabold shrink-0">+ Neuer Gegner</button>
         <button type="button" data-action="open-gm-template-add-picker" data-camp="${esc(campId)}" aria-haspopup="menu" data-tip="Vorhandene Vorlagen oder Gegner per Checkbox dieser Kampagne zuordnen" class="btn py-1 px-2.5 text-xs font-extrabold border-purple-400/50 bg-purple-500/15 text-purple-200 shrink-0">📋 <span class="hidden sm:inline">Aus </span>Vorlagen</button>
+        ${activeCnt>0?`<button type="button" data-action="ini-add-visible-enemies" data-camp="${esc(campId)}" data-tip="${diceVisCnt>0?`Alle ${diceVisCnt} im Würfelassistent sichtbaren Gegner dieser Kampagne in die Initiative laden`:`Alle ${activeCnt} aktiven Gegner dieser Kampagne in die Initiative laden`}" class="btn py-1 px-2.5 text-xs font-extrabold border-amber-400/55 bg-amber-500/15 text-amber-200 shrink-0">⚡ <span class="hidden sm:inline">${diceVisCnt>0?'Sichtbare':'Gegner'} </span>→ Ini</button>`:''}
         ${diceVisCnt>0?`<button type="button" data-action="hide-all-camp-enemies-dice" data-camp="${esc(campId)}" data-tip="Alle Gegner dieser Kampagne sofort wieder aus dem Würfelassistenten ausblenden" class="btn py-1 px-2.5 text-xs font-extrabold border-amber-400/50 bg-amber-500/15 text-amber-200 shrink-0">🙈 Alle ausblenden</button>`:''}
         <button type="button" data-action="toggle-gm-enemies-open" class="btn py-1 px-2 text-xs shrink-0">${CLOUD.gmEnemiesOpen?'▴':'▾'}<span class="hidden sm:inline"> ${CLOUD.gmEnemiesOpen?'Einklappen':'Öffnen'}</span></button>
       </div>

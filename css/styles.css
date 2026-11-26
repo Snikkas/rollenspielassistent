@@ -198,4 +198,7 @@ body{max-width:100%;overflow-x:hidden;overflow-x:clip}
   .duel-sheet-panel{max-width:100%!important;max-height:92dvh;border-radius:1.25rem 1.25rem 0 0!important;border-bottom:none!important;border-left:none!important;border-right:none!important}
   .duel-sheet-panel .inp,.duel-sheet-panel select,#diceMount .inp,#diceMount select{font-size:16px!important;min-width:0!important;max-width:100%!important}
 }
+.ini-floating-overlay{box-shadow:0 18px 48px rgba(0,0,0,.55),0 0 0 1px rgba(251,191,36,.24)}
+.ini-overlay-card{background:color-mix(in srgb,var(--surf) 92%,transparent);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
+
 

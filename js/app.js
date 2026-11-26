@@ -26,7 +26,7 @@ import {
   initCombatFromRoll, resetCombatState, rollCombatHitZone, rollCombatSubHitZone, publishCombatDamageToFeed, renderCombatDamageBox, hasTagMatch, sendCombatDamageOffer, applyCombatDamageDirectly, spendCombatAmmo, handleCombatLiveEvent, acceptCombatDamageOffer, declineCombatDamageOffer
 } from './combat.js';
 import {
-  getActiveInitiativeCampaignId, toggleCampaignInitiativeActive, loadCampaignHeroesIntoInitiative, addCustomInitiativeEntry, openInitiativeAddEnemyPicker, refreshAllInitiativeEntries, stepInitiativeTurn, setInitiativeActiveEntry, resetInitiativeRound, adjustInitiativeEntryMod, resetInitiativeEntryMod, toggleInitiativeEntryHidden, removeInitiativeEntry, clearInitiativeEntries, syncOwnCharToInitiative, handleInitiativeLiveEvent, renderInitiativeWindow, updateInitiativeUI
+  getActiveInitiativeCampaignId, toggleCampaignInitiativeActive, loadCampaignHeroesIntoInitiative, addCharacterOrEnemyToInitiative, addAllCampaignEnemiesToInitiative, openInitiativePopout, addCustomInitiativeEntry, openInitiativeAddEnemyPicker, refreshAllInitiativeEntries, stepInitiativeTurn, setInitiativeActiveEntry, resetInitiativeRound, adjustInitiativeEntryMod, resetInitiativeEntryMod, toggleInitiativeEntryHidden, removeInitiativeEntry, clearInitiativeEntries, syncOwnCharToInitiative, handleInitiativeLiveEvent, renderInitiativeWindow, updateInitiativeUI
 } from './initiative.js';
 import {
   applyRtfCommand, autoSizeAllTextareas, ensureCampNotesStructure, syncPublicNotesAfterChange, renderCampNotes, getCaretRangeAtPoint, syncPwFieldCursorState, saveEffRangeIfActive, insertTokenAtCursor, placeCaretAtStart, indentRtfLi, outdentRtfLi, RTF_STATE, getOrderedCampNoteFolders
@@ -301,7 +301,7 @@ document.addEventListener('click',async e=>{
   const btn=el, act=el.dataset.action; if(act==='close-modal-bg'&&e.target!==el) return;
   if(act==='fb-set-backlog-user'){if(!CLOUD.isAdmin)return;FEEDBACK.backlogUser=btn.dataset.user||'all';renderModal();return;}
   if(act==='win-float'){ const k=btn.dataset.win, st=getWinState(k); st.floating=!st.floating; if(st.floating){st.docked=false; st.z=Math.max(CN.z||50,D.z||50,LD.z||50,INI.z||50,FBW.z||50)+1;} saveWinPref(k); renderCampNotes(); renderLiveDice(); renderInitiativeWindow(); renderFbAdminWin(); renderDice(); return; }
-  if(act==='win-reset'){ const k=btn.dataset.win, st=getWinState(k); st.w=0; st.h=0; st.x=null; st.y=null; st.floating=false; clearWinPref(k); renderCampNotes(); renderLiveDice(); renderInitiativeWindow(); renderFbAdminWin(); renderDice(); return; }
+  if(act==='win-reset'){ const k=btn.dataset.win, st=getWinState(k); st.w=0; st.h=0; st.x=null; st.y=null; st.floating=false; if(k==='ini'){st.compact=false;st.collapsed=false;} clearWinPref(k); renderCampNotes(); renderLiveDice(); renderInitiativeWindow(); renderFbAdminWin(); renderDice(); return; }
   if(act==='open-fbadmin-win'){ if(CLOUD.isAdmin){ UI.modal=null; FBW.open=true; if(!hasSavedWinPref('fbadmin')) FBW.floating=true; renderModal(); renderFbAdminWin(); fetchFeedback(false); } return; }
   if(act==='close-fbadmin'){ FBW.open=false; renderFbAdminWin(); return; }
   switch(act){
@@ -1567,12 +1567,28 @@ document.addEventListener('click',async e=>{
     case 'close-livedice': LD.open=false; renderHeader(); renderDice(); renderLiveDice(); break;
     case 'dock-livedice':
     case 'toggle-dock-livedice': LD.docked=!LD.docked; if(LD.docked&&LD.floating){LD.floating=false;saveWinPref('livedice');} renderDice(); renderLiveDice(); break;
-    case 'toggle-ini': INI.open=!INI.open; if(INI.open) syncCloudRegistry(false); renderHeader(); renderInitiativeWindow(); break;
+    case 'toggle-ini': INI.open=!INI.open; if(INI.open){INI.collapsed=false;syncCloudRegistry(false);} renderHeader(); renderInitiativeWindow(); break;
     case 'close-ini': INI.open=false; renderHeader(); renderInitiativeWindow(); break;
+    case 'ini-popout': {
+      const fromWin=Boolean(el.closest&&el.closest('#iniMount'));
+      if(!fromWin&&INI.open&&INI.floating){
+        INI.open=false;
+        renderHeader(); renderInitiativeWindow();
+        if(UI.inLobby) updateInitiativeUI();
+      }else{
+        openInitiativePopout();
+      }
+      break;
+    }
+    case 'ini-toggle-compact': INI.compact=!INI.compact; INI.collapsed=false; if(INI.compact){INI.w=0;INI.h=0;} saveWinPref('ini'); renderInitiativeWindow(); break;
+    case 'ini-toggle-collapsed': INI.collapsed=!INI.collapsed; renderInitiativeWindow(); break;
     case 'dock-ini':
     case 'toggle-ini-dock': INI.docked=!INI.docked; if(INI.docked&&INI.floating){INI.floating=false;saveWinPref('ini');} renderInitiativeWindow(); break;
     case 'ini-toggle-active': await toggleCampaignInitiativeActive(el.dataset.camp||getActiveInitiativeCampaignId()); break;
     case 'ini-load-heroes': await loadCampaignHeroesIntoInitiative(el.dataset.camp||getActiveInitiativeCampaignId()); break;
+    case 'ini-add-enemy': await addCharacterOrEnemyToInitiative(el.dataset.camp||getActiveInitiativeCampaignId(),el.dataset.id||'',{isEnemy:true,allowDuplicate:true,hidden:false}); break;
+    case 'ini-add-enemy-hidden': await addCharacterOrEnemyToInitiative(el.dataset.camp||getActiveInitiativeCampaignId(),el.dataset.id||'',{isEnemy:true,allowDuplicate:true,hidden:true}); break;
+    case 'ini-add-visible-enemies': await addAllCampaignEnemiesToInitiative(el.dataset.camp||getActiveInitiativeCampaignId(),{onlyDiceVisible:true,hidden:false}); break;
     case 'ini-open-add-picker': openInitiativeAddEnemyPicker(el,el.dataset.camp||getActiveInitiativeCampaignId()); break;
     case 'ini-toggle-custom': INI.addCustomOpen=!INI.addCustomOpen; updateInitiativeUI(); break;
     case 'ini-add-custom': addCustomInitiativeEntry(el.dataset.camp||getActiveInitiativeCampaignId()); break;
@@ -5768,7 +5784,7 @@ document.addEventListener('keydown',e=>{
     updateCalcDOM();
     return;
   }
-  if(e.key==='Escape'){if(CTX_MENU.open){closeCtxMenu();}else if(DUEL.reply){closeDuelReplyModal();}else if(UI.openPwMenu){closePwDropdown();}else if(UI.modal){closeActiveModal();}else if(D.open&&!D.docked){D.open=false;renderHeader();renderDice();}else if(INI.open&&!INI.docked){INI.open=false;renderHeader();renderInitiativeWindow();}else if(CN.open&&!CN.docked){CN.open=false;renderHeader();renderCampNotes();}}
+  if(e.key==='Escape'){if(CTX_MENU.open){closeCtxMenu();}else if(DUEL.reply){closeDuelReplyModal();}else if(UI.openPwMenu){closePwDropdown();}else if(UI.modal){closeActiveModal();}else if(D.open&&!D.docked){D.open=false;renderHeader();renderDice();}else if(INI.open&&!INI.docked&&!INI.floating){INI.open=false;renderHeader();renderInitiativeWindow();}else if(CN.open&&!CN.docked){CN.open=false;renderHeader();renderCampNotes();}}
 });
 document.addEventListener('focusout',e=>{
   const inp=e.target;
@@ -5984,7 +6000,8 @@ registerHooks({
   resetCombatState,
   renderCombatDamageBox,
   handleCombatLiveEvent,
-  syncLinkedAmmoDOM
+  syncLinkedAmmoDOM,
+  refreshGmEnemiesGridDOM
 });
 hydrateWinPrefs();
 load();
