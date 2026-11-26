@@ -146,11 +146,14 @@ export const GLOSSARY=[
 export const WEAPON_SUBTYPES = [
   { key: 'melee', label: 'Nahkampfwaffe', icon: '⚔️' },
   { key: 'ranged', label: 'Fernkampfwaffe', icon: '🏹' }
-  // Zukünftig einfach erweiterbar, z. B. { key: 'shield', label: 'Schild', icon: '🛡️' }
+];
+export const ARMOR_SUBTYPES = [
+  { key: 'armor', label: 'Rüstung', icon: '🛡️' },
+  { key: 'shield', label: 'Schild', icon: '🛡️' }
 ];
 export const DEF_EQ_SEC_ORDER=['weapons','ammos','armors','inventory'];
 export const DEF_CHR_SEC_ORDER=['training','skills','powers'];
-export const DICE_DEF={open:false,docked:false,floating:false,x:null,y:null,w:0,h:0,z:50,label:'Freie Probe',skillId:null,attrKey:null,weaponId:null,wRollCat:'Normaler Test',atkPool:'lp',dualWieldOvr:'auto',wpEditOpen:false,advSrcOpen:false,logOpen:false,cMode:'direct',cDirect:0,cAttr:0,cSkill:'0',cCustom:25,dMode:'direct',dDirect:40,dAttr:30,dSkill:'10',dCustom:25,oppCharId:'',oppKind:'preset',oppPreset:'dodge',oppAttrKey:'GW',oppSkillId:'',oppWeaponId:'',oppSitActive:{},adv:0,dis:0,advAdj:0,disAdj:0,cnt:1,crit:'1',critOff:0,critMode:'range',sitActive:{},blockFollowAtk:40,customCnt:1,customSides:20,customMod:0,customOpen:false,_lobbyNeutral:false,secretMode:false};
+export const DICE_DEF={open:false,docked:false,floating:false,x:null,y:null,w:0,h:0,z:50,label:'Freie Probe',skillId:null,attrKey:null,weaponId:null,shieldId:null,wRollCat:'Normaler Test',atkPool:'lp',dualWieldOvr:'auto',wpEditOpen:false,advSrcOpen:false,logOpen:false,cMode:'direct',cDirect:0,cAttr:0,cSkill:'0',cCustom:25,dMode:'direct',dDirect:40,dAttr:30,dSkill:'10',dCustom:25,oppCharId:'',oppKind:'preset',oppPreset:'dodge',oppAttrKey:'GW',oppSkillId:'',oppWeaponId:'',oppSitActive:{},adv:0,dis:0,advAdj:0,disAdj:0,cnt:1,crit:'1',critOff:0,critMode:'range',sitActive:{},blockFollowAtk:40,customCnt:1,customSides:20,customMod:0,customOpen:false,_lobbyNeutral:false,secretMode:false};
 export const CNOTES_DEF={open:false,docked:false,floating:false,x:null,y:null,w:0,h:0,z:50,tocOpen:true,confirmDelId:null,confirmDelFolderId:null,newFolderOpen:false,newFolderName:'',newFolderPublic:false};
 export const LIVEDICE_DEF={open:false,docked:false,floating:false,x:null,y:null,w:0,h:0,z:50};
 export const INI_DEF={open:false,docked:false,floating:false,compact:false,collapsed:false,pickerHidden:false,x:null,y:null,w:0,h:0,z:50,addCustomOpen:false,customName:'',customIni:'0',customIsEnemy:true,customHidden:false};
