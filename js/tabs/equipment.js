@@ -2,7 +2,7 @@ import {
   ATTRS, SK_RANKS, BIO_FIELDS, WEAPON_SUBTYPES, DEF_EQ_SEC_ORDER
 } from '../constants.js';
 import {
-  $, uid, esc, clone, toInt, fmtSign, stripHtml, toRtfHtml, cardColorStyle, hasTagX, fmtTagLabel, canSetSecParent
+  $, uid, esc, clone, toInt, toFlt, fmtSign, stripHtml, toRtfHtml, cardColorStyle, hasTagX, fmtTagLabel, canSetSecParent
 } from '../utils.js';
 import {
   hooks
@@ -11,7 +11,7 @@ import {
   openCtxMenu, toast, save, getWeaponSubtype, fmtCustomValSummarySuffix, renderLinkedAmmoCustomDmgHtml, isWeaponMassiv, syncEquipmentToInventory, S, D, isMobileLayout, UI
 } from '../state.js';
 import {
-  invalidateModsCache, calcActiveMods, getAdvDisForContext, getWeaponRollMeta, getTagDesc, fmtAdvSrcLines, getAttrTot, getSkBonus, findEqItem, getMentalArmorSummary
+  invalidateModsCache, calcActiveMods, getAdvDisForContext, getWeaponRollMeta, getWeaponDualWieldInfo, getEqModStatOptions, getEqModAdvDisOptions, formatEqModTargetLabel, formatEqModShort, getTagDesc, fmtAdvSrcLines, getAttrTot, getSkBonus, findEqItem, getMentalArmorSummary
 } from '../calc.js';
 import {
   applyDiceAutoAdvDis, syncDiceFromSheet, renderDice
@@ -326,7 +326,17 @@ export function openWpAmmoPicker(anchorEl,wId){
 export function openArZonePicker(anchorEl,arId,forceOpen=false){
   const ar=S.armors.find(a=>a.id===arId); if(!ar) return;
   const hzNames=[...new Set(S.hitZones.map(z=>String(z.zone||'').trim()).filter(Boolean))];
-  const customNames=[...new Set([...(ar.extraZones||[]),...(ar.zones||[])])].filter(zn=>zn&&!hzNames.some(h=>h.toLowerCase()===zn.toLowerCase()));
+  const subZonePairs=[];
+  (S.hitZones||[]).forEach(z=>{
+    const zn=String(z?.zone||'').trim();
+    if(!zn||!Array.isArray(z.subZones)) return;
+    z.subZones.forEach(sz=>{
+      const sn=String(sz?.zone||'').trim();
+      if(sn) subZonePairs.push({main:zn,sub:sn,key:`${zn}: ${sn}`});
+    });
+  });
+  const subKeySet=new Set(subZonePairs.map(p=>p.key.toLowerCase()));
+  const customNames=[...new Set([...(ar.extraZones||[]),...(ar.zones||[])])].filter(zn=>zn&&!hzNames.some(h=>h.toLowerCase()===zn.toLowerCase())&&!subKeySet.has(zn.toLowerCase()));
   const toggleZ=zn=>{
     if(!Array.isArray(ar.zones)) ar.zones=[];
     const idx=ar.zones.findIndex(z=>z.toLowerCase()===zn.toLowerCase());
@@ -336,11 +346,20 @@ export function openArZonePicker(anchorEl,arId,forceOpen=false){
     const freshAnchor=document.querySelector(`[data-action="open-ar-zone-picker"][data-id="${ar.id}"]`);
     openArZonePicker(freshAnchor||anchorEl,ar.id,true);
   };
-  const items=[{type:'label',label:'Standard-Trefferzonen (Mehrfachauswahl)'}];
+  const items=[{type:'label',label:'Vollzonen (decken automatisch alle Detailzonen ab)'}];
   hzNames.forEach(zn=>{
     const on=(ar.zones||[]).some(z=>z.toLowerCase()===zn.toLowerCase());
     items.push({label:zn,active:on,badge:on?'✓':'',keepOpen:true,onClick:()=>toggleZ(zn)});
   });
+  if(subZonePairs.length){
+    items.push({sep:true});
+    items.push({type:'label',label:'Detail- / Teilzonen (z. B. nur Gesicht oder Hand)'});
+    subZonePairs.forEach(p=>{
+      const fullOn=(ar.zones||[]).some(z=>z.toLowerCase()===p.main.toLowerCase());
+      const on=(ar.zones||[]).some(z=>z.toLowerCase()===p.key.toLowerCase());
+      items.push({label:p.key,sub:fullOn?`Bereits durch Vollzone „${p.main}“ abgedeckt`:'',active:on,badge:on?'✓':(fullOn?'Voll':''),keepOpen:true,onClick:()=>toggleZ(p.key)});
+    });
+  }
   if(customNames.length){
     items.push({sep:true});
     items.push({type:'label',label:'Eigene Zonen'});
@@ -354,7 +373,7 @@ export function openArZonePicker(anchorEl,arId,forceOpen=false){
     title:`Trefferzonen • ${String(ar.name||'').trim()||'Rüstung'}`,
     anchorEl,
     align:'left',
-    minWidth:240,
+    minWidth:260,
     showClose:true,
     forceOpen,
     items
@@ -466,6 +485,98 @@ export function renderEqTagBar(kind,item,tagList,ltype,lbl){
   </div>`;
 }
 
+export function openEqModPicker(anchorEl,kind,itemId){
+  const it=findEqItem(kind,itemId);
+  if(!it) return;
+  const addMod=(modKind,target,targetLabel,defVal)=>{
+    if(!Array.isArray(it.eqMods)) it.eqMods=[];
+    it.eqMods.push({id:uid(),kind:modKind,target,targetLabel:String(targetLabel||''),val:String(defVal)});
+    if(kind==='inv'&&!it.linkedEq&&it.equipped!==true) it.equipped=true;
+    invalidateModsCache();
+    syncDiceFromSheet();
+    hooks.renderMain?.();
+    if(D.open) renderDice();
+    save();
+  };
+  const statOpts=getEqModStatOptions(S);
+  const advDisOpts=getEqModAdvDisOptions(S);
+  const items=[];
+  const pushGrouped=(list,groupFilter,hdrLabel,modKind,defVal,icon)=>{
+    const grp=list.filter(o=>o.group===groupFilter);
+    if(!grp.length) return;
+    if(items.length) items.push({sep:true});
+    items.push({type:'label',label:hdrLabel});
+    grp.forEach(o=>{
+      items.push({
+        icon,
+        label:o.label,
+        badge:modKind==='stat'?String(defVal):`+${defVal}N`,
+        onClick:()=>addMod(modKind,o.target,o.label,defVal)
+      });
+    });
+  };
+  pushGrouped(statOpts,'Bewegung & Sekundärattribute','Sekundärattribute & Bewegung (Wert ±)','stat','-1','⚡');
+  pushGrouped(statOpts,'Sekundärattribute','Eigene Ressourcen (Wert ±)','stat','-1','⚡');
+  pushGrouped(statOpts,'Schwellenwerte','Verwundungs- & Traumaschwellen (Wert ±)','stat','-1','🩸');
+  pushGrouped(statOpts,'Attribute','Attribute (Wert ±)','stat','-1','📊');
+  pushGrouped(advDisOpts,'Attribute','Nachteil / Vorteil auf Attribute (umschaltbar)','dis','1','👎');
+  pushGrouped(advDisOpts,'Fertigkeiten','Nachteil / Vorteil auf Fertigkeiten (umschaltbar)','dis','1','🎯');
+  pushGrouped(advDisOpts,'Kampf & Allgemein','Nachteil / Vorteil im Kampf (umschaltbar)','dis','1','⚔️');
+  openCtxMenu({
+    key:`eq-mod-picker:${kind}:${itemId}`,
+    title:'Modifikator / Nachteil hinzufügen',
+    anchorEl,
+    align:'left',
+    minWidth:275,
+    showClose:true,
+    items
+  });
+}
+
+export function renderEqModsSummaryPills(item){
+  const list=Array.isArray(item?.eqMods)?item.eqMods:[];
+  if(!list.length) return '';
+  return list.map(m=>{
+    const txt=formatEqModShort(m,S);
+    const isNeg=m.kind==='dis'||(m.kind==='stat'&&(m.target==='moveBase'?toFlt(m.val,0):toInt(m.val,0))<0);
+    const cls=isNeg?'border-rose-500/45 bg-rose-500/15 text-rose-200':'border-emerald-500/45 bg-emerald-500/15 text-emerald-200';
+    return `<span class="pill cursor-default text-[10px] py-0.5 px-2 font-extrabold tabular ${cls}">${esc(txt)}</span>`;
+  }).join('');
+}
+
+export function renderEqModsBlock(kind,item){
+  const list=Array.isArray(item?.eqMods)?item.eqMods:[];
+  const isActive=kind==='inv'?(!item.linkedEq&&item.equipped===true):(item.equipped!==false);
+  const chipsHtml=list.map(m=>{
+    const lbl=formatEqModTargetLabel(m,S);
+    if(m.kind==='stat'){
+      const numVal=m.target==='moveBase'?toFlt(m.val,0):toInt(m.val,0);
+      const isNeg=numVal<0, isPos=numVal>0;
+      const cls=isNeg?'border-rose-500/50 bg-rose-500/12 text-rose-200':isPos?'border-emerald-500/50 bg-emerald-500/12 text-emerald-200':'bdr-line bg-black/25';
+      return `<span class="inline-flex items-center gap-1 px-2 py-1 rounded-lg border text-xs tabular ${cls}">
+        <input data-eqmod-val="${kind}:${item.id}:${m.id}" type="text" inputmode="${m.target==='moveBase'?'decimal':'numeric'}" value="${esc(m.val)}" data-tip="Wert-Modifikator für ${esc(lbl)} (negativ für Malus z. B. -2, positiv für Bonus z. B. +2)" class="inp !py-0 !px-1 w-12 text-center text-[11px] font-black"/>
+        <span class="font-bold">${esc(lbl)}</span>
+        <button type="button" data-action="rm-eq-mod" data-kind="${kind}" data-id="${item.id}" data-mid="${m.id}" data-tip="Modifikator entfernen" class="hover:text-rose-400 font-black ml-0.5">✕</button>
+      </span>`;
+    }
+    const isDis=m.kind==='dis';
+    const cls=isDis?'border-rose-500/50 bg-rose-500/12 text-rose-200':'border-emerald-500/50 bg-emerald-500/12 text-emerald-200';
+    return `<span class="inline-flex items-center gap-1 px-2 py-1 rounded-lg border text-xs tabular ${cls}">
+      <input data-eqmod-val="${kind}:${item.id}:${m.id}" type="text" inputmode="numeric" value="${esc(m.val)}" data-tip="Anzahl ${isDis?'Nachteile':'Vorteile'}" class="inp !py-0 !px-1 w-9 text-center text-[11px] font-black"/>
+      <button type="button" data-action="toggle-eq-mod-kind" data-kind="${kind}" data-id="${item.id}" data-mid="${m.id}" data-tip="Klicken zum Umschalten zwischen Nachteil und Vorteil" class="px-1.5 py-0.5 rounded font-black text-[10px] cursor-pointer ${isDis?'bg-rose-600/70 text-white':'bg-emerald-600/70 text-white'}">${isDis?'Nachteil':'Vorteil'}</button>
+      <span class="font-bold">${esc(lbl)}</span>
+      <button type="button" data-action="rm-eq-mod" data-kind="${kind}" data-id="${item.id}" data-mid="${m.id}" data-tip="Modifikator entfernen" class="hover:text-rose-400 font-black ml-0.5">✕</button>
+    </span>`;
+  }).join('');
+  return `<div class="pt-2 border-t bdr-line space-y-1.5">
+    <div class="flex flex-wrap items-center justify-between gap-2">
+      <span class="text-[11px] font-bold t-mut">Attribute / Sekundärwerte / Fertigkeits-Modifikatoren ${!isActive&&list.length?'<span class="text-amber-400 font-semibold">(pausiert – abgelegt)</span>':''}</span>
+      <button type="button" data-action="open-eq-mod-picker" data-kind="${kind}" data-id="${item.id}" aria-haspopup="menu" aria-expanded="false" data-tip="Fügt einen Malus/Bonus auf beliebige Attribute, Sekundärattribute (z. B. BEW, BSt, Ini, LP) oder Fertigkeiten hinzu" class="btn py-0.5 px-2 text-[11px] border-rose-400/50 bg-rose-500/10 text-rose-200 hover:bg-rose-500/20">+ Modifikator / Nachteil</button>
+    </div>
+    ${list.length?`<div class="flex flex-wrap items-center gap-1.5">${chipsHtml}</div>`:''}
+  </div>`;
+}
+
 export const isTab5PhoneDefault=()=>window.innerWidth<768||isMobileLayout();
 export function isTab5EquipNotesCollapsed(){
   const ov=UI.tab5?.equipNotes;
@@ -553,6 +664,7 @@ export function duplicateEqItem(kind,id){
   if(String(copy.name||'').trim()) copy.name=`${String(copy.name).trim()} (Kopie)`;
   if(Array.isArray(copy.customDmg)) copy.customDmg=copy.customDmg.map(c=>({...c,id:uid()}));
   if(Array.isArray(copy.customProt)) copy.customProt=copy.customProt.map(c=>({...c,id:uid()}));
+  if(Array.isArray(copy.eqMods)) copy.eqMods=copy.eqMods.map(m=>({...m,id:uid()}));
   arr.splice(idx+1,0,copy);
   if(kind==='weapon'||kind==='armor'||kind==='ammo') syncEquipmentToInventory(S,{forceKeys:[`${kind}:${copy.id}`]});
   invalidateModsCache(); syncDiceFromSheet();
@@ -888,35 +1000,46 @@ export function renderWeaponRollBtns(w,wm,compact=false){
   </div>`;
 }
 export function renderWeaponCard(w,idx,len){
-  const M=calcActiveMods(), wm=getWeaponRollMeta(w,M);
-  const wSub=getWeaponSubtype(w.wType), isRng=w.wType==='ranged';
+  const M=calcActiveMods(), wm=getWeaponRollMeta(w,M), dw=getWeaponDualWieldInfo(w,S);
+  const wSub=getWeaponSubtype(w.wType), isRng=w.wType==='ranged', isEq=w.equipped!==false;
   const linkedAmmo=isRng&&w.ammoId?S.ammos.find(a=>a.id===w.ammoId):null;
   const colStyle=w.color?`style="color:${esc(w.color)}"`:'', winStyle=cardColorStyle(w);
   const wRaw=String(w.name||'').trim()||wSub.label;
-  const hdrRollTip=esc(`Trefferwurf mit ${wRaw} starten (Pool: ${wm.attrKey} ${wm.attrVal}${wm.sk?` ${fmtSign(wm.skBonus)}`:''} = ${wm.pool})`);
+  const hdrRollTip=esc(`Trefferwurf mit ${wRaw} starten (Pool: ${wm.attrKey} ${wm.attrVal}${wm.sk?` ${fmtSign(wm.skBonus)}`:''} = ${wm.pool}${dw.isDualWield?`\n⚔️ Mehrhändiger Kampf (${dw.label}): +${dw.dis} Nachteil${dw.dis>1?'e':''}`:''})`);
   const hdrRow=`<div class="flex items-center gap-1.5 min-w-0">
     <button type="button" data-action="toggle-eqitem-collapse" data-kind="weapon" data-id="${w.id}" data-tip="${w.collapsed?'Waffe ausklappen':'Waffe einklappen'}" aria-expanded="${!w.collapsed}" class="btn w-8 h-8 sm:w-7 sm:h-7 p-0 text-xs font-black shrink-0">${w.collapsed?'▸':'▾'}</button>
     <span draggable="true" data-drag-eqitem="weapon:${w.id}" data-tip="Ziehen zum Sortieren" class="w-7 h-7 rounded bg-acc-soft border bdr-acc text-acc text-xs font-black cursor-grab select-none shrink-0 inline-flex items-center justify-center">⠿</span>
     ${renderEqMiniThumb('weapon',w.id,w.img)}
     <input data-wpf="${w.id}:name" type="text" value="${esc(w.name)}" ${colStyle} placeholder="Waffenname..." class="inp-line flex-1 min-w-0 text-sm sm:text-base font-extrabold"/>
+    <button type="button" data-action="toggle-wp-eq" data-id="${w.id}" data-tip="Waffe an-/ablegen (steuert Fertigkeits-Gegencheck, Mehrhändigkeit &amp; aktive Ausrüstungs-Modifikatoren)" class="btn h-8 sm:h-7 px-2 text-[11px] font-extrabold shrink-0 whitespace-nowrap ${isEq?'btn-ok':'opacity-65'}">${isEq?'✓<span class="hidden sm:inline"> Angelegt</span>':'○<span class="hidden sm:inline"> Abgelegt</span>'}</button>
     <button type="button" data-action="roll-weapon" data-id="${w.id}" data-wcat="Trefferwurf" data-tip="${hdrRollTip}" class="btn btn-pri h-8 sm:h-7 px-2 text-xs font-black shrink-0 tabular whitespace-nowrap">🎲 <span class="px-1 py-0.5 rounded bg-black/25 text-[11px] font-black">${wm.pool}</span></button>
     ${renderEqItemMenuBtn('weapon',w.id)}
   </div>`;
   const wPool=['lp','mlp','both'].includes(w.dmgPool)?w.dmgPool:'lp';
   const wPoolBadge=wPool==='mlp'?'<span class="pill cursor-default text-[11px] py-0.5 px-2 border-indigo-400/50 bg-indigo-500/15 text-indigo-300 font-black">🧠 mLP</span>':wPool==='both'?'<span class="pill cursor-default text-[11px] py-0.5 px-2 border-purple-400/50 bg-purple-500/15 text-purple-200 font-black">❤️+🧠 LP/mLP</span>':'';
+  const handBadge=w.hand==='main'
+    ?'<span class="pill cursor-default text-[11px] py-0.5 px-2 text-acc font-bold">🖐️ Haupthand</span>'
+    :w.hand==='off'
+      ?'<span class="pill cursor-default text-[11px] py-0.5 px-2 text-amber-300 font-bold">🤚 Nebenhand</span>'
+      :(w.hand==='both'||w.grip==='2h')
+        ?'<span class="pill cursor-default text-[11px] py-0.5 px-2 text-acc font-bold">👐 Zweihändig</span>'
+        :(w.grip==='1h'?'<span class="pill cursor-default text-[11px] py-0.5 px-2 text-acc">Einhändig</span>':'');
+  const dwBadge=dw.isDualWield?`<span class="pill cursor-default text-[11px] py-0.5 px-2 border-rose-400/50 bg-rose-500/15 text-rose-200 font-black" data-tip="2 einhändige Waffen gleichzeitig angelegt → Mehrhändiger Kampf (${dw.label}: +${dw.dis} Nachteil${dw.dis>1?'e':''})">⚔️ ${dw.label} (+${dw.dis}N)</span>`:'';
   if(w.collapsed){
-    return `<div data-eqitem="weapon:${w.id}" class="subcard py-2 px-2.5 sm:px-3 space-y-1.5 min-w-0" ${winStyle}>
+    return `<div data-eqitem="weapon:${w.id}" class="subcard py-2 px-2.5 sm:px-3 space-y-1.5 min-w-0 ${isEq?'':'opacity-75'}" ${winStyle}>
       ${hdrRow}
       <div class="flex flex-wrap items-center gap-1.5 tabular min-w-0">
         <span class="pill cursor-default text-[11px] py-0.5 px-2">${esc(wSub.icon)} ${esc(wSub.label)}</span>
         ${wPoolBadge}
-        ${w.grip?`<span class="pill cursor-default text-[11px] py-0.5 px-2 text-acc">${w.grip==='1h'?'Einhändig':'Zweihändig'}</span>`:''}
+        ${handBadge}
+        ${dwBadge}
         <span class="pill cursor-default text-[11px] py-0.5 px-2 max-w-full whitespace-normal break-words">Schnitt ${esc(w.dmgCut)} • Durchstoß ${esc(w.dmgPierce)} • Einschlag ${esc(w.dmgImpact)}${fmtCustomValSummarySuffix(w.customDmg)}</span>
         ${linkedAmmo?`<span class="pill cursor-default text-[11px] py-0.5 px-2 text-amber-400">🎯 <span data-linked-ammo-name="${linkedAmmo.id}">${esc(linkedAmmo.name||'Munition')}</span>: <span data-linked-ammo-qty="${linkedAmmo.id}">${linkedAmmo.qty}</span></span>`:''}
+        ${renderEqModsSummaryPills(w)}
       </div>
     </div>`;
   }
-  return `<div data-eqitem="weapon:${w.id}" class="subcard p-2.5 sm:p-3 space-y-3 min-w-0" ${winStyle}>
+  return `<div data-eqitem="weapon:${w.id}" class="subcard p-2.5 sm:p-3 space-y-3 min-w-0 ${isEq?'':'opacity-80'}" ${winStyle}>
     ${hdrRow}
     <div class="pt-2 border-t bdr-line grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 items-end">
       <div class="min-w-0">
@@ -924,10 +1047,11 @@ export function renderWeaponCard(w,idx,len){
         <button type="button" data-action="open-wp-type-picker" data-id="${w.id}" aria-haspopup="menu" aria-expanded="false" class="inp w-full py-1.5 px-2 text-xs font-bold flex items-center justify-between gap-2 text-left cursor-pointer hover:border-sky-400/70"><span class="truncate">${esc(wSub.icon)} ${esc(wSub.label)}</span><span class="t-mut text-[10px] shrink-0">▾</span></button>
       </div>
       <div class="min-w-0">
-        <label class="block text-[10px] font-bold t-mut mb-0.5">FÜHRUNG</label>
-        <div class="grid grid-cols-2 gap-1.5">
-          <button type="button" data-action="set-wp-grip" data-id="${w.id}" data-grip="1h" data-tip="Einhändig geführt (schließt Zweihändig aus)" class="btn py-1.5 px-2 text-xs w-full ${w.grip==='1h'?'btn-ok':'opacity-75'}"><span class="inline-flex items-center justify-center w-3.5 h-3.5 rounded border ${w.grip==='1h'?'border-white bg-white/20':'bdr-line'} text-[10px] font-black shrink-0">${w.grip==='1h'?'✓':''}</span><span class="truncate">1H</span></button>
-          <button type="button" data-action="set-wp-grip" data-id="${w.id}" data-grip="2h" data-tip="Zweihändig geführt (schließt Einhändig aus)" class="btn py-1.5 px-2 text-xs w-full ${w.grip==='2h'?'btn-ok':'opacity-75'}"><span class="inline-flex items-center justify-center w-3.5 h-3.5 rounded border ${w.grip==='2h'?'border-white bg-white/20':'bdr-line'} text-[10px] font-black shrink-0">${w.grip==='2h'?'✓':''}</span><span class="truncate">2H</span></button>
+        <label class="block text-[10px] font-bold t-mut mb-0.5" data-tip="Bestimmt Hand-Slot &amp; Führung (1H/2H). Bei 2 gleichzeitig angelegten 1H-Waffen greift automatisch Mehrhändiger Kampf (+1N Haupthand, +2N Nebenhand).">HAND / FÜHRUNG</label>
+        <div class="grid grid-cols-3 gap-1">
+          <button type="button" data-action="set-wp-hand" data-id="${w.id}" data-hand="main" data-tip="Haupthand (1H, z. B. rechts – bei Mehrhändigkeit +1 Nachteil)" class="btn py-1.5 px-1.5 text-[11px] w-full ${w.hand==='main'?'btn-ok':'opacity-75'}"><span class="truncate">🖐️ HH</span></button>
+          <button type="button" data-action="set-wp-hand" data-id="${w.id}" data-hand="off" data-tip="Nebenhand (1H, z. B. links – bei Mehrhändigkeit +2 Nachteile)" class="btn py-1.5 px-1.5 text-[11px] w-full ${w.hand==='off'?'btn-ok':'opacity-75'}"><span class="truncate">🤚 NH</span></button>
+          <button type="button" data-action="set-wp-hand" data-id="${w.id}" data-hand="both" data-tip="Zweihändig geführt (2H)" class="btn py-1.5 px-1.5 text-[11px] w-full ${(w.hand==='both'||w.grip==='2h')?'btn-ok':'opacity-75'}"><span class="truncate">👐 2H</span></button>
         </div>
       </div>
       <div class="min-w-0">
@@ -939,6 +1063,7 @@ export function renderWeaponCard(w,idx,len){
         <button type="button" data-action="open-wp-skill-picker" data-id="${w.id}" aria-haspopup="menu" aria-expanded="false" class="inp w-full py-1.5 px-2 text-xs font-bold tabular flex items-center justify-between gap-2 text-left cursor-pointer hover:border-sky-400/70"><span class="truncate">${wm.sk?`${esc(wm.sk.name||'Unbenannt')} (${fmtSign(wm.skBonus)})`:'— Keine (+0) —'}</span><span class="t-mut text-[10px] shrink-0">▾</span></button>
       </div>
     </div>
+    ${dw.isDualWield?`<div class="px-2.5 py-1.5 rounded-lg border border-rose-400/45 bg-rose-500/10 text-[11px] font-extrabold text-rose-200 flex flex-wrap items-center justify-between gap-1.5"><span>⚔️ Mehrhändiger Kampf aktiv: <strong>${dw.label} (+${dw.dis} Nachteil${dw.dis>1?'e':''} auf Trefferwürfe)</strong></span><span class="text-[10px] opacity-80">2+ einhändige Waffen angelegt</span></div>`:''}
     <div class="p-2.5 rounded-xl border bdr-acc bg-acc-soft/25 flex flex-wrap items-center justify-between gap-2">
       <div class="text-xs font-bold t-mut tabular min-w-0">
         Pool: <strong class="text-acc">${wm.attrKey} ${wm.attrVal}${wm.sk?` ${fmtSign(wm.skBonus)}`:''} = ${wm.pool}</strong>
@@ -999,6 +1124,7 @@ export function renderWeaponCard(w,idx,len){
         <input data-wpf="${w.id}:notes" type="text" value="${esc(w.notes)}" placeholder="Notizen" class="inp w-full min-w-0 text-xs"/>
       </div>
     </div>
+    ${renderEqModsBlock('weapon',w)}
   </div>`;
 }
 
@@ -1069,6 +1195,7 @@ export function renderArmorCard(ar,idx,len,hzNames){
         ${mProtVal?`<span class="pill cursor-default text-[11px] py-0.5 px-2 border-indigo-400/50 bg-indigo-500/15 text-indigo-300 font-black">🧠 mRS ${esc(ar.mentalProt)}</span>`:''}
         <span class="pill cursor-default text-[11px] py-0.5 px-2 max-w-full whitespace-normal break-words">Schnitt ${esc(ar.protCut)} • Durchstoß ${esc(ar.protPierce)} • Einschlag ${esc(ar.protImpact)}${fmtCustomValSummarySuffix(ar.customProt)}</span>
         ${(ar.zones||[]).length?`<span class="pill cursor-default text-[11px] py-0.5 px-2 max-w-full whitespace-normal break-words">🎯 ${esc(ar.zones.join(', '))}</span>`:''}
+        ${renderEqModsSummaryPills(ar)}
       </div>
     </div>`;
   }
@@ -1089,20 +1216,42 @@ export function renderArmorCard(ar,idx,len,hzNames){
       </div>
     </div>
     <div class="pt-2 border-t bdr-line space-y-2 text-xs">
-      <div class="flex flex-wrap items-center justify-between gap-2">
-        <label class="block text-[11px] font-bold t-mut">Abgedeckte Trefferzonen</label>
-        <button type="button" data-action="open-ar-zone-picker" data-id="${ar.id}" aria-haspopup="menu" aria-expanded="false" data-tip="Trefferzonen bequem per Popover/Bottom-Sheet mehrfach an- &amp; abwählen" class="btn py-0.5 px-2 text-[11px] bdr-acc bg-acc-soft text-acc">🎯 Zonen (${(ar.zones||[]).length}) ▾</button>
-      </div>
-      <div class="flex flex-wrap items-center gap-1.5">
-        ${hzNames.map(zn=>{
-          const on=(ar.zones||[]).some(z=>z.toLowerCase()===zn.toLowerCase());
-          return `<button type="button" data-action="toggle-ar-zone" data-id="${ar.id}" data-zone="${esc(zn)}" class="btn py-1 px-2 text-[11px] ${on?'btn-ok':'opacity-75'}">${on?'✓ ':''}${esc(zn)}</button>`;
-        }).join('')}
-        ${[...new Set([...(ar.extraZones||[]),...(ar.zones||[])])].filter(zn=>zn&&!hzNames.some(h=>h.toLowerCase()===zn.toLowerCase())).map(zn=>{
-          const on=(ar.zones||[]).some(z=>z.toLowerCase()===zn.toLowerCase());
-          return `<span class="inline-flex items-center"><button type="button" data-action="toggle-ar-zone" data-id="${ar.id}" data-zone="${esc(zn)}" class="btn py-1 px-2 text-[11px] rounded-r-none ${on?'btn-ok':'opacity-75'}">${on?'✓ ':''}${esc(zn)}</button><button type="button" data-action="del-ar-zone" data-id="${ar.id}" data-zone="${esc(zn)}" data-tip="Eigene Zone „${esc(zn)}“ löschen" class="btn py-1 px-1.5 text-[10px] rounded-l-none border-l-0 hover:text-rose-400 opacity-75">✕</button></span>`;
-        }).join('')}
-      </div>
+      ${(()=>{
+        const subGroups=(S.hitZones||[]).map(z=>({main:String(z?.zone||'').trim(),subs:(Array.isArray(z?.subZones)?z.subZones:[]).map(sz=>String(sz?.zone||'').trim()).filter(Boolean)})).filter(g=>g.main&&g.subs.length);
+        const allSubKeys=new Set(subGroups.flatMap(g=>g.subs.map(s=>`${g.main}: ${s}`.toLowerCase())));
+        const activeSubZones=(ar.zones||[]).filter(z=>allSubKeys.has(String(z||'').toLowerCase()));
+        const subOpen=Boolean(UI.arSubZonesOpen?.[ar.id]);
+        const customOnly=[...new Set([...(ar.extraZones||[]),...(ar.zones||[])])].filter(zn=>zn&&!hzNames.some(h=>h.toLowerCase()===zn.toLowerCase())&&!allSubKeys.has(zn.toLowerCase()));
+        return `<div class="flex flex-wrap items-center justify-between gap-2">
+          <label class="block text-[11px] font-bold t-mut">Abgedeckte Trefferzonen</label>
+          <div class="flex flex-wrap items-center gap-1.5">
+            ${subGroups.length?`<button type="button" data-action="toggle-ar-subzones" data-id="${ar.id}" data-tip="Spezifische Teilzonen wie „Kopf: Gesicht“ oder „Arm links: Hand“ auswählen (für Teilrüstungen)" class="btn py-0.5 px-2 text-[11px] ${subOpen?'btn-pri':activeSubZones.length?'border-cyan-400/60 bg-cyan-500/15 text-cyan-200':'opacity-85'}">🔍 Teilzonen${activeSubZones.length?` (${activeSubZones.length})`:''} ${subOpen?'▾':'▸'}</button>`:''}
+            <button type="button" data-action="open-ar-zone-picker" data-id="${ar.id}" aria-haspopup="menu" aria-expanded="false" data-tip="Trefferzonen &amp; Teilzonen bequem per Popover/Bottom-Sheet mehrfach an- &amp; abwählen" class="btn py-0.5 px-2 text-[11px] bdr-acc bg-acc-soft text-acc">🎯 Zonen (${(ar.zones||[]).length}) ▾</button>
+          </div>
+        </div>
+        <div class="flex flex-wrap items-center gap-1.5">
+          ${hzNames.map(zn=>{
+            const on=(ar.zones||[]).some(z=>z.toLowerCase()===zn.toLowerCase());
+            return `<button type="button" data-action="toggle-ar-zone" data-id="${ar.id}" data-zone="${esc(zn)}" data-tip="Vollzone „${esc(zn)}“ (deckt automatisch alle Detailzonen von ${esc(zn)} ab)" class="btn py-1 px-2 text-[11px] ${on?'btn-ok':'opacity-75'}">${on?'✓ ':''}${esc(zn)}</button>`;
+          }).join('')}
+          ${!subOpen?activeSubZones.map(zn=>`<button type="button" data-action="toggle-ar-zone" data-id="${ar.id}" data-zone="${esc(zn)}" data-tip="Teilzone aktiv – klicken zum Entfernen" class="btn py-1 px-2 text-[11px] border-cyan-400/60 bg-cyan-500/20 text-cyan-200 font-bold">✓ 🔍 ${esc(zn)}</button>`).join(''):''}
+          ${customOnly.map(zn=>{
+            const on=(ar.zones||[]).some(z=>z.toLowerCase()===zn.toLowerCase());
+            return `<span class="inline-flex items-center"><button type="button" data-action="toggle-ar-zone" data-id="${ar.id}" data-zone="${esc(zn)}" class="btn py-1 px-2 text-[11px] rounded-r-none ${on?'btn-ok':'opacity-75'}">${on?'✓ ':''}${esc(zn)}</button><button type="button" data-action="del-ar-zone" data-id="${ar.id}" data-zone="${esc(zn)}" data-tip="Eigene Zone „${esc(zn)}“ löschen" class="btn py-1 px-1.5 text-[10px] rounded-l-none border-l-0 hover:text-rose-400 opacity-75">✕</button></span>`;
+          }).join('')}
+        </div>
+        ${subOpen&&subGroups.length?`<div class="p-2 rounded-lg bg-black/20 border border-cyan-400/35 space-y-2">
+          <div class="text-[10px] font-bold text-cyan-200/90">🔍 Spezifische Teilzonen (schützen nur den gewählten Teilbereich; Vollzonen decken immer alle Teilzonen ab):</div>
+          <div class="space-y-1.5">${subGroups.map(g=>{
+            const fullOn=(ar.zones||[]).some(z=>z.toLowerCase()===g.main.toLowerCase());
+            return `<div class="flex flex-wrap items-center gap-1"><span class="text-[10px] font-extrabold t-mut min-w-[74px]">${esc(g.main)}:</span>${g.subs.map(sn=>{
+              const key=`${g.main}: ${sn}`;
+              const on=(ar.zones||[]).some(z=>z.toLowerCase()===key.toLowerCase());
+              return `<button type="button" data-action="toggle-ar-zone" data-id="${ar.id}" data-zone="${esc(key)}" class="btn py-0.5 px-2 text-[10px] ${on?'border-cyan-400 bg-cyan-500/25 text-cyan-100 font-extrabold':fullOn?'opacity-50':'opacity-80'}">${on?'✓ ':''}${esc(sn)}</button>`;
+            }).join('')}</div>`;
+          }).join('')}</div>
+        </div>`:''}`;
+      })()}
       <div class="flex items-center gap-1.5 w-full sm:max-w-xs">
         <input id="inpArCz_${ar.id}" data-ar-zone-draft="${ar.id}" type="text" value="${esc(UI.arZoneDrafts?.[ar.id]||'')}" placeholder="Weitere Zonen..." class="inp py-1 px-2 text-xs flex-1 min-w-0"/>
         <button type="button" data-action="add-ar-zone" data-id="${ar.id}" data-tip="Eingetragene Zone speichern &amp; als anwählbaren Button hinzufügen (oder Enter drücken)" class="btn btn-ok py-1 px-2.5 text-[11px] shrink-0">+ Zone</button>
@@ -1115,6 +1264,7 @@ export function renderArmorCard(ar,idx,len,hzNames){
         <input data-arf="${ar.id}:notes" type="text" value="${esc(ar.notes)}" placeholder="Notizen" class="inp w-full min-w-0 text-xs"/>
       </div>
     </div>
+    ${renderEqModsBlock('armor',ar)}
   </div>`;
 }
 
@@ -1134,12 +1284,14 @@ export function renderInvItemCard(it,idx,len,invSecs){
   const lnkSrc=lnk?findEqItem(lnk.kind,lnk.id):null;
   const lnkBadgeHtml=lnk?(()=>{
     const cfg=lnk.kind==='weapon'
-      ?{ico:lnkSrc?.wType==='ranged'?'🏹':'⚔️',lbl:'Waffe',cls:'border-sky-400/50 bg-sky-500/15 text-sky-300'}
+      ?{ico:lnkSrc?.wType==='ranged'?'🏹':'⚔️',lbl:lnkSrc?.equipped===false?'Waffe (Abgel.)':'Waffe',cls:'border-sky-400/50 bg-sky-500/15 text-sky-300'}
       :lnk.kind==='armor'
         ?{ico:'🛡️',lbl:lnkSrc?.equipped===false?'Rüstung (Abgel.)':'Rüstung',cls:'border-emerald-400/50 bg-emerald-500/15 text-emerald-300'}
         :{ico:'🎯',lbl:'Munition',cls:'border-amber-400/50 bg-amber-500/15 text-amber-300'};
     return `<button type="button" data-action="jump-eq-item" data-kind="${esc(lnk.kind)}" data-id="${esc(lnk.id)}" data-tip="Automatisch mit ${cfg.lbl} verknüpft – klicken zum Springen" class="px-1.5 py-0.5 rounded-md border text-[10px] font-black shrink-0 inline-flex items-center gap-1 cursor-pointer hover:brightness-110 ${cfg.cls}"><span>${cfg.ico}</span><span class="hidden sm:inline">${cfg.lbl}</span><span class="opacity-75">↗</span></button>`;
   })():'';
+  const invEqOn=Boolean(!lnk&&it.equipped===true);
+  const invEqBtnHtml=!lnk?`<button type="button" data-action="toggle-inv-eq" data-id="${it.id}" data-tip="Gegenstand an-/ablegen (aktiviert dessen Modifikatoren/Nachteile)" class="btn h-8 sm:h-7 px-2 text-[11px] font-extrabold shrink-0 whitespace-nowrap ${invEqOn?'btn-ok':'opacity-65'}">${invEqOn?'✓<span class="hidden sm:inline"> Angelegt</span>':'○<span class="hidden sm:inline"> Abgelegt</span>'}</button>`:'';
   const namePh=lnk?(lnk.kind==='weapon'?'Waffenname...':lnk.kind==='armor'?'Rüstungsname...':'Munitionsname...'):'Gegenstand...';
   const hdrRow=`<div class="flex items-center gap-1.5 min-w-0">
     <button type="button" data-action="toggle-eqitem-collapse" data-kind="inv" data-id="${it.id}" data-tip="${it.collapsed?'Gegenstand ausklappen':'Gegenstand einklappen'}" aria-expanded="${!it.collapsed}" class="btn w-8 h-8 sm:w-7 sm:h-7 p-0 text-xs font-black shrink-0">${it.collapsed?'▸':'▾'}</button>
@@ -1147,16 +1299,19 @@ export function renderInvItemCard(it,idx,len,invSecs){
     ${renderEqMiniThumb('inv',it.id,it.img)}
     <input data-inv="${it.id}:name" type="text" value="${esc(it.name)}" ${colStyle} placeholder="${namePh}" class="inp-line flex-1 min-w-0 text-sm sm:text-base font-extrabold"/>
     ${lnkBadgeHtml}
+    ${invEqBtnHtml}
     ${it.collapsed&&qtyTxt?`<span data-inv-collapsed-qty="${it.id}" class="pill cursor-default text-[11px] py-0.5 px-2 tabular text-acc shrink-0">× ${esc(qtyTxt)}</span>`:''}
     ${renderEqItemMenuBtn('inv',it.id)}
   </div>`;
+  const invModsPills=!lnk?renderEqModsSummaryPills(it):'';
   if(it.collapsed){
-    const hasBadges=Boolean((catTxt&&catTxt!=='Inventar'&&!lnk)||curSecObj||noteTxt);
+    const hasBadges=Boolean((catTxt&&catTxt!=='Inventar'&&!lnk)||curSecObj||noteTxt||invModsPills);
     return `<div data-inv-item="${it.id}" class="subcard py-2 px-2.5 sm:px-3 space-y-1.5 min-w-0" ${winStyle}>
       ${hdrRow}
       ${hasBadges?`<div class="flex flex-wrap items-center gap-1.5 min-w-0">
         ${catTxt&&catTxt!=='Inventar'&&!lnk?`<span class="pill cursor-default text-[11px] py-0.5 px-2">${esc(catTxt)}</span>`:''}
         ${curSecObj?`<span class="pill cursor-default text-[11px] py-0.5 px-2 text-acc" data-inv-sec-lbl="${curSecObj.id}">🎒 ${esc(curSecObj.name||'Beutel')}</span>`:''}
+        ${invModsPills}
         ${noteTxt?`<span class="text-[11px] t-mut truncate max-w-full">📝 ${esc(noteTxt)}</span>`:''}
       </div>`:''}
     </div>`;
@@ -1181,6 +1336,7 @@ export function renderInvItemCard(it,idx,len,invSecs){
         <input data-inv="${it.id}:notes" type="text" value="${esc(it.notes)}" placeholder="Notizen..." class="inp w-full min-w-0 py-1.5 px-2 text-xs"/>
       </div>
     </div>
+    ${!lnk?renderEqModsBlock('inv',it):''}
   </div>`;
 }
 

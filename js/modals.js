@@ -8,7 +8,7 @@ import {
   hooks
 } from './ui-hooks.js';
 import {
-  renderSystemIconHtml, syncBodyScrollLock, bindSwipeDownClose, closeCtxMenu, openCtxMenu, applyWinFrame, renderWinCtrlBtns, renderWinResizeHandles, setModalSwipeCleanup, cleanupModalSwipe, isOversizedBgDataUrl, compressBgDataUrlForProfile, getCampaigns, isGlobalGM, canManageCampaign, canToggleEnemyStatus, isEnemySheet, getEnemyMeta, canManageEnemySheet, isEnemyDiceVisibleInCampaign, ensureUserRecord, ensureAllRegistryUsers, findUserKeyByName, findUserKeyById, getUserAvatar, canViewUserProfile, renderUserNamePill, saveRegistryLocal, getCampaignFilteredDiceFeed, captureScrollState, restoreScrollState, toast, save, persistCurrentThemeChange, applyTheme, CUSTOM_ICONS, getPwTermTip, fmtCustomValSummarySuffix, syncEquipmentToInventory, S, D, CN, LD, FBW, isMobileLayout, CTX_MENU, UI, PATCHNOTES, FEEDBACK, CLOUD, CLOUD_SYNC, PWLIB, getCharOwner, getEditStyleSlot
+  renderSystemIconHtml, syncBodyScrollLock, bindSwipeDownClose, closeCtxMenu, openCtxMenu, applyWinFrame, renderWinCtrlBtns, renderWinResizeHandles, setModalSwipeCleanup, cleanupModalSwipe, isOversizedBgDataUrl, compressBgDataUrlForProfile, getCampaigns, isGlobalGM, canManageCampaign, canToggleEnemyStatus, isEnemySheet, getEnemyMeta, canManageEnemySheet, isEnemyDiceVisibleInCampaign, ensureUserRecord, ensureAllRegistryUsers, findUserKeyByName, findUserKeyById, getUserAvatar, canViewUserProfile, renderUserNamePill, saveRegistryLocal, getCampaignFilteredDiceFeed, captureScrollState, restoreScrollState, toast, save, persistCurrentThemeChange, applyTheme, CUSTOM_ICONS, getPwTermTip, fmtCustomValSummarySuffix, syncEquipmentToInventory, S, D, CN, LD, INI, FBW, isMobileLayout, CTX_MENU, UI, PATCHNOTES, FEEDBACK, CLOUD, CLOUD_SYNC, PWLIB, getCharOwner, getEditStyleSlot
 } from './state.js';
 import {
   formatPwUseCosts, getEffectivePoolCap, getReservedSrcList, calcActiveMods, buildPowerExportPack, getSuggestedAugmentsForPower, calcPwCost, calcProg, getPwSecOptionsFlat, cresName, getResLabel, getLpRegen, getMlpRegen, findPwItem, findEqItem
@@ -22,6 +22,9 @@ import {
 import {
   renderRtfToolbarHtml
 } from './notes.js';
+import {
+  getActiveInitiativeCampaignId, getCampaignInitiative
+} from './initiative.js';
 
 export function openUserProfile(targetUser){
   if(ensureAllRegistryUsers()) saveRegistryLocal();
@@ -457,11 +460,15 @@ export function openSheetCtxMenu(anchorEl){
   const fmtHdrRes=(k,cap)=>{if(cap.reserved<=0)return '';const s=getReservedSrcList(k);return `\n• Reserviert: −${cap.reserved} ${getResLabel(k)}${s.length?` (${s.join(', ')})`:''} → Frei max: ${cap.effMax}`;};
   const simpleRestTip=`🔥 Pause ausführen\nStellt AP (${apCap.effMax}${apCap.reserved?` von ${apCap.fullMax}`:''}) und mAP (${mapCap.effMax}${mapCap.reserved?` von ${mapCap.fullMax}`:''}) wieder her.${fmtHdrRes('ap',apCap)}${fmtHdrRes('map',mapCap)}\nHinweis: Ausgebrannte Sekundärattribute (meistens wie AP und mAP) werden durch eine Pause NICHT regeneriert.`;
   const fullRestTip=`🌙 Erholsame Rast ausführen\nStellt doppelte Regeneration wieder her:\n• +${lpReg*2} LP (2 × ${lpReg} LP-Reg., bis max. ${lpCap.effMax}${lpCap.reserved?` von ${lpCap.fullMax}`:''})${fmtHdrRes('lp',lpCap)}\n• +${mlpReg*2} mLP (2 × ${mlpReg} mLP-Reg., bis max. ${mlpCap.effMax}${mlpCap.reserved?` von ${mlpCap.fullMax}`:''})${fmtHdrRes('mlp',mlpCap)}\n• Stellt zudem AP (${apCap.effMax}${apCap.reserved?` von ${apCap.fullMax}`:''}), mAP (${mapCap.effMax}${mapCap.reserved?` von ${mapCap.fullMax}`:''}) sowie ausgebrannte Sekundärattribute wieder vollständig her.${fmtHdrRes('ap',apCap)}${fmtHdrRes('map',mapCap)}`;
+  const iniCampId=getActiveInitiativeCampaignId();
+  const iniSt=getCampaignInitiative(iniCampId);
+  const iniIsGm=canManageCampaign(iniCampId);
   const items=[
     {type:'label',label:'Rast & Spiel'},
     {icon:'🔥',label:'Pause',sub:`AP (${apCap.effMax}) & mAP (${mapCap.effMax}) auffüllen`,action:'rest-simple',tip:simpleRestTip},
     {icon:'🌙',label:'Erholsame Rast',sub:`+${lpReg*2} LP, +${mlpReg*2} mLP, AP & mAP`,action:'rest-full',tip:fullRestTip},
     {icon:'📝',label:'Kampagnennotizen',sub:'Geteilte & private Notizen',action:'toggle-cnotes',active:Boolean(CN.open),badge:CN.open?'Offen':'',tip:'Kampagnennotizen öffnen/schließen (frei andockbar wie der Würfelassistent)'},
+    ...(iniSt.active||iniIsGm?[{icon:'⚡',label:'Initiative-Reihenfolge',sub:iniSt.active?`Aktiv • Runde ${iniSt.round}`:'SL-Kampftracker öffnen',action:'toggle-ini',active:Boolean(INI.open),badge:iniSt.active?`R${iniSt.round}`:(INI.open?'Offen':''),tip:'Initiative-Reihenfolge öffnen/schließen'}]:[]),
     {type:'sep'},
     {type:'label',label:'Navigation'},
     {icon:'🏠',label:'Zur Lobby',sub:'Kampagnenzentrale & Charakterauswahl',action:'open-lobby',badge:(CLOUD.syncing||CLOUD_SYNC.inFlight)?'⏳':(CLOUD_SYNC.status==='error'?'⚠️':''),tip:'Zurück zur zentralen Lobby (?lobby=1)'}
@@ -504,10 +511,14 @@ export function openSheetCtxMenu(anchorEl){
 
 export function openLobbyCtxMenu(anchorEl){
   const liveDiceCnt=getCampaignFilteredDiceFeed().length;
+  const iniCampId=getActiveInitiativeCampaignId();
+  const iniSt=getCampaignInitiative(iniCampId);
+  const iniIsGm=canManageCampaign(iniCampId);
   const items=[
     {type:'label',label:'Werkzeuge'},
     {icon:'🛠️',label:'Lokalen Bogen öffnen',sub:'Lokal gespeicherten Bogen direkt öffnen / testen',action:'open-local-sheet',tip:'Öffnet den lokal gespeicherten Charakterbogen (oder einen Test-Bogen) direkt ohne Cloud-Zwang'},
     {icon:'📡',label:'Live-Würfel',sub:'Echtzeit-Würfelkanal im Extrafenster',action:'toggle-livedice',active:Boolean(LD.open),badge:String(liveDiceCnt),tip:'Eigenständiges Live-Würfel-Fenster öffnen/schließen'},
+    ...(iniSt.active||iniIsGm?[{icon:'⚡',label:'Initiative-Reihenfolge',sub:iniSt.active?`Aktiv • Runde ${iniSt.round}`:'SL-Kampftracker öffnen',action:'toggle-ini',active:Boolean(INI.open),badge:iniSt.active?`R${iniSt.round}`:(INI.open?'Offen':''),tip:'Eigenständiges Initiative-Fenster öffnen/schließen'}]:[]),
     {type:'sep'},
     {type:'label',label:'Hilfe & System'},
     {icon:'📖',label:'Regeln & News',sub:'Regel-Wiki, Glossar & Patchnotes',action:'open-info',tip:'Regel-Wiki (Würfelsystem, Steigerung, Glossar) & Patchnotes öffnen'},
@@ -553,6 +564,10 @@ export function renderPhaseToggleHtml(compact = false){
 }
 export function renderHeader(){
   const liveDiceCnt=getCampaignFilteredDiceFeed().length;
+  const iniCampId=getActiveInitiativeCampaignId();
+  const iniSt=getCampaignInitiative(iniCampId);
+  const showIniBtn=Boolean(iniSt.active||canManageCampaign(iniCampId));
+  const iniHdrBtn=(isLobby=false)=>showIniBtn?`<button type="button" data-action="toggle-ini" aria-label="Initiative-Reihenfolge öffnen oder schließen" data-tip="${iniSt.active?`Initiative-Reihenfolge aktiv (Runde ${iniSt.round}) – klicken zum Öffnen/Schließen`:'Initiative-Reihenfolge (SL) öffnen'}" class="btn ${INI.open?'btn-pri ring-1 ring-amber-400':iniSt.active?'border-amber-400/70 bg-amber-500/20 text-amber-200':'bdr-acc bg-acc-soft'} ${isLobby?'h-8 sm:h-9 px-2 sm:px-2.5 text-xs':'h-8 sm:h-9 px-1.5 sm:px-2 text-xs'} font-black shrink-0 tabular">⚡${iniSt.active?`<span class="px-1 rounded-full text-[9px] bg-amber-500 text-slate-950 font-black">R${iniSt.round}</span>`:(isLobby?'<span class="hidden xl:inline"> Ini</span>':'')}</button>`:'';
   if(UI.inLobby){
     const lobbyMenuOpen=Boolean(CTX_MENU.open&&CTX_MENU.key==='hdr-lobby-menu');
     $('hdrMount').innerHTML=`<div class="h-1 w-full accent-bar"></div><header class="hdr-glass"><div class="max-w-[1600px] mx-auto px-2.5 sm:px-6 lg:px-8 py-2 sm:py-2.5 flex items-center justify-between gap-2 min-w-0">
@@ -565,6 +580,7 @@ export function renderHeader(){
       </div>
       <div class="flex items-center gap-1 sm:gap-1.5 shrink-0">
         ${CLOUD.currentUser?renderUserNamePill(CLOUD.currentUser,{cls:'pill py-1 px-2 text-xs border-emerald-500/50 bg-emerald-500/15 text-emerald-300 max-w-[110px] sm:max-w-[180px]',showAvatar:true,tip:'Eigenes Profil öffnen (Name, Passwort, User-ID, Profilbild)'}):`<span class="pill py-1 px-2 text-xs cursor-default opacity-75 shrink-0" data-tip="Gastmodus – Melde dich in der Lobby mit deinem Account an">🔒<span class="hidden sm:inline"> Gast</span></span>`}
+        ${iniHdrBtn(true)}
         <button type="button" data-action="toggle-livedice" aria-label="Live-Würfel öffnen oder schließen" data-tip="Live-Würfel-Fenster öffnen/schließen" class="hidden xl:inline-flex btn ${LD.open?'btn-pri':'bdr-acc bg-acc-soft'} h-9 px-2.5 text-xs font-extrabold shrink-0">📡 <span>Live-Würfel</span> <span data-live-dice-cnt="1" class="px-1.5 rounded-full text-[10px] bg-black/25 tabular">${liveDiceCnt}</span></button>
         ${renderNotifBellBtnHtml(true)}
         <button type="button" data-action="toggle-dice" aria-label="Würfelassistent öffnen oder schließen" data-tip="Würfelassistent öffnen/schließen" class="btn ${D.open?'btn-pri ring-1 ring-amber-400':'bdr-acc bg-acc-soft'} h-8 sm:h-9 w-8 sm:w-9 xl:w-auto xl:px-3 p-0 text-sm xl:text-xs font-black shrink-0">🎲<span class="hidden xl:inline"> Würfeln</span></button>
@@ -628,6 +644,7 @@ export function renderHeader(){
           <span class="inline-flex xl:hidden">${renderPhaseToggleHtml(true)}</span>
           <span class="hidden xl:inline-flex">${renderPhaseToggleHtml(false)}</span>
           ${!CLOUD.viewingRemote?renderCloudSyncBadgeHtml():''}
+          ${iniHdrBtn(false)}
           <button type="button" data-action="toggle-dice" aria-label="Würfelassistent öffnen oder schließen" data-tip="Würfelassistent öffnen/schließen" class="btn ${D.open?'btn-pri ring-1 ring-amber-400':'bdr-acc bg-acc-soft'} w-8 h-8 sm:w-9 sm:h-9 p-0 text-sm sm:text-base shrink-0">🎲</button>
           <button type="button" data-action="toggle-livedice" aria-label="Live-Würfel öffnen oder schließen" data-tip="Live-Würfel-Fenster öffnen/schließen" class="btn ${LD.open?'btn-pri':'bdr-acc bg-acc-soft'} h-8 sm:h-9 px-1.5 sm:px-2 text-xs font-extrabold shrink-0">📡<span data-live-dice-cnt="1" class="px-1 rounded-full text-[9px] bg-black/25 tabular">${liveDiceCnt}</span></button>
           ${renderNotifBellBtnHtml(true)}

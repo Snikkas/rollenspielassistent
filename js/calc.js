@@ -824,6 +824,61 @@ export function calcActiveMods(sheet=S){
       ar.tags.forEach(tg=>M._armorEqSources.push(analyzeEqTagTooltip(tg,target.armorTagList,'armor',ar,target)));
     }
   });
+  const procEqMods=(list,srcKind,fallbackName,isInv=false)=>{
+    (list||[]).forEach(it=>{
+      if(!it) return;
+      if(isInv){
+        if(it.linkedEq||it.equipped!==true) return;
+      }else if(it.equipped===false){
+        return;
+      }
+      if(!Array.isArray(it.eqMods)||!it.eqMods.length) return;
+      const srcNm=String(it.name||'').trim()||fallbackName;
+      it.eqMods.forEach(em=>{
+        if(!em||!em.target) return;
+        const t=String(em.target).trim();
+        if(em.kind==='stat'){
+          const v=t==='moveBase'?toFlt(em.val,0):toInt(em.val,0);
+          if(!v) return;
+          if(t==='ALL_ATTR'){
+            ATTRS.forEach(a=>{M[a.k]+=v;M.src[a.k].push({val:v,name:srcNm,kind:srcKind});});
+          }else if(t.startsWith('ex_')){
+            const exId=t.slice(3);
+            if(M.extraSec[exId]!==undefined){
+              M.extraSec[exId]+=v;
+              if(!M.src[t]) M.src[t]=[];
+              M.src[t].push({val:v,name:srcNm,kind:srcKind});
+            }
+          }else if(M[t]!==undefined){
+            M[t]+=v;
+            if(!M.src[t]) M.src[t]=[];
+            M.src[t].push({val:v,name:srcNm,kind:srcKind});
+          }
+        }else if(em.kind==='adv'||em.kind==='dis'){
+          const v=Math.max(0,Math.abs(toInt(em.val,0)));
+          if(!v) return;
+          if(t.startsWith('attr:')){
+            const ak=t.slice(5);
+            if(ATTRS.some(a=>a.k===ak)){
+              M.advDis.push({raw:`${fmtSign(v)} ${em.kind==='dis'?'Nachteil':'Vorteil'} (${ak})`,val:v,kind:em.kind,scope:'attr',attrKey:ak,label:`${ak}-Tests`,srcName:srcNm,srcKind});
+            }
+          }else if(t.startsWith('skill:')){
+            const sid=t.slice(6);
+            const sk=(target.skills||[]).find(s=>s&&s.id===sid);
+            const sn=sk?String(sk.name||'').trim():String(em.targetLabel||'Fertigkeit').trim();
+            M.advDis.push({raw:`${fmtSign(v)} ${em.kind==='dis'?'Nachteil':'Vorteil'} (${sn})`,val:v,kind:em.kind,scope:'skill',skillId:sk?sk.id:sid,skillName:sn,label:sn,srcName:srcNm,srcKind});
+          }else if(t.startsWith('scope:')){
+            const sc=t.slice(6);
+            const scLbl=({all:'Alle Proben',hit:'Trefferwürfe',hit_melee:'Nahkampf-Treffer',hit_ranged:'Fernkampf-Treffer',defense:'Abwehr/Parieren/Blocken',parry:'Parieren',block:'Blocken',dodge:'Ausweichen'})[sc]||sc;
+            M.advDis.push({raw:`${fmtSign(v)} ${em.kind==='dis'?'Nachteil':'Vorteil'} (${scLbl})`,val:v,kind:em.kind,scope:sc,label:scLbl,srcName:srcNm,srcKind});
+          }
+        }
+      });
+    });
+  };
+  procEqMods(target.armors,'Rüstung','Rüstung',false);
+  procEqMods(target.weapons,'Waffe','Waffe',false);
+  procEqMods(target.inventory,'Ausrüstung','Gegenstand',true);
   _modsCacheMap.set(target,M);
   if(!_modsCacheQueued){_modsCacheQueued=true;queueMicrotask(()=>{_modsCacheMap=new WeakMap();_modsCacheQueued=false;});}
   return M;
@@ -1013,6 +1068,10 @@ export function formatTagW3Preview(tagList,name,x,sheet=S){
     else if(c.counterKey==='negate_throw_dis') parts.push(`Kein Nachteil beim Waffenwurf`);
     else if(c.counterKey==='thrust_grip') parts.push(`Situativ: Ignoriert Langsam (${c.val}) bei Stoßattacken`);
   });
+  if(/^mehrfachschuss\b/i.test(String(name||'').trim())){
+    const mx=Math.max(1,toInt(x,1));
+    parts.push(`Schadensrechner: +1 Schaden alle ${mx} EG (⌊EG / ${mx}⌋)`);
+  }
   return parts.length?`\n⚡ Würfelassistent: ${parts.join(' • ')}`:'';
 }
 export const RE_CNT_MOB_NM=/mobiler\s+sch[üu]tze/i;
@@ -1202,6 +1261,21 @@ export function getAdvDisForContext(ctx={},M=null,sheet=S){
       if(g.reduceDis>0){autoDis=Math.max(0,autoDis-g.reduceDis);src.push({val:-g.reduceDis,kind:'dis',tagLbl:tg0,isSit:true,label:`${g.sitLabel}: Langsam reduziert`,srcName:g.items[0]?.srcName||g.sitLabel,srcKind:g.items[0]?.srcKind||'Situativ'});}
     }
   });
+  if(w&&cat==='Trefferwurf'){
+    const dwOvr=String(ctx.dualWieldOvr||'auto');
+    if(dwOvr==='main'||dwOvr==='offhand'){
+      const dVal=dwOvr==='offhand'?2:1;
+      const hLbl=dwOvr==='offhand'?'Nebenhand (Manuell)':'Haupthand (Manuell)';
+      autoDis+=dVal;
+      src.push({val:dVal,kind:'dis',scope:'hit',label:hLbl,tagLbl:'⚔️ Mehrhändig',srcName:`Mehrhändiger Kampf (${hLbl})`,srcKind:'Mehrhändig'});
+    }else if(dwOvr!=='off'){
+      const dw=getWeaponDualWieldInfo(w,target);
+      if(dw.isDualWield&&dw.dis>0){
+        autoDis+=dw.dis;
+        src.push({val:dw.dis,kind:'dis',scope:'hit',label:`${dw.label} (2× 1H angelegt)`,tagLbl:`⚔️ ${dw.label}`,srcName:`Mehrhändiger Kampf • ${dw.label}`,srcKind:'Mehrhändig'});
+      }
+    }
+  }
   if(ctx.includeInspiration&&target.inspirationActive){
     autoAdv+=1;
     src.push({val:1,kind:'adv',scope:'all',label:'Inspiration (Nächster Wurf)',tagLbl:'✨ Inspiration',srcName:'✨ Inspiration',srcKind:'Inspiration'});
@@ -2054,6 +2128,46 @@ export function calcProg(M=null,sheet=S){
   return {lvl,baseSp,baseMsp,bonusSp,spMod,spModSrc,totSp,totMsp,trSp,trMsp,skSp,skMsp,pwSp,pwMsp,spSpent,mspSpent,spRem:totSp-spSpent,mspRem:totMsp-mspSpent};
 }
 
+export function isWeaponOneHanded(w){
+  if(!w) return false;
+  if(w.grip==='2h'||w.hand==='both') return false;
+  if(w.grip==='1h'||w.hand==='main'||w.hand==='off') return true;
+  return Array.isArray(w.tags)&&w.tags.some(t=>/^(?:einh[äa]ndig|beidh[äa]ndig)\b/i.test(String(t?.name||'').trim()));
+}
+
+export function getEquippedWeaponsForSkill(skillId,sheet=S){
+  const sid=String(skillId||'').trim();
+  if(!sid) return [];
+  return (sheet?.weapons||[]).filter(w=>w&&w.equipped!==false&&w.skillId===sid);
+}
+
+export function getWeaponDualWieldInfo(weapon,sheet=S){
+  const target=sheet||S;
+  const handRole=weapon?.hand||(weapon?.grip==='2h'?'both':'');
+  const baseLabel=handRole==='main'?'Haupthand':handRole==='off'?'Nebenhand':handRole==='both'?'Zweihändig':'';
+  if(!weapon||weapon.equipped===false||!isWeaponOneHanded(weapon)){
+    return {isDualWield:false,role:handRole,label:baseLabel,dis:0,peers:[]};
+  }
+  const eq1h=(target?.weapons||[]).filter(x=>x&&x.equipped!==false&&isWeaponOneHanded(x));
+  if(eq1h.length<2){
+    return {isDualWield:false,role:handRole,label:baseLabel,dis:0,peers:[]};
+  }
+  const peers=eq1h.filter(x=>x.id!==weapon.id);
+  let role='main';
+  if(weapon.hand==='off') role='off';
+  else if(weapon.hand==='main') role='main';
+  else if(peers.some(x=>x.hand==='main')) role='off';
+  else if(peers.some(x=>x.hand==='off')) role='main';
+  else role=eq1h[0]?.id===weapon.id?'main':'off';
+  return {
+    isDualWield:true,
+    role,
+    label:role==='off'?'Nebenhand':'Haupthand',
+    dis:role==='off'?2:1,
+    peers
+  };
+}
+
 export function getWeaponRollMeta(w,M=null,sheet=S){
   const mods=M||calcActiveMods(sheet);
   const hasMassiv=isWeaponMassiv(w);
@@ -2064,6 +2178,79 @@ export function getWeaponRollMeta(w,M=null,sheet=S){
   const pool=attrVal+skBonus;
   const hasBlock=Array.isArray(w?.tags)&&w.tags.some(t=>/^blockf[äa]hig\b/i.test(String(t?.name||'').trim()));
   return {attrKey,attrVal,sk,skBonus,pool,hasMassiv,hasBlock};
+}
+
+export function getEqModStatOptions(sheet=S){
+  const cn=cresName(sheet);
+  const exList=(sheet.extraSecList||[]).map(x=>({target:`ex_${x.id}`,label:`${getExtraSecName(x)}-Max`,group:'Sekundärattribute'}));
+  return [
+    {target:'moveBase',label:'BEW (Basis-Bewegung)',group:'Bewegung & Sekundärattribute'},
+    {target:'bst',label:'BSt (Bewegungsstufe)',group:'Bewegung & Sekundärattribute'},
+    {target:'ini',label:'Initiative (Ini)',group:'Bewegung & Sekundärattribute'},
+    {target:'lpMax',label:'LP-Max',group:'Bewegung & Sekundärattribute'},
+    {target:'mlpMax',label:'mLP-Max',group:'Bewegung & Sekundärattribute'},
+    {target:'apMax',label:'AP-Max',group:'Bewegung & Sekundärattribute'},
+    {target:'mapMax',label:'mAP-Max',group:'Bewegung & Sekundärattribute'},
+    {target:'lpRegen',label:'LP-Regeneration',group:'Bewegung & Sekundärattribute'},
+    {target:'mlpRegen',label:'mLP-Regeneration',group:'Bewegung & Sekundärattribute'},
+    {target:'armor',label:'Rüstungsschutz (global)',group:'Bewegung & Sekundärattribute'},
+    {target:'mentalArmor',label:'Mentale Rüstung (mRS)',group:'Bewegung & Sekundärattribute'},
+    {target:'testTh',label:'Testschwelle (Alle Proben)',group:'Bewegung & Sekundärattribute'},
+    {target:'woundLight',label:'Verwundung (leicht)',group:'Schwellenwerte'},
+    {target:'woundMedium',label:'Verwundung (mittel)',group:'Schwellenwerte'},
+    {target:'woundHeavy',label:'Verwundung (schwer)',group:'Schwellenwerte'},
+    {target:'traumaLight',label:'Trauma (leicht)',group:'Schwellenwerte'},
+    {target:'traumaMedium',label:'Trauma (mittel)',group:'Schwellenwerte'},
+    {target:'traumaHeavy',label:'Trauma (schwer)',group:'Schwellenwerte'},
+    {target:'cresMax',label:`${cn}-Max`,group:'Sekundärattribute'},
+    ...exList,
+    ...ATTRS.map(a=>({target:a.k,label:`${a.k} (${a.n})`,group:'Attribute'})),
+    {target:'ALL_ATTR',label:'Alle Attribute',group:'Attribute'}
+  ];
+}
+
+export function getEqModAdvDisOptions(sheet=S){
+  const skills=[...(sheet.skills||[])].filter(s=>s&&String(s.name||'').trim()).sort((a,b)=>String(a.name).localeCompare(String(b.name),'de'));
+  return [
+    ...ATTRS.map(a=>({target:`attr:${a.k}`,label:`${a.k} (${a.n})`,group:'Attribute'})),
+    ...skills.map(sk=>({target:`skill:${sk.id}`,label:String(sk.name).trim(),group:'Fertigkeiten'})),
+    {target:'scope:all',label:'Alle Proben',group:'Kampf & Allgemein'},
+    {target:'scope:hit',label:'Trefferwürfe',group:'Kampf & Allgemein'},
+    {target:'scope:hit_melee',label:'Nahkampf-Treffer',group:'Kampf & Allgemein'},
+    {target:'scope:hit_ranged',label:'Fernkampf-Treffer',group:'Kampf & Allgemein'},
+    {target:'scope:defense',label:'Abwehr / Parieren / Blocken',group:'Kampf & Allgemein'},
+    {target:'scope:parry',label:'Parieren',group:'Kampf & Allgemein'},
+    {target:'scope:block',label:'Blocken',group:'Kampf & Allgemein'},
+    {target:'scope:dodge',label:'Ausweichen',group:'Kampf & Allgemein'}
+  ];
+}
+
+export function formatEqModTargetLabel(mod,sheet=S){
+  if(!mod) return '';
+  const t=String(mod.target||'').trim();
+  if(mod.kind==='stat'){
+    const hit=getEqModStatOptions(sheet).find(o=>o.target===t);
+    return hit?hit.label:(mod.targetLabel||t);
+  }
+  if(t.startsWith('skill:')){
+    const sid=t.slice(6);
+    const sk=(sheet.skills||[]).find(s=>s&&s.id===sid);
+    return sk?String(sk.name||'').trim():(mod.targetLabel||'Fertigkeit');
+  }
+  const hit=getEqModAdvDisOptions(sheet).find(o=>o.target===t);
+  return hit?hit.label:(mod.targetLabel||t);
+}
+
+export function formatEqModShort(mod,sheet=S){
+  if(!mod) return '';
+  const lbl=formatEqModTargetLabel(mod,sheet);
+  if(mod.kind==='stat'){
+    const v=mod.target==='moveBase'?toFlt(mod.val,0):toInt(mod.val,0);
+    const vTxt=v>0?`+${fmtN(v)}`:`${fmtN(v)}`;
+    return `${vTxt} ${lbl}`;
+  }
+  const v=Math.max(1,Math.abs(toInt(mod.val,1)));
+  return `+${v}${mod.kind==='dis'?'N':'V'} ${lbl}`;
 }
 
 export function getPwSecOptionsFlat(sheet=S){

@@ -148,9 +148,44 @@ export function matchHitZoneByRoll(hitZones, roll){
   }) || null;
 }
 
-export function getTargetZoneArmor(targetSheet, targetM, zoneName, dmgOpt, pool = 'lp'){
+export function getHitZoneSubZones(zoneObj){
+  if(!zoneObj) return [];
+  if(Array.isArray(zoneObj.subZones)) return zoneObj.subZones.filter(sz => sz && String(sz.zone || '').trim());
+  const znLow = String(zoneObj.zone || '').trim().toLowerCase();
+  const defMatch = DEF_HZ.find(d => d.zone.toLowerCase() === znLow);
+  return defMatch && Array.isArray(defMatch.subZones) ? defMatch.subZones : [];
+}
+
+export function getPartialArmorsForMainZone(targetSheet, mainZoneName, subZones = []){
+  const znLow = String(mainZoneName || '').trim().toLowerCase();
+  if(!targetSheet || !znLow) return [];
+  const subNamesLow = new Set((subZones || []).map(sz => String(sz?.zone || '').trim().toLowerCase()).filter(Boolean));
+  const out = [];
+  (targetSheet.armors || []).forEach(ar => {
+    if(!ar || ar.equipped === false) return;
+    const zList = (Array.isArray(ar.zones) ? ar.zones : []).map(z => String(z || '').trim().toLowerCase()).filter(Boolean);
+    if(zList.includes(znLow)) return;
+    const matchedSubs = [];
+    zList.forEach(z => {
+      if(z.startsWith(`${znLow}:`)){
+        const part = z.slice(znLow.length + 1).trim();
+        if(part) matchedSubs.push(part);
+      }else if(subNamesLow.has(z)){
+        matchedSubs.push(z);
+      }
+    });
+    if(matchedSubs.length){
+      out.push({ id: ar.id, name: String(ar.name || '').trim() || 'Rüstung', matchedSubs });
+    }
+  });
+  return out;
+}
+
+export function getTargetZoneArmor(targetSheet, targetM, zoneName, dmgOpt, pool = 'lp', subZoneName = '', subZones = []){
   const isMlp = pool === 'mlp';
   const znLow = String(zoneName || '').trim().toLowerCase();
+  const subClean = String(subZoneName || '').trim();
+  const subLow = subClean.toLowerCase();
   const pieces = [];
   let pieceSum = 0;
   if(targetSheet){
@@ -184,11 +219,14 @@ export function getTargetZoneArmor(targetSheet, targetM, zoneName, dmgOpt, pool 
       });
     }else if(znLow){
       equipped.forEach(ar => {
-        const zList = [...(Array.isArray(ar.zones) ? ar.zones : []), ...(Array.isArray(ar.extraZones) ? ar.extraZones : [])]
+        const zList = (Array.isArray(ar.zones) ? ar.zones : [])
           .map(z => String(z || '').trim().toLowerCase())
           .filter(Boolean);
-        if(!zList.includes(znLow)) return;
+        const coversFull = zList.includes(znLow);
+        const coversSub = Boolean(subLow && zList.some(z => z === `${znLow}: ${subLow}` || z === `${znLow}:${subLow}` || z === subLow));
+        if(!coversFull && !coversSub) return;
         const arName = String(ar.name || '').trim() || 'Rüstung';
+        const matchTag = (!coversFull && coversSub && subClean) ? ` [${subClean}]` : '';
         const grp = toInt(ar.grp, 0);
         let spec = 0;
         let specDesc = '';
@@ -220,12 +258,13 @@ export function getTargetZoneArmor(targetSheet, targetM, zoneName, dmgOpt, pool 
         pieceSum += tot;
         pieces.push({
           id: ar.id,
-          name: arName,
+          name: `${arName}${matchTag}`,
           grp,
           spec,
           specDesc,
           total: tot,
-          detail: grp > 0 ? `${arName} (gRP ${grp} + ${specDesc} = ${tot})` : `${arName} (${specDesc} = ${tot})`
+          matchType: coversFull ? 'full' : 'sub',
+          detail: grp > 0 ? `${arName}${matchTag} (gRP ${grp} + ${specDesc} = ${tot})` : `${arName}${matchTag} (${specDesc} = ${tot})`
         });
       });
     }
@@ -236,6 +275,7 @@ export function getTargetZoneArmor(targetSheet, targetM, zoneName, dmgOpt, pool 
   const detailParts = pieces.map(p => p.detail);
   if(globalMod) detailParts.push(`${isMlp ? 'Effekte (Ment. RS)' : 'Effekte'} ${fmtSign(globalMod)}`);
   if(manualMod) detailParts.push(`Mod ${fmtSign(manualMod)}`);
+  const fullZoneLbl = subClean ? `${zoneName} → ${subClean}` : zoneName;
   return {
     isMental: isMlp,
     pieces,
@@ -243,7 +283,7 @@ export function getTargetZoneArmor(targetSheet, targetM, zoneName, dmgOpt, pool 
     globalMod,
     manualMod,
     total,
-    detailText: detailParts.length ? detailParts.join(' • ') : (targetSheet ? (isMlp ? 'Keine mentale Rüstung (0)' : 'Keine Rüstung auf dieser Zone (0)') : 'Kein Zielbogen (0)')
+    detailText: detailParts.length ? detailParts.join(' • ') : (targetSheet ? (isMlp ? 'Keine mentale Rüstung (0)' : `Keine Rüstung auf ${fullZoneLbl || 'dieser Zone'} (0)`) : 'Kein Zielbogen (0)')
   };
 }
 
@@ -289,20 +329,28 @@ export function calculateCombatDamage(){
   const hitZones = getTargetHitZones(targetSheet);
   const zoneObj = hitZones.find(z => String(z.zone || '').trim().toLowerCase() === String(COMBAT.zoneName || '').trim().toLowerCase()) || hitZones[1] || hitZones[0];
   const zoneName = zoneObj ? String(zoneObj.zone || '').trim() : (COMBAT.zoneName || 'Rumpf');
+  const subZones = getHitZoneSubZones(zoneObj);
+  const rawSub = String(COMBAT.subZoneName || '').trim();
+  const subZoneMatch = rawSub ? subZones.find(sz => String(sz.zone || '').trim().toLowerCase() === rawSub.toLowerCase()) : null;
+  const subZoneName = subZoneMatch ? String(subZoneMatch.zone || '').trim() : '';
+  const fullZoneName = subZoneName ? `${zoneName} → ${subZoneName}` : zoneName;
+  const partialArmors = (pool !== 'mlp' && targetSheet) ? getPartialArmorsForMainZone(targetSheet, zoneName, subZones) : [];
 
   const eg = Math.max(0, toInt(COMBAT.eg, 0));
   const weaponDmg = toInt(selOpt.val, 0);
   const verheerendX = findTagNumericVal(tags, /^verheerend\b/i);
   const verheerendBonus = (verheerendX > 0 && eg >= 5) ? verheerendX : 0;
+  const mehrfachschussX = findTagNumericVal(tags, /^mehrfachschuss\b/i);
+  const mehrfachschussBonus = (mehrfachschussX > 0 && eg >= mehrfachschussX) ? Math.floor(eg / mehrfachschussX) : 0;
   const durchschlagX = findTagNumericVal(tags, /^durchschlag\b/i);
   const nichtParierbar = hasTagMatch(tags, /^nicht\s+parierbar\b/i);
   const dmgMod = toInt(COMBAT.dmgMod, 0);
-  const rawDmg = Math.max(0, eg + weaponDmg + verheerendBonus + dmgMod);
+  const rawDmg = Math.max(0, eg + weaponDmg + verheerendBonus + mehrfachschussBonus + dmgMod);
 
   const blockRed = (COMBAT.isBlocked && COMBAT.blockItemRed) ? 2 : 0;
   const afterBlock = Math.max(0, rawDmg - blockRed);
 
-  const armor = getTargetZoneArmor(targetSheet, targetM, zoneName, selOpt, pool);
+  const armor = getTargetZoneArmor(targetSheet, targetM, zoneName, selOpt, pool, subZoneName, subZones);
   const afterArmor = Math.max(0, afterBlock - armor.total);
 
   const durchschlagApplied = Boolean(COMBAT.isBlocked && durchschlagX > 0 && afterArmor === 0);
@@ -312,6 +360,7 @@ export function calculateCombatDamage(){
   const parts = [`${eg} EG`];
   if(weaponDmg) parts.push(`+ ${weaponDmg} Waffe${ammo ? '/Mun.' : ''}`);
   if(verheerendBonus) parts.push(`+ ${verheerendBonus} Verheerend`);
+  if(mehrfachschussBonus) parts.push(`+ ${mehrfachschussBonus} Mehrfachschuss (${mehrfachschussX})`);
   if(dmgMod) parts.push(`${dmgMod > 0 ? '+' : '−'} ${Math.abs(dmgMod)} Mod`);
   if(blockRed) parts.push(`− ${blockRed} Block`);
   if(armor.total) parts.push(`− ${armor.total} ${pool === 'mlp' ? 'Ment. Rüstung' : 'Rüstung'}`);
@@ -343,10 +392,16 @@ export function calculateCombatDamage(){
     hitZones,
     zoneObj,
     zoneName,
+    subZones,
+    subZoneName,
+    fullZoneName,
+    partialArmors,
     eg,
     weaponDmg,
     verheerendX,
     verheerendBonus,
+    mehrfachschussX,
+    mehrfachschussBonus,
     durchschlagX,
     nichtParierbar,
     dmgMod,
@@ -383,7 +438,9 @@ export function resetCombatState(){
   COMBAT.dmgType = 'cut';
   COMBAT.pool = 'lp';
   COMBAT.zoneName = '';
+  COMBAT.subZoneName = '';
   COMBAT.lastHzRoll = null;
+  COMBAT.lastSubHzRoll = null;
   COMBAT.dmgMod = 0;
   COMBAT.armorMod = 0;
   COMBAT.posted = false;
@@ -476,7 +533,9 @@ export function initCombatFromRoll({ T, res, isAtkBlk20 = false, attackerName = 
   COMBAT.dmgType = defDmgType;
   COMBAT.pool = initPool;
   COMBAT.zoneName = defZone;
+  COMBAT.subZoneName = '';
   COMBAT.lastHzRoll = null;
+  COMBAT.lastSubHzRoll = null;
   COMBAT.dmgMod = 0;
   COMBAT.armorMod = 0;
   COMBAT.posted = false;
@@ -497,11 +556,27 @@ export function rollCombatHitZone(){
   const hit = matchHitZoneByRoll(hitZones, r) || hitZones[0];
   COMBAT.lastHzRoll = r;
   COMBAT.zoneName = hit ? String(hit.zone || '').trim() : 'Rumpf';
+  COMBAT.lastSubHzRoll = null;
+  COMBAT.subZoneName = '';
   COMBAT.posted = false;
+
+  const subZones = getHitZoneSubZones(hit);
+  const partialArmors = (COMBAT.pool !== 'mlp' && targetSheet) ? getPartialArmorsForMainZone(targetSheet, COMBAT.zoneName, subZones) : [];
+  let subRoll = null, subHit = null;
+  if(partialArmors.length > 0 && subZones.length > 0){
+    subRoll = rollW100();
+    if(subRoll === 69) triggerNiceEasterEgg();
+    subHit = matchHitZoneByRoll(subZones, subRoll) || subZones[0];
+    COMBAT.lastSubHzRoll = subRoll;
+    COMBAT.subZoneName = subHit ? String(subHit.zone || '').trim() : '';
+  }
 
   const isLob = isLobbyNeutralDice();
   const targetLbl = targetSheet ? (String(targetSheet.profile?.name || '').trim() || COMBAT.targetName) : COMBAT.targetName;
-  const hzLabel = hit ? `${hit.zone}${hit.size ? ` (${hit.size})` : ''}` : 'Unbekannt';
+  const baseHzLabel = hit ? `${hit.zone}${hit.size ? ` (${hit.size})` : ''}` : 'Unbekannt';
+  const hzLabel = (subHit && subRoll !== null)
+    ? `${hit?.zone || 'Zone'} → ${subHit.zone} (Detail-W100 = ${subRoll})`
+    : baseHzLabel;
   publishLiveRoll({
     id: uid(),
     tsMs: Date.now(),
@@ -526,10 +601,56 @@ export function rollCombatHitZone(){
   renderDice();
 }
 
+export function rollCombatSubHitZone(){
+  if(!COMBAT.active) return;
+  const targetSheet = resolveCombatTargetSheet(COMBAT.targetCharId);
+  const hitZones = getTargetHitZones(targetSheet);
+  const zoneObj = hitZones.find(z => String(z.zone || '').trim().toLowerCase() === String(COMBAT.zoneName || '').trim().toLowerCase()) || hitZones[0];
+  const subZones = getHitZoneSubZones(zoneObj);
+  if(!subZones.length){
+    toast('Für diese Trefferzone sind keine Detailzonen hinterlegt.');
+    return;
+  }
+  const r2 = rollW100();
+  if(r2 === 69) triggerNiceEasterEgg();
+  const subHit = matchHitZoneByRoll(subZones, r2) || subZones[0];
+  COMBAT.lastSubHzRoll = r2;
+  COMBAT.subZoneName = subHit ? String(subHit.zone || '').trim() : '';
+  COMBAT.posted = false;
+
+  const isLob = isLobbyNeutralDice();
+  const targetLbl = targetSheet ? (String(targetSheet.profile?.name || '').trim() || COMBAT.targetName) : COMBAT.targetName;
+  const mainName = zoneObj ? String(zoneObj.zone || '').trim() : (COMBAT.zoneName || 'Zone');
+  const hzLabel = `${mainName} → ${COMBAT.subZoneName || 'Detailzone'}`;
+  publishLiveRoll({
+    id: uid(),
+    tsMs: Date.now(),
+    ts: new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+    senderTabId: LIVE_TAB_ID,
+    charId: isLob ? '' : (S.charId || ''),
+    charName: COMBAT.attackerName || (isLob ? (CLOUD.currentUser || 'Gast') : (String(S.profile?.name || '').trim() || 'Unbenannter Held')),
+    playerName: isLob ? '' : String(CLOUD.currentUser || S.owner || '').trim(),
+    campaignId: getActiveDiceCampaignId(),
+    label: targetLbl ? `🔍 Detail-Trefferzone (${targetLbl})` : '🔍 Detail-Trefferzone',
+    vsCharId: COMBAT.targetCharId || undefined,
+    vsCharName: targetLbl || undefined,
+    isHz: true,
+    hzZone: hzLabel,
+    th: 100,
+    chance: 100,
+    res: [{ r: r2, ok: true, crit: false, eg: 0, meg: 0 }]
+  });
+  if(!isSecretRollActive()){
+    toast(`🔍 Detailzone (${mainName}): W100 = ${r2} → ${COMBAT.subZoneName}`);
+  }
+  renderDice();
+}
+
 function buildHiddenEnemyDmgFormula(calc){
   const parts = [`${calc.eg} EG`];
   if(calc.weaponDmg) parts.push(`+ ${calc.weaponDmg} Waffe${calc.ammo ? '/Mun.' : ''}`);
   if(calc.verheerendBonus) parts.push(`+ ${calc.verheerendBonus} Verheerend`);
+  if(calc.mehrfachschussBonus) parts.push(`+ ${calc.mehrfachschussBonus} Mehrfachschuss (${calc.mehrfachschussX})`);
   if(calc.dmgMod) parts.push(`${calc.dmgMod > 0 ? '+' : '−'} ${Math.abs(calc.dmgMod)} Mod`);
   if(calc.blockRed) parts.push(`− ${calc.blockRed} Block`);
   return `${parts.join(' ')} → ${calc.finalDmg} ${calc.poolLbl} (nach Gegner-Rüstung)`;
@@ -543,8 +664,8 @@ export function publishCombatDamageToFeed(){
   const dmgTypeLabel = calc.selOpt.shortLabel || calc.selOpt.label || 'Schaden';
   const targetIsEnemy = Boolean(COMBAT.targetCharId && isEnemySheet(COMBAT.targetCharId));
   const title = calc.targetName
-    ? `💥 Schaden: ${calc.weaponName} → ${calc.targetName} (${calc.zoneName})`
-    : `💥 Schaden: ${calc.weaponName} (${calc.zoneName})`;
+    ? `💥 Schaden: ${calc.weaponName} → ${calc.targetName} (${calc.fullZoneName})`
+    : `💥 Schaden: ${calc.weaponName} (${calc.fullZoneName})`;
 
   const payload = {
     id: uid(),
@@ -566,7 +687,7 @@ export function publishCombatDamageToFeed(){
     durchschlagApplied: calc.durchschlagApplied,
     dmgTypeLabel,
     pool: calc.pool,
-    hzZone: calc.zoneName,
+    hzZone: calc.fullZoneName,
     thresholdLevel: targetIsEnemy ? 'none' : calc.threshold.level,
     thresholdLabel: targetIsEnemy ? '' : calc.threshold.label,
     formula: targetIsEnemy ? buildHiddenEnemyDmgFormula(calc) : calc.formula,
@@ -668,7 +789,7 @@ export function sendCombatDamageOffer(){
     weaponName: calc.weaponName,
     pool: calc.pool,
     amount: calc.finalDmg,
-    zoneName: calc.zoneName,
+    zoneName: calc.fullZoneName,
     dmgTypeLabel: calc.selOpt.shortLabel || calc.selOpt.label || 'Schaden',
     thresholdLevel: calc.threshold.level,
     thresholdLabel: calc.threshold.label,
@@ -865,7 +986,7 @@ export async function applyCombatDamageDirectly(){
   const resKey = calc.pool === 'mlp' ? 'mlpCurrent' : 'lpCurrent';
   const isLob = isLobbyNeutralDice();
   const atkName = COMBAT.attackerName || (isLob ? (CLOUD.currentUser || 'Gast') : (String(S.profile?.name || '').trim() || 'Unbenannter Held'));
-  const logText = `💥 Schaden (SL-Direktabzug • ${atkName}, ${calc.weaponName}, ${calc.zoneName}): −${calc.finalDmg} ${calc.poolLbl}${calc.threshold.label ? ` [${calc.threshold.label}]` : ''}`;
+  const logText = `💥 Schaden (SL-Direktabzug • ${atkName}, ${calc.weaponName}, ${calc.fullZoneName}): −${calc.finalDmg} ${calc.poolLbl}${calc.threshold.label ? ` [${calc.threshold.label}]` : ''}`;
 
   COMBAT.directApplying = true;
   renderDice();
@@ -913,11 +1034,11 @@ export async function applyCombatDamageDirectly(){
     campaignId: getActiveDiceCampaignId(),
     vsCharId: tid,
     vsCharName: calc.targetName || 'Ziel',
-    label: `⚡ Schaden angewendet: ${calc.targetName || 'Ziel'} (${calc.zoneName}) • ${publicValTxt}`,
+    label: `⚡ Schaden angewendet: ${calc.targetName || 'Ziel'} (${calc.fullZoneName}) • ${publicValTxt}`,
     isDamage: true,
     finalDmg: calc.finalDmg,
     pool: calc.pool,
-    hzZone: calc.zoneName,
+    hzZone: calc.fullZoneName,
     dmgTypeLabel: calc.selOpt.shortLabel || calc.selOpt.label || 'Schaden',
     thresholdLevel: targetIsEnemy ? 'none' : calc.threshold.level,
     thresholdLabel: targetIsEnemy ? '' : calc.threshold.label,
@@ -1027,6 +1148,10 @@ export function renderCombatDamageBox(){
     ? `<div class="text-[10px] font-extrabold px-2 py-1 rounded-lg border tabular ${calc.verheerendBonus ? 'border-orange-400/60 bg-orange-500/20 text-orange-200' : 'bdr-line bg-black/20 t-mut'}">🔥 Verheerend (${calc.verheerendX}): ${calc.verheerendBonus ? `+${calc.verheerendBonus} Schaden aktiv (${calc.eg} ≥ 5 EG)` : `inaktiv (${calc.eg} < 5 EG)`}</div>`
     : '';
 
+  const mehrfachschussHtml = calc.mehrfachschussX
+    ? `<div class="text-[10px] font-extrabold px-2 py-1 rounded-lg border tabular ${calc.mehrfachschussBonus ? 'border-amber-400/60 bg-amber-500/20 text-amber-200' : 'bdr-line bg-black/20 t-mut'}">🏹 Mehrfachschuss (${calc.mehrfachschussX}): ${calc.mehrfachschussBonus ? `+${calc.mehrfachschussBonus} Schaden aktiv (⌊${calc.eg} / ${calc.mehrfachschussX}⌋)` : `inaktiv (${calc.eg} < ${calc.mehrfachschussX} EG)`}</div>`
+    : '';
+
   const isMlpPool = calc.pool === 'mlp';
   const armorRowsHtml = calc.armor.pieces.length
     ? calc.armor.pieces.map(p => `<div class="flex items-center justify-between gap-2 text-[11px] tabular min-w-0"><span class="truncate font-bold">${esc(p.name)}</span><span class="t-mut shrink-0">${p.grp ? `gRP ${p.grp} + ` : ''}${esc(p.specDesc)} = <strong class="${isMlpPool ? 'text-indigo-300' : 'text-emerald-300'}">${p.total}</strong></span></div>`).join('')
@@ -1034,18 +1159,47 @@ export function renderCombatDamageBox(){
 
   const armorSectionHtml = hideTarget
     ? `<div class="p-2 rounded-lg bg-black/25 border bdr-line flex items-center justify-between gap-2 text-[11px] t-mut min-w-0">
-        <span class="font-bold ${isMlpPool ? 'text-indigo-300/90' : 'text-emerald-300/90'}">${isMlpPool ? '🧠 Mentale Rüstung' : `🛡️ Rüstung (${esc(calc.zoneName)})`}</span>
+        <span class="font-bold ${isMlpPool ? 'text-indigo-300/90' : 'text-emerald-300/90'}">${isMlpPool ? '🧠 Mentale Rüstung' : `🛡️ Rüstung (${esc(calc.fullZoneName)})`}</span>
         <span class="text-[10px] font-semibold">🔒 Automatisch verrechnet (Details verborgen)</span>
       </div>`
     : `<div class="p-2 rounded-lg bg-black/25 border ${isMlpPool ? 'border-indigo-400/35' : 'bdr-line'} space-y-1 min-w-0">
         <div class="flex items-center justify-between gap-2 text-[10px] font-extrabold">
-          <span class="${isMlpPool ? 'text-indigo-300' : 'text-emerald-300'} uppercase tracking-wider">${isMlpPool ? '🧠 Mentale Rüstung (global)' : `🛡️ Rüstung (${esc(calc.zoneName)} • ${esc(calc.selOpt.shortLabel || calc.selOpt.label)})`}</span>
+          <span class="${isMlpPool ? 'text-indigo-300' : 'text-emerald-300'} uppercase tracking-wider">${isMlpPool ? '🧠 Mentale Rüstung (global)' : `🛡️ Rüstung (${esc(calc.fullZoneName)} • ${esc(calc.selOpt.shortLabel || calc.selOpt.label)})`}</span>
           <span class="${isMlpPool ? 'text-indigo-300' : 'text-emerald-300'} tabular">Gesamt: ${calc.armor.total}</span>
         </div>
         ${armorRowsHtml}
         ${calc.armor.globalMod ? `<div class="flex items-center justify-between gap-2 text-[11px] tabular"><span class="t-mut">Aktive Effekte (${isMlpPool ? 'Mentale Rüstung' : 'Rüstungsschutz'})</span><span class="font-bold ${isMlpPool ? 'text-indigo-300' : 'text-emerald-300'}">${fmtSign(calc.armor.globalMod)}</span></div>` : ''}
         ${calc.armor.manualMod ? `<div class="flex items-center justify-between gap-2 text-[11px] tabular"><span class="t-mut">Manueller Rüstungs-Mod</span><span class="font-bold">${fmtSign(calc.armor.manualMod)}</span></div>` : ''}
       </div>`;
+
+  const subZoneSectionHtml = (!isMlpPool && calc.subZones && calc.subZones.length)
+    ? (() => {
+        const hasPart = calc.partialArmors && calc.partialArmors.length > 0;
+        const partNames = hasPart ? calc.partialArmors.map(p => `${p.name} (${p.matchedSubs.join(', ')})`).join(' • ') : '';
+        const warnHtml = (hasPart && !calc.subZoneName)
+          ? `<div class="p-1.5 px-2 rounded-lg border border-amber-400/60 bg-amber-500/15 text-[10px] font-extrabold text-amber-200 flex flex-wrap items-center justify-between gap-1.5">
+              <span>🛡️ Teilrüstung aktiv${hideTarget ? '' : `: ${esc(partNames)}`} – Detailzone bestimmen!</span>
+              <button type="button" data-action="combat-roll-subhz" class="btn py-0.5 px-2 text-[10px] font-black bg-amber-500 text-slate-950 border-amber-300">🔍 Detail-W100</button>
+            </div>`
+          : '';
+        const subBtns = [
+          `<button type="button" data-action="combat-set-subzone" data-subzone="" class="btn py-0.5 px-2 text-[10px] font-extrabold ${!calc.subZoneName ? 'btn-pri' : 'opacity-80 hover:opacity-100'}">Allgemein</button>`,
+          ...calc.subZones.map(sz => {
+            const sn = String(sz.zone || '').trim();
+            const act = sn.toLowerCase() === calc.subZoneName.toLowerCase();
+            return `<button type="button" data-action="combat-set-subzone" data-subzone="${esc(sn)}" data-tip="Detailzone ${esc(calc.zoneName)} → ${esc(sn)} (${esc(sz.range || '')})" class="btn py-0.5 px-2 text-[10px] font-extrabold ${act ? 'btn-pri' : 'opacity-80 hover:opacity-100'}">${esc(sn)}${sz.range ? ` <span class="text-[9px] opacity-75 tabular">(${esc(sz.range)})</span>` : ''}</button>`;
+          })
+        ].join('');
+        return `<div class="pt-1.5 border-t border-white/10 space-y-1.5 min-w-0">
+          ${warnHtml}
+          <div class="flex flex-wrap items-center justify-between gap-1.5">
+            <span class="text-[10px] font-extrabold t-mut uppercase tracking-wider">🔍 Detailzone (${esc(calc.zoneName)})${COMBAT.lastSubHzRoll !== null ? ` • W100 = <strong class="text-cyan-300">${COMBAT.lastSubHzRoll}</strong>` : ''}</span>
+            <button type="button" data-action="combat-roll-subhz" data-tip="Würfelt per W100 genau aus, welcher Bereich von „${esc(calc.zoneName)}“ getroffen wird" class="btn py-0.5 px-2 text-[10px] font-extrabold border-cyan-400/55 bg-cyan-500/15 text-cyan-200 hover:bg-cyan-500/25">🔍 Genau würfeln</button>
+          </div>
+          <div class="flex flex-wrap gap-1 min-w-0">${subBtns}</div>
+        </div>`;
+      })()
+    : '';
 
   const thresholdSectionHtml = hideTarget
     ? `<div class="inline-flex flex-wrap items-center justify-center gap-1 px-2.5 py-1 rounded-lg border bdr-line bg-black/20 t-mut text-[10px] font-bold max-w-full">🔒 Verwundungsschwellen des Gegners verborgen (SL sieht Details im Schadensangebot)</div>`
@@ -1092,6 +1246,7 @@ export function renderCombatDamageBox(){
         <button type="button" data-action="combat-roll-hz" class="btn py-0.5 px-2 text-[11px] font-extrabold border-amber-400/55 bg-amber-500/15 text-amber-200 hover:bg-amber-500/25">🎯 Trefferzone auswürfeln</button>
       </div>
       <div class="flex flex-wrap gap-1 min-w-0">${zoneBtnsHtml}</div>
+      ${subZoneSectionHtml}
     </div>
 
     <div class="space-y-1.5 pt-1.5 border-t border-white/10 min-w-0">
@@ -1104,6 +1259,7 @@ export function renderCombatDamageBox(){
       </div>
       <div class="flex flex-wrap gap-1 min-w-0">${dmgTypeBtnsHtml}</div>
       ${verheerendHtml}
+      ${mehrfachschussHtml}
       ${blockToggleHtml}
     </div>
 

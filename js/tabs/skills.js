@@ -8,10 +8,10 @@ import {
   hooks
 } from '../ui-hooks.js';
 import {
-  openCtxMenu, toast, logChron, save, S, D, isMobileLayout, UI
+  openCtxMenu, toast, logChron, save, getWeaponSubtype, S, D, isMobileLayout, UI
 } from '../state.js';
 import {
-  calcActiveMods, getAdvDisForContext, calcAutoSkCost, calcSkCost, calcProg, fmtAdvSrcLines, getAttrCol, getAttrTot, getSkAutoBonus, hasSkBonusOvr, getSkBonus
+  calcActiveMods, getAdvDisForContext, getEquippedWeaponsForSkill, getWeaponDualWieldInfo, calcAutoSkCost, calcSkCost, calcProg, fmtAdvSrcLines, getAttrCol, getAttrTot, getSkAutoBonus, hasSkBonusOvr, getSkBonus
 } from '../calc.js';
 import {
   syncDiceFromSheet
@@ -23,12 +23,24 @@ export const skCatOpts=sel=>Object.entries(SK_CATS).map(([k,v])=>`<option value=
 export function buildSkRollBtnMeta(sk,M=calcActiveMods()){
   const autoB=getSkAutoBonus(sk.rank), hasOvr=hasSkBonusOvr(sk), effB=getSkBonus(sk), av=getAttrTot(sk.linkedAttr,M), pool=av+effB;
   const skAd=getAdvDisForContext({skillId:sk.id,attrKey:sk.linkedAttr},M), adTip=fmtAdvSrcLines(skAd.src);
+  const eqWps=getEquippedWeaponsForSkill(sk.id,S);
   const skBadge=(skAd.autoAdv||skAd.autoDis)?`<span class="text-[10px] font-black shrink-0 ${skAd.autoAdv>=skAd.autoDis?'text-emerald-400':'text-rose-400'}">${skAd.autoAdv?`+${skAd.autoAdv}V`:''}${skAd.autoDis?`${skAd.autoAdv?'/':''}+${skAd.autoDis}N`:''}</span>`:'';
+  let wpBadge='', wpTip='';
+  if(eqWps.length===1){
+    const w0=eqWps[0], sub=getWeaponSubtype(w0.wType), dw=getWeaponDualWieldInfo(w0,S);
+    const wNm=String(w0.name||'').trim()||sub.label;
+    wpBadge=`<span class="text-[10px] font-black shrink-0 text-amber-300">${sub.icon}${dw.isDualWield?`+${dw.dis}N`:''}</span>`;
+    wpTip=`\n${sub.icon} Angelegte Waffe: ${wNm} (öffnet Trefferwurf inkl. Waffenschaden${dw.isDualWield?` • ${dw.label}: +${dw.dis}N`:''})`;
+  }else if(eqWps.length>=2){
+    wpBadge=`<span class="text-[10px] font-black shrink-0 text-amber-300">⚔️×${eqWps.length}</span>`;
+    const names=eqWps.map(w=>{const dw=getWeaponDualWieldInfo(w,S);const nm=String(w.name||'').trim()||getWeaponSubtype(w.wType).label;return dw.isDualWield?`${nm} (${dw.label} +${dw.dis}N)`:nm;}).join(', ');
+    wpTip=`\n⚔️ ${eqWps.length} angelegte Waffen: ${names} (Klick öffnet Waffenwahl)`;
+  }
   const skColStyle=sk.color?`style="color:${esc(sk.color)}"`:`style="color:var(--txt)"`;
   const dispName=String(sk.name||'').trim()||'Unbenannte Fertigkeit';
-  const tip=`Probe auf ${dispName} (${pool} = ${sk.linkedAttr} ${av} ${fmtSign(effB)}${hasOvr?` • Manuell, Grad: +${autoB}`:''})${adTip?'\n'+adTip:''}`;
-  const innerHtml=`<span class="px-2 py-0.5 rounded-md bg-acc-soft border bdr-acc text-acc font-black shrink-0 tabular inline-flex items-center gap-1"><span>🎲 ${pool}</span>${skBadge}</span><span class="font-extrabold truncate text-left flex-1 min-w-0" ${skColStyle}>${esc(dispName)}</span>`;
-  return {pool,av,effB,autoB,hasOvr,skBadge,tip,innerHtml};
+  const tip=`Probe auf ${dispName} (${pool} = ${sk.linkedAttr} ${av} ${fmtSign(effB)}${hasOvr?` • Manuell, Grad: +${autoB}`:''})${wpTip}${adTip?'\n'+adTip:''}`;
+  const innerHtml=`<span class="px-2 py-0.5 rounded-md bg-acc-soft border bdr-acc text-acc font-black shrink-0 tabular inline-flex items-center gap-1"><span>🎲 ${pool}</span>${wpBadge}${skBadge}</span><span class="font-extrabold truncate text-left flex-1 min-w-0" ${skColStyle}>${esc(dispName)}</span>`;
+  return {pool,av,effB,autoB,hasOvr,skBadge,wpBadge,tip,innerHtml};
 }
 
 export function moveSkillOrder(skId,dir,isChron=false){
@@ -454,7 +466,7 @@ export function renderSkMobileList(skList){
       <div class="flex items-center gap-1.5 min-w-0">
         ${nameSlot}
         ${!isEditing?`<span class="px-1.5 py-0.5 rounded text-[10px] font-black shrink-0 tabular" style="color:${attrCol};background:color-mix(in srgb,${attrCol} 16%,transparent);border:1px solid color-mix(in srgb,${attrCol} 42%,transparent)">${esc(sk.linkedAttr)}</span>`:''}
-        <button type="button" id="skMobRollBtn_${sk.id}" data-action="roll-skill" data-id="${sk.id}" data-tip="${esc(bm.tip)}" aria-label="Probe auf ${esc(dispName)} würfeln (${bm.pool})" class="btn bg-acc-soft/50 hover:bg-acc-soft bdr-acc py-1 px-2 text-xs font-black text-acc tabular shrink-0 min-h-[32px]"><span>🎲 ${bm.pool}</span>${bm.skBadge}</button>
+        <button type="button" id="skMobRollBtn_${sk.id}" data-action="roll-skill" data-id="${sk.id}" data-tip="${esc(bm.tip)}" aria-label="Probe auf ${esc(dispName)} würfeln (${bm.pool})" class="btn bg-acc-soft/50 hover:bg-acc-soft bdr-acc py-1 px-2 text-xs font-black text-acc tabular shrink-0 min-h-[32px]"><span>🎲 ${bm.pool}</span>${bm.wpBadge||''}${bm.skBadge}</button>
         <button type="button" data-action="toggle-sk-mob-exp" data-id="${sk.id}" aria-expanded="${exp?'true':'false'}" aria-label="Details für ${esc(dispName)} ${exp?'einklappen':'ausklappen'}" class="btn w-8 h-8 p-0 text-xs font-black shrink-0 ${exp?'bdr-acc bg-acc-soft text-acc':''}">${exp?'▾':'▸'}</button>
         <button type="button" data-action="open-sk-menu" data-id="${sk.id}" data-chron="0" aria-haspopup="menu" aria-expanded="false" aria-label="Aktionen für ${esc(dispName)}" class="btn w-8 h-8 p-0 text-base font-black shrink-0">⋮</button>
       </div>
