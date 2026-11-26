@@ -153,12 +153,14 @@ export const DEF_CHR_SEC_ORDER=['training','skills','powers'];
 export const DICE_DEF={open:false,docked:false,floating:false,x:null,y:null,w:0,h:0,z:50,label:'Freie Probe',skillId:null,attrKey:null,weaponId:null,wRollCat:'Normaler Test',atkPool:'lp',dualWieldOvr:'auto',wpEditOpen:false,advSrcOpen:false,logOpen:false,cMode:'direct',cDirect:0,cAttr:0,cSkill:'0',cCustom:25,dMode:'direct',dDirect:40,dAttr:30,dSkill:'10',dCustom:25,oppCharId:'',oppKind:'preset',oppPreset:'dodge',oppAttrKey:'GW',oppSkillId:'',oppWeaponId:'',oppSitActive:{},adv:0,dis:0,advAdj:0,disAdj:0,cnt:1,crit:'1',critOff:0,critMode:'range',sitActive:{},blockFollowAtk:40,customCnt:1,customSides:20,customMod:0,customOpen:false,_lobbyNeutral:false,secretMode:false};
 export const CNOTES_DEF={open:false,docked:false,floating:false,x:null,y:null,w:0,h:0,z:50,tocOpen:true,confirmDelId:null,confirmDelFolderId:null,newFolderOpen:false,newFolderName:'',newFolderPublic:false};
 export const LIVEDICE_DEF={open:false,docked:false,floating:false,x:null,y:null,w:0,h:0,z:50};
+export const INI_DEF={open:false,docked:false,floating:false,x:null,y:null,w:0,h:0,z:50,addCustomOpen:false,customName:'',customIni:'0',customIsEnemy:true,customHidden:false};
 export const FBW_DEF={open:false,docked:false,floating:false,x:null,y:null,w:0,h:0,z:50};
 export const WIN_PREFS_KEY='scherbensturm_win_prefs_v1';
-export const WIN_KEYS=['dice','cnotes','livedice','fbadmin'];
+export const WIN_KEYS=['dice','cnotes','livedice','ini','fbadmin'];
 export const WIN_DEFAULTS={
   dice:{w:680,dockClass:'xl:w-[440px] 2xl:w-[480px]'},
   livedice:{w:720,dockClass:'xl:w-[440px] 2xl:w-[480px]'},
+  ini:{w:540,dockClass:'xl:w-[380px] 2xl:w-[430px]'},
   cnotes:{w:840,dockClass:'xl:w-[480px] 2xl:w-[520px]'},
   fbadmin:{w:740,dockClass:'xl:w-[480px] 2xl:w-[520px]'}
 };

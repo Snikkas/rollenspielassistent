@@ -1,8 +1,8 @@
 import {
-  STORE_KEY, OLD_KEYS, DEF_WEAPON_TAGS, DEF_ARMOR_TAGS, ATTRS, DEF_ATTR_COLS, STATUS_DEFS, DEFAULT_SYSTEM_ICON_SVGS, DEF_SEC_COLS, DEF_MAIN_ARTS, DEF_ACTION_SUBS, DEF_PW_TAGS, PW_ACTION_TIPS, DEF_USERES, SK_CATS, PW_TIERS, DEF_HZ, TABS, COL_PRESETS, PALETTES, WEAPON_SUBTYPES, DEF_EQ_SEC_ORDER, DEF_CHR_SEC_ORDER, DICE_DEF, CNOTES_DEF, LIVEDICE_DEF, FBW_DEF, WIN_PREFS_KEY, WIN_KEYS, WIN_DEFAULTS, PW_MODE_KEY, DEF_FB_FOLDERS, GUEST_THEME_KEY, USER_BG_LOCAL_PREFIX, THEME_BG_SYNC_LIMIT, THEME_SYNC_DEBOUNCE_MS, SCROLL_KEY_SEL, SCROLL_Y_SEL, SCROLL_X_SEL
+  STORE_KEY, OLD_KEYS, DEF_WEAPON_TAGS, DEF_ARMOR_TAGS, ATTRS, DEF_ATTR_COLS, STATUS_DEFS, DEFAULT_SYSTEM_ICON_SVGS, DEF_SEC_COLS, DEF_MAIN_ARTS, DEF_ACTION_SUBS, DEF_PW_TAGS, PW_ACTION_TIPS, DEF_USERES, SK_CATS, PW_TIERS, DEF_HZ, TABS, COL_PRESETS, PALETTES, WEAPON_SUBTYPES, DEF_EQ_SEC_ORDER, DEF_CHR_SEC_ORDER, DICE_DEF, CNOTES_DEF, LIVEDICE_DEF, INI_DEF, FBW_DEF, WIN_PREFS_KEY, WIN_KEYS, WIN_DEFAULTS, PW_MODE_KEY, DEF_FB_FOLDERS, GUEST_THEME_KEY, USER_BG_LOCAL_PREFIX, THEME_BG_SYNC_LIMIT, THEME_SYNC_DEBOUNCE_MS, SCROLL_KEY_SEL, SCROLL_Y_SEL, SCROLL_X_SEL
 } from './constants.js';
 import {
-  $, uid, stamp, esc, clone, toInt, isHex, sortAlpha, simpleHash, sortTagDefs, sanitizeSecHierarchy
+  $, uid, stamp, esc, clone, toInt, toFlt, isHex, sortAlpha, simpleHash, sortTagDefs, sanitizeSecHierarchy
 } from './utils.js';
 import {
   hooks
@@ -154,6 +154,7 @@ export let D={...DICE_DEF};
 export function setD(next){ D=next; return D; }
 export const CN={...CNOTES_DEF};
 export const LD={...LIVEDICE_DEF};
+export const INI={...INI_DEF};
 export const FBW={...FBW_DEF};
 export const diceLogs=[];
 export function clearDiceLogs(){ diceLogs.length=0; }
@@ -163,7 +164,7 @@ export const CTX_MENU={open:false,id:0,key:'',anchorEl:null,opts:null,callbacks:
 export const DUEL={outgoing:null,incoming:[],damageOffers:[],reply:null,swipeCleanup:null};
 export const COMBAT={active:false,collapsed:false,hitOk:false,blockPrompt:false,blockPromptReason:'',eg:0,egMult:1,baseEg:0,isBlocked:false,blockItemRed:false,weaponId:null,ammoId:null,attackerName:'',targetCharId:'',targetName:'',dmgType:'cut',pool:'lp',zoneName:'',subZoneName:'',lastHzRoll:null,lastSubHzRoll:null,dmgMod:0,armorMod:0,posted:false,offerId:'',offerStatus:'',offerNote:'',directApplying:false,directAppliedNote:'',ammoSpent:false};
 export function syncBodyScrollLock(){
-  document.body.style.overflow=(isMobileLayout()&&Boolean(D.open||CN.open||LD.open||FBW.open||UI.modal||CTX_MENU.open||DUEL.reply))?'hidden':'';
+  document.body.style.overflow=(isMobileLayout()&&Boolean(D.open||CN.open||LD.open||INI.open||FBW.open||UI.modal||CTX_MENU.open||DUEL.reply))?'hidden':'';
 }
 export function positionFloatingMenu(menuEl,anchorEl,opts={}){
   if(!menuEl) return;
@@ -454,7 +455,7 @@ export function repositionOpenPwMenus(){
   document.querySelectorAll('.pw-dd-menu').forEach(m=>positionPwDropdown(m));
 }
 let WIN_PREFS_CACHE={};
-export const getWinState=k=>k==='cnotes'?CN:k==='livedice'?LD:k==='fbadmin'?FBW:D;
+export const getWinState=k=>k==='cnotes'?CN:k==='livedice'?LD:k==='ini'?INI:k==='fbadmin'?FBW:D;
 export function loadAllWinPrefs(){
   try{
     const raw=localStorage.getItem(WIN_PREFS_KEY);
@@ -867,7 +868,38 @@ export function compressBgDataUrlForProfile(dataUrl,maxChars,cb){
   im.src=dataUrl;
 }
 
-export const CLOUD={serverUrl:'',list:[],trashedList:[],trashedLoading:false,trashedError:'',confirmPermDelTrashId:null,confirmEmptyTrash:false,loading:false,syncing:false,error:'',lastSyncTs:'',viewingRemote:false,remoteCharId:'',confirmDelCloudId:null,confirmDelCampPageId:null,filterMine:false,currentUser:'',isAdmin:false,showAdminBar:false,userMgmtOpen:false,activeCampaignId:'default',campAction:'',newCharOpen:false,newCharName:'',newCharAncestry:'',newCharConcept:'',newCharCampId:'default',gmEnemiesOpen:true,gmEnemyTab:'active',gmEnemySearch:'',templatesOpen:false,templateFilter:'all',templateSearch:'',newTemplateOpen:false,newTemplateName:'',newTemplateAncestry:'',newTemplateConcept:'',newTemplateCategory:'',newTemplateAsEnemyCampId:'',publicNotesOpen:true,activePublicPageKey:'',registryLoaded:false,diceFeed:[],secretRolls:[],diceConnected:false,diceToast:true,diceCollapsed:false,lobbyDiceH:340,galleryCollapsed:false,confirmClearDice:false,registry:{users:{},claims:{},charCampaigns:{},enemyMeta:{},publicNotes:{},campaignSharedNotes:{},deletedCharIds:[],campaigns:[{id:'default',name:'Ohne Kampagne / Allgemein',allowedUsers:[],gmUsers:[],img:''}],gmUsers:[],lobbyLogo:'',adminHash:'',diceFeed:[],diceClearedAt:0,diceClearedByCamp:{}}};
+export function normalizeInitiativeEntry(raw){
+  if(!raw||typeof raw!=='object') return null;
+  const id=String(raw.id||'').trim()||('ini_'+uid());
+  const charId=String(raw.charId||'').trim();
+  const name=String(raw.name||'Teilnehmer').trim()||'Teilnehmer';
+  return {
+    id,
+    charId,
+    name,
+    isEnemy:Boolean(raw.isEnemy),
+    hidden:Boolean(raw.hidden),
+    baseIni:toInt(raw.baseIni,0),
+    statusIni:toInt(raw.statusIni,0),
+    statusNote:String(raw.statusNote||'').trim(),
+    manualMod:toInt(raw.manualMod,0),
+    avatar:String(raw.avatar||''),
+    note:String(raw.note||'').trim()
+  };
+}
+export function normalizeInitiativeState(raw){
+  const src=(raw&&typeof raw==='object')?raw:{};
+  const entries=Array.isArray(src.entries)?src.entries.map(normalizeInitiativeEntry).filter(Boolean):[];
+  const activeEntryId=String(src.activeEntryId||'').trim();
+  return {
+    active:Boolean(src.active),
+    round:Math.max(1,toInt(src.round,1)),
+    activeEntryId:entries.some(e=>e.id===activeEntryId)?activeEntryId:'',
+    updatedAtMs:Math.max(0,toInt(src.updatedAtMs,0)),
+    entries
+  };
+}
+export const CLOUD={serverUrl:'',list:[],trashedList:[],trashedLoading:false,trashedError:'',confirmPermDelTrashId:null,confirmEmptyTrash:false,loading:false,syncing:false,error:'',lastSyncTs:'',viewingRemote:false,remoteCharId:'',confirmDelCloudId:null,confirmDelCampPageId:null,filterMine:false,currentUser:'',isAdmin:false,showAdminBar:false,userMgmtOpen:false,activeCampaignId:'default',campAction:'',newCharOpen:false,newCharName:'',newCharAncestry:'',newCharConcept:'',newCharCampId:'default',gmEnemiesOpen:true,gmEnemyTab:'active',gmEnemySearch:'',templatesOpen:false,templateFilter:'all',templateSearch:'',newTemplateOpen:false,newTemplateName:'',newTemplateAncestry:'',newTemplateConcept:'',newTemplateCategory:'',newTemplateAsEnemyCampId:'',publicNotesOpen:true,activePublicPageKey:'',registryLoaded:false,diceFeed:[],secretRolls:[],diceConnected:false,diceToast:true,diceCollapsed:false,lobbyDiceH:340,galleryCollapsed:false,confirmClearDice:false,registry:{users:{},claims:{},charCampaigns:{},enemyMeta:{},initiatives:{},publicNotes:{},campaignSharedNotes:{},deletedCharIds:[],campaigns:[{id:'default',name:'Ohne Kampagne / Allgemein',allowedUsers:[],gmUsers:[],img:''}],gmUsers:[],lobbyLogo:'',adminHash:'',diceFeed:[],diceClearedAt:0,diceClearedByCamp:{}}};
 export const CLOUD_SYNC={inFlight:false,inFlightPromise:null,dirty:false,seq:0,syncedSeq:0,status:'saved',debounceTimer:null,retryTimer:null,retryStep:0,lastMetaSig:'',lastMetaCharId:'',pendingSilent:true,pendingForceRegistry:false,lastError:''};
 export const PWLIB={loaded:false,loading:false,saving:false,error:'',repoPacks:[],cloudPacks:[],tab:'server',search:'',filterCat:'',filterTier:'',selectedPackId:'',openCats:{},openPacks:{},openAugFolders:{},selSecIds:{},selPwIds:{},selAugIds:{},targetSecId:'',dedupeMode:'skipExisting',lastLoadedTs:'',adminSrc:'all',adminName:'',adminCat:'Allgemein',adminDesc:'',adminIsBasis:false,confirmDelPackId:''};
 export function getCampaigns(){
@@ -2134,11 +2166,18 @@ try{
         if(cid&&em&&typeof em==='object') normEnemyMeta[cid]=normalizeEnemyMeta(em,validCampSet);
       });
     }
+    const normInitiatives={};
+    if(parsedReg.initiatives&&typeof parsedReg.initiatives==='object'){
+      Object.entries(parsedReg.initiatives).forEach(([cid,st])=>{
+        if(cid&&validCampSet.has(cid)&&st&&typeof st==='object') normInitiatives[cid]=normalizeInitiativeState(st);
+      });
+    }
     CLOUD.registry={
       ...CLOUD.registry,
       ...parsedReg,
       charCampaigns:(parsedReg.charCampaigns&&typeof parsedReg.charCampaigns==='object')?parsedReg.charCampaigns:{},
       enemyMeta:normEnemyMeta,
+      initiatives:normInitiatives,
       publicNotes:(parsedReg.publicNotes&&typeof parsedReg.publicNotes==='object')?parsedReg.publicNotes:{},
       campaignSharedNotes:(parsedReg.campaignSharedNotes&&typeof parsedReg.campaignSharedNotes==='object')?parsedReg.campaignSharedNotes:{},
       deletedCharIds:Array.isArray(parsedReg.deletedCharIds)?[...new Set(parsedReg.deletedCharIds.map(x=>String(x||'').trim()).filter(Boolean))]:[],

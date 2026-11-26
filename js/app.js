@@ -8,7 +8,7 @@ import {
   registerHooks
 } from './ui-hooks.js';
 import {
-  syncPwUseCostsLegacy, makeDefaultStatusEffects, defaultState, setS, setD, clearDiceLogs, syncBodyScrollLock, positionFloatingMenu, openCtxMenu, closeCtxMenu, closePwDropdown, repositionOpenPwMenus, hydrateWinPrefs, saveWinPref, clearWinPref, applyWinFrame, setPwMode, normalizeCampaigns, normalizeEnemyMeta, getUserBgLocalKey, getCampaigns, setActiveCampaign, canManageCampaign, canClearLiveDice, getCreatableCampaigns, isEnemySheet, getEnemyMeta, canToggleEnemyStatus, canManageEnemySheet, canViewEnemySheet, ensureAllRegistryUsers, findUserKeyByName, findUserKeyById, getUserAvatar, canViewUserProfile, saveRegistryLocal, saveSecretRollsLocal, getActiveLiveCampaignId, captureScrollState, restoreScrollState, toast, triggerNiceEasterEgg, logChron, mergeLoaded, saveLastActiveTab, save, flushPendingSave, saveSoon, load, flushThemePrefsSync, cancelThemePrefsSync, applySessionTheme, persistCurrentThemeChange, syncPalDraftFromSlot, applyTheme, CUSTOM_ICONS, findMainArt, findActionSub, isReservedPwTerm, getWeaponSubtype, isWeaponMassiv, makeWeapon, makeAmmo, makeArmor, makeInvItem, makeEqSecMeta, makeChrSecMeta, makeSection, makeSkSection, makeInvSection, makePower, makeAugment, syncEquipmentToInventory, S, D, CN, LD, FBW, DUEL, COMBAT, isMobileLayout, CTX_MENU, getWinState, hasSavedWinPref, savedEffRanges, savedPwRanges, lastPwFieldById, pwQuickKey, UI, LIVE_TAB_ID, PATCHNOTES, FEEDBACK, CLOUD, CLOUD_SYNC, PWLIB, getCharOwner, getCharCampaignId, canManageChar, getEditStyleSlot
+  syncPwUseCostsLegacy, makeDefaultStatusEffects, defaultState, setS, setD, clearDiceLogs, syncBodyScrollLock, positionFloatingMenu, openCtxMenu, closeCtxMenu, closePwDropdown, repositionOpenPwMenus, hydrateWinPrefs, saveWinPref, clearWinPref, applyWinFrame, setPwMode, normalizeCampaigns, normalizeEnemyMeta, getUserBgLocalKey, getCampaigns, setActiveCampaign, canManageCampaign, canClearLiveDice, getCreatableCampaigns, isEnemySheet, getEnemyMeta, canToggleEnemyStatus, canManageEnemySheet, canViewEnemySheet, ensureAllRegistryUsers, findUserKeyByName, findUserKeyById, getUserAvatar, canViewUserProfile, saveRegistryLocal, saveSecretRollsLocal, getActiveLiveCampaignId, captureScrollState, restoreScrollState, toast, triggerNiceEasterEgg, logChron, mergeLoaded, saveLastActiveTab, save, flushPendingSave, saveSoon, load, flushThemePrefsSync, cancelThemePrefsSync, applySessionTheme, persistCurrentThemeChange, syncPalDraftFromSlot, applyTheme, CUSTOM_ICONS, findMainArt, findActionSub, isReservedPwTerm, getWeaponSubtype, isWeaponMassiv, makeWeapon, makeAmmo, makeArmor, makeInvItem, makeEqSecMeta, makeChrSecMeta, makeSection, makeSkSection, makeInvSection, makePower, makeAugment, syncEquipmentToInventory, S, D, CN, LD, INI, FBW, DUEL, COMBAT, isMobileLayout, CTX_MENU, getWinState, hasSavedWinPref, savedEffRanges, savedPwRanges, lastPwFieldById, pwQuickKey, UI, LIVE_TAB_ID, PATCHNOTES, FEEDBACK, CLOUD, CLOUD_SYNC, PWLIB, getCharOwner, getCharCampaignId, canManageChar, getEditStyleSlot
 } from './state.js';
 import {
   getStatusEffValues, formatPwUseCosts, getReservablePwCosts, getEffectivePoolCap, getPwBuilderToken, parseStatusTokens, getAllParsedEffectChips, invalidateModsCache, calcActiveMods, buildAttrTip, buildSecTip, getMentalArmorSummary, syncCresRenameInTokens, syncSkillRenameInTokens, purgeExtraSecFromPowers, calcAutoSkCost, findDuplicatePwEntry, makeUniquePwName, updatePwNameDupHint, enforceUniquePwName, buildPowerExportPack, downloadPowerPackJson, resolveLibraryAugmentParentName, getSuggestedAugmentsForPower, importPowerPackIntoSheet, getTrCost, performSimpleRest, performFullRest, withPoolSync, linkAugToPower, unlinkAugFromPower, calcPwCost, calcSkCost, calcProg, getWeaponRollMeta, getEquippedWeaponsForSkill, getWeaponDualWieldInfo, getTagDesc, cresName, makeExtraSec, getExtraSecName, getResLabel, escReStr, getAttrCol, getSecCol, getAttrTot, getLpBase, getLpMax, getMlpBase, getMlpMax, getLpRegenAuto, getMlpRegenAuto, hasLpRegenOvr, hasMlpRegenOvr, getLpRegen, getMlpRegen, getIniBase, getIniTot, getApBase, getApMax, getMapBase, getMapMax, getCresBase, getCresMax, getExtraSecBase, getBstAuto, hasBstOvr, getBstBase, getEffBst, getSkAutoBonus, hasSkBonusOvr, getSkBonus, findPwItem, findEqItem, getLinkedAugs, getValidPwSecId
@@ -25,6 +25,9 @@ import {
 import {
   initCombatFromRoll, resetCombatState, rollCombatHitZone, rollCombatSubHitZone, publishCombatDamageToFeed, renderCombatDamageBox, hasTagMatch, sendCombatDamageOffer, applyCombatDamageDirectly, spendCombatAmmo, handleCombatLiveEvent, acceptCombatDamageOffer, declineCombatDamageOffer
 } from './combat.js';
+import {
+  getActiveInitiativeCampaignId, toggleCampaignInitiativeActive, loadCampaignHeroesIntoInitiative, addCustomInitiativeEntry, openInitiativeAddEnemyPicker, refreshAllInitiativeEntries, stepInitiativeTurn, setInitiativeActiveEntry, resetInitiativeRound, adjustInitiativeEntryMod, resetInitiativeEntryMod, toggleInitiativeEntryHidden, removeInitiativeEntry, clearInitiativeEntries, syncOwnCharToInitiative, handleInitiativeLiveEvent, renderInitiativeWindow, updateInitiativeUI
+} from './initiative.js';
 import {
   applyRtfCommand, autoSizeAllTextareas, ensureCampNotesStructure, syncPublicNotesAfterChange, renderCampNotes, getCaretRangeAtPoint, syncPwFieldCursorState, saveEffRangeIfActive, insertTokenAtCursor, placeCaretAtStart, indentRtfLi, outdentRtfLi, RTF_STATE, getOrderedCampNoteFolders
 } from './notes.js';
@@ -78,7 +81,7 @@ function renderMain(){
   if(UI.openPwMenu) repositionOpenPwMenus();
 }
 
-function renderAll(userSave=true){applyTheme();renderHeader();renderMain();renderDice();renderLiveDice();renderCampNotes();renderModal(true);save(userSave);}
+function renderAll(userSave=true){applyTheme();renderHeader();renderMain();renderDice();renderLiveDice();renderInitiativeWindow();renderCampNotes();renderModal(true);syncOwnCharToInitiative();save(userSave);}
 
 const updateCalcDOM=()=>syncLiveCalculations();
 function syncLiveCalculations(deferSave=false){
@@ -257,6 +260,7 @@ function syncLiveCalculations(deferSave=false){
     if(!inDice){renderDice();}
     else{const dT=calcThreshold();if($('diceAdvDisBox'))$('diceAdvDisBox').innerHTML=buildAdvDisInnerHtml(dT);if($('diceThBox'))$('diceThBox').innerHTML=buildThresholdInnerHtml(dT);}
   }
+  syncOwnCharToInitiative();
   if(deferSave) saveSoon(); else save();
 }
 
@@ -296,8 +300,8 @@ document.addEventListener('click',async e=>{
   const el=e.target.closest('[data-action]'); if(!el) return;
   const btn=el, act=el.dataset.action; if(act==='close-modal-bg'&&e.target!==el) return;
   if(act==='fb-set-backlog-user'){if(!CLOUD.isAdmin)return;FEEDBACK.backlogUser=btn.dataset.user||'all';renderModal();return;}
-  if(act==='win-float'){ const k=btn.dataset.win, st=getWinState(k); st.floating=!st.floating; if(st.floating){st.docked=false; st.z=Math.max(CN.z||50,D.z||50,LD.z||50,FBW.z||50)+1;} saveWinPref(k); renderCampNotes(); renderLiveDice(); renderFbAdminWin(); renderDice(); return; }
-  if(act==='win-reset'){ const k=btn.dataset.win, st=getWinState(k); st.w=0; st.h=0; st.x=null; st.y=null; st.floating=false; clearWinPref(k); renderCampNotes(); renderLiveDice(); renderFbAdminWin(); renderDice(); return; }
+  if(act==='win-float'){ const k=btn.dataset.win, st=getWinState(k); st.floating=!st.floating; if(st.floating){st.docked=false; st.z=Math.max(CN.z||50,D.z||50,LD.z||50,INI.z||50,FBW.z||50)+1;} saveWinPref(k); renderCampNotes(); renderLiveDice(); renderInitiativeWindow(); renderFbAdminWin(); renderDice(); return; }
+  if(act==='win-reset'){ const k=btn.dataset.win, st=getWinState(k); st.w=0; st.h=0; st.x=null; st.y=null; st.floating=false; clearWinPref(k); renderCampNotes(); renderLiveDice(); renderInitiativeWindow(); renderFbAdminWin(); renderDice(); return; }
   if(act==='open-fbadmin-win'){ if(CLOUD.isAdmin){ UI.modal=null; FBW.open=true; if(!hasSavedWinPref('fbadmin')) FBW.floating=true; renderModal(); renderFbAdminWin(); fetchFeedback(false); } return; }
   if(act==='close-fbadmin'){ FBW.open=false; renderFbAdminWin(); return; }
   switch(act){
@@ -1563,6 +1567,26 @@ document.addEventListener('click',async e=>{
     case 'close-livedice': LD.open=false; renderHeader(); renderDice(); renderLiveDice(); break;
     case 'dock-livedice':
     case 'toggle-dock-livedice': LD.docked=!LD.docked; if(LD.docked&&LD.floating){LD.floating=false;saveWinPref('livedice');} renderDice(); renderLiveDice(); break;
+    case 'toggle-ini': INI.open=!INI.open; if(INI.open) syncCloudRegistry(false); renderHeader(); renderInitiativeWindow(); break;
+    case 'close-ini': INI.open=false; renderHeader(); renderInitiativeWindow(); break;
+    case 'dock-ini':
+    case 'toggle-ini-dock': INI.docked=!INI.docked; if(INI.docked&&INI.floating){INI.floating=false;saveWinPref('ini');} renderInitiativeWindow(); break;
+    case 'ini-toggle-active': await toggleCampaignInitiativeActive(el.dataset.camp||getActiveInitiativeCampaignId()); break;
+    case 'ini-load-heroes': await loadCampaignHeroesIntoInitiative(el.dataset.camp||getActiveInitiativeCampaignId()); break;
+    case 'ini-open-add-picker': openInitiativeAddEnemyPicker(el,el.dataset.camp||getActiveInitiativeCampaignId()); break;
+    case 'ini-toggle-custom': INI.addCustomOpen=!INI.addCustomOpen; updateInitiativeUI(); break;
+    case 'ini-add-custom': addCustomInitiativeEntry(el.dataset.camp||getActiveInitiativeCampaignId()); break;
+    case 'ini-custom-toggle-enemy': INI.customIsEnemy=!INI.customIsEnemy; updateInitiativeUI(); break;
+    case 'ini-custom-toggle-hidden': INI.customHidden=!INI.customHidden; updateInitiativeUI(); break;
+    case 'ini-refresh-all': await refreshAllInitiativeEntries(el.dataset.camp||getActiveInitiativeCampaignId()); break;
+    case 'ini-clear': clearInitiativeEntries(el.dataset.camp||getActiveInitiativeCampaignId()); break;
+    case 'ini-step': stepInitiativeTurn(el.dataset.camp||getActiveInitiativeCampaignId(),Number(el.dataset.delta||1)); break;
+    case 'ini-set-active': setInitiativeActiveEntry(el.dataset.camp||getActiveInitiativeCampaignId(),el.dataset.id||''); break;
+    case 'ini-reset-round': resetInitiativeRound(el.dataset.camp||getActiveInitiativeCampaignId()); break;
+    case 'ini-mod-step': adjustInitiativeEntryMod(el.dataset.camp||getActiveInitiativeCampaignId(),el.dataset.id||'',Number(el.dataset.delta||0)); break;
+    case 'ini-mod-reset': resetInitiativeEntryMod(el.dataset.camp||getActiveInitiativeCampaignId(),el.dataset.id||''); break;
+    case 'ini-toggle-hidden': toggleInitiativeEntryHidden(el.dataset.camp||getActiveInitiativeCampaignId(),el.dataset.id||''); break;
+    case 'ini-remove': removeInitiativeEntry(el.dataset.camp||getActiveInitiativeCampaignId(),el.dataset.id||''); break;
     case 'reset-dice': clearOutgoingDuel({notifyCancel:true,silent:true}); resetCombatState(); setD({...DICE_DEF,sitActive:{},oppSitActive:{},open:true,docked:D.docked,floating:D.floating,x:D.x,y:D.y,w:D.w,h:D.h,z:D.z}); if(isLobbyNeutralDice()) resetDiceToLobbyNeutral(); UI.lastRollHtml=''; UI.lastBlockBaseHtml=''; UI.lastBlockFollowRes=null; UI.lastSecretRollId=''; renderDice(); updateLobbyLiveDiceDOM(); break;
     case 'toggle-cnotes': CN.open=!CN.open; CN.confirmDelId=null; renderHeader(); renderCampNotes(); break;
     case 'close-cnotes': CN.open=false; CN.confirmDelId=null; renderHeader(); renderCampNotes(); break;
@@ -2141,6 +2165,7 @@ document.addEventListener('click',async e=>{
       CLOUD.campAction='';
       if(UI.inLobby){renderHeader();renderMain();}
       if(LD.open) renderLiveDice();
+      if(INI.open) renderInitiativeWindow();
       renderHeader();
       break;
     }
@@ -3402,6 +3427,12 @@ document.addEventListener('click',async e=>{
 document.addEventListener('focusin',e=>{if(e.target.dataset?.cres==='name') e.target.dataset.prevCres=cresName();if(e.target.dataset?.exsec?.endsWith(':name')){const id=e.target.dataset.exsec.split(':')[0],ex=(S.extraSecList||[]).find(x=>x.id===id);if(ex)e.target.dataset.prevExName=getExtraSecName(ex);}if(e.target.dataset?.sk?.endsWith(':name')){const id=e.target.dataset.sk.split(':')[0],sk=S.skills.find(x=>x.id===id);if(sk)e.target.dataset.prevSkName=String(sk.name||'').trim();}if(e.target.dataset?.pwf?.endsWith(':name')){const [kind,id]=e.target.dataset.pwf.split(':'),it=findPwItem(kind,id);if(it)e.target.dataset.prevName=String(it.name||'');}});
 
 document.addEventListener('input',e=>{
+  if(e.target?.dataset?.iniCustom){
+    const f=e.target.dataset.iniCustom;
+    if(f==='name') INI.customName=e.target.value;
+    else if(f==='ini') INI.customIni=e.target.value;
+    return;
+  }
   if(e.target?.dataset?.combatOfferInp){
     const oid=e.target.dataset.combatOfferInp;
     const of=(DUEL.damageOffers||[]).find(x=>x&&x.offerId===oid);
@@ -5725,6 +5756,11 @@ document.addEventListener('keydown',e=>{
     }
     return;
   }
+  if(e.target&&e.target.dataset?.iniCustom&&e.key==='Enter'){
+    e.preventDefault();
+    addCustomInitiativeEntry(getActiveInitiativeCampaignId());
+    return;
+  }
   if(e.target&&e.target.id&&e.target.id.startsWith('skNameInp_')&&(e.key==='Enter'||e.key==='Escape')){
     e.preventDefault();
     UI.editSkNameId=null;
@@ -5732,7 +5768,7 @@ document.addEventListener('keydown',e=>{
     updateCalcDOM();
     return;
   }
-  if(e.key==='Escape'){if(CTX_MENU.open){closeCtxMenu();}else if(DUEL.reply){closeDuelReplyModal();}else if(UI.openPwMenu){closePwDropdown();}else if(UI.modal){closeActiveModal();}else if(D.open&&!D.docked){D.open=false;renderHeader();renderDice();}else if(CN.open&&!CN.docked){CN.open=false;renderHeader();renderCampNotes();}}
+  if(e.key==='Escape'){if(CTX_MENU.open){closeCtxMenu();}else if(DUEL.reply){closeDuelReplyModal();}else if(UI.openPwMenu){closePwDropdown();}else if(UI.modal){closeActiveModal();}else if(D.open&&!D.docked){D.open=false;renderHeader();renderDice();}else if(INI.open&&!INI.docked){INI.open=false;renderHeader();renderInitiativeWindow();}else if(CN.open&&!CN.docked){CN.open=false;renderHeader();renderCampNotes();}}
 });
 document.addEventListener('focusout',e=>{
   const inp=e.target;
@@ -5785,6 +5821,7 @@ function reapplyAllWinFrames(){
   if(D.open&&$('diceMount')) applyWinFrame('dice',$('diceMount'),$('diceBackdrop'),WIN_DEFAULTS.dice.dockClass);
   if(CN.open&&$('notesMount')) applyWinFrame('cnotes',$('notesMount'),$('notesBackdrop'),WIN_DEFAULTS.cnotes.dockClass);
   if(LD.open&&$('liveDiceMount')) applyWinFrame('livedice',$('liveDiceMount'),$('liveDiceBackdrop'),WIN_DEFAULTS.livedice.dockClass);
+  if(INI.open&&$('iniMount')) applyWinFrame('ini',$('iniMount'),$('iniBackdrop'),WIN_DEFAULTS.ini.dockClass);
   if(FBW.open&&$('fbAdminMount')) applyWinFrame('fbadmin',$('fbAdminMount'),$('fbAdminBackdrop'),WIN_DEFAULTS.fbadmin.dockClass);
 }
 let lastMobileLayout=isMobileLayout(), lastTab1Phone=isTab1PhoneDefault(), lastXlLayout=window.innerWidth>=1280, resizeTimer=null;
@@ -5800,8 +5837,10 @@ function handleViewportChange(){
       if(D.open) renderDice();
       if(CN.open) renderCampNotes();
       if(LD.open) renderLiveDice();
+      if(INI.open) renderInitiativeWindow();
       if(FBW.open) renderFbAdminWin();
       if(UI.modal==='adminPanel') renderModal();
+      if(UI.inLobby) updateInitiativeUI();
       if(!UI.inLobby&&(S.activeTab==='attributes'||(mobChanged&&S.activeTab==='skills'))) renderMain();
     }else{
       reapplyAllWinFrames();
@@ -5931,6 +5970,9 @@ registerHooks({
   renderCampNotes,
   renderFbAdminWin,
   renderLiveDice,
+  renderInitiativeWindow,
+  updateInitiativeUI,
+  handleInitiativeLiveEvent,
   buildTokBarInnerHtml,
   syncLiveCalculations,
   updatePwDynPreviewDOM,
@@ -5975,6 +6017,7 @@ if(reqCharId){
 const WIN_CFG={
   cnotes:{m:'notesMount',b:'notesBackdrop',c:WIN_DEFAULTS.cnotes.dockClass,r:()=>renderCampNotes()},
   livedice:{m:'liveDiceMount',b:'liveDiceBackdrop',c:WIN_DEFAULTS.livedice.dockClass,r:()=>renderLiveDice()},
+  ini:{m:'iniMount',b:'iniBackdrop',c:WIN_DEFAULTS.ini.dockClass,r:()=>renderInitiativeWindow()},
   dice:{m:'diceMount',b:'diceBackdrop',c:WIN_DEFAULTS.dice.dockClass,r:()=>renderDice()},
   fbadmin:{m:'fbAdminMount',b:'fbAdminBackdrop',c:WIN_DEFAULTS.fbadmin.dockClass,r:()=>renderFbAdminWin()}
 };
@@ -6002,7 +6045,7 @@ document.addEventListener('pointerdown',e=>{
     e.preventDefault();
     const st=getWinState(k), rect=mount.getBoundingClientRect();
     const isDock=Boolean(st.docked&&window.innerWidth>=1280&&!UI.inLobby&&!st.floating);
-    st.z=Math.max(CN.z||50,D.z||50,LD.z||50,FBW.z||50)+1;
+    st.z=Math.max(CN.z||50,D.z||50,LD.z||50,INI.z||50,FBW.z||50)+1;
     mount.style.zIndex=String(st.z);
     const startX=rect.left, startY=rect.top, startW=rect.width, startH=rect.height;
     winAct={mode:onlyW?'rw':'rwh',k,cfg,mount,st,isDock,dirty:false,startClientX:e.clientX,startClientY:e.clientY,startX,startY,startW,startH};
@@ -6014,7 +6057,7 @@ document.addEventListener('pointerdown',e=>{
   if(!mount) return;
   e.preventDefault();
   const st=getWinState(k), rect=mount.getBoundingClientRect();
-  st.z=Math.max(CN.z||50,D.z||50,LD.z||50,FBW.z||50)+1;
+  st.z=Math.max(CN.z||50,D.z||50,LD.z||50,INI.z||50,FBW.z||50)+1;
   mount.style.zIndex=String(st.z);
   winAct={mode:'drag',k,cfg,mount,st,dirty:false,detached:Boolean(st.floating),startClientX:e.clientX,startClientY:e.clientY,startX:rect.left,startY:rect.top,startW:rect.width,startH:rect.height,ox:e.clientX-rect.left,oy:e.clientY-rect.top};
 });

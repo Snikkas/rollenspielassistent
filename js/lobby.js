@@ -10,6 +10,9 @@ import {
 import {
   renderRtfToolbarHtml
 } from './notes.js';
+import {
+  renderLobbyInitiativeCardHtml
+} from './initiative.js';
 
 export function setLobbyCharCampaign(cid,newCampId){
   const cleanCampId=String(newCampId||'default').trim()||'default';
@@ -1271,6 +1274,9 @@ export function tplLobbyScreen(){
 
     <!-- Sektion 2b: Aufklappbare Gegner-Vorlagen-Werkstatt -->
     ${renderLobbyTemplatesSectionHtml(activeCamp)}
+
+    <!-- Sektion 2c: Kampagnen-Initiative (SL-gesteuert, live synchronisiert) -->
+    <div id="lobbyIniMount">${renderLobbyInitiativeCardHtml(getActiveLiveCampaignId())}</div>
 
     <!-- Sektion 3: Live-Würfel-Bereich am Ende der Lobby -->
     <div id="lobbyLiveDiceMount" data-last-camp-id="${esc(getActiveLiveCampaignId())}">${renderLobbyLiveDiceHtml()}</div>

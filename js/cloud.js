@@ -8,7 +8,7 @@ import {
   hooks
 } from './ui-hooks.js';
 import {
-  defaultState, setS, normalizeCampaigns, makeDefaultEnemyMeta, normalizeEnemyMeta, mergeThemePrefs, migrateUserLocalBgMap, sanitizeThemePrefsForRegistry, getCampaigns, setActiveCampaign, isGlobalGM, canManageCampaign, getGmManageableCampaigns, isAnyGM, canToggleEnemyStatus, canClearLiveDice, getCreatableCampaigns, ensureUserRecord, ensureAllRegistryUsers, findUserKeyByName, findUserKeyById, renderUserNamePill, saveRegistryLocal, saveDiceFeedLocal, saveSecretRollsLocal, getActiveLiveCampaignId, getRollCampaignId, getCampaignFilteredDiceFeed, captureScrollState, restoreScrollState, toast, hasNiceRoll, triggerNiceEasterEgg, normalizeForeignSheet, mergeLoaded, saveLastActiveTab, getSavedTabForChar, save, flushPendingSave, applySessionTheme, syncPalDraftFromSlot, applyTheme, CUSTOM_ICONS, S, D, CN, LD, FBW, isMobileLayout, UI, LIVE_TAB_ID, PATCHNOTES, FEEDBACK, CLOUD, CLOUD_SYNC, PWLIB, getCharOwner, getCharCampaignId, canManageChar, isEnemySheet, getEnemyMeta, canManageEnemySheet, canViewEnemySheet, canSeeEnemyInDice
+  defaultState, setS, normalizeCampaigns, makeDefaultEnemyMeta, normalizeEnemyMeta, normalizeInitiativeState, mergeThemePrefs, migrateUserLocalBgMap, sanitizeThemePrefsForRegistry, getCampaigns, setActiveCampaign, isGlobalGM, canManageCampaign, getGmManageableCampaigns, isAnyGM, canToggleEnemyStatus, canClearLiveDice, getCreatableCampaigns, ensureUserRecord, ensureAllRegistryUsers, findUserKeyByName, findUserKeyById, renderUserNamePill, saveRegistryLocal, saveDiceFeedLocal, saveSecretRollsLocal, getActiveLiveCampaignId, getRollCampaignId, getCampaignFilteredDiceFeed, captureScrollState, restoreScrollState, toast, hasNiceRoll, triggerNiceEasterEgg, normalizeForeignSheet, mergeLoaded, saveLastActiveTab, getSavedTabForChar, save, flushPendingSave, applySessionTheme, syncPalDraftFromSlot, applyTheme, CUSTOM_ICONS, S, D, CN, LD, INI, FBW, isMobileLayout, UI, LIVE_TAB_ID, PATCHNOTES, FEEDBACK, CLOUD, CLOUD_SYNC, PWLIB, getCharOwner, getCharCampaignId, canManageChar, isEnemySheet, getEnemyMeta, canManageEnemySheet, canViewEnemySheet, canSeeEnemyInDice
 } from './state.js';
 import {
   invalidateModsCache, calcActiveMods, importPowerPackIntoSheet, getLpMax, getMlpMax, getIniTot, getApMax, getMapMax
@@ -355,6 +355,10 @@ export function handleIncomingDicePayload(rawObj,isRealtimePush=false){
     hooks.handleCombatLiveEvent?.(rawObj,isRealtimePush);
     return;
   }
+  if(rawObj.type==='initiative_live'||rawObj.type==='initiative_char_sync'){
+    hooks.handleInitiativeLiveEvent?.(rawObj,isRealtimePush);
+    return;
+  }
   if(rawObj.type==='enemy_meta_live'){
     if(rawObj.senderTabId===LIVE_TAB_ID) return;
     const cid=String(rawObj.charId||'').trim();
@@ -588,6 +592,7 @@ export async function syncCloudRegistry(push=false){
     claims:CLOUD.registry.claims||{},
     charCampaigns:CLOUD.registry.charCampaigns||{},
     enemyMeta:CLOUD.registry.enemyMeta||{},
+    initiatives:CLOUD.registry.initiatives||{},
     publicNotes:CLOUD.registry.publicNotes||{},
     campaignSharedNotes:CLOUD.registry.campaignSharedNotes||{},
     deletedCharIds:Array.isArray(CLOUD.registry.deletedCharIds)?[...new Set(CLOUD.registry.deletedCharIds.map(x=>String(x||'').trim()).filter(Boolean))]:[],
@@ -612,6 +617,7 @@ export async function syncCloudRegistry(push=false){
           claims:reg?.claims||{},
           charCampaigns:reg?.charCampaigns||{},
           enemyMeta:reg?.enemyMeta||{},
+          initiatives:reg?.initiatives||{},
           users:reg?.users||{},
           gmUsers:reg?.gmUsers||[],
           lobbyLogo:reg?.lobbyLogo||'',
@@ -620,6 +626,7 @@ export async function syncCloudRegistry(push=false){
         });
         const prevSig=!push?_regSig(CLOUD.registry,CLOUD.diceFeed):'';
         const prevEnemySig=!push?JSON.stringify(CLOUD.registry?.enemyMeta||{}):'';
+        const prevIniSig=!push?JSON.stringify(CLOUD.registry?.initiatives||{}):'';
         const curUserKeyPre=!push&&CLOUD.currentUser?findUserKeyByName(CLOUD.currentUser):'';
         const prevUserThemeSig=!push&&curUserKeyPre?JSON.stringify(CLOUD.registry.users?.[curUserKeyPre]?.themePrefs||null):'';
         const clrAt=Math.max(toInt(rem.registry.diceClearedAt,0),toInt(localSnap?localSnap.diceClearedAt:CLOUD.registry.diceClearedAt,0));
@@ -708,11 +715,26 @@ export async function syncCloudRegistry(push=false){
             mergedUsers[uk]=nextU;
           }
         });
+        const remInitiatives=(rem.registry.initiatives&&typeof rem.registry.initiatives==='object')?rem.registry.initiatives:{};
+        const locInitiatives=localSnap?(localSnap.initiatives||{}):(CLOUD.registry.initiatives||{});
+        const mergedInitiatives={};
+        new Set([...Object.keys(remInitiatives),...Object.keys(locInitiatives)]).forEach(cid=>{
+          if(!cid||!validCampIds.has(cid)) return;
+          const rIn=remInitiatives[cid], lIn=locInitiatives[cid];
+          if(rIn&&!lIn) mergedInitiatives[cid]=normalizeInitiativeState(rIn);
+          else if(lIn&&!rIn) mergedInitiatives[cid]=normalizeInitiativeState(lIn);
+          else if(rIn&&lIn){
+            const rTs=toInt(rIn.updatedAtMs,0), lTs=toInt(lIn.updatedAtMs,0);
+            const pickLoc=(lTs>rTs)||(lTs===rTs&&push);
+            mergedInitiatives[cid]=normalizeInitiativeState(pickLoc?lIn:rIn);
+          }
+        });
         CLOUD.registry={
           users:mergedUsers,
           claims:mergedClaims,
           charCampaigns:mergedCharCampaigns,
           enemyMeta:mergedEnemyMeta,
+          initiatives:mergedInitiatives,
           publicNotes:mergedPublicNotes,
           campaignSharedNotes:mergedCampaignSharedNotes,
           deletedCharIds:mergedDeletedCharIds,
@@ -745,10 +767,14 @@ export async function syncCloudRegistry(push=false){
         mergeDiceFeeds(rem.registry.diceFeed||[],clrAt,mergedDiceClearedByCamp,push);
         const changed=push||_regSig(CLOUD.registry,CLOUD.diceFeed)!==prevSig;
         const enemyChanged=!push&&JSON.stringify(CLOUD.registry.enemyMeta||{})!==prevEnemySig;
+        const iniChanged=!push&&JSON.stringify(CLOUD.registry.initiatives||{})!==prevIniSig;
         if(changed){
           if(!push) saveDiceFeedLocal();
           saveRegistryLocal();
           updateLobbyLiveDiceDOM();
+        }
+        if(iniChanged){
+          hooks.updateInitiativeUI?.();
         }
         if(enemyChanged){
           if(D.dMode==='character'&&D.oppCharId&&isEnemySheet(D.oppCharId)){
