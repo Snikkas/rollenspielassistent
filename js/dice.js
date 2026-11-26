@@ -8,7 +8,7 @@ import {
   hooks
 } from './ui-hooks.js';
 import {
-  applyWinFrame, renderWinCtrlBtns, renderWinResizeHandles, getCampaigns, isUserInCampaign, canManageCampaign, getActiveLiveCampaignId, getCampaignFilteredDiceFeed, getInitiativeCampaignsForChar, isCharInCampaignInitiative, captureScrollState, restoreScrollState, save, getWeaponSubtype, isWeaponMassiv, isWeaponBlockable, isArmorShield, S, D, LD, DUEL, diceLogs, isMobileLayout, UI, LIVE_TAB_ID, CLOUD, getCharCampaignId, isEnemySheet, getEnemyMeta, isEnemyDiceVisibleInCampaign, canSeeEnemyInDice, shouldHideOpponentDetails
+  applyWinFrame, renderWinCtrlBtns, renderWinResizeHandles, getCampaigns, isUserInCampaign, canManageCampaign, getActiveLiveCampaignId, getCampaignFilteredDiceFeed, getInitiativeCampaignsForChar, isCharInCampaignInitiative, captureScrollState, restoreScrollState, save, getWeaponSubtype, isWeaponMassiv, isWeaponBlockable, isArmorShield, S, D, LD, diceLogs, isMobileLayout, UI, LIVE_TAB_ID, CLOUD, getCharCampaignId, isEnemySheet, getEnemyMeta, isEnemyDiceVisibleInCampaign, canSeeEnemyInDice, shouldHideOpponentDetails
 } from './state.js';
 import {
   calcActiveMods, getAdvDisForContext, getWeaponRollMeta, getShieldRollMeta, getSheetShields, getSheetBlockOptions, resolveCombatItemByRef, formatBlockModShort, formatBlockModLong, getWeaponDualWieldInfo, fmtAdvSrcLines, getAttrTot, getSkBonus, getCharSizeInfo, getRelativeSizeHitMod, normHitZoneSize, getHitZoneSizeMeta
@@ -151,7 +151,6 @@ export function selectDiceOpponent(charId,{force=false,silent=true}={}){
   const changed=D.oppCharId!==id;
   D.oppCharId=id;
   if(changed){
-    hooks.clearOutgoingDuel?.({notifyCancel:true,silent:true});
     D.oppWeaponId='';
     D.oppSkillId='';
     D.oppSitActive={};
@@ -209,71 +208,19 @@ export function resolveOpponentComparison(c1Cat='Normaler Test'){
     return {ready:false,charId,oppName:fallbackName||'Gegner',isEnemy:true,hideDetails:true,loading:false,error:'Dieser Gegner ist aktuell nicht für den Würfelassistenten freigeschaltet.'};
   }
   const hideDetails=shouldHideOpponentDetails(charId,activeCamp);
-  const liveResp=(DUEL.outgoing&&DUEL.outgoing.status==='responded'&&DUEL.outgoing.targetCharId===charId&&DUEL.outgoing.response?.snapshot)?DUEL.outgoing.response:null;
   const oppSheet=getCachedForeignSheet(charId);
   const loading=isForeignSheetLoading(charId);
   const error=getForeignSheetError(charId);
-  if(!oppSheet&&!liveResp){
+  if(!oppSheet){
     return {ready:false,charId,oppName:fallbackName||'Gegner',isEnemy,hideDetails,loading,error};
   }
-  const oppM=oppSheet?calcActiveMods(oppSheet):null;
-  const oppName=String(liveResp?.targetCharName||oppSheet?.profile?.name||'').trim()||fallbackName||'Unbenannter Gegner';
+  const oppM=calcActiveMods(oppSheet);
+  const oppName=String(oppSheet?.profile?.name||'').trim()||fallbackName||'Unbenannter Gegner';
   const rawKind=['preset','attr','skill'].includes(D.oppKind)?D.oppKind:'preset';
   const oppKind=(hideDetails&&rawKind==='skill')?'preset':rawKind;
   const oppPreset=['dodge','parry','block','attack'].includes(D.oppPreset)?D.oppPreset:'dodge';
   const oppSkills=(oppSheet?.skills||[]).filter(Boolean);
   const oppWeapons=(oppSheet?.weapons||[]).filter(Boolean);
-
-  if(liveResp){
-    const snap=liveResp.snapshot;
-    const sk=liveResp.oppSkillId&&liveResp.oppSkillId!=='__none__'?oppSkills.find(s=>s.id===liveResp.oppSkillId)||null:null;
-    const resolvedItem=resolveCombatItemByRef(liveResp.oppWeaponId,oppSheet);
-    const oppWeapon=resolvedItem?.kind==='weapon'?resolvedItem.item:null;
-    const oppShield=resolvedItem?.kind==='shield'?resolvedItem.item:(snap.oppShieldId?(oppSheet?.armors||[]).find(a=>a&&a.id===snap.oppShieldId&&isArmorShield(a))||null:null);
-    const oppCombatRef=oppShield?`shield:${oppShield.id}`:(oppWeapon?oppWeapon.id:'');
-    const oppRollCat=snap.oppRollCat||'Normaler Test';
-    const liveAd={
-      autoAdv:toInt(snap.autoAdv,0),
-      autoDis:toInt(snap.autoDis,0),
-      rawAutoAdv:toInt(snap.autoAdv,0),
-      rawAutoDis:toInt(snap.autoDis,0),
-      src:Array.isArray(snap.src)?snap.src:[],
-      sitOptions:[]
-    };
-    return {
-      ready:true,
-      charId,
-      oppName,
-      isEnemy,
-      hideDetails,
-      oppSheet:oppSheet||{skills:[],weapons:[],armors:[],attributes:{},profile:{name:oppName}},
-      oppM:oppM||{},
-      oppKind:liveResp.oppKind||oppKind,
-      oppPreset:liveResp.oppPreset||oppPreset,
-      attrKey:snap.attrKey||'GW',
-      attrVal:toInt(snap.attrVal,0),
-      sk,
-      skBonus:toInt(snap.skBonus,0),
-      oppWeapon,
-      oppShield,
-      oppCombatRef,
-      oppShieldId:oppShield?.id||snap.oppShieldId||'',
-      oppShieldName:oppShield?(String(oppShield.name||'').trim()||'Schild'):(snap.oppShieldName||''),
-      oppBlockKind:snap.oppBlockKind||(oppShield?'shield':(oppWeapon&&isWeaponBlockable(oppWeapon)?'item':'none')),
-      oppVal:toInt(snap.oppVal,0),
-      oppRollCat,
-      oppShortLabel:snap.oppShortLabel||`${oppRollCat} ${toInt(snap.oppVal,0)}`,
-      oppBreak:snap.oppBreak||`${oppName} • ${snap.oppShortLabel||oppRollCat} = ${toInt(snap.oppVal,0)}`,
-      ad:liveAd,
-      fromLiveResponse:true,
-      liveUseInspiration:Boolean(liveResp.useInspiration),
-      liveResponderName:String(liveResp.responderName||''),
-      loading,
-      error,
-      loadedAt:getForeignSheetLoadedAt(charId),
-      isSelf:Boolean(!UI.inLobby&&S?.charId&&charId===S.charId)
-    };
-  }
 
   let attrKey='GW', attrVal=0, sk=null, skBonus=0, oppWeapon=null, oppShield=null, oppVal=0, oppRollCat='Normaler Test', oppShortLabel='', oppBreak='';
   const effOppWeaponId=hideDetails?'':D.oppWeaponId;
@@ -500,7 +447,6 @@ export function getEffectiveDiceShieldId(){
   return sh.id;
 }
 export function resetDiceToLobbyNeutral(){
-  hooks.clearOutgoingDuel?.({notifyCancel:true,silent:true});
   hooks.resetCombatState?.();
   D.weaponId=null; D.shieldId=null; D.skillId=null; D.attrKey=null; D.wRollCat='Normaler Test'; D.atkPool='lp'; D.dualWieldOvr='auto'; D.aimActive=false; D.aimZone=''; D.aimSizeOvr='auto'; D.wpEditOpen=false; D.sitActive={}; D.oppSitActive={}; D.prepPaused=false; D.critOff=0; D.advAdj=0; D.disAdj=0; D.adv=0; D.dis=0;
   D.label='Freie Probe (Lobby)';
@@ -1005,34 +951,6 @@ export function renderDice(){
           <button type="button" data-action="dice-opp-kind" data-kind="skill" class="px-2 py-0.5 rounded font-extrabold ${opp.oppKind==='skill'?'bg-indigo-500/35 text-indigo-100':'t-mut'}">🎯 Fert.</button>
         </div>`;
 
-    const outDuel=(DUEL.outgoing&&DUEL.outgoing.targetCharId===D.oppCharId)?DUEL.outgoing:null;
-    let duelRightHtml='', duelStatusBanner='';
-    if(outDuel&&outDuel.status==='waiting'){
-      const remSec=Math.max(0,Math.ceil((toInt(outDuel.expiresAt,Date.now())-Date.now())/1000));
-      duelStatusBanner=`<div class="p-1.5 px-2 rounded-lg border border-indigo-400/55 bg-indigo-500/15 flex flex-wrap items-center justify-between gap-1.5 text-[11px]">
-        <span class="font-extrabold text-indigo-200 truncate">⏳ Warte auf Konter (<span id="duelWaitCountdown" class="tabular">${remSec} s</span>)</span>
-        <div class="flex items-center gap-1 shrink-0">
-          <button type="button" data-action="duel-roll-now" class="btn btn-pri py-0.5 px-2 text-[10px] font-extrabold">🎲 Direkt würfeln</button>
-          <button type="button" data-action="duel-cancel" class="btn py-0.5 px-1.5 text-[10px]">✕</button>
-        </div>
-      </div>`;
-    }else if(outDuel&&outDuel.status==='responded'&&outDuel.response?.snapshot){
-      const sp=outDuel.response.snapshot;
-      const modTxt=(sp.autoAdv||sp.autoDis)?` (${sp.autoAdv?`+${sp.autoAdv}V`:''}${sp.autoAdv&&sp.autoDis?'/':''}${sp.autoDis?`+${sp.autoDis}N`:''})`:'';
-      duelStatusBanner=`<div class="p-1.5 px-2 rounded-lg border border-emerald-400/60 bg-emerald-500/15 flex items-center justify-between gap-2 text-[11px]">
-        <span class="font-extrabold text-emerald-200 truncate">${hideOpp?`✅ ${esc(opp.oppName)} hat gekontert (verborgen)`:`✅ Konter: ${esc(sp.oppShortLabel)}${esc(modTxt)}${outDuel.response.useInspiration?' • ✨':''}`}</span>
-        <button type="button" data-action="duel-clear-status" data-tip="Live-Antwort lösen" class="btn w-5 h-5 p-0 text-[10px] shrink-0">✕</button>
-      </div>`;
-    }else if(outDuel&&(outDuel.status==='timeout'||outDuel.status==='declined')){
-      const reason=outDuel.status==='declined'?'Ignoriert':'Timeout';
-      duelStatusBanner=`<div class="p-1.5 px-2 rounded-lg border border-amber-400/50 bg-amber-500/10 flex items-center justify-between gap-1.5 text-[10px]">
-        <span class="font-bold text-amber-200">⏱️ ${reason} – lokaler Stand aktiv</span>
-        <div class="flex items-center gap-1"><button type="button" data-action="duel-send" class="btn py-0.5 px-1.5 text-[10px]">🔄 Erneut</button><button type="button" data-action="duel-clear-status" class="btn w-5 h-5 p-0 text-[10px]">✕</button></div>
-      </div>`;
-    }else if(opp.charId){
-      duelRightHtml=`<button type="button" data-action="duel-send" data-tip="Schickt ${opp.isEnemy?'der Spielleitung':'dem Spieler von '+esc(opp.oppName)} eine Live-Konter-Anfrage" class="btn py-0.5 px-2 text-[11px] font-extrabold border-indigo-400/50 bg-indigo-500/15 text-indigo-200 hover:bg-indigo-500/25 shrink-0">📨 Konter</button>`;
-    }
-
     let detailHtml='';
     if(opp.oppKind==='preset'){
       const showAtkPreset=Boolean(D.wRollCat==='Parieren'||D.wRollCat==='Blocken'||D.wRollCat==='Ausweichen'||opp.oppPreset==='attack');
@@ -1105,10 +1023,8 @@ export function renderDice(){
           ${kindBar}
           <span data-tip="${esc(sizeTip)}" class="px-1.5 py-0.5 rounded-md border text-[10px] font-extrabold tabular cursor-help shrink-0 ${sizeBadgeCls}">📏 ${esc(oppSizeInfo.formatted)}${(isHitRoll&&hitSizeDiff!==0)?` (${hitSizeDiff>0?`+${hitSizeDiff}V`:`+${Math.abs(hitSizeDiff)}N`})`:''}</span>
         </div>
-        ${duelRightHtml}
       </div>
       ${errMsg?`<div class="text-[10px] text-amber-300 font-bold">⚠️ ${esc(errMsg)}</div>`:''}
-      ${duelStatusBanner}
       ${detailHtml}
       <div class="text-[10px] font-bold text-indigo-300/90 text-right tabular truncate">${esc(hideOpp?`🔒 ${opp.oppName} • Details verborgen`:opp.oppBreak)}</div>
     </div>`;
@@ -1689,11 +1605,6 @@ export function executeDiceRoll(opts={}){
   diceLogs.unshift({t:new Date().toLocaleTimeString('de-DE'),lbl:rollTitle,th,sum:res.map(x=>`${x.r}(${x.crit?'★':''}${x.ok?('EG'+x.eg):((isHitVsBlock&&x.r!==100)?'🛡️3EG':'MEG'+x.meg)})`).join(', '),advSrc:advSrcParts.join(', ')});
   if(diceLogs.length>40) diceLogs.length=40;
   hooks.initCombatFromRoll?.({T,res,attackerName:c1Name});
-  if(DUEL.outgoing){
-    const wasWaiting=DUEL.outgoing.status==='waiting';
-    hooks.clearOutgoingDuel?.({notifyCancel:wasWaiting,silent:true});
-    applyDiceAutoAdvDis(false);
-  }
   if(!isLobbyNeutralDice()&&S.inspirationActive){
     S.inspirationActive=false;
     applyDiceAutoAdvDis(false);

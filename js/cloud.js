@@ -419,7 +419,6 @@ export function handleIncomingDicePayload(rawObj,isRealtimePush=false){
     return;
   }
   if(rawObj.type==='duel_challenge'||rawObj.type==='duel_response'||rawObj.type==='duel_cancel'){
-    hooks.handleLiveDuelEvent?.(rawObj,isRealtimePush);
     return;
   }
   if(rawObj.type==='combat_damage_offer'||rawObj.type==='combat_damage_applied'){
@@ -460,7 +459,6 @@ export function handleIncomingDicePayload(rawObj,isRealtimePush=false){
         D.oppWeaponId='';
         D.oppSkillId='';
         D.oppSitActive={};
-        hooks.clearOutgoingDuel?.({notifyCancel:false,silent:true});
       }
     }
     if(D.open) hooks.renderDice?.();
@@ -2292,7 +2290,6 @@ export async function fetchForeignCharacterSheet(charId,{force=false,silent=true
     }finally{
       foreignSheetInflight.delete(id);
       if(D.open) hooks.renderDice?.();
-      hooks.renderDuelReplyModal?.();
     }
   })();
   foreignSheetInflight.set(id,req);

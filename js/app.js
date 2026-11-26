@@ -20,7 +20,7 @@ import {
   resetDiceToLobbyNeutral, exitLobbyNeutralDice, ensureLobbyNeutralDiceOnOpen, applyDiceAutoAdvDis, calcThreshold, openWeaponRoll, openShieldRoll, selectDiceWeapon, syncDiceFromSheet, buildAdvDisInnerHtml, renderDice, renderLiveDice, rollW100, renderBlockFollowUpBox, executeBlockFollowUpRoll, executeDiceRoll, rollCustomDice, getCSkVal, getDSkVal, getEffC, getEffD, isLobbyNeutralDice, calcEgMultiplier, buildThresholdInnerHtml, activateVsCharMode, selectDiceOpponent, resolveOpponentComparison, resolveDiceAimInfo
 } from './dice.js';
 import {
-  sendDuelChallenge, cancelOutgoingDuel, clearOutgoingDuel, handleLiveDuelEvent, ignoreIncomingDuel, openDuelReplyModal, closeDuelReplyModal, submitDuelReply, renderDuelBanner, renderDuelReplyModal
+  renderDuelBanner
 } from './duel.js';
 import {
   initCombatFromRoll, resetCombatState, mutateCombatHit, rollCombatHitZone, rollAllCombatHitZones, rollCombatSubHitZone, publishCombatDamageToFeed, publishAllCombatDamageToFeed, renderCombatDamageBox, hasTagMatch, sendCombatDamageOffer, sendCombinedCombatDamageOffer, applyCombatDamageDirectly, applyCombinedCombatDamageDirectly, spendCombatAmmo, handleCombatLiveEvent, acceptCombatDamageOffer, declineCombatDamageOffer
@@ -1915,7 +1915,7 @@ document.addEventListener('click',async e=>{
       renderHeader();
       break;
     }
-    case 'reset-dice': clearOutgoingDuel({notifyCancel:true,silent:true}); resetCombatState(); setD({...DICE_DEF,sitActive:{},oppSitActive:{},open:true,docked:D.docked,floating:D.floating,x:D.x,y:D.y,w:D.w,h:D.h,z:D.z}); if(isLobbyNeutralDice()) resetDiceToLobbyNeutral(); UI.lastRollHtml=''; UI.lastBlockBaseHtml=''; UI.lastBlockFollowRes=null; UI.lastSecretRollId=''; renderDice(); updateLobbyLiveDiceDOM(); break;
+    case 'reset-dice': resetCombatState(); setD({...DICE_DEF,sitActive:{},oppSitActive:{},open:true,docked:D.docked,floating:D.floating,x:D.x,y:D.y,w:D.w,h:D.h,z:D.z}); if(isLobbyNeutralDice()) resetDiceToLobbyNeutral(); UI.lastRollHtml=''; UI.lastBlockBaseHtml=''; UI.lastBlockFollowRes=null; UI.lastSecretRollId=''; renderDice(); updateLobbyLiveDiceDOM(); break;
     case 'toggle-cnotes': CN.open=!CN.open; CN.confirmDelId=null; renderHeader(); renderCampNotes(); break;
     case 'close-cnotes': CN.open=false; CN.confirmDelId=null; renderHeader(); renderCampNotes(); break;
     case 'dock-cnotes':
@@ -2332,7 +2332,6 @@ document.addEventListener('click',async e=>{
     case 'd-mode': {
       const m=el.dataset.mode;
       if(m==='character'){activateVsCharMode();break;}
-      clearOutgoingDuel({notifyCancel:true,silent:true});
       const eff=getEffD();
       if(m==='direct') D.dDirect=eff; else {D.dAttr=eff; D.dSkill='0';}
       D.dMode=m; applyDiceAutoAdvDis(false); renderDice(); break;
@@ -2342,30 +2341,14 @@ document.addEventListener('click',async e=>{
       else{fetchLobbyList(true).then(()=>{if(D.dMode==='character')activateVsCharMode();});}
       break;
     }
-    case 'dice-opp-kind': {clearOutgoingDuel({notifyCancel:true,silent:true});D.oppKind=el.dataset.kind||'preset';D.oppSitActive={};applyDiceAutoAdvDis(false);renderDice();break;}
-    case 'dice-opp-preset': {clearOutgoingDuel({notifyCancel:true,silent:true});D.oppPreset=el.dataset.preset||'dodge';D.oppWeaponId='';D.oppSkillId='';D.oppSitActive={};applyDiceAutoAdvDis(false);renderDice();break;}
-    case 'dice-opp-attr': {clearOutgoingDuel({notifyCancel:true,silent:true});D.oppAttrKey=el.dataset.attr||'GW';D.oppSitActive={};applyDiceAutoAdvDis(false);renderDice();break;}
-    case 'toggle-dice-opp-sit': {clearOutgoingDuel({notifyCancel:true,silent:true});const sk=el.dataset.sit;if(sk){if(!D.oppSitActive)D.oppSitActive={};D.oppSitActive[sk]=!D.oppSitActive[sk];applyDiceAutoAdvDis(false);renderDice();}break;}
-    case 'duel-send': sendDuelChallenge(); break;
-    case 'duel-cancel': cancelOutgoingDuel(false); break;
-    case 'duel-clear-status': clearOutgoingDuel({notifyCancel:false,silent:true}); applyDiceAutoAdvDis(false); renderDice(); break;
-    case 'duel-roll-now': clearOutgoingDuel({notifyCancel:true,silent:true}); executeDiceRoll(); break;
-    case 'duel-open-reply': openDuelReplyModal(el.dataset.id); break;
-    case 'duel-ignore': ignoreIncomingDuel(el.dataset.id,true); break;
-    case 'duel-reply-close': closeDuelReplyModal(); break;
-    case 'duel-reply-close-bg': if(e.target===el) closeDuelReplyModal(); break;
-    case 'duel-reply-decline': if(DUEL.reply?.challenge?.challengeId) ignoreIncomingDuel(DUEL.reply.challenge.challengeId,true); else closeDuelReplyModal(); break;
-    case 'duel-reply-reload': if(DUEL.reply?.challenge?.targetCharId){fetchForeignCharacterSheet(DUEL.reply.challenge.targetCharId,{force:true,silent:false});renderDuelReplyModal();} break;
-    case 'duel-reply-kind': if(DUEL.reply){DUEL.reply.kind=el.dataset.kind||'preset';DUEL.reply.sitActive={};renderDuelReplyModal();} break;
-    case 'duel-reply-preset': if(DUEL.reply){DUEL.reply.preset=el.dataset.preset||'dodge';DUEL.reply.weaponId='';DUEL.reply.skillId='';DUEL.reply.sitActive={};renderDuelReplyModal();} break;
-    case 'duel-reply-attr': if(DUEL.reply){DUEL.reply.attrKey=el.dataset.attr||'GW';DUEL.reply.sitActive={};renderDuelReplyModal();} break;
-    case 'duel-reply-sit': if(DUEL.reply){const sk=el.dataset.sit;if(sk){if(!DUEL.reply.sitActive)DUEL.reply.sitActive={};DUEL.reply.sitActive[sk]=!DUEL.reply.sitActive[sk];renderDuelReplyModal();}} break;
-    case 'duel-reply-insp': if(DUEL.reply){DUEL.reply.useInspiration=!DUEL.reply.useInspiration;renderDuelReplyModal();} break;
-    case 'duel-reply-submit': submitDuelReply(); break;
+    case 'dice-opp-kind': {D.oppKind=el.dataset.kind||'preset';D.oppSitActive={};applyDiceAutoAdvDis(false);renderDice();break;}
+    case 'dice-opp-preset': {D.oppPreset=el.dataset.preset||'dodge';D.oppWeaponId='';D.oppSkillId='';D.oppSitActive={};applyDiceAutoAdvDis(false);renderDice();break;}
+    case 'dice-opp-attr': {D.oppAttrKey=el.dataset.attr||'GW';D.oppSitActive={};applyDiceAutoAdvDis(false);renderDice();break;}
+    case 'toggle-dice-opp-sit': {const sk=el.dataset.sit;if(sk){if(!D.oppSitActive)D.oppSitActive={};D.oppSitActive[sk]=!D.oppSitActive[sk];applyDiceAutoAdvDis(false);renderDice();}break;}
     case 'adv-step': {const r=applyDiceAutoAdvDis(false);D.advAdj=Math.max(-r.autoAdv,toInt(D.advAdj,0)+Number(el.dataset.d));applyDiceAutoAdvDis(false);renderDice();break;}
     case 'dis-step': {const r=applyDiceAutoAdvDis(false);D.disAdj=Math.max(-r.autoDis,toInt(D.disAdj,0)+Number(el.dataset.d));applyDiceAutoAdvDis(false);renderDice();break;}
-    case 'reset-dice-diff': clearOutgoingDuel({notifyCancel:true,silent:true}); D.dMode='direct'; D.dDirect=40; D.dAttr=30; D.dSkill='10'; D.dCustom=25; applyDiceAutoAdvDis(false); renderDice(); break;
-    case 'dice-set-diff': clearOutgoingDuel({notifyCancel:true,silent:true}); D.dMode='direct'; D.dDirect=toInt(el.dataset.val,40); applyDiceAutoAdvDis(false); renderDice(); break;
+    case 'reset-dice-diff': D.dMode='direct'; D.dDirect=40; D.dAttr=30; D.dSkill='10'; D.dCustom=25; applyDiceAutoAdvDis(false); renderDice(); break;
+    case 'dice-set-diff': D.dMode='direct'; D.dDirect=toInt(el.dataset.val,40); applyDiceAutoAdvDis(false); renderDice(); break;
     case 'reset-dice-advdis': D.advAdj=0; D.disAdj=0; applyDiceAutoAdvDis(true); renderDice(); break;
     case 'cnt-step': D.cnt=Math.max(1,Math.min(10,D.cnt+Number(el.dataset.d))); renderDice(); break;
     case 'crit-step': {const T=calcThreshold(),i=CRIT_SEQ.indexOf(T.effCrit),ni=Math.max(0,Math.min(CRIT_SEQ.length-1,i+Number(el.dataset.d)));D.critOff=ni-T.autoCrit;D.crit=CRIT_SEQ[ni];renderDice();break;}
@@ -4893,14 +4876,8 @@ document.addEventListener('change',e=>{
   if(el.dataset.diceOpp){
     const f=el.dataset.diceOpp;
     if(f==='charId'){selectDiceOpponent(el.value,{force:false,silent:true});return;}
-    clearOutgoingDuel({notifyCancel:true,silent:true});
     if(f==='weaponId'){D.oppWeaponId=el.value;D.oppSitActive={};applyDiceAutoAdvDis(false);renderDice();return;}
     if(f==='skillId'){D.oppSkillId=el.value;D.oppSitActive={};applyDiceAutoAdvDis(false);renderDice();return;}
-  }
-  if(el.dataset.duelSel&&DUEL.reply){
-    const f=el.dataset.duelSel;
-    if(f==='weaponId'){DUEL.reply.weaponId=el.value;DUEL.reply.sitActive={};renderDuelReplyModal();return;}
-    if(f==='skillId'){DUEL.reply.skillId=el.value;DUEL.reply.sitActive={};renderDuelReplyModal();return;}
   }
   if(el.dataset.wpmagCfg){
     const [wid,f]=el.dataset.wpmagCfg.split(':');
@@ -6309,7 +6286,7 @@ document.addEventListener('keydown',e=>{
     updateCalcDOM();
     return;
   }
-  if(e.key==='Escape'){if(CTX_MENU.open){closeCtxMenu();}else if(DUEL.reply){closeDuelReplyModal();}else if(UI.openPwMenu){closePwDropdown();}else if(UI.modal){closeActiveModal();}else if(D.open&&!D.docked){D.open=false;renderHeader();renderDice();}else if(INI.open&&!INI.docked&&!INI.floating){INI.open=false;renderHeader();renderInitiativeWindow();}else if(CN.open&&!CN.docked){CN.open=false;renderHeader();renderCampNotes();}}
+  if(e.key==='Escape'){if(CTX_MENU.open){closeCtxMenu();}else if(UI.openPwMenu){closePwDropdown();}else if(UI.modal){closeActiveModal();}else if(D.open&&!D.docked){D.open=false;renderHeader();renderDice();}else if(INI.open&&!INI.docked&&!INI.floating){INI.open=false;renderHeader();renderInitiativeWindow();}else if(CN.open&&!CN.docked){CN.open=false;renderHeader();renderCampNotes();}}
 });
 document.addEventListener('focusout',e=>{
   const inp=e.target;
@@ -6517,10 +6494,7 @@ registerHooks({
   buildTokBarInnerHtml,
   syncLiveCalculations,
   updatePwDynPreviewDOM,
-  handleLiveDuelEvent,
   renderDuelBanner,
-  renderDuelReplyModal,
-  clearOutgoingDuel,
   initCombatFromRoll,
   resetCombatState,
   renderCombatDamageBox,
