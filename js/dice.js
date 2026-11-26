@@ -11,7 +11,7 @@ import {
   applyWinFrame, renderWinCtrlBtns, renderWinResizeHandles, getCampaigns, isUserInCampaign, canManageCampaign, getActiveLiveCampaignId, getCampaignFilteredDiceFeed, captureScrollState, restoreScrollState, save, getWeaponSubtype, isWeaponMassiv, S, D, LD, DUEL, diceLogs, isMobileLayout, UI, LIVE_TAB_ID, CLOUD, getCharCampaignId, isEnemySheet, getEnemyMeta, isEnemyDiceVisibleInCampaign, canSeeEnemyInDice, shouldHideOpponentDetails
 } from './state.js';
 import {
-  calcActiveMods, getAdvDisForContext, getWeaponRollMeta, fmtAdvSrcLines, getAttrTot, getSkBonus
+  calcActiveMods, getAdvDisForContext, getWeaponRollMeta, getWeaponDualWieldInfo, fmtAdvSrcLines, getAttrTot, getSkBonus
 } from './calc.js';
 import {
   renderLobbyLiveDiceHtml, publishLiveRoll, formatSecretRollSummary, isSecretRollActive, getCachedForeignSheet, getForeignSheetLoadedAt, isForeignSheetLoading, getForeignSheetError, fetchForeignCharacterSheet, fetchLobbyList
@@ -361,6 +361,7 @@ export function formatSrcOriginLabel(s){
     return `${s.srcKind}: ${tg}`;
   }
   if(s.srcKind==='Inspiration') return '✨ Inspiration';
+  if(s.srcKind==='Mehrhändig') return s.srcName||'Mehrhändiger Kampf';
   if(s.srcKind==='Waffenwurf') return `Waffenwurf: ${s.srcName||'Waffe'}`;
   if(s.tagLbl) return String(s.tagLbl).replace(/\(\s*(\d+)\s*\)/g,' $1').trim();
   if(s.isSit) return s.srcName||s.label||'Situativ';
@@ -418,7 +419,7 @@ export function getEffectiveDiceWeaponId(){
 export function resetDiceToLobbyNeutral(){
   hooks.clearOutgoingDuel?.({notifyCancel:true,silent:true});
   hooks.resetCombatState?.();
-  D.weaponId=null; D.skillId=null; D.attrKey=null; D.wRollCat='Normaler Test'; D.atkPool='lp'; D.wpEditOpen=false; D.sitActive={}; D.oppSitActive={}; D.critOff=0; D.advAdj=0; D.disAdj=0; D.adv=0; D.dis=0;
+  D.weaponId=null; D.skillId=null; D.attrKey=null; D.wRollCat='Normaler Test'; D.atkPool='lp'; D.dualWieldOvr='auto'; D.wpEditOpen=false; D.sitActive={}; D.oppSitActive={}; D.critOff=0; D.advAdj=0; D.disAdj=0; D.adv=0; D.dis=0;
   D.label='Freie Probe (Lobby)';
   D.cMode='direct'; D.cDirect=50; D.cAttr=50; D.cSkill='0';
   D.dMode='direct'; D.dDirect=40; D.oppCharId='';
@@ -443,7 +444,7 @@ export function applyDiceAutoAdvDis(resetManual=false,M=isLobbyNeutralDice()?{te
   const oppDefCat=(opp&&opp.ready)?opp.oppRollCat:'';
   const r1=isLobbyNeutralDice()
     ?{autoAdv:0,autoDis:0,rawAutoAdv:0,rawAutoDis:0,src:[],autoCrit:0,critSrc:[],autoRollMod:0,rollModSrc:[],sitOptions:[]}
-    :getAdvDisForContext({weaponId:effWeaponId,wRollCat:effCat,skillId:D.skillId||null,attrKey:D.attrKey||null,sitActive:D.sitActive||{},includeInspiration:true,oppDefenseCat:oppDefCat},M);
+    :getAdvDisForContext({weaponId:effWeaponId,wRollCat:effCat,skillId:D.skillId||null,attrKey:D.attrKey||null,sitActive:D.sitActive||{},dualWieldOvr:D.dualWieldOvr||'auto',includeInspiration:true,oppDefenseCat:oppDefCat},M);
   const oppAutoAdv=(opp&&opp.ready)?(opp.ad.autoAdv||0):0;
   const oppAutoDis=(opp&&opp.ready)?(opp.ad.autoDis||0):0;
   const oppAdvSrc=(opp&&opp.ready)?(opp.ad.src||[]).map(s=>({...s,fromOpponent:true,oppName:opp.oppName,oppOrigKind:s.kind,kind:s.kind==='dis'?'adv':'dis'})):[];
@@ -486,6 +487,7 @@ export function selectDiceWeapon(weaponId){
   const wid=String(weaponId||'').trim();
   if(!wid||wid==='__none__'){
     D.weaponId=null;
+    D.dualWieldOvr='auto';
     D.wpEditOpen=false;
     D.sitActive={};
     D.critOff=0;
@@ -499,6 +501,7 @@ export function selectDiceWeapon(weaponId){
   if(D.wRollCat==='Normaler Test') D.wRollCat='Trefferwurf';
   const wm=getWeaponRollMeta(w);
   D.weaponId=w.id;
+  D.dualWieldOvr='auto';
   D.critOff=0;
   D.sitActive={};
   D.attrKey=wm.attrKey;
@@ -524,7 +527,7 @@ export function openWeaponRoll(weaponId,wRollCat='Trefferwurf'){
   const normCat=wRollCat==='Parade'?'Parieren':wRollCat;
   const cat=['Normaler Test','Trefferwurf','Parieren','Blocken','Ausweichen'].includes(normCat)?normCat:'Trefferwurf';
   const wm=getWeaponRollMeta(w);
-  D.weaponId=w.id; D.wRollCat=cat; D.critOff=0; D.sitActive={};
+  D.weaponId=w.id; D.wRollCat=cat; D.dualWieldOvr='auto'; D.critOff=0; D.sitActive={};
   D.atkPool=(w.dmgPool==='mlp')?'mlp':'lp';
   D.attrKey=wm.attrKey; D.skillId=wm.sk?wm.sk.id:null;
   if(D.dMode==='character'){
@@ -884,8 +887,11 @@ export function renderDice(){
         const wNm=String(w.name||'').trim()||wSub.label;
         const wpPool=['lp','mlp','both'].includes(w.dmgPool)?w.dmgPool:'lp';
         const pTag=wpPool==='mlp'?' [mLP]':wpPool==='both'?' [LP+mLP]':'';
+        const isEq=w.equipped!==false;
+        const hTag=w.hand==='main'?' [HH]':w.hand==='off'?' [NH]':(w.hand==='both'||w.grip==='2h')?' [2H]':'';
+        const eqTag=isEq?'':' (Abgelegt)';
         const wm=getWeaponRollMeta(w);
-        return `<option value="${esc(w.id)}" ${D.weaponId===w.id?'selected':''}>${wSub.icon} ${esc(wNm)}${pTag} (${wm.pool})</option>`;
+        return `<option value="${esc(w.id)}" ${D.weaponId===w.id?'selected':''}>${wSub.icon} ${esc(wNm)}${hTag}${pTag}${eqTag} (${wm.pool})</option>`;
       }).join('');
       const mismatchHtml=(aw&&!wpApplies)?`<div class="p-2 rounded-lg border border-amber-400/55 bg-amber-500/12 text-[11px] flex flex-wrap items-center justify-between gap-1.5">
         <span class="font-bold text-amber-200 min-w-0">⚠️ <strong>${esc(String(aw.name||'').trim()||getWeaponSubtype(aw.wType).label)}</strong> gilt nur für ${aw.dmgPool==='mlp'?'🧠 mLP':'❤️ LP'} – pausiert für diesen ${atkPool==='mlp'?'🧠 mLP':'❤️ LP'}-Trefferwurf (keine Waffen-Tags/Schaden).</span>
@@ -895,14 +901,36 @@ export function renderDice(){
         </div>
       </div>`:'';
 
+      const dwInfo=(aw&&isHitMode&&wpApplies)?getWeaponDualWieldInfo(aw,S):null;
+      const dwOvr=String(D.dualWieldOvr||'auto');
+      const showDwBar=Boolean(dwInfo&&(dwInfo.isDualWield||dwOvr!=='auto'));
+      const dwPeer=dwInfo?.peers?.[0]||null;
+      const dwBarHtml=showDwBar?`<div class="p-2 rounded-lg border ${dwOvr==='off'?'bdr-line bg-black/20':'border-rose-400/50 bg-rose-500/10'} text-[11px] space-y-1.5 min-w-0">
+        <div class="flex flex-wrap items-center justify-between gap-1.5">
+          <span class="font-extrabold ${dwOvr==='off'?'t-mut':'text-rose-200'}">⚔️ Mehrhändiger Kampf${dwInfo.isDualWield?` (${dwInfo.label}: +${dwInfo.dis}N)`:''}</span>
+          ${dwPeer?`<button type="button" data-action="dice-switch-dw-weapon" data-id="${esc(dwPeer.id)}" data-tip="Sofort zur Waffe in der anderen Hand wechseln" class="btn py-0.5 px-2 text-[10px] font-black bdr-acc bg-acc-soft text-acc shrink-0">⇄ ${esc(String(dwPeer.name||'').trim()||'Andere Hand')}</button>`:''}
+        </div>
+        <div class="flex flex-wrap items-center gap-1 text-[10px]">
+          <span class="t-mut font-bold mr-0.5">Malus:</span>
+          <button type="button" data-action="set-dice-dw-ovr" data-ovr="auto" class="btn py-0.5 px-1.5 text-[10px] font-extrabold ${dwOvr==='auto'?'btn-pri':''}">Auto${dwInfo.isDualWield?` (+${dwInfo.dis}N)`:''}</button>
+          <button type="button" data-action="set-dice-dw-ovr" data-ovr="main" class="btn py-0.5 px-1.5 text-[10px] font-extrabold ${dwOvr==='main'?'bg-rose-600 text-white border-rose-500':''}">🖐️ HH (+1N)</button>
+          <button type="button" data-action="set-dice-dw-ovr" data-ovr="offhand" class="btn py-0.5 px-1.5 text-[10px] font-extrabold ${dwOvr==='offhand'?'bg-rose-600 text-white border-rose-500':''}">🤚 NH (+2N)</button>
+          <button type="button" data-action="set-dice-dw-ovr" data-ovr="off" class="btn py-0.5 px-1.5 text-[10px] font-extrabold ${dwOvr==='off'?'btn-ok':''}">Aus</button>
+        </div>
+      </div>`:'';
+
       let quickEditHtml='';
       if(aw&&D.wpEditOpen){
         const wPool=['lp','mlp','both'].includes(aw.dmgPool)?aw.dmgPool:'lp';
         const hasMas=isWeaponMassiv(aw);
         const isRng=aw.wType==='ranged';
+        const isEq=aw.equipped!==false;
         quickEditHtml=`<div class="p-2.5 rounded-lg border bdr-acc bg-black/25 space-y-2 text-xs min-w-0">
           <div class="flex flex-wrap items-center justify-between gap-1.5 border-b border-white/10 pb-1.5">
-            <span class="text-[10px] font-black text-acc uppercase tracking-wider">⚙️ Waffe im Bogen anpassen</span>
+            <div class="flex items-center gap-1.5">
+              <span class="text-[10px] font-black text-acc uppercase tracking-wider">⚙️ Waffe anpassen</span>
+              <button type="button" data-action="toggle-wp-eq" data-id="${esc(aw.id)}" class="btn py-0.5 px-1.5 text-[10px] font-extrabold ${isEq?'btn-ok':'opacity-70'}">${isEq?'✓ Angelegt':'○ Abgelegt'}</button>
+            </div>
             <div class="inline-flex rounded-lg p-0.5 bg-black/30 border bdr-line text-[10px]">
               <button type="button" data-action="dice-wp-set-pool" data-id="${esc(aw.id)}" data-pool="lp" class="px-1.5 py-0.5 rounded font-black ${wPool==='lp'?'bg-rose-500/35 text-rose-200':'t-mut'}">❤️ LP</button>
               <button type="button" data-action="dice-wp-set-pool" data-id="${esc(aw.id)}" data-pool="mlp" class="px-1.5 py-0.5 rounded font-black ${wPool==='mlp'?'bg-indigo-500/35 text-indigo-200':'t-mut'}">🧠 mLP</button>
@@ -919,11 +947,11 @@ export function renderDice(){
               <select data-dice-wp-edit="skillId" data-wid="${esc(aw.id)}" class="inp w-full text-xs font-bold py-1"><option value="" ${!aw.skillId?'selected':''}>Keine (+0)</option>${(S.skills||[]).map(sk=>`<option value="${esc(sk.id)}" ${aw.skillId===sk.id?'selected':''}>${esc(sk.name||'Fert.')} (${fmtSign(getSkBonus(sk))})</option>`).join('')}</select>
             </div>
             <div class="min-w-0 col-span-2 sm:col-span-1">
-              <label class="block text-[9px] font-bold t-mut uppercase mb-0.5">Führung</label>
+              <label class="block text-[9px] font-bold t-mut uppercase mb-0.5">Hand / Führung</label>
               <div class="grid grid-cols-3 gap-1">
-                <button type="button" data-action="dice-wp-set-grip" data-id="${esc(aw.id)}" data-grip="" class="btn py-1 px-1 text-[10px] ${!aw.grip?'btn-pri':''}">—</button>
-                <button type="button" data-action="dice-wp-set-grip" data-id="${esc(aw.id)}" data-grip="1h" class="btn py-1 px-1 text-[10px] ${aw.grip==='1h'?'btn-ok':''}">1H</button>
-                <button type="button" data-action="dice-wp-set-grip" data-id="${esc(aw.id)}" data-grip="2h" class="btn py-1 px-1 text-[10px] ${aw.grip==='2h'?'btn-ok':''}">2H</button>
+                <button type="button" data-action="set-wp-hand" data-id="${esc(aw.id)}" data-hand="main" class="btn py-1 px-1 text-[10px] ${aw.hand==='main'?'btn-ok':''}">HH</button>
+                <button type="button" data-action="set-wp-hand" data-id="${esc(aw.id)}" data-hand="off" class="btn py-1 px-1 text-[10px] ${aw.hand==='off'?'btn-ok':''}">NH</button>
+                <button type="button" data-action="set-wp-hand" data-id="${esc(aw.id)}" data-hand="both" class="btn py-1 px-1 text-[10px] ${(aw.hand==='both'||aw.grip==='2h')?'btn-ok':''}">2H</button>
               </div>
             </div>
           </div>
@@ -948,6 +976,7 @@ export function renderDice(){
           ${aw?`<button type="button" data-action="toggle-dice-wp-edit" data-tip="Waffe direkt im Würfelassistenten anpassen (LP/mLP, Attribut, Fertigkeit, Munition, Schaden)" class="btn py-1 px-2 text-xs font-extrabold shrink-0 ${D.wpEditOpen?'btn-pri':''}">⚙️ <span class="hidden sm:inline">Anpassen</span></button>`:''}
         </div>
         ${mismatchHtml}
+        ${dwBarHtml}
         ${quickEditHtml}
       </div>`;
     }

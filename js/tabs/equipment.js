@@ -11,7 +11,7 @@ import {
   openCtxMenu, toast, save, getWeaponSubtype, fmtCustomValSummarySuffix, renderLinkedAmmoCustomDmgHtml, isWeaponMassiv, syncEquipmentToInventory, S, D, isMobileLayout, UI
 } from '../state.js';
 import {
-  invalidateModsCache, calcActiveMods, getAdvDisForContext, getWeaponRollMeta, getTagDesc, fmtAdvSrcLines, getAttrTot, getSkBonus, findEqItem, getMentalArmorSummary
+  invalidateModsCache, calcActiveMods, getAdvDisForContext, getWeaponRollMeta, getWeaponDualWieldInfo, getTagDesc, fmtAdvSrcLines, getAttrTot, getSkBonus, findEqItem, getMentalArmorSummary
 } from '../calc.js';
 import {
   applyDiceAutoAdvDis, syncDiceFromSheet, renderDice
@@ -888,35 +888,45 @@ export function renderWeaponRollBtns(w,wm,compact=false){
   </div>`;
 }
 export function renderWeaponCard(w,idx,len){
-  const M=calcActiveMods(), wm=getWeaponRollMeta(w,M);
-  const wSub=getWeaponSubtype(w.wType), isRng=w.wType==='ranged';
+  const M=calcActiveMods(), wm=getWeaponRollMeta(w,M), dw=getWeaponDualWieldInfo(w,S);
+  const wSub=getWeaponSubtype(w.wType), isRng=w.wType==='ranged', isEq=w.equipped!==false;
   const linkedAmmo=isRng&&w.ammoId?S.ammos.find(a=>a.id===w.ammoId):null;
   const colStyle=w.color?`style="color:${esc(w.color)}"`:'', winStyle=cardColorStyle(w);
   const wRaw=String(w.name||'').trim()||wSub.label;
-  const hdrRollTip=esc(`Trefferwurf mit ${wRaw} starten (Pool: ${wm.attrKey} ${wm.attrVal}${wm.sk?` ${fmtSign(wm.skBonus)}`:''} = ${wm.pool})`);
+  const hdrRollTip=esc(`Trefferwurf mit ${wRaw} starten (Pool: ${wm.attrKey} ${wm.attrVal}${wm.sk?` ${fmtSign(wm.skBonus)}`:''} = ${wm.pool}${dw.isDualWield?`\n⚔️ Mehrhändiger Kampf (${dw.label}): +${dw.dis} Nachteil${dw.dis>1?'e':''}`:''})`);
   const hdrRow=`<div class="flex items-center gap-1.5 min-w-0">
     <button type="button" data-action="toggle-eqitem-collapse" data-kind="weapon" data-id="${w.id}" data-tip="${w.collapsed?'Waffe ausklappen':'Waffe einklappen'}" aria-expanded="${!w.collapsed}" class="btn w-8 h-8 sm:w-7 sm:h-7 p-0 text-xs font-black shrink-0">${w.collapsed?'▸':'▾'}</button>
     <span draggable="true" data-drag-eqitem="weapon:${w.id}" data-tip="Ziehen zum Sortieren" class="w-7 h-7 rounded bg-acc-soft border bdr-acc text-acc text-xs font-black cursor-grab select-none shrink-0 inline-flex items-center justify-center">⠿</span>
     ${renderEqMiniThumb('weapon',w.id,w.img)}
     <input data-wpf="${w.id}:name" type="text" value="${esc(w.name)}" ${colStyle} placeholder="Waffenname..." class="inp-line flex-1 min-w-0 text-sm sm:text-base font-extrabold"/>
+    <button type="button" data-action="toggle-wp-eq" data-id="${w.id}" data-tip="Waffe an-/ablegen (steuert Fertigkeits-Gegencheck, Mehrhändigkeit &amp; aktive Ausrüstungs-Modifikatoren)" class="btn h-8 sm:h-7 px-2 text-[11px] font-extrabold shrink-0 whitespace-nowrap ${isEq?'btn-ok':'opacity-65'}">${isEq?'✓<span class="hidden sm:inline"> Angelegt</span>':'○<span class="hidden sm:inline"> Abgelegt</span>'}</button>
     <button type="button" data-action="roll-weapon" data-id="${w.id}" data-wcat="Trefferwurf" data-tip="${hdrRollTip}" class="btn btn-pri h-8 sm:h-7 px-2 text-xs font-black shrink-0 tabular whitespace-nowrap">🎲 <span class="px-1 py-0.5 rounded bg-black/25 text-[11px] font-black">${wm.pool}</span></button>
     ${renderEqItemMenuBtn('weapon',w.id)}
   </div>`;
   const wPool=['lp','mlp','both'].includes(w.dmgPool)?w.dmgPool:'lp';
   const wPoolBadge=wPool==='mlp'?'<span class="pill cursor-default text-[11px] py-0.5 px-2 border-indigo-400/50 bg-indigo-500/15 text-indigo-300 font-black">🧠 mLP</span>':wPool==='both'?'<span class="pill cursor-default text-[11px] py-0.5 px-2 border-purple-400/50 bg-purple-500/15 text-purple-200 font-black">❤️+🧠 LP/mLP</span>':'';
+  const handBadge=w.hand==='main'
+    ?'<span class="pill cursor-default text-[11px] py-0.5 px-2 text-acc font-bold">🖐️ Haupthand</span>'
+    :w.hand==='off'
+      ?'<span class="pill cursor-default text-[11px] py-0.5 px-2 text-amber-300 font-bold">🤚 Nebenhand</span>'
+      :(w.hand==='both'||w.grip==='2h')
+        ?'<span class="pill cursor-default text-[11px] py-0.5 px-2 text-acc font-bold">👐 Zweihändig</span>'
+        :(w.grip==='1h'?'<span class="pill cursor-default text-[11px] py-0.5 px-2 text-acc">Einhändig</span>':'');
+  const dwBadge=dw.isDualWield?`<span class="pill cursor-default text-[11px] py-0.5 px-2 border-rose-400/50 bg-rose-500/15 text-rose-200 font-black" data-tip="2 einhändige Waffen gleichzeitig angelegt → Mehrhändiger Kampf (${dw.label}: +${dw.dis} Nachteil${dw.dis>1?'e':''})">⚔️ ${dw.label} (+${dw.dis}N)</span>`:'';
   if(w.collapsed){
-    return `<div data-eqitem="weapon:${w.id}" class="subcard py-2 px-2.5 sm:px-3 space-y-1.5 min-w-0" ${winStyle}>
+    return `<div data-eqitem="weapon:${w.id}" class="subcard py-2 px-2.5 sm:px-3 space-y-1.5 min-w-0 ${isEq?'':'opacity-75'}" ${winStyle}>
       ${hdrRow}
       <div class="flex flex-wrap items-center gap-1.5 tabular min-w-0">
         <span class="pill cursor-default text-[11px] py-0.5 px-2">${esc(wSub.icon)} ${esc(wSub.label)}</span>
         ${wPoolBadge}
-        ${w.grip?`<span class="pill cursor-default text-[11px] py-0.5 px-2 text-acc">${w.grip==='1h'?'Einhändig':'Zweihändig'}</span>`:''}
+        ${handBadge}
+        ${dwBadge}
         <span class="pill cursor-default text-[11px] py-0.5 px-2 max-w-full whitespace-normal break-words">Schnitt ${esc(w.dmgCut)} • Durchstoß ${esc(w.dmgPierce)} • Einschlag ${esc(w.dmgImpact)}${fmtCustomValSummarySuffix(w.customDmg)}</span>
         ${linkedAmmo?`<span class="pill cursor-default text-[11px] py-0.5 px-2 text-amber-400">🎯 <span data-linked-ammo-name="${linkedAmmo.id}">${esc(linkedAmmo.name||'Munition')}</span>: <span data-linked-ammo-qty="${linkedAmmo.id}">${linkedAmmo.qty}</span></span>`:''}
       </div>
     </div>`;
   }
-  return `<div data-eqitem="weapon:${w.id}" class="subcard p-2.5 sm:p-3 space-y-3 min-w-0" ${winStyle}>
+  return `<div data-eqitem="weapon:${w.id}" class="subcard p-2.5 sm:p-3 space-y-3 min-w-0 ${isEq?'':'opacity-80'}" ${winStyle}>
     ${hdrRow}
     <div class="pt-2 border-t bdr-line grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 items-end">
       <div class="min-w-0">
@@ -924,10 +934,11 @@ export function renderWeaponCard(w,idx,len){
         <button type="button" data-action="open-wp-type-picker" data-id="${w.id}" aria-haspopup="menu" aria-expanded="false" class="inp w-full py-1.5 px-2 text-xs font-bold flex items-center justify-between gap-2 text-left cursor-pointer hover:border-sky-400/70"><span class="truncate">${esc(wSub.icon)} ${esc(wSub.label)}</span><span class="t-mut text-[10px] shrink-0">▾</span></button>
       </div>
       <div class="min-w-0">
-        <label class="block text-[10px] font-bold t-mut mb-0.5">FÜHRUNG</label>
-        <div class="grid grid-cols-2 gap-1.5">
-          <button type="button" data-action="set-wp-grip" data-id="${w.id}" data-grip="1h" data-tip="Einhändig geführt (schließt Zweihändig aus)" class="btn py-1.5 px-2 text-xs w-full ${w.grip==='1h'?'btn-ok':'opacity-75'}"><span class="inline-flex items-center justify-center w-3.5 h-3.5 rounded border ${w.grip==='1h'?'border-white bg-white/20':'bdr-line'} text-[10px] font-black shrink-0">${w.grip==='1h'?'✓':''}</span><span class="truncate">1H</span></button>
-          <button type="button" data-action="set-wp-grip" data-id="${w.id}" data-grip="2h" data-tip="Zweihändig geführt (schließt Einhändig aus)" class="btn py-1.5 px-2 text-xs w-full ${w.grip==='2h'?'btn-ok':'opacity-75'}"><span class="inline-flex items-center justify-center w-3.5 h-3.5 rounded border ${w.grip==='2h'?'border-white bg-white/20':'bdr-line'} text-[10px] font-black shrink-0">${w.grip==='2h'?'✓':''}</span><span class="truncate">2H</span></button>
+        <label class="block text-[10px] font-bold t-mut mb-0.5" data-tip="Bestimmt Hand-Slot &amp; Führung (1H/2H). Bei 2 gleichzeitig angelegten 1H-Waffen greift automatisch Mehrhändiger Kampf (+1N Haupthand, +2N Nebenhand).">HAND / FÜHRUNG</label>
+        <div class="grid grid-cols-3 gap-1">
+          <button type="button" data-action="set-wp-hand" data-id="${w.id}" data-hand="main" data-tip="Haupthand (1H, z. B. rechts – bei Mehrhändigkeit +1 Nachteil)" class="btn py-1.5 px-1.5 text-[11px] w-full ${w.hand==='main'?'btn-ok':'opacity-75'}"><span class="truncate">🖐️ HH</span></button>
+          <button type="button" data-action="set-wp-hand" data-id="${w.id}" data-hand="off" data-tip="Nebenhand (1H, z. B. links – bei Mehrhändigkeit +2 Nachteile)" class="btn py-1.5 px-1.5 text-[11px] w-full ${w.hand==='off'?'btn-ok':'opacity-75'}"><span class="truncate">🤚 NH</span></button>
+          <button type="button" data-action="set-wp-hand" data-id="${w.id}" data-hand="both" data-tip="Zweihändig geführt (2H)" class="btn py-1.5 px-1.5 text-[11px] w-full ${(w.hand==='both'||w.grip==='2h')?'btn-ok':'opacity-75'}"><span class="truncate">👐 2H</span></button>
         </div>
       </div>
       <div class="min-w-0">
@@ -939,6 +950,7 @@ export function renderWeaponCard(w,idx,len){
         <button type="button" data-action="open-wp-skill-picker" data-id="${w.id}" aria-haspopup="menu" aria-expanded="false" class="inp w-full py-1.5 px-2 text-xs font-bold tabular flex items-center justify-between gap-2 text-left cursor-pointer hover:border-sky-400/70"><span class="truncate">${wm.sk?`${esc(wm.sk.name||'Unbenannt')} (${fmtSign(wm.skBonus)})`:'— Keine (+0) —'}</span><span class="t-mut text-[10px] shrink-0">▾</span></button>
       </div>
     </div>
+    ${dw.isDualWield?`<div class="px-2.5 py-1.5 rounded-lg border border-rose-400/45 bg-rose-500/10 text-[11px] font-extrabold text-rose-200 flex flex-wrap items-center justify-between gap-1.5"><span>⚔️ Mehrhändiger Kampf aktiv: <strong>${dw.label} (+${dw.dis} Nachteil${dw.dis>1?'e':''} auf Trefferwürfe)</strong></span><span class="text-[10px] opacity-80">2+ einhändige Waffen angelegt</span></div>`:''}
     <div class="p-2.5 rounded-xl border bdr-acc bg-acc-soft/25 flex flex-wrap items-center justify-between gap-2">
       <div class="text-xs font-bold t-mut tabular min-w-0">
         Pool: <strong class="text-acc">${wm.attrKey} ${wm.attrVal}${wm.sk?` ${fmtSign(wm.skBonus)}`:''} = ${wm.pool}</strong>
@@ -1134,7 +1146,7 @@ export function renderInvItemCard(it,idx,len,invSecs){
   const lnkSrc=lnk?findEqItem(lnk.kind,lnk.id):null;
   const lnkBadgeHtml=lnk?(()=>{
     const cfg=lnk.kind==='weapon'
-      ?{ico:lnkSrc?.wType==='ranged'?'🏹':'⚔️',lbl:'Waffe',cls:'border-sky-400/50 bg-sky-500/15 text-sky-300'}
+      ?{ico:lnkSrc?.wType==='ranged'?'🏹':'⚔️',lbl:lnkSrc?.equipped===false?'Waffe (Abgel.)':'Waffe',cls:'border-sky-400/50 bg-sky-500/15 text-sky-300'}
       :lnk.kind==='armor'
         ?{ico:'🛡️',lbl:lnkSrc?.equipped===false?'Rüstung (Abgel.)':'Rüstung',cls:'border-emerald-400/50 bg-emerald-500/15 text-emerald-300'}
         :{ico:'🎯',lbl:'Munition',cls:'border-amber-400/50 bg-amber-500/15 text-amber-300'};

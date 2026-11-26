@@ -1206,6 +1206,21 @@ export function getAdvDisForContext(ctx={},M=null,sheet=S){
       if(g.reduceDis>0){autoDis=Math.max(0,autoDis-g.reduceDis);src.push({val:-g.reduceDis,kind:'dis',tagLbl:tg0,isSit:true,label:`${g.sitLabel}: Langsam reduziert`,srcName:g.items[0]?.srcName||g.sitLabel,srcKind:g.items[0]?.srcKind||'Situativ'});}
     }
   });
+  if(w&&cat==='Trefferwurf'){
+    const dwOvr=String(ctx.dualWieldOvr||'auto');
+    if(dwOvr==='main'||dwOvr==='offhand'){
+      const dVal=dwOvr==='offhand'?2:1;
+      const hLbl=dwOvr==='offhand'?'Nebenhand (Manuell)':'Haupthand (Manuell)';
+      autoDis+=dVal;
+      src.push({val:dVal,kind:'dis',scope:'hit',label:hLbl,tagLbl:'⚔️ Mehrhändig',srcName:`Mehrhändiger Kampf (${hLbl})`,srcKind:'Mehrhändig'});
+    }else if(dwOvr!=='off'){
+      const dw=getWeaponDualWieldInfo(w,target);
+      if(dw.isDualWield&&dw.dis>0){
+        autoDis+=dw.dis;
+        src.push({val:dw.dis,kind:'dis',scope:'hit',label:`${dw.label} (2× 1H angelegt)`,tagLbl:`⚔️ ${dw.label}`,srcName:`Mehrhändiger Kampf • ${dw.label}`,srcKind:'Mehrhändig'});
+      }
+    }
+  }
   if(ctx.includeInspiration&&target.inspirationActive){
     autoAdv+=1;
     src.push({val:1,kind:'adv',scope:'all',label:'Inspiration (Nächster Wurf)',tagLbl:'✨ Inspiration',srcName:'✨ Inspiration',srcKind:'Inspiration'});
@@ -2056,6 +2071,46 @@ export function calcProg(M=null,sheet=S){
   [...(sheet.powers||[]),...(sheet.augments||[])].forEach(it=>{const c=calcPwCost(it);pwSp+=c.sp;pwMsp+=c.msp;});
   const spSpent=trSp+skSp+pwSp,mspSpent=trMsp+skMsp+pwMsp;
   return {lvl,baseSp,baseMsp,bonusSp,spMod,spModSrc,totSp,totMsp,trSp,trMsp,skSp,skMsp,pwSp,pwMsp,spSpent,mspSpent,spRem:totSp-spSpent,mspRem:totMsp-mspSpent};
+}
+
+export function isWeaponOneHanded(w){
+  if(!w) return false;
+  if(w.grip==='2h'||w.hand==='both') return false;
+  if(w.grip==='1h'||w.hand==='main'||w.hand==='off') return true;
+  return Array.isArray(w.tags)&&w.tags.some(t=>/^(?:einh[äa]ndig|beidh[äa]ndig)\b/i.test(String(t?.name||'').trim()));
+}
+
+export function getEquippedWeaponsForSkill(skillId,sheet=S){
+  const sid=String(skillId||'').trim();
+  if(!sid) return [];
+  return (sheet?.weapons||[]).filter(w=>w&&w.equipped!==false&&w.skillId===sid);
+}
+
+export function getWeaponDualWieldInfo(weapon,sheet=S){
+  const target=sheet||S;
+  const handRole=weapon?.hand||(weapon?.grip==='2h'?'both':'');
+  const baseLabel=handRole==='main'?'Haupthand':handRole==='off'?'Nebenhand':handRole==='both'?'Zweihändig':'';
+  if(!weapon||weapon.equipped===false||!isWeaponOneHanded(weapon)){
+    return {isDualWield:false,role:handRole,label:baseLabel,dis:0,peers:[]};
+  }
+  const eq1h=(target?.weapons||[]).filter(x=>x&&x.equipped!==false&&isWeaponOneHanded(x));
+  if(eq1h.length<2){
+    return {isDualWield:false,role:handRole,label:baseLabel,dis:0,peers:[]};
+  }
+  const peers=eq1h.filter(x=>x.id!==weapon.id);
+  let role='main';
+  if(weapon.hand==='off') role='off';
+  else if(weapon.hand==='main') role='main';
+  else if(peers.some(x=>x.hand==='main')) role='off';
+  else if(peers.some(x=>x.hand==='off')) role='main';
+  else role=eq1h[0]?.id===weapon.id?'main':'off';
+  return {
+    isDualWield:true,
+    role,
+    label:role==='off'?'Nebenhand':'Haupthand',
+    dis:role==='off'?2:1,
+    peers
+  };
 }
 
 export function getWeaponRollMeta(w,M=null,sheet=S){

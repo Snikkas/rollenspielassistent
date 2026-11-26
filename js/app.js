@@ -8,10 +8,10 @@ import {
   registerHooks
 } from './ui-hooks.js';
 import {
-  syncPwUseCostsLegacy, makeDefaultStatusEffects, defaultState, setS, setD, clearDiceLogs, syncBodyScrollLock, positionFloatingMenu, closeCtxMenu, closePwDropdown, repositionOpenPwMenus, hydrateWinPrefs, saveWinPref, clearWinPref, applyWinFrame, setPwMode, normalizeCampaigns, normalizeEnemyMeta, getUserBgLocalKey, getCampaigns, setActiveCampaign, canManageCampaign, canClearLiveDice, getCreatableCampaigns, isEnemySheet, getEnemyMeta, canToggleEnemyStatus, canManageEnemySheet, canViewEnemySheet, ensureAllRegistryUsers, findUserKeyByName, findUserKeyById, getUserAvatar, canViewUserProfile, saveRegistryLocal, saveSecretRollsLocal, getActiveLiveCampaignId, captureScrollState, restoreScrollState, toast, triggerNiceEasterEgg, logChron, mergeLoaded, saveLastActiveTab, save, flushPendingSave, saveSoon, load, flushThemePrefsSync, cancelThemePrefsSync, applySessionTheme, persistCurrentThemeChange, syncPalDraftFromSlot, applyTheme, CUSTOM_ICONS, findMainArt, findActionSub, isReservedPwTerm, isWeaponMassiv, makeWeapon, makeAmmo, makeArmor, makeInvItem, makeEqSecMeta, makeChrSecMeta, makeSection, makeSkSection, makeInvSection, makePower, makeAugment, syncEquipmentToInventory, S, D, CN, LD, FBW, DUEL, COMBAT, isMobileLayout, CTX_MENU, getWinState, hasSavedWinPref, savedEffRanges, savedPwRanges, lastPwFieldById, pwQuickKey, UI, LIVE_TAB_ID, PATCHNOTES, FEEDBACK, CLOUD, CLOUD_SYNC, PWLIB, getCharOwner, getCharCampaignId, canManageChar, getEditStyleSlot
+  syncPwUseCostsLegacy, makeDefaultStatusEffects, defaultState, setS, setD, clearDiceLogs, syncBodyScrollLock, positionFloatingMenu, openCtxMenu, closeCtxMenu, closePwDropdown, repositionOpenPwMenus, hydrateWinPrefs, saveWinPref, clearWinPref, applyWinFrame, setPwMode, normalizeCampaigns, normalizeEnemyMeta, getUserBgLocalKey, getCampaigns, setActiveCampaign, canManageCampaign, canClearLiveDice, getCreatableCampaigns, isEnemySheet, getEnemyMeta, canToggleEnemyStatus, canManageEnemySheet, canViewEnemySheet, ensureAllRegistryUsers, findUserKeyByName, findUserKeyById, getUserAvatar, canViewUserProfile, saveRegistryLocal, saveSecretRollsLocal, getActiveLiveCampaignId, captureScrollState, restoreScrollState, toast, triggerNiceEasterEgg, logChron, mergeLoaded, saveLastActiveTab, save, flushPendingSave, saveSoon, load, flushThemePrefsSync, cancelThemePrefsSync, applySessionTheme, persistCurrentThemeChange, syncPalDraftFromSlot, applyTheme, CUSTOM_ICONS, findMainArt, findActionSub, isReservedPwTerm, getWeaponSubtype, isWeaponMassiv, makeWeapon, makeAmmo, makeArmor, makeInvItem, makeEqSecMeta, makeChrSecMeta, makeSection, makeSkSection, makeInvSection, makePower, makeAugment, syncEquipmentToInventory, S, D, CN, LD, FBW, DUEL, COMBAT, isMobileLayout, CTX_MENU, getWinState, hasSavedWinPref, savedEffRanges, savedPwRanges, lastPwFieldById, pwQuickKey, UI, LIVE_TAB_ID, PATCHNOTES, FEEDBACK, CLOUD, CLOUD_SYNC, PWLIB, getCharOwner, getCharCampaignId, canManageChar, getEditStyleSlot
 } from './state.js';
 import {
-  getStatusEffValues, formatPwUseCosts, getReservablePwCosts, getEffectivePoolCap, getPwBuilderToken, parseStatusTokens, getAllParsedEffectChips, invalidateModsCache, calcActiveMods, buildAttrTip, buildSecTip, getMentalArmorSummary, syncCresRenameInTokens, syncSkillRenameInTokens, purgeExtraSecFromPowers, calcAutoSkCost, findDuplicatePwEntry, makeUniquePwName, updatePwNameDupHint, enforceUniquePwName, buildPowerExportPack, downloadPowerPackJson, resolveLibraryAugmentParentName, getSuggestedAugmentsForPower, importPowerPackIntoSheet, getTrCost, performSimpleRest, performFullRest, withPoolSync, linkAugToPower, unlinkAugFromPower, calcPwCost, calcSkCost, calcProg, getWeaponRollMeta, getTagDesc, cresName, makeExtraSec, getExtraSecName, getResLabel, escReStr, getAttrCol, getSecCol, getAttrTot, getLpBase, getLpMax, getMlpBase, getMlpMax, getLpRegenAuto, getMlpRegenAuto, hasLpRegenOvr, hasMlpRegenOvr, getLpRegen, getMlpRegen, getIniBase, getIniTot, getApBase, getApMax, getMapBase, getMapMax, getCresBase, getCresMax, getExtraSecBase, getBstAuto, hasBstOvr, getBstBase, getEffBst, getSkAutoBonus, hasSkBonusOvr, getSkBonus, findPwItem, findEqItem, getLinkedAugs, getValidPwSecId
+  getStatusEffValues, formatPwUseCosts, getReservablePwCosts, getEffectivePoolCap, getPwBuilderToken, parseStatusTokens, getAllParsedEffectChips, invalidateModsCache, calcActiveMods, buildAttrTip, buildSecTip, getMentalArmorSummary, syncCresRenameInTokens, syncSkillRenameInTokens, purgeExtraSecFromPowers, calcAutoSkCost, findDuplicatePwEntry, makeUniquePwName, updatePwNameDupHint, enforceUniquePwName, buildPowerExportPack, downloadPowerPackJson, resolveLibraryAugmentParentName, getSuggestedAugmentsForPower, importPowerPackIntoSheet, getTrCost, performSimpleRest, performFullRest, withPoolSync, linkAugToPower, unlinkAugFromPower, calcPwCost, calcSkCost, calcProg, getWeaponRollMeta, getEquippedWeaponsForSkill, getWeaponDualWieldInfo, getTagDesc, cresName, makeExtraSec, getExtraSecName, getResLabel, escReStr, getAttrCol, getSecCol, getAttrTot, getLpBase, getLpMax, getMlpBase, getMlpMax, getLpRegenAuto, getMlpRegenAuto, hasLpRegenOvr, hasMlpRegenOvr, getLpRegen, getMlpRegen, getIniBase, getIniTot, getApBase, getApMax, getMapBase, getMapMax, getCresBase, getCresMax, getExtraSecBase, getBstAuto, hasBstOvr, getBstBase, getEffBst, getSkAutoBonus, hasSkBonusOvr, getSkBonus, findPwItem, findEqItem, getLinkedAugs, getValidPwSecId
 } from './calc.js';
 import {
   updateLobbyLiveDiceDOM, initLiveDiceChannel, publishLiveRoll, revealSecretRoll, publishLiveCampNote, clearLiveDiceFeed, syncCloudRegistry, renameUserAccount, addCampaignAllowedUser, removeCampaignAllowedUser, toggleGlobalGMTag, addCampaignMainGM, removeCampaignMainGM, kickCharFromCampaign, duplicateCharacterSheet, getCampaignSharedPages, extractPublicPages, upsertPublicNoteEntry, fetchLobbyList, fetchForeignCharacterSheet, canWriteCurrentSheetToCloud, resetCloudSyncState, updateCloudSyncStatusDOM, scheduleCloudSync, pushToCloud, flushCloudSyncNow, flushBeforeCharacterSwitch, loadCloudCharacter, createNewUserCharacter, updateCloudCharacterMeta, fetchTrashedCharacters, deleteCloudCharacter, restoreTrashedCharacter, permanentDeleteTrashedCharacter, emptyTrashedCharacters, updateEnemyMetaCloud, createNewEnemyOrTemplate, toggleEnemyActiveStatus, toggleEnemyCampaignAssignment, toggleEnemyDiceVisibility, hideAllEnemiesInCampaignDice, toggleEnemyArchived, cloneEnemyToCampaign, stripLibraryPackMeta, getAllLibraryPacks, fetchPowerLibrary, publishPackToCloudLibrary, deletePackFromCloudLibrary, parsePatchnoteTsMs, getNewestPatchnoteId, isPatchnoteCollapsed, normalizePatchnoteEntry, fetchPatchnotes, savePatchnotesToServer, fetchFeedback, saveFeedbackStore, loadCustomIconsCache, fetchCustomIcons, saveCustomIconsToServer, loadNotifSeen, saveNotifSeen, markNotifRead, markAllNotifsRead, updateNotifBadges, refreshUserNotificationsBg, fetchAndSyncBasisPowers, isSecretRollActive
@@ -653,8 +653,71 @@ document.addEventListener('click',async e=>{
       }
       break;
     }
-    case 'roll-skill': {const sk=S.skills.find(x=>x.id===el.dataset.id);if(!sk)break;const ak=sk.linkedAttr||'PR',av=getAttrTot(ak),b=getSkBonus(sk);D.weaponId=null;D.wRollCat='Normaler Test';D.skillId=sk.id;D.attrKey=ak;D.critOff=0;D.sitActive={};D.cMode='breakdown';D.cAttr=av;if(['0','10','15','20','30'].includes(String(b))){D.cSkill=String(b);}else{D.cSkill='custom';D.cCustom=b;}D.cDirect=av+b;D.label=`Normaler Test: ${sk.name} (${fmtSign(b)}) + ${ak} (${av})`;applyDiceAutoAdvDis(true);D.open=true;renderHeader();renderDice();break;}
+    case 'roll-skill': {
+      const sk=S.skills.find(x=>x.id===el.dataset.id);
+      if(!sk) break;
+      const startNormalSkillRoll=()=>{
+        const ak=sk.linkedAttr||'PR',av=getAttrTot(ak),b=getSkBonus(sk);
+        D.weaponId=null;D.wRollCat='Normaler Test';D.dualWieldOvr='auto';D.skillId=sk.id;D.attrKey=ak;D.critOff=0;D.sitActive={};
+        D.cMode='breakdown';D.cAttr=av;
+        if(['0','10','15','20','30'].includes(String(b))){D.cSkill=String(b);}else{D.cSkill='custom';D.cCustom=b;}
+        D.cDirect=av+b;
+        D.label=`Normaler Test: ${sk.name} (${fmtSign(b)}) + ${ak} (${av})`;
+        applyDiceAutoAdvDis(true);D.open=true;renderHeader();renderDice();
+      };
+      const eqWps=getEquippedWeaponsForSkill(sk.id,S);
+      if(eqWps.length===1){
+        openWeaponRoll(eqWps[0].id,'Trefferwurf');
+      }else if(eqWps.length>=2){
+        const items=[
+          {type:'label',label:`Angelegte Waffen für „${sk.name||'Fertigkeit'}“`},
+          ...eqWps.map(w=>{
+            const sub=getWeaponSubtype(w.wType), wm=getWeaponRollMeta(w), dw=getWeaponDualWieldInfo(w,S);
+            const wNm=String(w.name||'').trim()||sub.label;
+            const handSub=dw.isDualWield?`${dw.label} (+${dw.dis} Nachteil${dw.dis>1?'e':''}) • `:(dw.label?`${dw.label} • `:'');
+            return {
+              icon:sub.icon,
+              label:wNm,
+              sub:`${handSub}Pool ${wm.pool} (${wm.attrKey} ${wm.attrVal} ${fmtSign(wm.skBonus)})`,
+              badge:dw.isDualWield?`+${dw.dis}N`:`🎲 ${wm.pool}`,
+              onClick:()=>{openWeaponRoll(w.id,'Trefferwurf');}
+            };
+          }),
+          {sep:true},
+          {
+            icon:'📋',
+            label:'Normaler Test (ohne Waffe)',
+            sub:`${sk.linkedAttr||'PR'} ${getAttrTot(sk.linkedAttr||'PR')} ${fmtSign(getSkBonus(sk))} = ${getAttrTot(sk.linkedAttr||'PR')+getSkBonus(sk)}`,
+            onClick:()=>startNormalSkillRoll()
+          }
+        ];
+        openCtxMenu({
+          key:`roll-skill-wp:${sk.id}`,
+          title:`⚔️ ${String(sk.name||'Fertigkeit').trim()} – Waffe wählen`,
+          anchorEl:el,
+          align:'left',
+          minWidth:265,
+          showClose:true,
+          items
+        });
+      }else{
+        startNormalSkillRoll();
+      }
+      break;
+    }
     case 'roll-weapon': openWeaponRoll(el.dataset.id,el.dataset.wcat); break;
+    case 'set-dice-dw-ovr': {
+      const ovr=['auto','off','main','offhand'].includes(el.dataset.ovr)?el.dataset.ovr:'auto';
+      D.dualWieldOvr=ovr;
+      applyDiceAutoAdvDis(false);
+      renderDice();
+      break;
+    }
+    case 'dice-switch-dw-weapon': {
+      const wid=String(el.dataset.id||'').trim();
+      if(wid) selectDiceWeapon(wid);
+      break;
+    }
     case 'set-dice-wcat': {
       const wc=el.dataset.wcat||'Normaler Test';
       D.wRollCat=wc;D.sitActive={};
@@ -670,7 +733,7 @@ document.addEventListener('click',async e=>{
       D.sitActive={};
       applyDiceAutoAdvDis(false);syncDiceFromSheet();renderDice();break;
     }
-    case 'clear-dice-weapon': D.weaponId=null; D.wpEditOpen=false; D.wRollCat='Normaler Test'; D.critOff=0; D.sitActive={}; applyDiceAutoAdvDis(true); syncDiceFromSheet(); renderDice(); break;
+    case 'clear-dice-weapon': D.weaponId=null; D.dualWieldOvr='auto'; D.wpEditOpen=false; D.wRollCat='Normaler Test'; D.critOff=0; D.sitActive={}; applyDiceAutoAdvDis(true); syncDiceFromSheet(); renderDice(); break;
     case 'dice-clear-weapon-only': selectDiceWeapon('__none__'); break;
     case 'toggle-dice-wp-edit': D.wpEditOpen=!D.wpEditOpen; renderDice(); break;
     case 'toggle-dice-advsrc': D.advSrcOpen=!D.advSrcOpen; renderDice(); break;
@@ -693,6 +756,8 @@ document.addEventListener('click',async e=>{
       const g=['','1h','2h'].includes(el.dataset.grip)?el.dataset.grip:'';
       if(w){
         w.grip=g;
+        if(g==='2h') w.hand='both';
+        else if(w.hand==='both') w.hand='';
         invalidateModsCache();
         syncDiceFromSheet();
         if(S.activeTab==='equipment') renderMain();
@@ -1250,10 +1315,42 @@ document.addEventListener('click',async e=>{
     case 'ammo-step': {const am=S.ammos.find(a=>a.id===el.dataset.id);if(am){am.qty=Math.max(0,toInt(am.qty,0)+Number(el.dataset.delta));syncLinkedAmmoDOM(am.id);save();}break;}
     case 'add-armor': {const na=makeArmor(); S.armors.push(na); syncEquipmentToInventory(S,{forceKeys:[`armor:${na.id}`]}); if(S.equipSecMeta?.armors)S.equipSecMeta.armors.collapsed=false; renderMain(); save(); break;}
     case 'del-armor': S.armors=S.armors.filter(a=>a.id!==el.dataset.id); if(UI.arZoneDrafts) delete UI.arZoneDrafts[el.dataset.id]; syncEquipmentToInventory(S); invalidateModsCache(); syncDiceFromSheet(); renderMain(); if(D.open) renderDice(); save(); break;
+    case 'toggle-wp-eq': {
+      const w=(S.weapons||[]).find(x=>x.id===el.dataset.id);
+      if(w){
+        w.equipped=w.equipped===false?true:false;
+        invalidateModsCache(); syncDiceFromSheet();
+        renderMain(); if(D.open) renderDice(); save();
+      }
+      break;
+    }
+    case 'set-wp-hand': {
+      const w=(S.weapons||[]).find(x=>x.id===el.dataset.id), h=el.dataset.hand;
+      if(w&&(h==='main'||h==='off'||h==='both')){
+        if(w.hand===h){
+          w.hand='';
+          if(h==='both') w.grip='';
+        }else{
+          w.equipped=true;
+          w.hand=h;
+          w.grip=h==='both'?'2h':'1h';
+          if(h==='main'||h==='off'){
+            (S.weapons||[]).forEach(o=>{
+              if(o&&o.id!==w.id&&o.hand===h) o.hand='';
+            });
+          }
+        }
+        invalidateModsCache(); syncDiceFromSheet();
+        renderMain(); if(D.open) renderDice(); save();
+      }
+      break;
+    }
     case 'set-wp-grip': {
       const w=S.weapons.find(x=>x.id===el.dataset.id), g=el.dataset.grip;
       if(w&&(g==='1h'||g==='2h')){
         w.grip=w.grip===g?'':g;
+        if(w.grip==='2h') w.hand='both';
+        else if(w.hand==='both') w.hand='';
         invalidateModsCache(); syncDiceFromSheet();
         renderMain(); if(D.open) renderDice(); save();
       }
