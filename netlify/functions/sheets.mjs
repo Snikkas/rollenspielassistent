@@ -12,8 +12,21 @@ const ALLOWED_DELTA_KEYS = ["lpCurrent", "mlpCurrent", "apCurrent", "mapCurrent"
 const jsonResp = (data, status = 200) =>
   new Response(JSON.stringify(data), {
     status,
-    headers: { ...CORS_HEADERS, "Content-Type": "application/json; charset=utf-8" }
+    headers: {
+      ...CORS_HEADERS,
+      "Content-Type": "application/json; charset=utf-8",
+      "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+      "Pragma": "no-cache"
+    }
   });
+
+function getCharStore() {
+  try {
+    return getStore({ name: "scherbensturm-chars", consistency: "strong" });
+  } catch (e) {
+    return getStore("scherbensturm-chars");
+  }
+}
 
 const toIntSafe = (v, fallback = 0) => {
   const n = parseInt(v, 10);
@@ -286,7 +299,7 @@ export default async (req) => {
   }
 
   try {
-    const store = getStore("scherbensturm-chars");
+    const store = getCharStore();
     const url = new URL(req.url);
     const id = url.searchParams.get("id");
     const wantTrashed = url.searchParams.get("trashed") === "1";

@@ -16,6 +16,77 @@ import {
 
 let cloudSyncTimer=null, liveDiceES=null, liveDiceBC=null, liveDiceTopicCur='', liveDicePollTimer=null, registryPushInFlight=0, lastRegistryPushMs=0;
 let pwLibFetchPromise=null;
+const LIVE_EVENT_TYPES=new Set([
+  'campnote_live','clear_dice','duel_challenge','duel_response','duel_cancel',
+  'combat_damage_offer','combat_damage_applied','initiative_live','initiative_char_sync',
+  'enemy_meta_live','sheet_trash_live'
+]);
+const TRASH_OVERRIDE_TTL_MS=25000;
+const recentTrashOverrides=new Map();
+const fetchJsonNoStore=(url,opts={})=>fetch(url,{cache:'no-store',...opts,headers:{'Accept':'application/json',...(opts.headers||{})}});
+function pruneTrashOverrides(){
+  const now=Date.now();
+  for(const [k,v] of recentTrashOverrides.entries()){
+    if(!v||now-toInt(v.tsMs,0)>TRASH_OVERRIDE_TTL_MS) recentTrashOverrides.delete(k);
+  }
+}
+function recordTrashOverride(charId,status,item=null){
+  const cid=String(charId||'').trim();
+  if(!cid) return;
+  recentTrashOverrides.set(cid,{status,item:item?clone(item):null,tsMs:Date.now()});
+}
+function normalizeLobbySummaryItem(rawItem,validCampIds){
+  if(!rawItem||typeof rawItem!=='object'||!rawItem.id) return null;
+  const ch=clone(rawItem);
+  const cid=String(ch.id).trim();
+  if(!cid) return null;
+  if(ch.owner&&CLOUD.registry.claims[cid]===undefined) CLOUD.registry.claims[cid]=ch.owner;
+  if(CLOUD.registry.charCampaigns[cid]===undefined){
+    CLOUD.registry.charCampaigns[cid]=String(ch.campaignId||ch._summary?.campaignId||'default').trim()||'default';
+  }
+  const rawCamp=String(CLOUD.registry.charCampaigns[cid]||ch.campaignId||'default').trim()||'default';
+  const effCamp=validCampIds.has(rawCamp)?rawCamp:'default';
+  ch.campaignId=effCamp;
+  CLOUD.registry.charCampaigns[cid]=effCamp;
+  const isEnemy=Boolean(ch.sheetType==='enemy'||ch._summary?.sheetType==='enemy'||CLOUD.registry.enemyMeta?.[cid]);
+  if(isEnemy){
+    ch.sheetType='enemy';
+    const regEm=CLOUD.registry.enemyMeta?.[cid];
+    const blobEm=(ch.enemyMeta&&typeof ch.enemyMeta==='object')?ch.enemyMeta:(ch._summary?.enemyMeta||null);
+    const chosenEm=(regEm&&(!blobEm||toInt(regEm.updatedAtMs,0)>=toInt(blobEm.updatedAtMs,0)))?regEm:(blobEm||regEm);
+    const normEm=normalizeEnemyMeta(chosenEm,validCampIds);
+    if(!CLOUD.registry.enemyMeta||typeof CLOUD.registry.enemyMeta!=='object') CLOUD.registry.enemyMeta={};
+    CLOUD.registry.enemyMeta[cid]=normEm;
+    ch.enemyMeta=clone(normEm);
+  }else{
+    ch.sheetType='character';
+  }
+  return ch;
+}
+function upsertLobbyListItem(rawItem){
+  if(!rawItem||!rawItem.id) return;
+  const validCampIds=new Set(getCampaigns().map(c=>c.id));
+  const norm=normalizeLobbySummaryItem(rawItem,validCampIds);
+  if(!norm) return;
+  const next=(CLOUD.list||[]).filter(c=>c&&c.id!==norm.id);
+  next.push(norm);
+  next.sort((a,b)=>String(a.name||'').localeCompare(String(b.name||''),'de'));
+  CLOUD.list=next;
+}
+function removeLobbyListItem(charId){
+  const cid=String(charId||'').trim();
+  if(!cid) return;
+  CLOUD.list=(CLOUD.list||[]).filter(c=>c&&c.id!==cid);
+}
+function refreshUIAfterSheetListChange(){
+  if(UI.inLobby){
+    hooks.renderHeader?.();
+    hooks.renderMain?.();
+  }
+  if(UI.modal==='adminPanel') hooks.renderModal?.();
+  if(D.open) hooks.renderDice?.();
+  if(INI.open||UI.inLobby) hooks.updateInitiativeUI?.();
+}
 export const isSecretRollActive = () => Boolean(CLOUD.isAdmin && D.secretMode);
 export const getLiveDiceTopic=()=>{
   const base=String(CLOUD.serverUrl||window.location.origin||'scherbensturm_global').trim().replace(/\/+$/,'').toLowerCase();
@@ -397,6 +468,65 @@ export function handleIncomingDicePayload(rawObj,isRealtimePush=false){
     else if(S?.charId===cid) hooks.renderHeader?.();
     return;
   }
+  if(rawObj.type==='sheet_trash_live'){
+    if(rawObj.senderTabId===LIVE_TAB_ID) return;
+    const action=String(rawObj.action||'').trim();
+    const cid=String(rawObj.charId||'').trim();
+    const validCampIds=new Set(getCampaigns().map(c=>c.id));
+    if(action==='trashed'&&cid){
+      recordTrashOverride(cid,'trashed',rawObj.item||null);
+      removeLobbyListItem(cid);
+      if(rawObj.item&&typeof rawObj.item==='object'){
+        CLOUD.trashedList=[clone(rawObj.item),...(CLOUD.trashedList||[]).filter(t=>t&&t.id!==cid)];
+      }
+      if(CLOUD.registry.publicNotes) delete CLOUD.registry.publicNotes[cid];
+      if(CLOUD.registry.enemyMeta) delete CLOUD.registry.enemyMeta[cid];
+      if(CLOUD.registry.claims) delete CLOUD.registry.claims[cid];
+      if(CLOUD.registry.charCampaigns) delete CLOUD.registry.charCampaigns[cid];
+      if(D.dMode==='character'&&D.oppCharId===cid){
+        D.oppCharId=''; D.oppWeaponId=''; D.oppSkillId=''; D.oppSitActive={};
+      }
+      saveRegistryLocal();
+      refreshUIAfterSheetListChange();
+    }else if(action==='restored'&&cid){
+      const item=(rawObj.item&&typeof rawObj.item==='object')?rawObj.item:null;
+      recordTrashOverride(cid,'restored',item);
+      if(Array.isArray(CLOUD.registry.deletedCharIds)){
+        CLOUD.registry.deletedCharIds=CLOUD.registry.deletedCharIds.filter(x=>x!==cid);
+      }
+      CLOUD.trashedList=(CLOUD.trashedList||[]).filter(t=>t&&t.id!==cid);
+      if(item){
+        const effCamp=validCampIds.has(item.campaignId)?item.campaignId:'default';
+        if(!CLOUD.registry.claims) CLOUD.registry.claims={};
+        if(item.owner) CLOUD.registry.claims[cid]=item.owner;
+        if(!CLOUD.registry.charCampaigns) CLOUD.registry.charCampaigns={};
+        CLOUD.registry.charCampaigns[cid]=effCamp;
+        if(item.sheetType==='enemy'){
+          if(!CLOUD.registry.enemyMeta) CLOUD.registry.enemyMeta={};
+          CLOUD.registry.enemyMeta[cid]=normalizeEnemyMeta(item.enemyMeta||{},validCampIds);
+        }
+        upsertLobbyListItem(item);
+      }
+      saveRegistryLocal();
+      refreshUIAfterSheetListChange();
+      if(!item) fetchLobbyList(true);
+    }else if(action==='permanent'&&cid){
+      recordTrashOverride(cid,'trashed',null);
+      removeLobbyListItem(cid);
+      CLOUD.trashedList=(CLOUD.trashedList||[]).filter(t=>t&&t.id!==cid);
+      if(!Array.isArray(CLOUD.registry.deletedCharIds)) CLOUD.registry.deletedCharIds=[];
+      if(!CLOUD.registry.deletedCharIds.includes(cid)) CLOUD.registry.deletedCharIds.push(cid);
+      saveRegistryLocal();
+      refreshUIAfterSheetListChange();
+    }else if(action==='empty_trash'){
+      const ids=Array.isArray(rawObj.deletedIds)?rawObj.deletedIds:[];
+      ids.forEach(did=>{if(did){recordTrashOverride(did,'trashed',null);removeLobbyListItem(did);}});
+      CLOUD.trashedList=[];
+      saveRegistryLocal();
+      refreshUIAfterSheetListChange();
+    }
+    return;
+  }
   if(rawObj.type==='clear_dice'){
     const clr=toInt(rawObj.clearedAt,Date.now());
     if(rawObj.campaignId){
@@ -452,7 +582,7 @@ export function initLiveDiceChannel(){
           const outer=JSON.parse(ev.data);
           if(outer&&outer.event==='message'&&typeof outer.message==='string'){
             handleIncomingDicePayload(JSON.parse(outer.message),true);
-          }else if(outer&&((outer.id&&Array.isArray(outer.res))||outer.type==='campnote_live'||outer.type==='clear_dice'||outer.type==='duel_challenge'||outer.type==='duel_response'||outer.type==='duel_cancel'||outer.type==='combat_damage_offer'||outer.type==='combat_damage_applied'||outer.type==='enemy_meta_live')){
+          }else if(outer&&((outer.id&&Array.isArray(outer.res))||LIVE_EVENT_TYPES.has(outer.type))){
             handleIncomingDicePayload(outer,true);
           }
         }catch(err){}
@@ -604,7 +734,7 @@ export async function syncCloudRegistry(push=false){
     diceClearedByCamp:clone(CLOUD.registry.diceClearedByCamp||{})
   }):null;
   try{
-    const getRes=await fetch(`${getCloudEndpoint()}?id=${encodeURIComponent(REGISTRY_ID)}`,{headers:{'Accept':'application/json'}});
+    const getRes=await fetchJsonNoStore(`${getCloudEndpoint()}?id=${encodeURIComponent(REGISTRY_ID)}`);
     if(getRes.ok){
       const rem=await getRes.json();
       if(rem&&typeof rem==='object'&&rem.registry){
@@ -670,10 +800,12 @@ export async function syncCloudRegistry(push=false){
         });
         const srcUsers=localSnap?localSnap.users:(CLOUD.registry.users||{});
         const srcDelIds=localSnap?(localSnap.deletedCharIds||[]):(Array.isArray(CLOUD.registry.deletedCharIds)?CLOUD.registry.deletedCharIds:[]);
-        const remDelIds=Array.isArray(rem.registry.deletedCharIds)?rem.registry.deletedCharIds:[];
-        const mergedDeletedCharIds=push
+        const remDelIds=Array.isArray(rem.registry.deletedCharIds)?rem.registry.deletedCharIds:null;
+        pruneTrashOverrides();
+        const mergedDeletedCharIds=(push
           ?[...new Set(srcDelIds.map(x=>String(x||'').trim()).filter(Boolean))]
-          :[...new Set([...remDelIds,...srcDelIds].map(x=>String(x||'').trim()).filter(Boolean))];
+          :[...new Set((remDelIds!==null?remDelIds:srcDelIds).map(x=>String(x||'').trim()).filter(Boolean))]
+        ).filter(did=>recentTrashOverrides.get(did)?.status!=='restored');
         const delSet=new Set(mergedDeletedCharIds);
         const remEnemyMeta=(rem.registry.enemyMeta&&typeof rem.registry.enemyMeta==='object')?rem.registry.enemyMeta:{};
         const locEnemyMeta=localSnap?(localSnap.enemyMeta||{}):(CLOUD.registry.enemyMeta||{});
@@ -1242,15 +1374,29 @@ export async function fetchLobbyList(silent=false){
   else CLOUD.error='';
   try{
     await syncCloudRegistry(false);
-    const res=await fetch(getCloudEndpoint(),{headers:{'Accept':'application/json'}});
+    const res=await fetchJsonNoStore(getCloudEndpoint());
     if(!res.ok) throw new Error(`HTTP ${res.status}`);
     const data=await res.json();
     const validCampIds=new Set(getCampaigns().map(c=>c.id));
     if(!CLOUD.registry.charCampaigns||typeof CLOUD.registry.charCampaigns!=='object') CLOUD.registry.charCampaigns={};
     if(!CLOUD.registry.enemyMeta||typeof CLOUD.registry.enemyMeta!=='object') CLOUD.registry.enemyMeta={};
     if(!Array.isArray(CLOUD.registry.deletedCharIds)) CLOUD.registry.deletedCharIds=[];
+    pruneTrashOverrides();
     const delSet=new Set(CLOUD.registry.deletedCharIds);
-    CLOUD.list=(Array.isArray(data)?data:[]).filter(ch=>ch&&ch.id!==REGISTRY_ID&&ch.name!=='__REGISTRY__'&&ch.id!==LIBRARY_ID&&ch.name!=='__POWER_LIBRARY__'&&ch.id!==PATCHNOTES_ID&&ch.name!=='__PATCHNOTES__'&&ch.id!==FEEDBACK_ID&&ch.name!=='__FEEDBACK__'&&ch.id!==ICON_STORE_ID&&ch.name!=='__CUSTOM_ICONS__'&&!delSet.has(ch.id));
+    const rawItems=(Array.isArray(data)?data:[]).filter(ch=>ch&&ch.id!==REGISTRY_ID&&ch.name!=='__REGISTRY__'&&ch.id!==LIBRARY_ID&&ch.name!=='__POWER_LIBRARY__'&&ch.id!==PATCHNOTES_ID&&ch.name!=='__PATCHNOTES__'&&ch.id!==FEEDBACK_ID&&ch.name!=='__FEEDBACK__'&&ch.id!==ICON_STORE_ID&&ch.name!=='__CUSTOM_ICONS__'&&!delSet.has(ch.id));
+    const serverIds=new Set(rawItems.map(ch=>ch.id));
+    for(const [ovId,ov] of recentTrashOverrides.entries()){
+      if(ov.status==='trashed'&&!serverIds.has(ovId)) recentTrashOverrides.delete(ovId);
+      else if(ov.status==='restored'&&serverIds.has(ovId)) recentTrashOverrides.delete(ovId);
+    }
+    const filteredItems=rawItems.filter(ch=>recentTrashOverrides.get(ch.id)?.status!=='trashed');
+    for(const [ovId,ov] of recentTrashOverrides.entries()){
+      if(ov.status==='restored'&&ov.item&&!filteredItems.some(ch=>ch.id===ovId)){
+        filteredItems.push(clone(ov.item));
+      }
+    }
+    filteredItems.sort((a,b)=>String(a.name||'').localeCompare(String(b.name||''),'de'));
+    CLOUD.list=filteredItems;
     CLOUD.list.forEach(ch=>{
       if(ch.owner&&CLOUD.registry.claims[ch.id]===undefined) CLOUD.registry.claims[ch.id]=ch.owner;
       if(CLOUD.registry.charCampaigns[ch.id]===undefined){
@@ -1990,10 +2136,18 @@ export async function fetchTrashedCharacters(silent=false){
   CLOUD.trashedError='';
   if(!silent && UI.modal==='adminPanel') hooks.renderModal?.();
   try{
-    const res=await fetch(`${getCloudEndpoint()}?trashed=1`,{headers:{'Accept':'application/json'}});
+    const res=await fetchJsonNoStore(`${getCloudEndpoint()}?trashed=1`);
     if(!res.ok) throw new Error(`HTTP ${res.status}`);
     const data=await res.json();
-    CLOUD.trashedList=Array.isArray(data)?data.filter(Boolean):[];
+    pruneTrashOverrides();
+    let list=Array.isArray(data)?data.filter(Boolean):[];
+    list=list.filter(t=>recentTrashOverrides.get(t.id)?.status!=='restored');
+    for(const [ovId,ov] of recentTrashOverrides.entries()){
+      if(ov.status==='trashed'&&ov.item&&!list.some(t=>t.id===ovId)){
+        list.unshift(clone(ov.item));
+      }
+    }
+    CLOUD.trashedList=list;
     return CLOUD.trashedList;
   }catch(err){
     CLOUD.trashedError='Papierkorb konnte nicht vom Server geladen werden.';
@@ -2006,9 +2160,11 @@ export async function fetchTrashedCharacters(silent=false){
 }
 export async function deleteCloudCharacter(id){
   try{
-    const isEnemy=isEnemySheet(id);
-    const owner=getCharOwner(id);
-    const allowed=canManageChar(id);
+    const cid=String(id||'').trim();
+    if(!cid) return;
+    const isEnemy=isEnemySheet(cid);
+    const owner=getCharOwner(cid);
+    const allowed=canManageChar(cid);
     if((owner||isEnemy)&&!allowed){
       toast(isEnemy?'🔒 Keine Berechtigung zum Löschen dieses Gegners/dieser Vorlage.':`🔒 Nur „${owner}“, der Kampagnen-Spielleiter oder der Admin kann diesen Charakter löschen.`);
       return;
@@ -2016,10 +2172,11 @@ export async function deleteCloudCharacter(id){
     const actorUser=String(CLOUD.currentUser||(CLOUD.isAdmin?'Admin':'')).trim();
     const res=await fetch(getCloudEndpoint(),{
       method:'POST',
+      cache:'no-store',
       headers:{'Content-Type':'application/json','Accept':'application/json'},
       body:JSON.stringify({
         action:'trashSheet',
-        charId:id,
+        charId:cid,
         actorUser,
         adminHash:String(CLOUD.registry?.adminHash||''),
         isAdmin:Boolean(CLOUD.isAdmin)
@@ -2030,20 +2187,34 @@ export async function deleteCloudCharacter(id){
       toast(`⚠️ ${out?.error||'Verschieben in den Papierkorb fehlgeschlagen.'}`);
       return;
     }
-    if(!isEnemy) archiveCharPublicNotesToCampaign(id);
-    if(CLOUD.registry.publicNotes) delete CLOUD.registry.publicNotes[id];
-    if(CLOUD.registry.enemyMeta) delete CLOUD.registry.enemyMeta[id];
-    delete CLOUD.registry.claims[id];
-    if(CLOUD.registry.charCampaigns) delete CLOUD.registry.charCampaigns[id];
-    CLOUD.list=(CLOUD.list||[]).filter(c=>c&&c.id!==id);
+    recordTrashOverride(cid,'trashed',out?.item||null);
+    if(!isEnemy) archiveCharPublicNotesToCampaign(cid);
+    if(CLOUD.registry.publicNotes) delete CLOUD.registry.publicNotes[cid];
+    if(CLOUD.registry.enemyMeta) delete CLOUD.registry.enemyMeta[cid];
+    delete CLOUD.registry.claims[cid];
+    if(CLOUD.registry.charCampaigns) delete CLOUD.registry.charCampaigns[cid];
+    removeLobbyListItem(cid);
     if(out?.item){
-      CLOUD.trashedList=[out.item,...(CLOUD.trashedList||[]).filter(t=>t&&t.id!==id)];
+      CLOUD.trashedList=[clone(out.item),...(CLOUD.trashedList||[]).filter(t=>t&&t.id!==cid)];
     }
-    await syncCloudRegistry(true);
+    if(D.dMode==='character'&&D.oppCharId===cid){
+      D.oppCharId=''; D.oppWeaponId=''; D.oppSkillId=''; D.oppSitActive={};
+    }
     CLOUD.confirmDelCloudId=null;
+    saveRegistryLocal();
+    refreshUIAfterSheetListChange();
+    sendLiveBroadcast({
+      type:'sheet_trash_live',
+      action:'trashed',
+      charId:cid,
+      item:out?.item||null,
+      senderTabId:LIVE_TAB_ID,
+      tsMs:Date.now()
+    });
     toast(isEnemy?'🗑️ Gegner/Vorlage in den Admin-Papierkorb verschoben.':'🗑️ Charakter in den Admin-Papierkorb verschoben.');
+    await syncCloudRegistry(true);
     await fetchLobbyList(true);
-    if(CLOUD.isAdmin && UI.modal==='adminPanel') hooks.renderModal?.();
+    refreshUIAfterSheetListChange();
   }catch(err){
     toast('⚠️ Löschen fehlgeschlagen.');
   }
@@ -2058,6 +2229,7 @@ export async function restoreTrashedCharacter(id){
   try{
     const res=await fetch(getCloudEndpoint(),{
       method:'POST',
+      cache:'no-store',
       headers:{'Content-Type':'application/json','Accept':'application/json'},
       body:JSON.stringify({
         action:'restoreSheet',
@@ -2071,10 +2243,11 @@ export async function restoreTrashedCharacter(id){
       toast(`⚠️ ${out?.error||'Wiederherstellung fehlgeschlagen.'}`);
       return false;
     }
+    const item=out?.item||null;
+    recordTrashOverride(cid,'restored',item);
     if(Array.isArray(CLOUD.registry.deletedCharIds)){
       CLOUD.registry.deletedCharIds=CLOUD.registry.deletedCharIds.filter(x=>x!==cid);
     }
-    const item=out?.item||null;
     if(item){
       const validCampIds=new Set(getCampaigns().map(c=>c.id));
       const effCamp=validCampIds.has(item.campaignId)?item.campaignId:'default';
@@ -2086,13 +2259,24 @@ export async function restoreTrashedCharacter(id){
         if(!CLOUD.registry.enemyMeta) CLOUD.registry.enemyMeta={};
         CLOUD.registry.enemyMeta[cid]=normalizeEnemyMeta(item.enemyMeta||{},validCampIds);
       }
+      upsertLobbyListItem(item);
     }
     CLOUD.trashedList=(CLOUD.trashedList||[]).filter(t=>t&&t.id!==cid);
     if(CLOUD.confirmPermDelTrashId===cid) CLOUD.confirmPermDelTrashId=null;
+    saveRegistryLocal();
+    refreshUIAfterSheetListChange();
+    sendLiveBroadcast({
+      type:'sheet_trash_live',
+      action:'restored',
+      charId:cid,
+      item,
+      senderTabId:LIVE_TAB_ID,
+      tsMs:Date.now()
+    });
+    toast(`↩️ „${item?.name||'Charakterbogen'}“ wurde wiederhergestellt!`);
     await syncCloudRegistry(true);
     await fetchLobbyList(true);
-    if(UI.modal==='adminPanel') hooks.renderModal?.();
-    toast(`↩️ „${item?.name||'Charakterbogen'}“ wurde wiederhergestellt!`);
+    refreshUIAfterSheetListChange();
     return true;
   }catch(err){
     toast('⚠️ Wiederherstellung fehlgeschlagen.');
@@ -2110,6 +2294,7 @@ export async function permanentDeleteTrashedCharacter(id){
     const prevItem=(CLOUD.trashedList||[]).find(t=>t&&t.id===cid);
     const res=await fetch(getCloudEndpoint(),{
       method:'POST',
+      cache:'no-store',
       headers:{'Content-Type':'application/json','Accept':'application/json'},
       body:JSON.stringify({
         action:'permanentDeleteSheet',
@@ -2123,13 +2308,23 @@ export async function permanentDeleteTrashedCharacter(id){
       toast(`⚠️ ${out?.error||'Permanentes Löschen fehlgeschlagen.'}`);
       return false;
     }
+    recordTrashOverride(cid,'trashed',null);
     if(!Array.isArray(CLOUD.registry.deletedCharIds)) CLOUD.registry.deletedCharIds=[];
     if(!CLOUD.registry.deletedCharIds.includes(cid)) CLOUD.registry.deletedCharIds.push(cid);
+    removeLobbyListItem(cid);
     CLOUD.trashedList=(CLOUD.trashedList||[]).filter(t=>t&&t.id!==cid);
     if(CLOUD.confirmPermDelTrashId===cid) CLOUD.confirmPermDelTrashId=null;
-    await syncCloudRegistry(true);
-    if(UI.modal==='adminPanel') hooks.renderModal?.();
+    saveRegistryLocal();
+    refreshUIAfterSheetListChange();
+    sendLiveBroadcast({
+      type:'sheet_trash_live',
+      action:'permanent',
+      charId:cid,
+      senderTabId:LIVE_TAB_ID,
+      tsMs:Date.now()
+    });
     toast(`🔥 „${prevItem?.name||'Charakterbogen'}“ endgültig gelöscht.`);
+    await syncCloudRegistry(true);
     return true;
   }catch(err){
     toast('⚠️ Permanentes Löschen fehlgeschlagen.');
@@ -2144,6 +2339,7 @@ export async function emptyTrashedCharacters(){
   try{
     const res=await fetch(getCloudEndpoint(),{
       method:'POST',
+      cache:'no-store',
       headers:{'Content-Type':'application/json','Accept':'application/json'},
       body:JSON.stringify({
         action:'emptyTrash',
@@ -2158,13 +2354,27 @@ export async function emptyTrashedCharacters(){
     }
     const delIds=Array.isArray(out?.deletedIds)?out.deletedIds:[];
     if(!Array.isArray(CLOUD.registry.deletedCharIds)) CLOUD.registry.deletedCharIds=[];
-    delIds.forEach(did=>{if(did&&!CLOUD.registry.deletedCharIds.includes(did)) CLOUD.registry.deletedCharIds.push(did);});
+    delIds.forEach(did=>{
+      if(did){
+        recordTrashOverride(did,'trashed',null);
+        removeLobbyListItem(did);
+        if(!CLOUD.registry.deletedCharIds.includes(did)) CLOUD.registry.deletedCharIds.push(did);
+      }
+    });
     CLOUD.trashedList=[];
     CLOUD.confirmEmptyTrash=false;
     CLOUD.confirmPermDelTrashId=null;
-    await syncCloudRegistry(true);
-    if(UI.modal==='adminPanel') hooks.renderModal?.();
+    saveRegistryLocal();
+    refreshUIAfterSheetListChange();
+    sendLiveBroadcast({
+      type:'sheet_trash_live',
+      action:'empty_trash',
+      deletedIds:delIds,
+      senderTabId:LIVE_TAB_ID,
+      tsMs:Date.now()
+    });
     toast(`🔥 Papierkorb geleert (${delIds.length} ${delIds.length===1?'Bogen':'Bögen'} permanent gelöscht).`);
+    await syncCloudRegistry(true);
     return true;
   }catch(err){
     toast('⚠️ Papierkorb konnte nicht geleert werden.');
