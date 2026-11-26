@@ -1431,7 +1431,7 @@ export function renderBlockFollowUpBox(){
         <span class="text-3xl font-black">${fr.r}</span>
         <span class="px-3 py-1 rounded-lg text-white font-extrabold text-xs sm:text-sm ${fr.ok?'bg-emerald-600':'bg-rose-600'}">${fr.ok?`EG: ${fr.eg}${frMult>1?` (${frBase} ×${frMult})`:''} (Grundschaden vs. Rüstung)`:`0 EG • ${fr.r===100?'Patzer (100)':'Misserfolg'} (MEG: ${fr.meg})`}</span>
       </div>
-      <div class="text-xs font-extrabold ${fr.crit?'text-amber-400':fr.ok?'text-emerald-400':'text-rose-400'}">${fr.ok?`${fr.crit?'★ Kritisch! ':''}Erzielte Erfolgsgrade für Grundschaden gegen Rüstung: ${fr.eg} EG${frMult>1?` (${frBase} ×${frMult})`:''}`:'Kein Durchkommen – 0 EG Grundschaden gegen die Rüstung'}</div>
+      <div class="text-xs font-extrabold ${fr.crit?'text-amber-400':fr.ok?'text-emerald-400':'text-rose-400'}">${fr.ok?`${fr.crit?'★ Kritisch (+2 Extraschaden)! ':''}Erzielte Erfolgsgrade für Grundschaden gegen Rüstung: ${fr.eg} EG${frMult>1?` (${frBase} ×${frMult})`:''}`:'Kein Durchkommen – 0 EG Grundschaden gegen die Rüstung'}</div>
     </div>`;
   }
   return `<div class="subcard mt-2 p-3 border-2 border-emerald-500/50 bg-emerald-500/10 space-y-2.5 text-left">

@@ -145,7 +145,7 @@ export function renderLobbyLiveDiceHtml(inFloatingWin=false){
           <div class="flex flex-wrap items-center gap-2 min-w-0">
             <span class="px-2.5 py-1 rounded-xl bg-black/35 border ${fd>0?'border-rose-400/50 text-rose-300':'border-amber-400/40 text-amber-300'} text-lg sm:text-2xl font-black">💥 ${fd} ${poolLbl}</span>
             <div class="min-w-0">
-              <div class="text-xs font-extrabold break-words">${entry.hzZone?`🎯 ${esc(entry.hzZone)} • `:''}${esc(entry.dmgTypeLabel||'Schaden')}${entry.isBlocked?' • 🛡️ Geblockt':''}${entry.durchschlagApplied?' • ⚡ Durchschlag':''}</div>
+              <div class="text-xs font-extrabold break-words">${entry.hzZone?`🎯 ${esc(entry.hzZone)} • `:''}${esc(entry.dmgTypeLabel||'Schaden')}${entry.isCrit?' • ★ Krit (+2)':''}${entry.isBlocked?' • 🛡️ Geblockt':''}${entry.durchschlagApplied?' • ⚡ Durchschlag':''}</div>
               ${entry.formula?`<div class="text-[11px] t-mut break-words">${esc(entry.formula)}</div>`:''}
             </div>
           </div>

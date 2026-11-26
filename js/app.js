@@ -23,7 +23,7 @@ import {
   sendDuelChallenge, cancelOutgoingDuel, clearOutgoingDuel, handleLiveDuelEvent, ignoreIncomingDuel, openDuelReplyModal, closeDuelReplyModal, submitDuelReply, renderDuelBanner, renderDuelReplyModal
 } from './duel.js';
 import {
-  initCombatFromRoll, resetCombatState, rollCombatHitZone, rollCombatSubHitZone, publishCombatDamageToFeed, renderCombatDamageBox, hasTagMatch, sendCombatDamageOffer, applyCombatDamageDirectly, spendCombatAmmo, handleCombatLiveEvent, acceptCombatDamageOffer, declineCombatDamageOffer
+  initCombatFromRoll, resetCombatState, mutateCombatHit, rollCombatHitZone, rollAllCombatHitZones, rollCombatSubHitZone, publishCombatDamageToFeed, publishAllCombatDamageToFeed, renderCombatDamageBox, hasTagMatch, sendCombatDamageOffer, sendCombinedCombatDamageOffer, applyCombatDamageDirectly, applyCombinedCombatDamageDirectly, spendCombatAmmo, handleCombatLiveEvent, acceptCombatDamageOffer, declineCombatDamageOffer
 } from './combat.js';
 import {
   ensureWeaponMagCfg, purgeDeletedAmmoFromMagazines, toggleWeaponMagazines, toggleWeaponMagAutoSync, setWeaponMagDefaultCap, setWeaponMagCount, addWeaponMagazine, deleteWeaponMagazine, selectWeaponActiveMag, reloadWeaponMagazine, fireWeaponMagazineShot, stepMagazineCount, fillMagazine, fillAllWeaponMagazines, emptyMagazine, syncWeaponAmmoExactFromMags, clearMagSlotOverrides, openMagDefaultAmmoPicker, openMagSlotAmmoPicker, syncAmmoTotalsFromMagazines
@@ -2243,40 +2243,96 @@ document.addEventListener('click',async e=>{
     }
     case 'combat-close': resetCombatState(); renderDice(); break;
     case 'combat-toggle-collapse': COMBAT.collapsed=!COMBAT.collapsed; renderDice(); break;
-    case 'combat-roll-hz': COMBAT.offerStatus=''; COMBAT.offerNote=''; COMBAT.directAppliedNote=''; rollCombatHitZone(); break;
-    case 'combat-roll-subhz': COMBAT.offerStatus=''; COMBAT.offerNote=''; COMBAT.directAppliedNote=''; rollCombatSubHitZone(); break;
-    case 'combat-set-zone': COMBAT.zoneName=el.dataset.zone||''; COMBAT.subZoneName=''; COMBAT.lastHzRoll=null; COMBAT.lastSubHzRoll=null; COMBAT.posted=false; COMBAT.offerStatus=''; COMBAT.offerNote=''; COMBAT.directAppliedNote=''; renderDice(); break;
-    case 'combat-set-subzone': COMBAT.subZoneName=el.dataset.subzone||''; COMBAT.lastSubHzRoll=null; COMBAT.posted=false; COMBAT.offerStatus=''; COMBAT.offerNote=''; COMBAT.directAppliedNote=''; renderDice(); break;
-    case 'combat-set-dmgtype': COMBAT.dmgType=el.dataset.dmgtype||'cut'; COMBAT.posted=false; COMBAT.offerStatus=''; COMBAT.offerNote=''; COMBAT.directAppliedNote=''; renderDice(); break;
-    case 'combat-set-pool': COMBAT.pool=el.dataset.pool==='mlp'?'mlp':'lp'; COMBAT.posted=false; COMBAT.offerStatus=''; COMBAT.offerNote=''; COMBAT.directAppliedNote=''; renderDice(); break;
+    case 'combat-hit-toggle-collapse': {
+      const hi=toInt(el.dataset.hitIdx,0);
+      mutateCombatHit(hi,h=>{h.collapsed=!h.collapsed;},{resetCombined:false});
+      renderDice();
+      break;
+    }
+    case 'combat-roll-all-hz': rollAllCombatHitZones(); break;
+    case 'combat-roll-hz': {
+      const hi=toInt(el.dataset.hitIdx,0);
+      mutateCombatHit(hi,h=>{h.offerStatus='';h.offerNote='';h.directAppliedNote='';});
+      rollCombatHitZone(hi);
+      break;
+    }
+    case 'combat-roll-subhz': {
+      const hi=toInt(el.dataset.hitIdx,0);
+      mutateCombatHit(hi,h=>{h.offerStatus='';h.offerNote='';h.directAppliedNote='';});
+      rollCombatSubHitZone(hi);
+      break;
+    }
+    case 'combat-set-zone': {
+      const hi=toInt(el.dataset.hitIdx,0);
+      mutateCombatHit(hi,h=>{h.zoneName=el.dataset.zone||'';h.subZoneName='';h.lastHzRoll=null;h.lastSubHzRoll=null;h.posted=false;h.offerStatus='';h.offerNote='';h.directAppliedNote='';});
+      renderDice();
+      break;
+    }
+    case 'combat-set-subzone': {
+      const hi=toInt(el.dataset.hitIdx,0);
+      mutateCombatHit(hi,h=>{h.subZoneName=el.dataset.subzone||'';h.lastSubHzRoll=null;h.posted=false;h.offerStatus='';h.offerNote='';h.directAppliedNote='';});
+      renderDice();
+      break;
+    }
+    case 'combat-set-dmgtype': {
+      const hi=toInt(el.dataset.hitIdx,0);
+      mutateCombatHit(hi,h=>{h.dmgType=el.dataset.dmgtype||'cut';h.posted=false;h.offerStatus='';h.offerNote='';h.directAppliedNote='';});
+      renderDice();
+      break;
+    }
+    case 'combat-set-pool': {
+      const hi=toInt(el.dataset.hitIdx,0);
+      mutateCombatHit(hi,h=>{h.pool=el.dataset.pool==='mlp'?'mlp':'lp';h.posted=false;h.offerStatus='';h.offerNote='';h.directAppliedNote='';});
+      renderDice();
+      break;
+    }
     case 'combat-toggle-block-red': {
-      const next=!COMBAT.blockItemRed||Boolean(COMBAT.blockShieldId);
-      COMBAT.blockItemRed=next;
-      if(next){COMBAT.blockShieldId='';COMBAT.blockShieldName='';}
-      COMBAT.posted=false; COMBAT.offerStatus=''; COMBAT.offerNote=''; COMBAT.directAppliedNote='';
+      const hi=toInt(el.dataset.hitIdx,0);
+      mutateCombatHit(hi,h=>{
+        const next=!h.blockItemRed||Boolean(h.blockShieldId);
+        h.blockItemRed=next;
+        if(next){h.blockShieldId='';h.blockShieldName='';}
+        h.posted=false; h.offerStatus=''; h.offerNote=''; h.directAppliedNote='';
+      });
       renderDice();
       break;
     }
     case 'combat-set-block-shield': {
+      const hi=toInt(el.dataset.hitIdx,0);
       const sid=String(el.dataset.id||'').trim();
-      if(COMBAT.blockShieldId===sid){
-        COMBAT.blockShieldId='';
-        COMBAT.blockShieldName='';
-      }else{
-        COMBAT.blockShieldId=sid;
-        COMBAT.blockShieldName='';
-        COMBAT.blockItemRed=false;
-      }
-      COMBAT.posted=false; COMBAT.offerStatus=''; COMBAT.offerNote=''; COMBAT.directAppliedNote='';
+      mutateCombatHit(hi,h=>{
+        if(h.blockShieldId===sid){
+          h.blockShieldId='';
+          h.blockShieldName='';
+        }else{
+          h.blockShieldId=sid;
+          h.blockShieldName='';
+          h.blockItemRed=false;
+        }
+        h.posted=false; h.offerStatus=''; h.offerNote=''; h.directAppliedNote='';
+      });
       renderDice();
       break;
     }
-    case 'combat-dmg-step': COMBAT.dmgMod=toInt(COMBAT.dmgMod,0)+Number(el.dataset.d); COMBAT.posted=false; COMBAT.offerStatus=''; COMBAT.offerNote=''; COMBAT.directAppliedNote=''; renderDice(); break;
-    case 'combat-armor-step': COMBAT.armorMod=toInt(COMBAT.armorMod,0)+Number(el.dataset.d); COMBAT.posted=false; COMBAT.offerStatus=''; COMBAT.offerNote=''; COMBAT.directAppliedNote=''; renderDice(); break;
-    case 'combat-post-feed': publishCombatDamageToFeed(); break;
-    case 'combat-send-offer': sendCombatDamageOffer(); break;
-    case 'combat-apply-direct': await applyCombatDamageDirectly(); break;
-    case 'combat-spend-ammo': spendCombatAmmo(); break;
+    case 'combat-dmg-step': {
+      const hi=toInt(el.dataset.hitIdx,0);
+      mutateCombatHit(hi,h=>{h.dmgMod=toInt(h.dmgMod,0)+Number(el.dataset.d);h.posted=false;h.offerStatus='';h.offerNote='';h.directAppliedNote='';});
+      renderDice();
+      break;
+    }
+    case 'combat-armor-step': {
+      const hi=toInt(el.dataset.hitIdx,0);
+      mutateCombatHit(hi,h=>{h.armorMod=toInt(h.armorMod,0)+Number(el.dataset.d);h.posted=false;h.offerStatus='';h.offerNote='';h.directAppliedNote='';});
+      renderDice();
+      break;
+    }
+    case 'combat-post-feed': publishCombatDamageToFeed(toInt(el.dataset.hitIdx,0)); break;
+    case 'combat-post-all-feed': publishAllCombatDamageToFeed(); break;
+    case 'combat-send-offer': sendCombatDamageOffer(toInt(el.dataset.hitIdx,0)); break;
+    case 'combat-send-combined-offer': sendCombinedCombatDamageOffer(); break;
+    case 'combat-apply-direct': await applyCombatDamageDirectly(toInt(el.dataset.hitIdx,0)); break;
+    case 'combat-apply-combined-direct': await applyCombinedCombatDamageDirectly(); break;
+    case 'combat-spend-ammo': spendCombatAmmo(toInt(el.dataset.hitIdx,0)); break;
     case 'combat-offer-accept': await acceptCombatDamageOffer(el.dataset.id); break;
     case 'combat-offer-decline': declineCombatDamageOffer(el.dataset.id); break;
     case 'combat-offer-toggle-edit': {
