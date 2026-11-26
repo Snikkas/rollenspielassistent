@@ -8,7 +8,7 @@ import {
   hooks
 } from './ui-hooks.js';
 import {
-  applyWinFrame, renderWinCtrlBtns, renderWinResizeHandles, getCampaigns, isUserInCampaign, canManageCampaign, getActiveLiveCampaignId, getCampaignFilteredDiceFeed, captureScrollState, restoreScrollState, save, getWeaponSubtype, isWeaponMassiv, isWeaponBlockable, isArmorShield, S, D, LD, DUEL, diceLogs, isMobileLayout, UI, LIVE_TAB_ID, CLOUD, getCharCampaignId, isEnemySheet, getEnemyMeta, isEnemyDiceVisibleInCampaign, canSeeEnemyInDice, shouldHideOpponentDetails
+  applyWinFrame, renderWinCtrlBtns, renderWinResizeHandles, getCampaigns, isUserInCampaign, canManageCampaign, getActiveLiveCampaignId, getCampaignFilteredDiceFeed, getInitiativeCampaignsForChar, isCharInCampaignInitiative, captureScrollState, restoreScrollState, save, getWeaponSubtype, isWeaponMassiv, isWeaponBlockable, isArmorShield, S, D, LD, DUEL, diceLogs, isMobileLayout, UI, LIVE_TAB_ID, CLOUD, getCharCampaignId, isEnemySheet, getEnemyMeta, isEnemyDiceVisibleInCampaign, canSeeEnemyInDice, shouldHideOpponentDetails
 } from './state.js';
 import {
   calcActiveMods, getAdvDisForContext, getWeaponRollMeta, getShieldRollMeta, getSheetShields, getSheetBlockOptions, resolveCombatItemByRef, formatBlockModShort, formatBlockModLong, getWeaponDualWieldInfo, fmtAdvSrcLines, getAttrTot, getSkBonus
@@ -25,51 +25,79 @@ export const getDSkVal=()=>D.dSkill==='custom'?toInt(D.dCustom):toInt(D.dSkill);
 export const getEffC=()=>D.cMode==='direct'?toInt(D.cDirect):toInt(D.cAttr)+getCSkVal();
 export function getActiveDiceCampaignId(){
   if(isLobbyNeutralDice()) return getActiveLiveCampaignId();
+  const charId=String(S?.charId||'').trim();
   if(isEnemySheet(S)){
     const meta=getEnemyMeta(S);
-    if(CLOUD.activeCampaignId&&meta.campaignIds.includes(CLOUD.activeCampaignId)) return CLOUD.activeCampaignId;
+    const activeIniCamps=charId?getInitiativeCampaignsForChar(charId,{activeOnly:true,visibleOnly:false}):[];
+    const anyIniCamps=charId?getInitiativeCampaignsForChar(charId,{activeOnly:false,visibleOnly:false}):[];
+    if(CLOUD.activeCampaignId&&(activeIniCamps.includes(CLOUD.activeCampaignId)||meta.campaignIds.includes(CLOUD.activeCampaignId))){
+      return CLOUD.activeCampaignId;
+    }
+    if(activeIniCamps.length) return activeIniCamps[0];
+    if(CLOUD.activeCampaignId&&anyIniCamps.includes(CLOUD.activeCampaignId)) return CLOUD.activeCampaignId;
     if(meta.campaignIds.length) return meta.campaignIds[0];
+    if(anyIniCamps.length) return anyIniCamps[0];
     return getActiveLiveCampaignId();
   }
-  return getCharCampaignId(S.charId);
+  const ownCamp=getCharCampaignId(charId);
+  if(CLOUD.registry?.initiatives?.[ownCamp]?.active) return ownCamp;
+  if(charId){
+    const activeIniCamps=getInitiativeCampaignsForChar(charId,{activeOnly:true,visibleOnly:false});
+    if(activeIniCamps.length){
+      if(CLOUD.activeCampaignId&&activeIniCamps.includes(CLOUD.activeCampaignId)) return CLOUD.activeCampaignId;
+      return activeIniCamps[0];
+    }
+  }
+  return ownCamp;
 }
 export function getCampaignOpponents(){
   const activeCamp=getActiveDiceCampaignId();
+  const isGm=canManageCampaign(activeCamp);
   const seen=new Set();
   const list=[];
+  const pushItem=(id,name,isEnemy,diceVisible)=>{
+    const cid=String(id||'').trim();
+    if(!cid||seen.has(cid)) return;
+    seen.add(cid);
+    list.push({
+      id:cid,
+      name:String(name||(isEnemy?'Unbenannter Gegner':'Unbenannter Held')).trim()||(isEnemy?'Unbenannter Gegner':'Unbenannter Held'),
+      isSelf:Boolean(!UI.inLobby&&S?.charId&&cid===S.charId),
+      isEnemy:Boolean(isEnemy),
+      diceVisible:Boolean(diceVisible)
+    });
+  };
   (CLOUD.list||[]).forEach(c=>{
     if(!c||!c.id||seen.has(c.id)) return;
     if(isEnemySheet(c.id)){
       if(!canSeeEnemyInDice(c.id,activeCamp)) return;
-      seen.add(c.id);
-      list.push({
-        id:c.id,
-        name:String(c.name||'Unbenannter Gegner').trim()||'Unbenannter Gegner',
-        isSelf:Boolean(!UI.inLobby&&S?.charId&&c.id===S.charId),
-        isEnemy:true,
-        diceVisible:isEnemyDiceVisibleInCampaign(c.id,activeCamp)
-      });
+      const inIni=isCharInCampaignInitiative(c.id,activeCamp,{activeOnly:!isGm,visibleOnly:!isGm});
+      pushItem(c.id,c.name,true,isEnemyDiceVisibleInCampaign(c.id,activeCamp)||inIni);
       return;
     }
-    if(getCharCampaignId(c.id)!==activeCamp) return;
-    seen.add(c.id);
-    list.push({
-      id:c.id,
-      name:String(c.name||'Unbenannter Held').trim()||'Unbenannter Held',
-      isSelf:Boolean(!UI.inLobby&&S?.charId&&c.id===S.charId),
-      isEnemy:false,
-      diceVisible:true
-    });
+    const inCamp=getCharCampaignId(c.id)===activeCamp;
+    const inIni=isCharInCampaignInitiative(c.id,activeCamp,{activeOnly:!isGm,visibleOnly:!isGm});
+    if(!inCamp&&!inIni) return;
+    pushItem(c.id,c.name,false,true);
   });
+  // Falls ein Initiative-Teilnehmer noch nicht in CLOUD.list steht, direkt aus der Initiative übernehmen
+  const iniSt=CLOUD.registry?.initiatives?.[activeCamp];
+  if(iniSt&&Array.isArray(iniSt.entries)&&(isGm||iniSt.active)){
+    iniSt.entries.forEach(e=>{
+      if(!e||!e.charId||seen.has(e.charId)) return;
+      if(!isGm&&e.hidden) return;
+      const isEn=Boolean(e.isEnemy||isEnemySheet(e.charId));
+      pushItem(e.charId,e.name,isEn,true);
+    });
+  }
   if(!UI.inLobby&&S?.charId&&!seen.has(S.charId)){
     if(!isEnemySheet(S)||canSeeEnemyInDice(S.charId,activeCamp)){
-      list.push({
-        id:S.charId,
-        name:String(S.profile?.name||'').trim()||(isEnemySheet(S)?'Aktiver Gegner':'Aktiver Charakter'),
-        isSelf:true,
-        isEnemy:isEnemySheet(S),
-        diceVisible:isEnemySheet(S)?isEnemyDiceVisibleInCampaign(S.charId,activeCamp):true
-      });
+      pushItem(
+        S.charId,
+        String(S.profile?.name||'').trim()||(isEnemySheet(S)?'Aktiver Gegner':'Aktiver Charakter'),
+        isEnemySheet(S),
+        isEnemySheet(S)?isEnemyDiceVisibleInCampaign(S.charId,activeCamp):true
+      );
     }
   }
   return list.sort((a,b)=>{

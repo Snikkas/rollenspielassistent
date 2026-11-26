@@ -913,6 +913,7 @@ export function normalizeInitiativeState(raw){
     active:Boolean(src.active),
     round:Math.max(1,toInt(src.round,1)),
     activeEntryId:entries.some(e=>e.id===activeEntryId)?activeEntryId:'',
+    rev:Math.max(0,toInt(src.rev,0)),
     updatedAtMs:Math.max(0,toInt(src.updatedAtMs,0)),
     entries
   };
@@ -1119,17 +1120,90 @@ export function getActiveLiveCampaignId(){
   if(allowed.length) return allowed[0].id;
   return CLOUD.isAdmin?'default':(CLOUD.activeCampaignId||'default');
 }
+export function isCharInCampaignInitiative(charId,campId,{activeOnly=false,visibleOnly=false}={}){
+  const id=String(charId||'').trim();
+  const cid=String(campId||'').trim();
+  if(!id||!cid) return false;
+  const st=CLOUD.registry?.initiatives?.[cid];
+  if(!st||!Array.isArray(st.entries)||!st.entries.length) return false;
+  if(activeOnly&&!st.active) return false;
+  return st.entries.some(e=>e&&e.charId===id&&(!visibleOnly||!e.hidden));
+}
+export function getInitiativeCampaignsForChar(charId,{activeOnly=false,visibleOnly=false}={}){
+  const id=String(charId||'').trim();
+  if(!id) return [];
+  const initMap=CLOUD.registry?.initiatives;
+  if(!initMap||typeof initMap!=='object') return [];
+  const validIds=new Set(getCampaigns().filter(c=>c&&(c.id==='default'||!c.archived)).map(c=>c.id));
+  const out=[];
+  Object.entries(initMap).forEach(([cid,st])=>{
+    if(!cid||!validIds.has(cid)||!st||!Array.isArray(st.entries)||!st.entries.length) return;
+    if(activeOnly&&!st.active) return;
+    if(st.entries.some(e=>e&&e.charId===id&&(!visibleOnly||!e.hidden))){
+      out.push(cid);
+    }
+  });
+  return out;
+}
 export function getRollCampaignId(entry){
   if(!entry) return 'default';
-  if(entry.charId&&(CLOUD.registry?.charCampaigns?.[entry.charId]!==undefined||(CLOUD.list||[]).some(c=>c.id===entry.charId)||entry.charId===S.charId)){
-    return getCharCampaignId(entry.charId);
-  }
   const validIds=new Set(getCampaigns().map(c=>c.id));
-  const raw=String(entry.campaignId||'default').trim()||'default';
-  return validIds.has(raw)?raw:'default';
+  const raw=String(entry.campaignId||'').trim();
+  if(entry.charId){
+    if(isEnemySheet(entry.charId)){
+      if(raw&&validIds.has(raw)&&raw!=='default') return raw;
+      const meta=getEnemyMeta(entry.charId);
+      const firstCamp=meta.campaignIds.find(c=>validIds.has(c));
+      if(firstCamp) return firstCamp;
+      if(raw&&validIds.has(raw)) return raw;
+      return getCharCampaignId(entry.charId);
+    }
+    if(raw&&validIds.has(raw)&&raw!=='default') return raw;
+    if(CLOUD.registry?.charCampaigns?.[entry.charId]!==undefined||(CLOUD.list||[]).some(c=>c.id===entry.charId)||entry.charId===S.charId){
+      return getCharCampaignId(entry.charId);
+    }
+  }
+  return (raw&&validIds.has(raw))?raw:'default';
+}
+export function getRollVisibleCampaignIds(entry){
+  if(!entry) return ['default'];
+  const validIds=new Set(getCampaigns().map(c=>c.id));
+  const camps=new Set();
+  const primary=getRollCampaignId(entry);
+  if(primary&&validIds.has(primary)) camps.add(primary);
+  if(Array.isArray(entry.extraCampaignIds)){
+    entry.extraCampaignIds.forEach(c=>{
+      const clean=String(c||'').trim();
+      if(clean&&validIds.has(clean)) camps.add(clean);
+    });
+  }
+  if(entry.charId){
+    getInitiativeCampaignsForChar(entry.charId,{activeOnly:false,visibleOnly:false}).forEach(cid=>{
+      if(validIds.has(cid)) camps.add(cid);
+    });
+  }
+  if(entry.vsCharId){
+    if(!isEnemySheet(entry.vsCharId)){
+      const vsCamp=getCharCampaignId(entry.vsCharId);
+      if(vsCamp&&validIds.has(vsCamp)) camps.add(vsCamp);
+    }
+    getInitiativeCampaignsForChar(entry.vsCharId,{activeOnly:false,visibleOnly:false}).forEach(cid=>{
+      if(validIds.has(cid)) camps.add(cid);
+    });
+  }
+  if(!camps.size) camps.add('default');
+  return [...camps];
 }
 export function getCampaignFilteredDiceFeed(campId=getActiveLiveCampaignId()){
-  return (CLOUD.diceFeed||[]).filter(entry=>getRollCampaignId(entry)===campId);
+  const cid=String(campId||'default').trim()||'default';
+  const globClr=toInt(CLOUD.registry?.diceClearedAt,0);
+  const campClr=toInt(CLOUD.registry?.diceClearedByCamp?.[cid],0);
+  const cutoff=Math.max(globClr,campClr);
+  return (CLOUD.diceFeed||[]).filter(entry=>{
+    if(!entry) return false;
+    if(toInt(entry.tsMs,0)<=cutoff) return false;
+    return getRollVisibleCampaignIds(entry).includes(cid);
+  });
 }
 export function getScrollElementKey(el){
   if(!el) return '';
@@ -1767,10 +1841,12 @@ export function isEnemyDiceVisibleInCampaign(charId,campId){
 export function canSeeEnemyInDice(charId,campId,username=CLOUD.currentUser){
   const cid=String(campId||'').trim();
   if(!cid||!isEnemySheet(charId)) return false;
+  const isGm=canManageCampaign(cid,username);
+  if(isCharInCampaignInitiative(charId,cid,{activeOnly:!isGm,visibleOnly:!isGm})) return true;
   const meta=getEnemyMeta(charId);
   if(!meta.isEnemy||meta.archived) return false;
   if(!meta.campaignIds.includes(cid)) return false;
-  if(canManageCampaign(cid,username)) return true;
+  if(isGm) return true;
   return Boolean(meta.diceVisibleByCamp?.[cid]);
 }
 export function shouldHideOpponentDetails(charOrId,campId=''){

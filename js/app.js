@@ -1747,6 +1747,16 @@ document.addEventListener('click',async e=>{
     case 'ini-mod-reset': resetInitiativeEntryMod(el.dataset.camp||getActiveInitiativeCampaignId(),el.dataset.id||''); break;
     case 'ini-toggle-hidden': toggleInitiativeEntryHidden(el.dataset.camp||getActiveInitiativeCampaignId(),el.dataset.id||''); break;
     case 'ini-remove': removeInitiativeEntry(el.dataset.camp||getActiveInitiativeCampaignId(),el.dataset.id||''); break;
+    case 'ini-target-dice': {
+      const tid=String(el.dataset.id||'').trim();
+      if(!tid) break;
+      if(UI.inLobby) ensureLobbyNeutralDiceOnOpen();
+      D.open=true;
+      D.dMode='character';
+      selectDiceOpponent(tid,{force:false,silent:true});
+      renderHeader();
+      break;
+    }
     case 'reset-dice': clearOutgoingDuel({notifyCancel:true,silent:true}); resetCombatState(); setD({...DICE_DEF,sitActive:{},oppSitActive:{},open:true,docked:D.docked,floating:D.floating,x:D.x,y:D.y,w:D.w,h:D.h,z:D.z}); if(isLobbyNeutralDice()) resetDiceToLobbyNeutral(); UI.lastRollHtml=''; UI.lastBlockBaseHtml=''; UI.lastBlockFollowRes=null; UI.lastSecretRollId=''; renderDice(); updateLobbyLiveDiceDOM(); break;
     case 'toggle-cnotes': CN.open=!CN.open; CN.confirmDelId=null; renderHeader(); renderCampNotes(); break;
     case 'close-cnotes': CN.open=false; CN.confirmDelId=null; renderHeader(); renderCampNotes(); break;

@@ -11,6 +11,7 @@ import {
   S, D, CN, LD, INI, FBW, UI, CLOUD, LIVE_TAB_ID,
   normalizeInitiativeState, normalizeInitiativeEntry,
   getCampaigns, getActiveLiveCampaignId, getCharCampaignId, getCharOwner,
+  getInitiativeCampaignsForChar,
   canManageCampaign, isEnemySheet, getEnemyMeta, canViewEnemySheet, isEnemyDiceVisibleInCampaign,
   applyWinFrame, renderWinCtrlBtns, renderWinResizeHandles, saveWinPref,
   openCtxMenu, captureScrollState, restoreScrollState, saveRegistryLocal,
@@ -20,18 +21,35 @@ import {
   calcActiveMods, getIniTot, getStatusEffValues
 } from './calc.js';
 import {
-  syncCloudRegistry, sendLiveBroadcast, getCachedForeignSheet, fetchForeignCharacterSheet
+  syncCloudRegistry, sendLiveBroadcast, getCachedForeignSheet, fetchForeignCharacterSheet, updateLobbyLiveDiceDOM
 } from './cloud.js';
 
 export function getActiveInitiativeCampaignId(){
   if(UI.inLobby) return getActiveLiveCampaignId();
+  const charId = String(S?.charId || '').trim();
   if(isEnemySheet(S)){
     const meta = getEnemyMeta(S);
-    if(CLOUD.activeCampaignId && meta.campaignIds.includes(CLOUD.activeCampaignId)) return CLOUD.activeCampaignId;
+    const activeIniCamps = charId ? getInitiativeCampaignsForChar(charId, { activeOnly: true, visibleOnly: false }) : [];
+    const anyIniCamps = charId ? getInitiativeCampaignsForChar(charId, { activeOnly: false, visibleOnly: false }) : [];
+    if(CLOUD.activeCampaignId && (activeIniCamps.includes(CLOUD.activeCampaignId) || meta.campaignIds.includes(CLOUD.activeCampaignId))){
+      return CLOUD.activeCampaignId;
+    }
+    if(activeIniCamps.length) return activeIniCamps[0];
+    if(CLOUD.activeCampaignId && anyIniCamps.includes(CLOUD.activeCampaignId)) return CLOUD.activeCampaignId;
     if(meta.campaignIds.length) return meta.campaignIds[0];
+    if(anyIniCamps.length) return anyIniCamps[0];
     return getActiveLiveCampaignId();
   }
-  return getCharCampaignId(S.charId);
+  const ownCamp = getCharCampaignId(charId);
+  if(CLOUD.registry?.initiatives?.[ownCamp]?.active) return ownCamp;
+  if(charId){
+    const activeIniCamps = getInitiativeCampaignsForChar(charId, { activeOnly: true, visibleOnly: false });
+    if(activeIniCamps.length){
+      if(CLOUD.activeCampaignId && activeIniCamps.includes(CLOUD.activeCampaignId)) return CLOUD.activeCampaignId;
+      return activeIniCamps[0];
+    }
+  }
+  return ownCamp;
 }
 
 export function getCampaignInitiative(campId = getActiveInitiativeCampaignId()){
@@ -132,25 +150,67 @@ function buildEntryFromCharMeta(ch, sheetOpt = null, { nameOverride = '', isEnem
   });
 }
 
+function buildLightweightInitiativeBroadcastState(state){
+  return {
+    active: Boolean(state.active),
+    round: Math.max(1, toInt(state.round, 1)),
+    activeEntryId: String(state.activeEntryId || ''),
+    rev: Math.max(0, toInt(state.rev, 0)),
+    updatedAtMs: Math.max(0, toInt(state.updatedAtMs, 0)),
+    entries: (Array.isArray(state.entries) ? state.entries : []).map(e => ({
+      id: e.id,
+      charId: e.charId,
+      name: e.name,
+      isEnemy: Boolean(e.isEnemy),
+      hidden: Boolean(e.hidden),
+      baseIni: toInt(e.baseIni, 0),
+      statusIni: toInt(e.statusIni, 0),
+      statusNote: e.statusNote || '',
+      manualMod: toInt(e.manualMod, 0),
+      avatar: (e.avatar && !String(e.avatar).startsWith('data:') && String(e.avatar).length <= 240) ? e.avatar : '',
+      note: e.note || ''
+    }))
+  };
+}
+
 export function commitInitiativeChange(campId, nextState, { broadcast = true, pushRegistry = true } = {}){
   const cid = String(campId || getActiveInitiativeCampaignId() || 'default').trim() || 'default';
   if(!CLOUD.registry.initiatives || typeof CLOUD.registry.initiatives !== 'object') CLOUD.registry.initiatives = {};
-  const clean = normalizeInitiativeState({ ...nextState, updatedAtMs: Date.now() });
+  const prev = getCampaignInitiative(cid);
+  const nextRev = Math.max(toInt(prev?.rev, 0), toInt(nextState?.rev, 0)) + 1;
+  const nextTs = Math.max(Date.now(), toInt(prev?.updatedAtMs, 0) + 1);
+  const clean = normalizeInitiativeState({ ...nextState, rev: nextRev, updatedAtMs: nextTs });
   CLOUD.registry.initiatives[cid] = clean;
   saveRegistryLocal();
   if(broadcast){
-    sendLiveBroadcast({
+    const liteState = buildLightweightInitiativeBroadcastState(clean);
+    const fullPayload = {
       type: 'initiative_live',
       campaignId: cid,
-      state: clean,
+      state: liteState,
       senderTabId: LIVE_TAB_ID,
+      rev: clean.rev,
       tsMs: clean.updatedAtMs
-    });
+    };
+    const serializedLen = JSON.stringify(fullPayload).length;
+    if(serializedLen <= 3600){
+      sendLiveBroadcast(fullPayload);
+    }else{
+      sendLiveBroadcast({
+        type: 'initiative_live_ping',
+        campaignId: cid,
+        rev: clean.rev,
+        tsMs: clean.updatedAtMs,
+        senderTabId: LIVE_TAB_ID
+      });
+    }
   }
   if(pushRegistry){
     syncCloudRegistry(true);
   }
   updateInitiativeUI();
+  if(D.open) hooks.renderDice?.();
+  updateLobbyLiveDiceDOM();
   return clean;
 }
 
@@ -357,9 +417,11 @@ export function openInitiativeAddEnemyPicker(anchorEl, campId = getActiveInitiat
   const cid = String(campId || 'default').trim() || 'default';
   if(!canManageCampaign(cid)) return;
   const allList = CLOUD.list || [];
+  const campMap = new Map(getCampaigns().map(c => [c.id, c.name || 'Kampagne']));
   const campEnemies = [];
   const templates = [];
   const campHeroes = [];
+  const otherHeroes = [];
   allList.forEach(c => {
     if(!c || !c.id) return;
     if(isEnemySheet(c.id)){
@@ -370,6 +432,8 @@ export function openInitiativeAddEnemyPicker(anchorEl, campId = getActiveInitiat
       else templates.push(c);
     }else if(getCharCampaignId(c.id) === cid){
       campHeroes.push(c);
+    }else{
+      otherHeroes.push(c);
     }
   });
   campEnemies.sort((a, b) => {
@@ -380,6 +444,7 @@ export function openInitiativeAddEnemyPicker(anchorEl, campId = getActiveInitiat
   });
   templates.sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), 'de'));
   campHeroes.sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), 'de'));
+  otherHeroes.sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), 'de'));
 
   const addHidden = Boolean(INI.pickerHidden);
   const sel = `[data-action="ini-open-add-picker"][data-camp="${CSS.escape ? CSS.escape(cid) : cid}"]`;
@@ -450,14 +515,21 @@ export function openInitiativeAddEnemyPicker(anchorEl, campId = getActiveInitiat
   }
   if(templates.length){
     items.push({ sep: true });
-    items.push({ type: 'label', label: '📋 Gegner-Vorlagen / Bestiarium' });
+    items.push({ type: 'label', label: '📋 Gegner-Vorlagen / Andere Kampagnen' });
     templates.forEach(t => {
-      const cat = getEnemyMeta(t.id).category;
+      const m = getEnemyMeta(t.id);
+      const cat = m.category;
+      const otherCamps = m.campaignIds.map(id => campMap.get(id) || id).filter(Boolean);
       const cnt = getEnemyInitiativeCount(cid, t.id);
+      const subParts = [];
+      if(cat) subParts.push(cat);
+      if(otherCamps.length) subParts.push(`📁 ${otherCamps.join(', ')}`);
+      subParts.push(`Basis-Ini ${fmtSign(toInt(t.ini, 0))}`);
+      if(cnt > 0) subParts.push(`im Kampf: ${cnt}×`);
       items.push({
-        icon: '📋',
+        icon: m.isEnemy ? '👹' : '📋',
         label: String(t.name || 'Vorlage').trim(),
-        sub: `${cat ? `${cat} • ` : ''}Basis-Ini ${fmtSign(toInt(t.ini, 0))}${cnt > 0 ? ` • im Kampf: ${cnt}×` : ''}`,
+        sub: subParts.join(' • '),
         badge: cnt > 0 ? `${cnt}× | ${fmtSign(toInt(t.ini, 0))}` : fmtSign(toInt(t.ini, 0)),
         active: cnt > 0,
         keepOpen: true,
@@ -477,6 +549,27 @@ export function openInitiativeAddEnemyPicker(anchorEl, campId = getActiveInitiat
         icon: '👤',
         label: String(h.name || 'Held').trim(),
         sub: `Ini ${fmtSign(toInt(h.ini, 0))}${cnt > 0 ? ' • bereits in Ini' : ''}`,
+        badge: fmtSign(toInt(h.ini, 0)),
+        active: cnt > 0,
+        keepOpen: true,
+        onClick: async () => {
+          await addCharacterOrEnemyToInitiative(cid, h.id, { isEnemy: false, allowDuplicate: false });
+          openInitiativeAddEnemyPicker(resolveAnchor(), cid, true);
+        }
+      });
+    });
+  }
+  if(otherHeroes.length){
+    items.push({ sep: true });
+    items.push({ type: 'label', label: '🌐 Charaktere aus anderen Kampagnen' });
+    otherHeroes.forEach(h => {
+      const hCamp = getCharCampaignId(h.id);
+      const hCampName = campMap.get(hCamp) || 'Allgemein';
+      const cnt = getEnemyInitiativeCount(cid, h.id);
+      items.push({
+        icon: '👤',
+        label: String(h.name || 'Held').trim(),
+        sub: `📁 ${hCampName} • Ini ${fmtSign(toInt(h.ini, 0))}${cnt > 0 ? ' • bereits in Ini' : ''}`,
         badge: fmtSign(toInt(h.ini, 0)),
         active: cnt > 0,
         keepOpen: true,
@@ -669,7 +762,8 @@ export function syncOwnCharToInitiative(sheet = S){
     });
     if(campChanged){
       anyChanged = true;
-      cur.updatedAtMs = Date.now();
+      cur.rev = toInt(cur.rev, 0) + 1;
+      cur.updatedAtMs = Math.max(Date.now(), toInt(cur.updatedAtMs, 0) + 1);
       CLOUD.registry.initiatives[campId] = cur;
       sendLiveBroadcast({
         type: 'initiative_char_sync',
@@ -678,6 +772,7 @@ export function syncOwnCharToInitiative(sheet = S){
         baseIni: parts.baseIni,
         statusIni: parts.statusIni,
         statusNote: parts.statusNote,
+        rev: cur.rev,
         senderTabId: LIVE_TAB_ID,
         tsMs: cur.updatedAtMs
       });
@@ -696,14 +791,32 @@ export function handleInitiativeLiveEvent(rawObj, isRealtimePush = false){
   const cid = String(rawObj.campaignId || 'default').trim() || 'default';
   if(!CLOUD.registry.initiatives || typeof CLOUD.registry.initiatives !== 'object') CLOUD.registry.initiatives = {};
 
+  if(rawObj.type === 'initiative_live_ping'){
+    syncCloudRegistry(false);
+    return;
+  }
+
   if(rawObj.type === 'initiative_live' && rawObj.state && typeof rawObj.state === 'object'){
     const prev = getCampaignInitiative(cid);
     const inc = normalizeInitiativeState(rawObj.state);
-    if(inc.updatedAtMs && prev.updatedAtMs && inc.updatedAtMs < prev.updatedAtMs) return;
+    if(rawObj.rev !== undefined && inc.rev === 0) inc.rev = Math.max(0, toInt(rawObj.rev, 0));
+    const prevRev = toInt(prev.rev, 0), incRev = toInt(inc.rev, 0);
+    if(incRev > 0 && prevRev > 0 && incRev < prevRev) return;
+    if(incRev === prevRev && inc.updatedAtMs && prev.updatedAtMs && inc.updatedAtMs < prev.updatedAtMs) return;
+    // Gestrippte Avatare lokal wieder aus prev / CLOUD.list / S ergänzen
+    const prevAvById = new Map((prev.entries || []).filter(e => e && e.avatar).map(e => [e.id, e.avatar]));
+    const prevAvByChar = new Map((prev.entries || []).filter(e => e && e.charId && e.avatar).map(e => [e.charId, e.avatar]));
+    inc.entries.forEach(e => {
+      if(!e.avatar){
+        e.avatar = prevAvById.get(e.id) || (e.charId ? prevAvByChar.get(e.charId) : '') || getLiveEntryAvatar(e) || '';
+      }
+    });
     const justActivated = !prev.active && inc.active;
     CLOUD.registry.initiatives[cid] = inc;
     saveRegistryLocal();
     updateInitiativeUI();
+    if(D.open) hooks.renderDice?.();
+    updateLobbyLiveDiceDOM();
     if(isRealtimePush && justActivated && cid === getActiveInitiativeCampaignId()){
       toast('⚡ Spielleitung hat die Initiative-Reihenfolge aktiviert!');
     }
@@ -721,6 +834,7 @@ export function handleInitiativeLiveEvent(rawObj, isRealtimePush = false){
       hit = true;
     });
     if(hit){
+      cur.rev = Math.max(toInt(cur.rev, 0), toInt(rawObj.rev, 0));
       cur.updatedAtMs = Math.max(cur.updatedAtMs, toInt(rawObj.tsMs, Date.now()));
       CLOUD.registry.initiatives[cid] = cur;
       saveRegistryLocal();
@@ -742,7 +856,7 @@ export function renderInitiativeBodyHtml(campId = getActiveInitiativeCampaignId(
     <div class="flex flex-wrap items-center gap-1.5">
       <button type="button" data-action="ini-toggle-active" data-camp="${esc(cid)}" class="btn py-1 px-2.5 text-xs font-black ${st.active ? 'bg-rose-600/85 text-white border-rose-400/70' : 'btn-ok'}">${st.active ? '⏹️ Initiative beenden' : '⚡ Initiative aktivieren'}</button>
       <button type="button" data-action="ini-load-heroes" data-camp="${esc(cid)}" data-tip="Alle Charaktere dieser Kampagne laden &amp; aktualisieren" class="btn py-1 px-2 text-xs font-extrabold bdr-acc bg-acc-soft text-acc">👥 Helden</button>
-      <button type="button" data-action="ini-open-add-picker" data-camp="${esc(cid)}" aria-haspopup="menu" data-tip="Gegner aus Kampagne oder Gegner-Vorlagen hinzufügen" class="btn py-1 px-2 text-xs font-extrabold border-rose-400/55 bg-rose-500/15 text-rose-200">+ 👹 Gegner / Vorlage</button>
+      <button type="button" data-action="ini-open-add-picker" data-camp="${esc(cid)}" aria-haspopup="menu" data-tip="Gegner, Vorlagen oder Charaktere (auch aus anderen Kampagnen) hinzufügen" class="btn py-1 px-2 text-xs font-extrabold border-rose-400/55 bg-rose-500/15 text-rose-200">+ 👹 Gegner / Vorlage</button>
       <button type="button" data-action="ini-toggle-custom" class="btn py-1 px-2 text-xs font-extrabold ${INI.addCustomOpen ? 'btn-pri' : ''}">+ Frei</button>
       <button type="button" data-action="ini-refresh-all" data-camp="${esc(cid)}" data-tip="Alle verknüpften Bögen (inkl. Konzentriert/Abgelenkt ±10) frisch aus der Cloud abgleichen" class="btn py-1 px-2 text-xs font-bold">🔄</button>
       ${st.entries.length ? `<button type="button" data-action="ini-clear" data-camp="${esc(cid)}" data-tip="Alle Teilnehmer aus der Liste entfernen" class="btn btn-err py-1 px-2 text-xs">🗑️</button>` : ''}
@@ -796,6 +910,8 @@ export function renderInitiativeBodyHtml(campId = getActiveInitiativeCampaignId(
           const hideVal = Boolean(e.isEnemy && !isGm);
           const tot = getEntryTotalIni(e);
           const av = getLiveEntryAvatar(e);
+          const canViewSheet = Boolean(e.charId && (!e.isEnemy || isGm || canViewEnemySheet(e.charId)));
+          const canTargetDice = Boolean(e.charId && !isOwn && (!e.hidden || isGm));
           const breakParts = [];
           if(!hideVal){
             breakParts.push(`Basis ${fmtSign(e.baseIni)}`);
@@ -836,6 +952,8 @@ export function renderInitiativeBodyHtml(campId = getActiveInitiativeCampaignId(
               ${!hideVal
                 ? `<span class="px-2 py-1 rounded-lg bg-black/35 border ${e.statusIni ? 'border-amber-400/55 text-amber-300' : 'bdr-line text-acc'} text-xs sm:text-sm font-black min-w-[42px] text-center" data-tip="${esc(breakParts.join(' • '))}">${fmtSign(tot)}</span>`
                 : `<span class="px-2 py-1 rounded-lg bg-black/30 border bdr-line text-[11px] font-black t-mut">🔒</span>`}
+              ${canTargetDice ? `<button type="button" data-action="ini-target-dice" data-id="${esc(e.charId)}" data-tip="${esc(e.name)} direkt als Ziel im Würfelassistenten auswählen" class="btn w-7 h-7 p-0 text-xs border-indigo-400/50 bg-indigo-500/15 text-indigo-200">🎯</button>` : ''}
+              ${canViewSheet ? `<a href="?char=${encodeURIComponent(e.charId)}&amp;view=1" data-action="${(isGm && e.isEnemy) ? 'cloud-edit-char' : 'cloud-view-char'}" data-id="${esc(e.charId)}" data-tip="Bogen von ${esc(e.name)} öffnen (Mittelklick = neuer Tab)" class="btn w-7 h-7 p-0 text-xs">👁️</a>` : ''}
               ${canEdit ? `<div class="inline-flex items-center gap-0.5">
                 <button type="button" data-action="ini-mod-step" data-camp="${esc(cid)}" data-id="${esc(e.id)}" data-delta="-10" data-tip="−10 Initiative (z. B. Konzentriert / Abgelenkt)" class="btn h-7 px-1.5 text-[10px] font-black text-rose-300">−10</button>
                 <button type="button" data-action="ini-mod-step" data-camp="${esc(cid)}" data-id="${esc(e.id)}" data-delta="10" data-tip="+10 Initiative (z. B. Konzentriert / Abgelenkt)" class="btn h-7 px-1.5 text-[10px] font-black text-emerald-300">+10</button>
