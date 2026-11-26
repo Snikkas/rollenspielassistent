@@ -8,7 +8,7 @@ import {
   hooks
 } from './ui-hooks.js';
 import {
-  syncPwUseCostsLegacy, toast, logChron, normPwEntry, save, findMainArt, isReservedPwTerm, getWeaponSubtype, isWeaponMassiv, S, D, UI
+  syncPwUseCostsLegacy, toast, logChron, normPwEntry, save, findMainArt, isReservedPwTerm, getWeaponSubtype, isWeaponMassiv, isWeaponBlockable, isArmorShield, S, D, UI
 } from './state.js';
 import {
   getEffectiveWeaponAmmo
@@ -1104,17 +1104,18 @@ export function getAdvDisForContext(ctx={},M=null,sheet=S){
   const mods=M||calcActiveMods(target);
   const list=mods.advDis||[];
   const w=ctx.weaponId?(target.weapons||[]).find(x=>x.id===ctx.weaponId):null;
-  const rawCat=ctx.wRollCat||(w?'Trefferwurf':'Normaler Test');
+  const sh=ctx.shieldId?(target.armors||[]).find(x=>x&&x.id===ctx.shieldId&&isArmorShield(x)):null;
+  const rawCat=ctx.wRollCat||(w?'Trefferwurf':sh?'Blocken':'Normaler Test');
   const cat=rawCat==='Parade'?'Parieren':rawCat;
   const oppDefCat=ctx.oppDefenseCat?(ctx.oppDefenseCat==='Parade'?'Parieren':ctx.oppDefenseCat):'';
   const sk=ctx.skillId?(target.skills||[]).find(x=>x.id===ctx.skillId):null;
   const skNameLow=sk?String(sk.name||'').trim().toLowerCase():'';
   const skBaseLow=skNameLow.replace(/\s*\([^)]*\)\s*$/,'').trim();
-  const ak=ctx.attrKey||(sk?sk.linkedAttr:null)||(w?getWeaponRollMeta(w,mods,target).attrKey:null);
+  const ak=ctx.attrKey||(sk?sk.linkedAttr:null)||(w?getWeaponRollMeta(w,mods,target).attrKey:null)||(sh?getShieldRollMeta(sh,mods,target).attrKey:null);
   const isNormTest=cat==='Normaler Test';
   const isSkDodge=Boolean(skNameLow==='ausweichen'||skBaseLow==='ausweichen');
   const isSkParry=Boolean(skNameLow==='parieren'||skBaseLow==='parieren'||skNameLow==='parade'||skBaseLow==='parade');
-  const isSkBlock=Boolean(skNameLow==='blocken'||skBaseLow==='blocken');
+  const isSkBlock=Boolean(skNameLow==='blocken'||skBaseLow==='blocken'||skNameLow==='schildblock'||skBaseLow==='schildblock');
   const isSkDefense=Boolean(isSkDodge||isSkParry||isSkBlock||skNameLow==='abwehr'||skBaseLow==='abwehr');
   const matchesScope=e=>{
     if(e.isOppDef&&oppDefCat){
@@ -1128,8 +1129,8 @@ export function getAdvDisForContext(ctx={},M=null,sheet=S){
     }
     if(e.scope==='all') return true;
     if(e.scope==='hit') return cat==='Trefferwurf';
-    if(e.scope==='hit_melee') return cat==='Trefferwurf'&&(w?w.wType!=='ranged':(skNameLow!=='fernkampf'&&skBaseLow!=='fernkampf'));
-    if(e.scope==='hit_ranged') return cat==='Trefferwurf'&&(w?w.wType==='ranged':(skNameLow==='fernkampf'||skBaseLow==='fernkampf'));
+    if(e.scope==='hit_melee') return cat==='Trefferwurf'&&(w?w.wType!=='ranged':sh?true:(skNameLow!=='fernkampf'&&skBaseLow!=='fernkampf'));
+    if(e.scope==='hit_ranged') return cat==='Trefferwurf'&&(w?w.wType==='ranged':sh?false:(skNameLow==='fernkampf'||skBaseLow==='fernkampf'));
     if(e.scope==='defense') return cat==='Parieren'||cat==='Blocken'||cat==='Ausweichen'||cat==='Abwehr'||(isNormTest&&isSkDefense);
     if(e.scope==='parry_block') return cat==='Parieren'||cat==='Blocken'||(isNormTest&&(isSkParry||isSkBlock));
     if(e.scope==='parry') return cat==='Parieren'||(isNormTest&&isSkParry);
@@ -1170,6 +1171,9 @@ export function getAdvDisForContext(ctx={},M=null,sheet=S){
     (target.armors||[]).filter(ar=>ar&&ar.equipped!==false&&Array.isArray(ar.tags)&&ar.tags.length).forEach(ar=>{
       ar.tags.forEach(tg=>eqSources.push(analyzeEqTagTooltip(tg,target.armorTagList,'armor',ar,target)));
     });
+  }
+  if(sh&&sh.equipped===false&&Array.isArray(sh.tags)&&sh.tags.length){
+    sh.tags.forEach(tg=>eqSources.push(analyzeEqTagTooltip(tg,target.armorTagList,'armor',sh,target)));
   }
   const sheetCnt=mods._sheetCounters||getSheetCounterTotals(target);
   let redMeleeMount=sheetCnt.redMeleeMount, negThrow=sheetCnt.negThrow, thrustGripVal=0;
@@ -1279,6 +1283,18 @@ export function getAdvDisForContext(ctx={},M=null,sheet=S){
       }
     }
   }
+  if(sh&&(cat==='Blocken'||(isNormTest&&isSkBlock))){
+    const bm=toInt(sh.blockMod,0);
+    const shName=String(sh.name||'').trim()||'Schild';
+    if(bm>0){
+      autoAdv+=bm;
+      src.push({val:bm,kind:'adv',scope:'block',label:'Blocken',tagLbl:`Block-Mod ${fmtSign(bm)}`,srcName:`${shName} • Block-Mod`,srcKind:'Schild'});
+    }else if(bm<0){
+      const absBm=Math.abs(bm);
+      autoDis+=absBm;
+      src.push({val:absBm,kind:'dis',scope:'block',label:'Blocken',tagLbl:`Block-Mod ${fmtSign(bm)}`,srcName:`${shName} • Block-Mod`,srcKind:'Schild'});
+    }
+  }
   if(ctx.includeInspiration&&target.inspirationActive){
     autoAdv+=1;
     src.push({val:1,kind:'adv',scope:'all',label:'Inspiration (Nächster Wurf)',tagLbl:'✨ Inspiration',srcName:'✨ Inspiration',srcKind:'Inspiration'});
@@ -1347,7 +1363,7 @@ export function getMentalArmorSummary(M=null,sheet=S){
   const equipPieces=[];
   let equipSum=0;
   (target.armors||[]).forEach(ar=>{
-    if(!ar||ar.equipped===false) return;
+    if(!ar||ar.equipped===false||isArmorShield(ar)) return;
     const v=toInt(ar.mentalProt,0);
     if(!v) return;
     equipSum+=v;
@@ -2179,8 +2195,64 @@ export function getWeaponRollMeta(w,M=null,sheet=S){
   const sk=w?.skillId?(sheet.skills||[]).find(s=>s.id===w.skillId):null;
   const skBonus=sk?getSkBonus(sk):0;
   const pool=attrVal+skBonus;
-  const hasBlock=Array.isArray(w?.tags)&&w.tags.some(t=>/^blockf[äa]hig\b/i.test(String(t?.name||'').trim()));
+  const hasBlock=isWeaponBlockable(w);
   return {attrKey,attrVal,sk,skBonus,pool,hasMassiv,hasBlock};
+}
+
+export function getShieldRollMeta(ar,M=null,sheet=S){
+  const mods=M||calcActiveMods(sheet);
+  const attrKey=ATTRS.some(a=>a.k===ar?.wAttr)?ar.wAttr:'ST';
+  const attrVal=getAttrTot(attrKey,mods,sheet);
+  const sk=ar?.skillId?(sheet.skills||[]).find(s=>s.id===ar.skillId):null;
+  const skBonus=sk?getSkBonus(sk):0;
+  const pool=attrVal+skBonus;
+  const blockMod=toInt(ar?.blockMod,0);
+  return {attrKey,attrVal,sk,skBonus,pool,blockMod,hasBlock:true};
+}
+
+export function getSheetShields(sheet=S,{onlyEquipped=false}={}){
+  const list=(sheet?.armors||[]).filter(ar=>ar&&isArmorShield(ar)&&(!onlyEquipped||ar.equipped!==false));
+  return [...list].sort((a,b)=>Number(b.equipped!==false)-Number(a.equipped!==false));
+}
+
+export function getSheetBlockOptions(sheet=S){
+  const shields=getSheetShields(sheet);
+  const blockWeapons=[...(sheet?.weapons||[]).filter(w=>w&&isWeaponBlockable(w))]
+    .sort((a,b)=>Number(b.equipped!==false)-Number(a.equipped!==false));
+  return {shields,blockWeapons};
+}
+
+export function getEquippedShieldsForSkill(skillId,sheet=S){
+  const sid=String(skillId||'').trim();
+  if(!sid) return [];
+  return (sheet?.armors||[]).filter(ar=>ar&&isArmorShield(ar)&&ar.equipped!==false&&ar.skillId===sid);
+}
+
+export function resolveCombatItemByRef(ref,sheet=S){
+  const raw=String(ref||'').trim();
+  if(!raw||raw==='__none__') return null;
+  if(raw.startsWith('shield:')){
+    const sid=raw.slice(7);
+    const sh=(sheet?.armors||[]).find(ar=>ar&&ar.id===sid&&isArmorShield(ar));
+    return sh?{kind:'shield',item:sh,ref:`shield:${sh.id}`}:null;
+  }
+  const w=(sheet?.weapons||[]).find(x=>x&&x.id===raw);
+  if(w) return {kind:'weapon',item:w,ref:w.id};
+  return null;
+}
+
+export function formatBlockModShort(val){
+  const n=toInt(val,0);
+  if(n>0) return `+${n}V`;
+  if(n<0) return `−${Math.abs(n)}N`;
+  return '±0';
+}
+
+export function formatBlockModLong(val){
+  const n=toInt(val,0);
+  if(n>0) return `+${n} ${n===1?'Vorteil':'Vorteile'}`;
+  if(n<0) return `+${Math.abs(n)} ${Math.abs(n)===1?'Nachteil':'Nachteile'}`;
+  return '±0 (Neutral)';
 }
 
 export function getEqModStatOptions(sheet=S){
