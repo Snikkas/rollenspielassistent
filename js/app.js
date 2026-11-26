@@ -808,7 +808,7 @@ document.addEventListener('click',async e=>{
           D.weaponId=null;
           const blkOpts=getSheetBlockOptions(S);
           const pickSh=blkOpts.shields.find(s=>s.equipped!==false)||blkOpts.shields[0]||null;
-          const pickWp=!pickSh?(blkOpts.weapons.find(w=>w.equipped!==false)||blkOpts.weapons[0]||null):null;
+          const pickWp=!pickSh?(blkOpts.blockWeapons.find(w=>w.equipped!==false)||blkOpts.blockWeapons[0]||null):null;
           if(pickSh){
             const sm=getShieldRollMeta(pickSh);
             D.shieldId=pickSh.id;

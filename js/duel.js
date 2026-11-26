@@ -689,7 +689,7 @@ export function renderDuelReplyModal(){
             const meta=[bm?`Block ${bm}`:'',grp?`RS ${grp}`:''].filter(Boolean).join(', ');
             return `<option value="${esc(ref)}" ${curWp===ref?'selected':''}>🛡️ ${esc(nm)}${meta?` (${esc(meta)})`:''}</option>`;
           }).join('');
-          const bwOptsHtml=blkOpts.weapons.map(w=>{
+          const bwOptsHtml=blkOpts.blockWeapons.map(w=>{
             const wn=String(w.name||'').trim()||getWeaponSubtype(w.wType).label;
             return `<option value="${esc(w.id)}" ${curWp===w.id?'selected':''}>⚔️ ${esc(wn)} (Blockfähig • −2)</option>`;
           }).join('');
@@ -700,7 +700,7 @@ export function renderDuelReplyModal(){
               ${shOptsHtml?`<optgroup label="🛡️ Schilde">${shOptsHtml}</optgroup>`:''}
               ${bwOptsHtml?`<optgroup label="⚔️ Blockfähige Waffen (−2 Schaden)">${bwOptsHtml}</optgroup>`:''}
             </select>
-            ${(!blkOpts.shields.length&&!blkOpts.weapons.length)?`<div class="text-[10px] text-amber-300/90 mt-1">ℹ️ Keine Schilde oder blockfähigen Waffen vorhanden.</div>`:''}
+            ${(!blkOpts.shields.length&&!blkOpts.blockWeapons.length)?`<div class="text-[10px] text-amber-300/90 mt-1">ℹ️ Keine Schilde oder blockfähigen Waffen vorhanden.</div>`:''}
           </div>`;
         }else if(prev.preset==='attack'){
           const wpOptsHtml=weapons.map(w=>{
