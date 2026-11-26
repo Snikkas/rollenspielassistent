@@ -1299,7 +1299,67 @@ export function getAdvDisForContext(ctx={},M=null,sheet=S){
     autoAdv+=1;
     src.push({val:1,kind:'adv',scope:'all',label:'Inspiration (Nächster Wurf)',tagLbl:'✨ Inspiration',srcName:'✨ Inspiration',srcKind:'Inspiration'});
   }
-  return {autoAdv:Math.max(0,autoAdv),autoDis:Math.max(0,autoDis),rawAutoAdv:autoAdv,rawAutoDis:autoDis,src,autoCrit,critSrc,autoRollMod,rollModSrc,sitOptions};
+  const prepCandidate=(ctx.includePreparation!==false)?findMatchingPreparation({attrKey:ak,sk,includeActionPreparation:Boolean(ctx.includeActionPreparation)},target):null;
+  let matchedPrep=null, pausedPrep=null;
+  if(prepCandidate){
+    if(ctx.prepPaused){
+      pausedPrep=prepCandidate;
+    }else{
+      matchedPrep=prepCandidate;
+      autoAdv+=2;
+      src.push({
+        val:2,
+        kind:'adv',
+        scope:prepCandidate.scope,
+        attrKey:prepCandidate.prep.kind==='attr'?prepCandidate.prep.attrKey:'',
+        skillName:prepCandidate.prep.kind==='skill'?prepCandidate.skillName:'',
+        label:prepCandidate.label,
+        tagLbl:`🎯 Vorbereitung: ${prepCandidate.label}`,
+        srcName:`Vorbereitung (${prepCandidate.label})`,
+        srcKind:'Vorbereitung',
+        prepId:prepCandidate.prep.id
+      });
+    }
+  }
+  return {autoAdv:Math.max(0,autoAdv),autoDis:Math.max(0,autoDis),rawAutoAdv:autoAdv,rawAutoDis:autoDis,src,autoCrit,critSrc,autoRollMod,rollModSrc,sitOptions,matchedPrep,pausedPrep};
+}
+export function formatPreparationLabel(p,sheet=S){
+  if(!p||typeof p!=='object') return 'Aktion';
+  if(p.kind==='attr') return `Attribut (${String(p.attrKey||'?').trim()})`;
+  if(p.kind==='skill'){
+    const sk=(p.skillId&&(sheet?.skills||[]).find(s=>s&&s.id===p.skillId))||null;
+    const nm=String(sk?.name||p.skillName||'Fertigkeit').trim()||'Fertigkeit';
+    return `Fertigkeit (${nm})`;
+  }
+  const txt=String(p.actionText||'').trim();
+  return txt?`Aktion: ${txt}`:'Aktion';
+}
+export function findMatchingPreparation({attrKey='',sk=null,includeActionPreparation=false}={},sheet=S){
+  const list=Array.isArray(sheet?.preparations)?sheet.preparations:[];
+  if(!list.length) return null;
+  const ak=String(attrKey||'').trim();
+  const skId=String(sk?.id||'').trim();
+  const skNameLow=String(sk?.name||'').trim().toLowerCase();
+  if(sk&&(skId||skNameLow)){
+    const skHit=list.find(p=>p&&p.kind==='skill'&&((skId&&p.skillId===skId)||(skNameLow&&String(p.skillName||'').trim().toLowerCase()===skNameLow)));
+    if(skHit){
+      const resolvedName=String(sk?.name||skHit.skillName||'Fertigkeit').trim()||'Fertigkeit';
+      return {prep:skHit,scope:'skill',skillName:resolvedName,label:`Fertigkeit (${resolvedName})`};
+    }
+  }
+  if(ak){
+    const attrHit=list.find(p=>p&&p.kind==='attr'&&p.attrKey===ak);
+    if(attrHit){
+      return {prep:attrHit,scope:'attr',skillName:'',label:`Attribut (${ak})`};
+    }
+  }
+  if(includeActionPreparation){
+    const actHit=list.find(p=>p&&p.kind==='action');
+    if(actHit){
+      return {prep:actHit,scope:'all',skillName:'',label:formatPreparationLabel(actHit,sheet)};
+    }
+  }
+  return null;
 }
 export const fmtAdvSrcLines=src=>(src||[]).map(s=>`• ${s.srcName} (${s.srcKind}): ${fmtSign(s.val)} ${s.kind==='dis'?'Nachteil(e)':'Vorteil(e)'} [${s.label}]`).join('\n');
 export function buildAttrTip(k,M=null,sheet=S){
@@ -1352,7 +1412,8 @@ export function buildSecTip(key,M=null,sheet=S){
   const thNames={woundLight:'Verwundung (leicht)',woundMedium:'Verwundung (mittel)',woundHeavy:'Verwundung (schwer)',traumaLight:'Trauma (leicht)',traumaMedium:'Trauma (mittel)',traumaHeavy:'Trauma (schwer)'};
   if(thNames[key]){
     const base=toInt(sheet.thresholds[key],0),tot=base+(mods[key]||0),sl=fmtSrcLines(mods,key);
-    return `${thNames[key]} Gesamt: ${tot} (tritt ab ${tot+1} Schaden ein)\n• Basiswert: ${base}${sl?`\n${sl}`:''}`;
+    const capLine=(key==='woundHeavy'||key==='traumaHeavy')?`\n• Max. ${key==='woundHeavy'?'LP':'mLP'}-Verlust pro Treffer: ${Math.max(1,tot)}`:'';
+    return `${thNames[key]} Gesamt: ${tot} (tritt ab ${tot} Schaden ein)${capLine}\n• Basiswert: ${base}${sl?`\n${sl}`:''}`;
   }
   return '';
 }
@@ -2385,4 +2446,27 @@ export function getRelativeSizeHitMod(attackerSheet,targetSheet){
   const diff=targetInfo.level-atkInfo.level;
   return {diff,atkInfo,targetInfo};
 }
+
+export function getDefaultHitZoneSize(zoneName=''){
+  const low=String(zoneName||'').trim().toLowerCase();
+  if(/kopf|head|schädel|schaedel/.test(low)) return 'klein';
+  if(/rumpf|torso|körper|koerper|brust/.test(low)) return 'groß';
+  return 'normal';
+}
+
+export function normHitZoneSize(rawSize,zoneName=''){
+  const s=String(rawSize||'').trim().toLowerCase();
+  if(/gro(?:ß|ss)|large|big/.test(s)) return 'groß';
+  if(/klein|small|tiny/.test(s)) return 'klein';
+  if(/normal|mittel|medium/.test(s)) return 'normal';
+  return getDefaultHitZoneSize(zoneName);
+}
+
+export function getHitZoneSizeMeta(rawSize,zoneName=''){
+  const k=normHitZoneSize(rawSize,zoneName);
+  if(k==='groß') return {key:'groß',label:'Groß',short:'Groß (+1V)',tag:'Gr',mod:1};
+  if(k==='klein') return {key:'klein',label:'Klein',short:'Klein (+1N)',tag:'Kl',mod:-1};
+  return {key:'normal',label:'Normal',short:'Normal (±0)',tag:'N',mod:0};
+}
+
 

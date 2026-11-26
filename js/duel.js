@@ -331,6 +331,8 @@ export function computeDuelReplyPreview(reply=DUEL.reply){
     attrKey,
     sitActive:reply.sitActive||{},
     includeInspiration:false,
+    includePreparation:true,
+    includeActionPreparation:true,
     oppDefenseCat:oppDefForOpp
   },oppM,targetSheet);
 

@@ -11,13 +11,13 @@ import {
   syncPwUseCostsLegacy, makeDefaultStatusEffects, defaultState, setS, setD, clearDiceLogs, syncBodyScrollLock, positionFloatingMenu, openCtxMenu, closeCtxMenu, closePwDropdown, repositionOpenPwMenus, hydrateWinPrefs, saveWinPref, clearWinPref, applyWinFrame, setPwMode, normalizeCampaigns, normalizeEnemyMeta, getUserBgLocalKey, getCampaigns, getActiveCampaigns, setActiveCampaign, canManageCampaign, canClearLiveDice, getCreatableCampaigns, isEnemySheet, getEnemyMeta, canToggleEnemyStatus, canManageEnemySheet, canViewEnemySheet, ensureAllRegistryUsers, findUserKeyByName, findUserKeyById, getUserAvatar, canViewUserProfile, saveRegistryLocal, saveSecretRollsLocal, getActiveLiveCampaignId, captureScrollState, restoreScrollState, toast, triggerNiceEasterEgg, logChron, mergeLoaded, saveLastActiveTab, save, flushPendingSave, saveSoon, load, flushThemePrefsSync, cancelThemePrefsSync, applySessionTheme, persistCurrentThemeChange, syncPalDraftFromSlot, applyTheme, CUSTOM_ICONS, findMainArt, findActionSub, isReservedPwTerm, getWeaponSubtype, isWeaponMassiv, isArmorShield, isWeaponBlockable, makeWeapon, makeAmmo, makeArmor, makeInvItem, makeEqSecMeta, makeChrSecMeta, makeSection, makeSkSection, makeInvSection, makePower, makeAugment, syncEquipmentToInventory, S, D, CN, LD, INI, FBW, DUEL, COMBAT, isMobileLayout, CTX_MENU, getWinState, hasSavedWinPref, savedEffRanges, savedPwRanges, lastPwFieldById, pwQuickKey, UI, LIVE_TAB_ID, PATCHNOTES, FEEDBACK, CLOUD, CLOUD_SYNC, PWLIB, getCharOwner, getCharCampaignId, canManageChar, getEditStyleSlot
 } from './state.js';
 import {
-  getStatusEffValues, formatPwUseCosts, getReservablePwCosts, getEffectivePoolCap, getPwBuilderToken, parseStatusTokens, getAllParsedEffectChips, invalidateModsCache, calcActiveMods, buildAttrTip, buildSecTip, getMentalArmorSummary, syncCresRenameInTokens, syncSkillRenameInTokens, purgeExtraSecFromPowers, calcAutoSkCost, findDuplicatePwEntry, makeUniquePwName, updatePwNameDupHint, enforceUniquePwName, buildPowerExportPack, downloadPowerPackJson, resolveLibraryAugmentParentName, getSuggestedAugmentsForPower, importPowerPackIntoSheet, getTrCost, performSimpleRest, performFullRest, withPoolSync, linkAugToPower, unlinkAugFromPower, calcPwCost, calcSkCost, calcProg, getWeaponRollMeta, getShieldRollMeta, getSheetBlockOptions, getEquippedWeaponsForSkill, getEquippedShieldsForSkill, formatBlockModShort, getWeaponDualWieldInfo, getTagDesc, cresName, makeExtraSec, getExtraSecName, getResLabel, escReStr, getAttrCol, getSecCol, getAttrTot, getLpBase, getLpMax, getMlpBase, getMlpMax, getLpRegenAuto, getMlpRegenAuto, hasLpRegenOvr, hasMlpRegenOvr, getLpRegen, getMlpRegen, getIniBase, getIniTot, getApBase, getApMax, getMapBase, getMapMax, getCresBase, getCresMax, getExtraSecBase, getBstAuto, hasBstOvr, getBstBase, getEffBst, getSkAutoBonus, hasSkBonusOvr, getSkBonus, findPwItem, findEqItem, getLinkedAugs, getValidPwSecId
+  getStatusEffValues, formatPwUseCosts, getReservablePwCosts, getEffectivePoolCap, getPwBuilderToken, parseStatusTokens, getAllParsedEffectChips, invalidateModsCache, calcActiveMods, buildAttrTip, buildSecTip, getMentalArmorSummary, syncCresRenameInTokens, syncSkillRenameInTokens, purgeExtraSecFromPowers, calcAutoSkCost, findDuplicatePwEntry, makeUniquePwName, updatePwNameDupHint, enforceUniquePwName, buildPowerExportPack, downloadPowerPackJson, resolveLibraryAugmentParentName, getSuggestedAugmentsForPower, importPowerPackIntoSheet, getTrCost, performSimpleRest, performFullRest, withPoolSync, linkAugToPower, unlinkAugFromPower, calcPwCost, calcSkCost, calcProg, getWeaponRollMeta, getShieldRollMeta, getSheetBlockOptions, getEquippedWeaponsForSkill, getEquippedShieldsForSkill, formatBlockModShort, getWeaponDualWieldInfo, getTagDesc, cresName, makeExtraSec, getExtraSecName, getResLabel, escReStr, getAttrCol, getSecCol, getAttrTot, getLpBase, getLpMax, getMlpBase, getMlpMax, getLpRegenAuto, getMlpRegenAuto, hasLpRegenOvr, hasMlpRegenOvr, getLpRegen, getMlpRegen, getIniBase, getIniTot, getApBase, getApMax, getMapBase, getMapMax, getCresBase, getCresMax, getExtraSecBase, getBstAuto, hasBstOvr, getBstBase, getEffBst, getSkAutoBonus, hasSkBonusOvr, getSkBonus, findPwItem, findEqItem, getLinkedAugs, getValidPwSecId, getDefaultHitZoneSize
 } from './calc.js';
 import {
   updateLobbyLiveDiceDOM, initLiveDiceChannel, publishLiveRoll, revealSecretRoll, publishLiveCampNote, clearLiveDiceFeed, syncCloudRegistry, renameUserAccount, addCampaignAllowedUser, removeCampaignAllowedUser, archiveCampaignById, restoreCampaignById, deleteCampaignById, toggleGlobalGMTag, addCampaignMainGM, removeCampaignMainGM, kickCharFromCampaign, duplicateCharacterSheet, getCampaignSharedPages, extractPublicPages, upsertPublicNoteEntry, fetchLobbyList, fetchForeignCharacterSheet, canWriteCurrentSheetToCloud, resetCloudSyncState, updateCloudSyncStatusDOM, scheduleCloudSync, pushToCloud, flushCloudSyncNow, flushBeforeCharacterSwitch, loadCloudCharacter, createNewUserCharacter, updateCloudCharacterMeta, fetchTrashedCharacters, deleteCloudCharacter, restoreTrashedCharacter, permanentDeleteTrashedCharacter, emptyTrashedCharacters, updateEnemyMetaCloud, createNewEnemyOrTemplate, toggleEnemyActiveStatus, toggleEnemyCampaignAssignment, toggleEnemyDiceVisibility, hideAllEnemiesInCampaignDice, toggleEnemyArchived, cloneEnemyToCampaign, stripLibraryPackMeta, getAllLibraryPacks, fetchPowerLibrary, publishPackToCloudLibrary, deletePackFromCloudLibrary, parsePatchnoteTsMs, getNewestPatchnoteId, isPatchnoteCollapsed, normalizePatchnoteEntry, fetchPatchnotes, savePatchnotesToServer, fetchFeedback, saveFeedbackStore, loadCustomIconsCache, fetchCustomIcons, saveCustomIconsToServer, loadNotifSeen, saveNotifSeen, markNotifRead, markAllNotifsRead, updateNotifBadges, refreshUserNotificationsBg, fetchAndSyncBasisPowers, isSecretRollActive
 } from './cloud.js';
 import {
-  resetDiceToLobbyNeutral, exitLobbyNeutralDice, ensureLobbyNeutralDiceOnOpen, applyDiceAutoAdvDis, calcThreshold, openWeaponRoll, openShieldRoll, selectDiceWeapon, syncDiceFromSheet, buildAdvDisInnerHtml, renderDice, renderLiveDice, rollW100, renderBlockFollowUpBox, executeBlockFollowUpRoll, executeDiceRoll, rollCustomDice, getCSkVal, getDSkVal, getEffC, getEffD, isLobbyNeutralDice, calcEgMultiplier, buildThresholdInnerHtml, activateVsCharMode, selectDiceOpponent, resolveOpponentComparison
+  resetDiceToLobbyNeutral, exitLobbyNeutralDice, ensureLobbyNeutralDiceOnOpen, applyDiceAutoAdvDis, calcThreshold, openWeaponRoll, openShieldRoll, selectDiceWeapon, syncDiceFromSheet, buildAdvDisInnerHtml, renderDice, renderLiveDice, rollW100, renderBlockFollowUpBox, executeBlockFollowUpRoll, executeDiceRoll, rollCustomDice, getCSkVal, getDSkVal, getEffC, getEffD, isLobbyNeutralDice, calcEgMultiplier, buildThresholdInnerHtml, activateVsCharMode, selectDiceOpponent, resolveOpponentComparison, resolveDiceAimInfo
 } from './dice.js';
 import {
   sendDuelChallenge, cancelOutgoingDuel, clearOutgoingDuel, handleLiveDuelEvent, ignoreIncomingDuel, openDuelReplyModal, closeDuelReplyModal, submitDuelReply, renderDuelBanner, renderDuelReplyModal
@@ -364,6 +364,104 @@ document.addEventListener('click',async e=>{
       toast('↺ Inspiration zurückgelegt (+1 Stapel).');
       break;
     }
+    case 'prep-set-kind':{
+      const k=String(el.dataset.kind||'attr');
+      UI.prepDraftKind=['attr','skill','action'].includes(k)?k:'attr';
+      renderMain();
+      break;
+    }
+    case 'prep-add':{
+      if(!Array.isArray(S.preparations)) S.preparations=[];
+      const kind=['attr','skill','action'].includes(UI.prepDraftKind)?UI.prepDraftKind:'attr';
+      if(kind==='attr'){
+        const sel=$('selPrepAttr');
+        const ak=sel?sel.value:UI.prepDraftAttr;
+        if(!ATTRS.some(a=>a.k===ak)){toast('⚠️ Bitte ein gültiges Attribut wählen.');break;}
+        UI.prepDraftAttr=ak;
+        if(S.preparations.some(p=>p&&p.kind==='attr'&&p.attrKey===ak)){
+          toast(`ℹ️ Attribut (${ak}) ist bereits vorbereitet.`);
+          break;
+        }
+        S.preparations.push({id:uid(),kind:'attr',attrKey:ak,skillId:'',skillName:'',actionText:''});
+        toast(`🎯 Vorbereitung aktiv: Attribut (${ak}) (+2 Vorteile)`);
+      }else if(kind==='skill'){
+        const sel=$('selPrepSkill');
+        const sid=sel?sel.value:UI.prepDraftSkillId;
+        const sk=(S.skills||[]).find(s=>s&&s.id===sid);
+        if(!sk){toast('⚠️ Bitte eine Fertigkeit wählen.');break;}
+        UI.prepDraftSkillId=sk.id;
+        if(S.preparations.some(p=>p&&p.kind==='skill'&&p.skillId===sk.id)){
+          toast(`ℹ️ Fertigkeit (${sk.name}) ist bereits vorbereitet.`);
+          break;
+        }
+        S.preparations.push({id:uid(),kind:'skill',attrKey:'',skillId:sk.id,skillName:String(sk.name||'').trim(),actionText:''});
+        toast(`🎯 Vorbereitung aktiv: Fertigkeit (${sk.name}) (+2 Vorteile)`);
+      }else{
+        const inp=$('inpPrepAction');
+        const txt=String(inp?inp.value:UI.prepDraftAction).trim().slice(0,120);
+        S.preparations.push({id:uid(),kind:'action',attrKey:'',skillId:'',skillName:'',actionText:txt});
+        UI.prepDraftAction='';
+        toast(`🎯 Vorbereitung aktiv: ${txt?`Aktion (${txt})`:'Aktion'} (+2 Vorteile)`);
+      }
+      D.prepPaused=false;
+      syncDiceFromSheet(); renderMain(); renderDice(); save();
+      break;
+    }
+    case 'prep-remove':{
+      const pid=String(el.dataset.id||'').trim();
+      if(!Array.isArray(S.preparations)||!pid) break;
+      S.preparations=S.preparations.filter(p=>p&&p.id!==pid);
+      syncDiceFromSheet(); renderMain(); renderDice(); save();
+      break;
+    }
+    case 'prep-clear-all':{
+      S.preparations=[];
+      D.prepPaused=false;
+      syncDiceFromSheet(); renderMain(); renderDice(); save();
+      toast('↺ Alle Vorbereitungen entfernt.');
+      break;
+    }
+    case 'dice-toggle-prep-pause':{
+      D.prepPaused=!D.prepPaused;
+      applyDiceAutoAdvDis(false);
+      renderDice();
+      break;
+    }
+    case 'dice-consume-prep':{
+      const pid=String(el.dataset.id||'').trim();
+      if(Array.isArray(S.preparations)&&pid){
+        S.preparations=S.preparations.filter(p=>p&&p.id!==pid);
+      }
+      D.prepPaused=false;
+      syncDiceFromSheet(); renderMain(); renderDice(); save();
+      toast('✓ Vorbereitung verbraucht.');
+      break;
+    }
+    case 'toggle-dice-aim':{
+      D.aimActive=!D.aimActive;
+      if(D.aimActive&&!String(D.aimZone||'').trim()){
+        const opp=D.dMode==='character'?resolveOpponentComparison('Trefferwurf'):null;
+        D.aimZone=resolveDiceAimInfo(opp).zoneName;
+      }
+      applyDiceAutoAdvDis(false);
+      renderDice();
+      break;
+    }
+    case 'dice-aim-zone':{
+      D.aimActive=true;
+      D.aimZone=String(el.dataset.zone||'').trim();
+      D.aimSizeOvr='auto';
+      applyDiceAutoAdvDis(false);
+      renderDice();
+      break;
+    }
+    case 'dice-aim-ovr':{
+      const ovr=String(el.dataset.ovr||'auto').trim();
+      D.aimSizeOvr=['groß','normal','klein'].includes(ovr)?ovr:'auto';
+      applyDiceAutoAdvDis(false);
+      renderDice();
+      break;
+    }
     case 'toggle-status-sec': {
       const next=!isTab1SecCollapsed('status');
       UI.tab1.status=next;
@@ -708,6 +806,16 @@ document.addEventListener('click',async e=>{
       if(hz&&Array.isArray(hz.subZones)&&sid){
         hz.subZones=hz.subZones.filter(sz=>sz.id!==sid);
         renderMain(); save();
+      }
+      break;
+    }
+    case 'reset-hz-size': {
+      const z=S.hitZones.find(x=>x.id===el.dataset.id);
+      if(z){
+        z.size=getDefaultHitZoneSize(z.zone);
+        renderMain();
+        if(D.open){applyDiceAutoAdvDis(false);renderDice();}
+        save();
       }
       break;
     }
@@ -2264,31 +2372,14 @@ document.addEventListener('click',async e=>{
     case 'crit-mode': D.critMode=D.critMode==='range'?'exact':'range'; renderDice(); break;
     case 'roll-d100': executeDiceRoll(); break;
     case 'roll-block-followup': executeBlockFollowUpRoll(); break;
+    case 'combat-open-blocked-3eg':
     case 'combat-roll-blocked-20':
     case 'roll-blocked-hit-20': {
-      if(D.dMode==='character'&&D.oppCharId){
-        const opp=resolveOpponentComparison(D.wRollCat||'Trefferwurf');
-        if(opp&&opp.ready){
-          COMBAT.targetCharId=opp.charId;
-          COMBAT.targetName=opp.oppName;
-          if(el.dataset.action==='roll-blocked-hit-20'){
-            const defShId=opp.oppShield?.id||opp.oppShieldId||'';
-            if(defShId){
-              COMBAT.blockShieldId=defShId;
-              COMBAT.blockShieldName=opp.oppShield?(String(opp.oppShield.name||'').trim()||'Schild'):(opp.oppShieldName||'Schild');
-              COMBAT.blockItemRed=false;
-            }else{
-              COMBAT.blockShieldId='';
-              COMBAT.blockShieldName='';
-              COMBAT.blockItemRed=Boolean((opp.oppWeapon&&isWeaponBlockable(opp.oppWeapon))||opp.oppBlockKind==='item');
-            }
-          }
-        }
-      }
-      clearOutgoingDuel({notifyCancel:true,silent:true});
-      D.dMode='direct'; D.dDirect=20;
-      applyDiceAutoAdvDis(false);
-      executeDiceRoll({isAttackerBlockFollowUp:true});
+      const T=calcThreshold();
+      const isLob=isLobbyNeutralDice();
+      const atkName=isLob?(CLOUD.currentUser||'Gast'):(String(S.profile.name||'').trim()||(isEnemySheet(S)?'Gegner':'Unbenannter Held'));
+      initCombatFromRoll({T,res:[],isManualBlocked:true,attackerName:atkName});
+      renderDice();
       break;
     }
     case 'combat-close': resetCombatState(); renderDice(); break;
@@ -3805,6 +3896,11 @@ document.addEventListener('input',e=>{
     save();
     return;
   }
+  if(e.target&&e.target.dataset?.prepDraft){
+    const dk=e.target.dataset.prepDraft;
+    if(dk==='action') UI.prepDraftAction=String(e.target.value||'');
+    return;
+  }
   if(e.target&&e.target.dataset?.inspInp){
     S.inspiration=Math.max(0,toInt(e.target.value,0));
     if($('inspBadgeCnt')) $('inspBadgeCnt').textContent=`${S.inspiration} Stapel`;
@@ -4082,7 +4178,7 @@ document.addEventListener('input',e=>{
   if(el.dataset.th){const k=el.dataset.th,M=calcActiveMods();S.thresholds[k]=toInt(el.value,0)-(M[k]||0);syncLiveCalculations();return;}
   if(el.dataset.mv){const [id,f]=el.dataset.mv.split(':'),m=S.movements.find(x=>x.id===id);if(m){m[f]=el.value;syncLiveCalculations();}return;}
   if(el.dataset.hzSub){const [hid,sid,f]=el.dataset.hzSub.split(':'),z=S.hitZones.find(x=>x.id===hid),sz=(z&&Array.isArray(z.subZones))?z.subZones.find(s=>s.id===sid):null;if(sz&&(f==='range'||f==='zone')){sz[f]=el.value;saveSoon();}return;}
-  if(el.dataset.hz){const [id,f]=el.dataset.hz.split(':'),z=S.hitZones.find(x=>x.id===id);if(z){z[f]=el.value;saveSoon();}return;}
+  if(el.dataset.hz){const [id,f]=el.dataset.hz.split(':'),z=S.hitZones.find(x=>x.id===id);if(z){z[f]=el.value;if(f!=='size') saveSoon();}return;}
   if(el.dataset.fbNewFolder){
     FEEDBACK.newFolderName=el.value;
     return;
@@ -4507,6 +4603,13 @@ $('fileAdminIcon')?.addEventListener('change',e=>{
 });
 document.addEventListener('change',e=>{
   {const el=e.target;if(el&&el.matches&&el.matches('[data-fb-backlog-user]')){if(!CLOUD.isAdmin)return;FEEDBACK.backlogUser=el.value||'all';renderModal();return;}}
+  if(e.target&&e.target.dataset?.prepDraft){
+    const dk=e.target.dataset.prepDraft;
+    if(dk==='attr') UI.prepDraftAttr=String(e.target.value||'PR');
+    else if(dk==='skill') UI.prepDraftSkillId=String(e.target.value||'');
+    else if(dk==='action') UI.prepDraftAction=String(e.target.value||'');
+    return;
+  }
   if(e.target&&e.target.dataset?.inspInp){renderMain();save();return;}
   const stEl=e.target;
   if(stEl&&stEl.dataset&&(stEl.dataset.stStacks||stEl.dataset.stOvr)){
@@ -4548,6 +4651,14 @@ document.addEventListener('change',e=>{
       S.charSize.ovr=(num===toInt(S.charSize.level,0))?'':String(num);
     }
     renderMain(); if(D.open){applyDiceAutoAdvDis(false);renderDice();} save();
+    return;
+  }
+  if(el.dataset.hz&&el.dataset.hz.endsWith(':size')){
+    const [id]=el.dataset.hz.split(':'), z=S.hitZones.find(x=>x.id===id);
+    if(z){
+      z.size=String(el.value||'normal');
+      renderMain(); if(D.open){applyDiceAutoAdvDis(false);renderDice();} save();
+    }
     return;
   }
   if(t.dataset.cnFolderSel){

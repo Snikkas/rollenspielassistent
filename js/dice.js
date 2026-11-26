@@ -1,5 +1,5 @@
 import {
-  ATTRS, CRIT_SEQ, WIN_DEFAULTS, SK_RANKS
+  ATTRS, CRIT_SEQ, WIN_DEFAULTS, SK_RANKS, DEF_HZ, HZ_SIZE_OPTS
 } from './constants.js';
 import {
   $, uid, esc, toInt, fmtSign
@@ -11,7 +11,7 @@ import {
   applyWinFrame, renderWinCtrlBtns, renderWinResizeHandles, getCampaigns, isUserInCampaign, canManageCampaign, getActiveLiveCampaignId, getCampaignFilteredDiceFeed, getInitiativeCampaignsForChar, isCharInCampaignInitiative, captureScrollState, restoreScrollState, save, getWeaponSubtype, isWeaponMassiv, isWeaponBlockable, isArmorShield, S, D, LD, DUEL, diceLogs, isMobileLayout, UI, LIVE_TAB_ID, CLOUD, getCharCampaignId, isEnemySheet, getEnemyMeta, isEnemyDiceVisibleInCampaign, canSeeEnemyInDice, shouldHideOpponentDetails
 } from './state.js';
 import {
-  calcActiveMods, getAdvDisForContext, getWeaponRollMeta, getShieldRollMeta, getSheetShields, getSheetBlockOptions, resolveCombatItemByRef, formatBlockModShort, formatBlockModLong, getWeaponDualWieldInfo, fmtAdvSrcLines, getAttrTot, getSkBonus, getCharSizeInfo, getRelativeSizeHitMod
+  calcActiveMods, getAdvDisForContext, getWeaponRollMeta, getShieldRollMeta, getSheetShields, getSheetBlockOptions, resolveCombatItemByRef, formatBlockModShort, formatBlockModLong, getWeaponDualWieldInfo, fmtAdvSrcLines, getAttrTot, getSkBonus, getCharSizeInfo, getRelativeSizeHitMod, normHitZoneSize, getHitZoneSizeMeta
 } from './calc.js';
 import {
   renderLobbyLiveDiceHtml, publishLiveRoll, formatSecretRollSummary, isSecretRollActive, getCachedForeignSheet, getForeignSheetLoadedAt, isForeignSheetLoading, getForeignSheetError, fetchForeignCharacterSheet, fetchLobbyList
@@ -155,6 +155,7 @@ export function selectDiceOpponent(charId,{force=false,silent=true}={}){
     D.oppWeaponId='';
     D.oppSkillId='';
     D.oppSitActive={};
+    D.aimSizeOvr='auto';
   }
   if(id) fetchForeignCharacterSheet(id,{force,silent});
   renderDice();
@@ -377,6 +378,8 @@ export function resolveOpponentComparison(c1Cat='Normaler Test'){
     attrKey,
     sitActive:hideDetails?{}:(D.oppSitActive||{}),
     includeInspiration:false,
+    includePreparation:true,
+    includeActionPreparation:true,
     oppDefenseCat:oppDefForOpp
   },oppM,oppSheet);
 
@@ -430,6 +433,8 @@ export function formatSrcOriginLabel(s){
     return `${s.srcKind}: ${tg}`;
   }
   if(s.srcKind==='Inspiration') return '✨ Inspiration';
+  if(s.srcKind==='Vorbereitung') return `🎯 ${s.srcName||'Vorbereitung'}`;
+  if(s.srcKind==='Zielen') return `🎯 ${s.srcName||'Zielen'}`;
   if(s.srcKind==='Größe') return `📏 ${s.srcName||'Größenunterschied'}`;
   if(s.srcKind==='Mehrhändig') return s.srcName||'Mehrhändiger Kampf';
   if(s.srcKind==='Waffenwurf') return `Waffenwurf: ${s.srcName||'Waffe'}`;
@@ -439,6 +444,7 @@ export function formatSrcOriginLabel(s){
 }
 export function formatAdvSrcScope(s){
   if(!s) return '';
+  if(s.srcKind==='Vorbereitung'||s.srcKind==='Zielen') return '';
   if(s.scope==='attr'&&s.attrKey) return s.attrKey;
   if(s.scope==='skill') return s.skillName||s.label||'';
   if(s.scope==='dodge') return 'Ausweichen';
@@ -496,7 +502,7 @@ export function getEffectiveDiceShieldId(){
 export function resetDiceToLobbyNeutral(){
   hooks.clearOutgoingDuel?.({notifyCancel:true,silent:true});
   hooks.resetCombatState?.();
-  D.weaponId=null; D.shieldId=null; D.skillId=null; D.attrKey=null; D.wRollCat='Normaler Test'; D.atkPool='lp'; D.dualWieldOvr='auto'; D.wpEditOpen=false; D.sitActive={}; D.oppSitActive={}; D.critOff=0; D.advAdj=0; D.disAdj=0; D.adv=0; D.dis=0;
+  D.weaponId=null; D.shieldId=null; D.skillId=null; D.attrKey=null; D.wRollCat='Normaler Test'; D.atkPool='lp'; D.dualWieldOvr='auto'; D.aimActive=false; D.aimZone=''; D.aimSizeOvr='auto'; D.wpEditOpen=false; D.sitActive={}; D.oppSitActive={}; D.prepPaused=false; D.critOff=0; D.advAdj=0; D.disAdj=0; D.adv=0; D.dis=0;
   D.label='Freie Probe (Lobby)';
   D.cMode='direct'; D.cDirect=50; D.cAttr=50; D.cSkill='0';
   D.dMode='direct'; D.dDirect=40; D.oppCharId='';
@@ -511,6 +517,30 @@ export function ensureLobbyNeutralDiceOnOpen(){
     resetDiceToLobbyNeutral();
   }
 }
+export function resolveDiceAimInfo(opp=null){
+  const targetZones=(opp?.ready&&Array.isArray(opp.oppSheet?.hitZones)&&opp.oppSheet.hitZones.length)?opp.oppSheet.hitZones:DEF_HZ;
+  const rawZone=String(D.aimZone||'').trim();
+  const matchedZone=rawZone
+    ?targetZones.find(z=>String(z?.zone||'').trim().toLowerCase()===rawZone.toLowerCase())
+    :null;
+  const zoneObj=matchedZone||targetZones.find(z=>normHitZoneSize(z?.size,z?.zone)==='groß')||targetZones[0]||DEF_HZ[1];
+  const zoneName=String(zoneObj?.zone||'Rumpf').trim()||'Rumpf';
+  const baseMeta=getHitZoneSizeMeta(zoneObj?.size,zoneName);
+  const ovr=['groß','normal','klein'].includes(D.aimSizeOvr)?D.aimSizeOvr:'auto';
+  const effMeta=ovr!=='auto'?getHitZoneSizeMeta(ovr,zoneName):baseMeta;
+  const isOvr=Boolean(ovr!=='auto'&&effMeta.key!==baseMeta.key);
+  return {
+    active:Boolean(D.aimActive),
+    zones:targetZones,
+    zoneObj,
+    zoneName,
+    baseMeta,
+    ovr,
+    effMeta,
+    isOvr,
+    mod:effMeta.mod
+  };
+}
 export function applyDiceAutoAdvDis(resetManual=false,M=isLobbyNeutralDice()?{testTh:0}:calcActiveMods()){
   if(resetManual){D.advAdj=0;D.disAdj=0;}
   const normCat=D.wRollCat==='Parade'?'Parieren':D.wRollCat;
@@ -521,13 +551,27 @@ export function applyDiceAutoAdvDis(resetManual=false,M=isLobbyNeutralDice()?{te
   const opp=D.dMode==='character'?resolveOpponentComparison(effCat):null;
   const oppDefCat=(opp&&opp.ready)?opp.oppRollCat:'';
   const r1=isLobbyNeutralDice()
-    ?{autoAdv:0,autoDis:0,rawAutoAdv:0,rawAutoDis:0,src:[],autoCrit:0,critSrc:[],autoRollMod:0,rollModSrc:[],sitOptions:[]}
-    :getAdvDisForContext({weaponId:effWeaponId,shieldId:effShieldId,wRollCat:effCat,skillId:D.skillId||null,attrKey:D.attrKey||null,sitActive:D.sitActive||{},dualWieldOvr:D.dualWieldOvr||'auto',includeInspiration:true,oppDefenseCat:oppDefCat},M);
+    ?{autoAdv:0,autoDis:0,rawAutoAdv:0,rawAutoDis:0,src:[],autoCrit:0,critSrc:[],autoRollMod:0,rollModSrc:[],sitOptions:[],matchedPrep:null,pausedPrep:null}
+    :getAdvDisForContext({weaponId:effWeaponId,shieldId:effShieldId,wRollCat:effCat,skillId:D.skillId||null,attrKey:D.attrKey||null,sitActive:D.sitActive||{},dualWieldOvr:D.dualWieldOvr||'auto',includeInspiration:true,includePreparation:true,includeActionPreparation:true,prepPaused:Boolean(D.prepPaused),oppDefenseCat:oppDefCat},M);
   let c1AutoAdv=r1.autoAdv||0;
   let c1AutoDis=r1.autoDis||0;
   let c1RawAutoAdv=r1.rawAutoAdv||0;
   let c1RawAutoDis=r1.rawAutoDis||0;
   const c1AdvSrc=[...(r1.src||[])];
+  const aimInfo=effCat==='Trefferwurf'?resolveDiceAimInfo(opp):null;
+  if(effCat==='Trefferwurf'&&aimInfo&&aimInfo.active){
+    const ovrSfx=aimInfo.isOvr?' • Overwrite':'';
+    if(aimInfo.mod>0){
+      c1AutoAdv+=aimInfo.mod;
+      c1RawAutoAdv+=aimInfo.mod;
+      c1AdvSrc.push({val:aimInfo.mod,kind:'adv',scope:'hit',label:`${aimInfo.zoneName} (${aimInfo.effMeta.label}${ovrSfx})`,srcName:`Zielen: ${aimInfo.zoneName} (${aimInfo.effMeta.label}${ovrSfx})`,srcKind:'Zielen'});
+    }else if(aimInfo.mod<0){
+      const dAbs=Math.abs(aimInfo.mod);
+      c1AutoDis+=dAbs;
+      c1RawAutoDis+=dAbs;
+      c1AdvSrc.push({val:dAbs,kind:'dis',scope:'hit',label:`${aimInfo.zoneName} (${aimInfo.effMeta.label}${ovrSfx})`,srcName:`Zielen: ${aimInfo.zoneName} (${aimInfo.effMeta.label}${ovrSfx})`,srcKind:'Zielen'});
+    }
+  }
   let oppAutoAdv=(opp&&opp.ready)?(opp.ad.autoAdv||0):0;
   let oppAutoDis=(opp&&opp.ready)?(opp.ad.autoDis||0):0;
   let oppRawAutoAdv=(opp&&opp.ready)?(opp.ad.rawAutoAdv||opp.ad.autoAdv||0):0;
@@ -567,6 +611,7 @@ export function applyDiceAutoAdvDis(resetManual=false,M=isLobbyNeutralDice()?{te
   D.dis=Math.max(0,totalAutoDis+toInt(D.disAdj,0));
   return {
     ...r1,
+    aimInfo,
     c1AutoAdv,
     c1AutoDis,
     c1AdvSrc,
@@ -586,14 +631,14 @@ export function calcRollAdvDis(M=isLobbyNeutralDice()?{testTh:0}:calcActiveMods(
   const r=applyDiceAutoAdvDis(false,M);
   return {...r,effAdv:D.adv,effDis:D.dis};
 }
-export const calcEgMultiplier = th => th > 100 ? Math.floor(th / 100) + 1 : 1;
+export const calcEgMultiplier = () => 1;
 export function calcThreshold(){
   const isNeutral=isLobbyNeutralDice();
   const M=isNeutral?{testTh:0}:calcActiveMods(),ad=calcRollAdvDis(M),cv=getEffC(),dv=(ad.opp&&ad.opp.ready)?ad.opp.oppVal:getEffD(),rawNet=D.adv-D.dis,net=Math.max(-5,Math.min(5,rawNet));
   const bonus=(net===0?0:Math.sign(net)*(10+(Math.abs(net)-1)*5))+(M.testTh||0), th=cv+50-dv+bonus;
   const effCritIdx=Math.max(0,Math.min(CRIT_SEQ.length-1,(ad.autoCrit||0)+toInt(D.critOff,0))), effCrit=CRIT_SEQ[effCritIdx];
   D.crit=effCrit;
-  return {cv,dv,effAdv:D.adv,effDis:D.dis,autoAdv:ad.autoAdv,autoDis:ad.autoDis,c1AutoAdv:ad.c1AutoAdv||0,c1AutoDis:ad.c1AutoDis||0,c1AdvSrc:ad.c1AdvSrc||[],opp:ad.opp||null,oppAutoAdv:ad.oppAutoAdv||0,oppAutoDis:ad.oppAutoDis||0,oppAdvSrc:ad.oppAdvSrc||[],oppSitOptions:ad.oppSitOptions||[],advAdj:toInt(D.advAdj,0),disAdj:toInt(D.disAdj,0),advSrc:ad.src,sitOptions:ad.sitOptions||[],autoCrit:ad.autoCrit||0,critSrc:ad.critSrc||[],rollMod:ad.autoRollMod||0,rollModSrc:ad.rollModSrc||[],effCrit,effCritIdx,rawNet,net,bonus,th,egMult:calcEgMultiplier(th),effTh:M.testTh||0,chance:Math.max(1,Math.min(99,th))};
+  return {cv,dv,effAdv:D.adv,effDis:D.dis,autoAdv:ad.autoAdv,autoDis:ad.autoDis,c1AutoAdv:ad.c1AutoAdv||0,c1AutoDis:ad.c1AutoDis||0,c1AdvSrc:ad.c1AdvSrc||[],opp:ad.opp||null,oppAutoAdv:ad.oppAutoAdv||0,oppAutoDis:ad.oppAutoDis||0,oppAdvSrc:ad.oppAdvSrc||[],oppSitOptions:ad.oppSitOptions||[],advAdj:toInt(D.advAdj,0),disAdj:toInt(D.disAdj,0),advSrc:ad.src,sitOptions:ad.sitOptions||[],matchedPrep:ad.matchedPrep||null,pausedPrep:ad.pausedPrep||null,aimInfo:ad.aimInfo||null,autoCrit:ad.autoCrit||0,critSrc:ad.critSrc||[],rollMod:ad.autoRollMod||0,rollModSrc:ad.rollModSrc||[],effCrit,effCritIdx,rawNet,net,bonus,th,egMult:1,effTh:M.testTh||0,chance:Math.max(1,Math.min(99,th))};
 }
 export function selectDiceWeapon(itemRef){
   if(isLobbyNeutralDice()) return;
@@ -858,7 +903,6 @@ export const buildThresholdInnerHtml=T=>{
   return `<div class="flex items-baseline gap-2 flex-wrap min-w-0">
     <span class="text-3xl sm:text-4xl font-black tabular leading-none">${T.th}</span>
     <span class="px-1.5 py-0.5 rounded-md bg-acc-soft border bdr-acc text-acc text-[11px] font-black tabular">${T.chance}%</span>
-    ${T.egMult>1?`<span class="px-1.5 py-0.5 rounded-md bg-amber-500/20 border border-amber-400/60 text-amber-300 text-[10px] font-black tabular">✨ EG ×${T.egMult}</span>`:''}
   </div>
   <div class="text-[10px] t-mut tabular truncate mt-0.5" data-tip="${esc(formulaLine+' = '+T.th)}">Schwelle ≤ ${T.th} • ${formulaLine}</div>
   ${T.rollMod?`<div class="text-[10px] font-extrabold text-cyan-300 mt-0.5">⚡ Wurf ${fmtSign(T.rollMod)} (${esc((T.rollModSrc||[]).map(x=>x.tagLbl||x.srcName).join(', '))})</div>`:''}`;
@@ -1156,7 +1200,7 @@ export function renderDice(){
             <span class="font-black ${bmCls} shrink-0">Block-Mod ${esc(formatBlockModLong(bmVal))}</span>
           </div>`;
         }else if(aw&&isWeaponBlockable(aw)){
-          blockInfoStripHtml=`<div class="px-2 py-1 rounded-lg border border-emerald-400/40 bg-emerald-500/10 text-[11px] font-bold text-emerald-200">🧱 Blockfähige Waffe aktiv → blockt standardmäßig <strong>2 Schaden</strong> beim 2. Wurf</div>`;
+          blockInfoStripHtml=`<div class="px-2 py-1 rounded-lg border border-emerald-400/40 bg-emerald-500/10 text-[11px] font-bold text-emerald-200">🧱 Blockfähige Waffe aktiv → reduziert Schaden bei erfolgreichem Block um <strong>−2</strong> (Angreifer zählt statisch als 3 EG, kein Krit)</div>`;
         }else if(!allShields.length&&!blockWeapons.length){
           blockInfoStripHtml=`<div class="px-2 py-1 rounded-lg border bdr-line bg-black/20 text-[10px] t-mut">ℹ️ Keine Schilde (unter Rüstungen) oder Waffen mit Tag „Blockfähig“ eingetragen.</div>`;
         }
@@ -1291,6 +1335,37 @@ export function renderDice(){
       </div>`;
     }
 
+    let aimBarHtml='';
+    if(isHitMode){
+      const aim=T.aimInfo||resolveDiceAimInfo(T.opp);
+      const aimOn=Boolean(aim&&aim.active);
+      const modBadge=aim.mod>0?'+1V':aim.mod<0?'+1N':'±0';
+      const modBadgeCls=aim.mod>0?'bg-emerald-500/25 text-emerald-300 border-emerald-400/50':aim.mod<0?'bg-rose-500/25 text-rose-300 border-rose-400/50':'bg-black/30 t-mut bdr-line';
+      aimBarHtml=`<div class="pt-1.5 border-t border-white/10 space-y-1.5 min-w-0">
+        <div class="flex flex-wrap items-center justify-between gap-1.5 min-w-0">
+          <button type="button" data-action="toggle-dice-aim" aria-pressed="${aimOn?'true':'false'}" data-tip="Zielen auf eine bestimmte Körperzone: Groß = +1 Vorteil, Normal = ±0, Klein = +1 Nachteil (mit Größen-Overwrite)." class="btn py-0.5 px-2.5 text-[11px] font-extrabold ${aimOn?'border-cyan-400 bg-cyan-500/25 text-cyan-100':'opacity-85 hover:opacity-100'}">${aimOn?'☑':'☐'} 🎯 Zielen${aimOn?`: ${esc(aim.zoneName)}`:''}</button>
+          ${aimOn?`<span class="px-1.5 py-0.5 rounded-md border text-[10px] font-black tabular ${modBadgeCls}">${esc(aim.effMeta.label)} (${modBadge})${aim.isOvr?' • Overwrite':''}</span>`:`<span class="text-[10px] t-mut">Groß +1V • Normal ±0 • Klein +1N</span>`}
+        </div>
+        ${aimOn?`<div class="p-2 rounded-lg border border-cyan-400/40 bg-cyan-500/8 space-y-1.5 min-w-0">
+          <div class="flex flex-wrap items-center gap-1 min-w-0">
+            ${(aim.zones||[]).map(z=>{
+              const zn=String(z?.zone||'').trim();
+              if(!zn) return '';
+              const zm=getHitZoneSizeMeta(z?.size,zn);
+              const isSel=zn.toLowerCase()===aim.zoneName.toLowerCase();
+              const szCol=zm.key==='groß'?'text-emerald-300':zm.key==='klein'?'text-rose-300':'t-mut';
+              return `<button type="button" data-action="dice-aim-zone" data-zone="${esc(zn)}" data-tip="Anvisieren: ${esc(zn)} (${esc(zm.short)})" class="btn py-0.5 px-2 text-[11px] font-extrabold ${isSel?'btn-pri':'opacity-85 hover:opacity-100'}">${esc(zn)} <span class="text-[9px] font-black ${isSel?'opacity-90':szCol}">(${zm.tag})</span></button>`;
+            }).join('')}
+          </div>
+          <div class="flex flex-wrap items-center gap-1 pt-1 border-t border-white/10 text-[10px]">
+            <span class="t-mut font-bold mr-0.5">Größe:</span>
+            <button type="button" data-action="dice-aim-ovr" data-ovr="auto" class="btn py-0.5 px-1.5 text-[10px] font-extrabold ${aim.ovr==='auto'?'btn-pri':''}">Auto (${esc(aim.baseMeta.label)})</button>
+            ${HZ_SIZE_OPTS.map(o=>`<button type="button" data-action="dice-aim-ovr" data-ovr="${o.k}" class="btn py-0.5 px-1.5 text-[10px] font-extrabold ${aim.ovr===o.k?(o.mod>0?'btn-ok':o.mod<0?'bg-rose-600 text-white border-rose-500':'btn-pri'):''}">${esc(o.short)}</button>`).join('')}
+          </div>
+        </div>`:''}
+      </div>`;
+    }
+
     const attrStripHtml=`<div class="grid grid-cols-4 sm:grid-cols-8 gap-1 pt-1.5 border-t border-white/10">${ATTRS.map(a=>isNeutral
       ?`<button type="button" data-action="dice-pick-lobby-attr" data-attr="${a.k}" class="btn py-1 px-0.5 flex-col gap-0 ${D.label===`Freie Probe: ${a.k} (50)`?'btn-pri':''}"><span class="text-[9px] leading-none">${a.k}</span><span class="text-xs font-black tabular leading-tight">50</span></button>`
       :`<button type="button" data-action="dice-pick-attr" data-attr="${a.k}" class="btn py-1 px-0.5 flex-col gap-0 ${D.attrKey===a.k?'btn-pri':''}"><span class="text-[9px] leading-none">${a.k}</span><span class="text-xs font-black tabular leading-tight">${getAttrTot(a.k)}</span></button>`).join('')}</div>`;
@@ -1306,6 +1381,7 @@ export function renderDice(){
           </div>`:''}
         </div>`}
       ${weaponRowHtml}
+      ${aimBarHtml}
       ${attrStripHtml}
     </div>`;
   };
@@ -1337,6 +1413,8 @@ export function renderDice(){
     </div>
 
     <div data-dice-scroll-body="1" class="p-3 space-y-2.5 min-w-0 flex-1 min-h-0 overflow-y-auto overscroll-contain${mob?' safe-pb':''}">
+      ${(!isNeutral&&T.matchedPrep)?`<div class="subcard py-1.5 px-2.5 border border-cyan-400/75 bg-cyan-500/15 flex flex-wrap items-center justify-between gap-2 min-w-0"><span class="text-xs font-black text-cyan-200 min-w-0 break-words">🎯 Vorbereitung aktiv (+2V • ${esc(T.matchedPrep.label)})</span><div class="flex items-center gap-1 shrink-0"><button type="button" data-action="dice-toggle-prep-pause" data-tip="Vorbereitung nur für diesen Wurf pausieren (z. B. bei anderer Handlung)" class="btn py-0.5 px-2 text-[10px] border-cyan-400/50 text-cyan-200">⏸️ Pausieren</button><button type="button" data-action="dice-consume-prep" data-id="${esc(T.matchedPrep.prep.id)}" data-tip="Diese Vorbereitung vom Charakterbogen verbrauchen / entfernen" class="btn btn-ok py-0.5 px-2 text-[10px] font-black">✓ Verbrauchen</button></div></div>`:''}
+      ${(!isNeutral&&!T.matchedPrep&&T.pausedPrep)?`<div class="subcard py-1.5 px-2.5 border bdr-line bg-black/25 flex flex-wrap items-center justify-between gap-2 min-w-0"><span class="text-xs font-bold t-mut min-w-0 break-words">🎯 Vorbereitung pausiert (${esc(T.pausedPrep.label)})</span><button type="button" data-action="dice-toggle-prep-pause" class="btn py-0.5 px-2 text-[10px] border-cyan-400/60 bg-cyan-500/15 text-cyan-200 font-extrabold shrink-0">▶ Aktivieren (+2V)</button></div>`:''}
       ${(!isNeutral&&S.inspirationActive)?`<div class="subcard py-1.5 px-2.5 border border-amber-400 bg-amber-500/15 flex items-center justify-between gap-2"><span class="text-xs font-black text-amber-300">✨ Inspiration aktiv (+1 Vorteil für diesen Wurf)</span><button type="button" data-action="cancel-inspiration" class="btn py-0.5 px-2 text-[10px] border-amber-400/60 text-amber-200 shrink-0">↺ Zurück</button></div>`:''}
 
       ${renderContextCard()}
@@ -1372,7 +1450,7 @@ export function renderDice(){
             ${D.crit!=='1'?`<button type="button" data-action="crit-mode" class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-400 cursor-pointer">${D.critMode==='range'?`1–${D.crit} ↻`:`nur ${D.crit} ↻`}</button>`:''}
           </div>
         </div>
-        ${(D.wRollCat==='Trefferwurf')?`<button type="button" data-action="roll-blocked-hit-20" data-tip="Behält deinen aktuellen Trefferwert bei, setzt die Schwierigkeit auf 20 und würfelt direkt die EG für den Grundschaden gegen die Rüstung." class="btn w-full py-1 px-2.5 text-[11px] font-extrabold border-amber-400/50 bg-amber-500/10 text-amber-300 hover:bg-amber-500/20">${secAct?'🕵️ ':''}🛡️ Wurde geblockt (Folgewurf vs. Schw. 20)</button>`:''}
+        ${(D.wRollCat==='Trefferwurf')?`<button type="button" data-action="combat-open-blocked-3eg" data-tip="Öffnet direkt den Schadensrechner für einen erfolgreich geblockten Treffer (statisch 3 EG, kein kritischer Treffer; Verteidiger bestimmt die Trefferzone)." class="btn w-full py-1 px-2.5 text-[11px] font-extrabold border-amber-400/50 bg-amber-500/10 text-amber-300 hover:bg-amber-500/20">🛡️ Geblockter Treffer (statisch 3 EG, kein Krit)</button>`:''}
       </div>
 
       ${secretBannerHtml}
@@ -1458,88 +1536,52 @@ export function rollW100(){
   return Math.floor(Math.random()*100)+1;
 }
 export function renderBlockFollowUpBox(){
-  const atkVal=toInt(D.blockFollowAtk,getEffD()), dv=20, th2=atkVal+50-dv, ch2=Math.max(1,Math.min(99,th2)), m2=calcEgMultiplier(th2), fr=UI.lastBlockFollowRes;
   const activeSh=(!isLobbyNeutralDice()&&D.shieldId)?(S.armors||[]).find(a=>a&&a.id===D.shieldId&&isArmorShield(a)):null;
   const activeBlkWp=(!isLobbyNeutralDice()&&!activeSh&&D.weaponId)?(S.weapons||[]).find(w=>w&&w.id===D.weaponId&&isWeaponBlockable(w)):null;
   const blkMitHtml=activeSh
     ?`<div class="px-2.5 py-1.5 rounded-lg border border-cyan-400/50 bg-cyan-500/12 text-[11px] font-bold text-cyan-200 tabular">🛡️ Schild-Block (<strong>${esc(String(activeSh.name||'').trim()||'Schild')}</strong>): gRP <strong>${esc(activeSh.grp)}</strong> • Schnitt ${esc(activeSh.protCut)} / Durchstoß ${esc(activeSh.protPierce)} / Einschlag ${esc(activeSh.protImpact)}${toInt(activeSh.mentalProt,0)?` / mRS ${esc(activeSh.mentalProt)}`:''} — <em>wird zu deiner normalen Zonenrüstung addiert!</em></div>`
     :(activeBlkWp
-      ?`<div class="px-2.5 py-1.5 rounded-lg border border-amber-400/45 bg-amber-500/10 text-[11px] font-bold text-amber-200">🧱 Blockfähige Waffe (<strong>${esc(String(activeBlkWp.name||'').trim()||'Waffe')}</strong>): reduziert den erlittenen Schaden beim 2. Wurf um <strong>−2</strong> (+ normale Zonenrüstung).</div>`
+      ?`<div class="px-2.5 py-1.5 rounded-lg border border-amber-400/45 bg-amber-500/10 text-[11px] font-bold text-amber-200">🧱 Blockfähige Waffe (<strong>${esc(String(activeBlkWp.name||'').trim()||'Waffe')}</strong>): reduziert den erlittenen Schaden um <strong>−2</strong> (+ normale Zonenrüstung).</div>`
       :'');
-  let frHtml='';
-  if(fr){
-    const cls2=fr.crit?'crit-glow border-amber-400 bg-amber-500/15':fr.ok?'border-emerald-500/60 bg-emerald-500/10':'border-rose-500/60 bg-rose-500/10';
-    const frMult=fr.egMult||1, frBase=fr.baseEg!==undefined?fr.baseEg:(frMult>1?Math.round(fr.eg/frMult):fr.eg);
-    frHtml=`<div class="subcard p-3 border-2 ${cls2} text-center space-y-1.5 mt-2 tabular">
-      <div class="text-[11px] font-bold t-mut">Folgewurf (Aggressor-Trefferwert ${fr.atkVal} vs. Schwierigkeit 20) • Schwelle ≤ ${fr.th} (${fr.chance}%)${frMult>1?` • <strong class="text-amber-300">EG ×${frMult}</strong>`:''}</div>
-      <div class="flex items-center justify-center gap-3">
-        <span class="text-3xl font-black">${fr.r}</span>
-        <span class="px-3 py-1 rounded-lg text-white font-extrabold text-xs sm:text-sm ${fr.ok?'bg-emerald-600':'bg-rose-600'}">${fr.ok?`EG: ${fr.eg}${frMult>1?` (${frBase} ×${frMult})`:''} (Grundschaden vs. Rüstung)`:`0 EG • ${fr.r===100?'Patzer (100)':'Misserfolg'} (MEG: ${fr.meg})`}</span>
-      </div>
-      <div class="text-xs font-extrabold ${fr.crit?'text-amber-400':fr.ok?'text-emerald-400':'text-rose-400'}">${fr.ok?`${fr.crit?'★ Kritisch (+2 Extraschaden)! ':''}Erzielte Erfolgsgrade für Grundschaden gegen Rüstung: ${fr.eg} EG${frMult>1?` (${frBase} ×${frMult})`:''}`:'Kein Durchkommen – 0 EG Grundschaden gegen die Rüstung'}</div>
-    </div>`;
-  }
-  return `<div class="subcard mt-2 p-3 border-2 border-emerald-500/50 bg-emerald-500/10 space-y-2.5 text-left">
-    <div class="text-xs font-extrabold text-emerald-400 flex items-center justify-between gap-2">
-      <span>🛡️ Erfolgreich geblockt! → 2. Wurf (Grundschaden vs. Rüstung)</span>
-      <span id="blockFollowThInfo" class="text-[11px] font-bold text-acc tabular">Schw. 20 • Schwelle ≤ ${th2} (${ch2}%)${m2>1?` • EG ×${m2}`:''}</span>
+  return `<div class="subcard mt-2 p-3 border-2 border-emerald-500/50 bg-emerald-500/10 space-y-2 text-left">
+    <div class="text-xs font-extrabold text-emerald-300 flex flex-wrap items-center justify-between gap-2">
+      <span>🛡️ Erfolgreich geblockt!</span>
+      <span class="px-2 py-0.5 rounded-md bg-amber-500/20 border border-amber-400/50 text-amber-200 text-[11px] font-black tabular">Angreifer: statisch 3 EG • kein Krit</span>
     </div>
+    <p class="text-[11px] t-mut leading-relaxed">Der Angriff gilt als mit <strong class="text-amber-200">3 EG</strong> (ohne kritischen Treffer) getroffen — <strong class="text-emerald-200">du bestimmst absolut die Trefferzone</strong> (Schild / blockfähige Waffe + dahinterliegende Rüstung).</p>
     ${blkMitHtml}
-    <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-      <label class="flex items-center gap-1.5 text-xs font-bold t-mut shrink-0">
-        <span>Aggressor-Trefferwert:</span>
-        <input id="inpBlockFollowAtk" data-dice="blockFollowAtk" type="text" inputmode="numeric" value="${atkVal}" class="inp w-16 text-center font-black tabular py-1 px-1.5 text-xs"/>
-      </label>
-      <button type="button" data-action="roll-block-followup" class="btn ${isSecretRollActive()?'bg-amber-500 text-slate-950 border-amber-300':'btn-ok'} flex-1 py-1.5 px-3 text-xs font-black">${isSecretRollActive()?'🕵️ ':''}🛡️ Erfolgreich geblockt! → Folgewurf (Aggressor-Trefferwert gegen Schwierigkeit 20)</button>
-    </div>
-    ${frHtml}
   </div>`;
 }
 export function executeBlockFollowUpRoll(){
-  const inp=$('inpBlockFollowAtk'), atkVal=toInt(inp?inp.value:D.blockFollowAtk,getEffD());
-  D.blockFollowAtk=atkVal;
-  const dv=20, th=atkVal+50-dv, chance=Math.max(1,Math.min(99,th)), egMult=calcEgMultiplier(th);
-  const r=rollW100(), ok=r!==100&&(r===1||r<=th), crit=ok&&(r%10===1);
-  const baseEg=ok?Math.ceil(r/10):0, eg=ok?baseEg*egMult:0, meg=!ok?Math.ceil((101-r)/10):0;
-  UI.lastBlockFollowRes={r,ok,crit,baseEg,eg,egMult,meg,atkVal,dv,th,chance};
-  UI.lastRollHtml=(UI.lastBlockBaseHtml||'')+renderBlockFollowUpBox();
-  const lbl=`🛡️ Block-Folgewurf (Aggressor ${atkVal} vs. Schw. 20 → Grundschaden)`;
-  const isLobBlk=Boolean(UI.inLobby);
-  publishLiveRoll({
-    id:uid(),tsMs:Date.now(),ts:new Date().toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit',second:'2-digit'}),
-    senderTabId:LIVE_TAB_ID,charId:isLobBlk?'':(S.charId||''),charName:isLobBlk?(CLOUD.currentUser?CLOUD.currentUser:'Gast'):(String(S.profile.name||'').trim()||'Unbenannter Held'),
-    playerName:isLobBlk?'':String(CLOUD.currentUser||S.owner||'').trim(),campaignId:getActiveDiceCampaignId(),label:lbl,weaponId:isLobBlk?null:(getEffectiveDiceWeaponId()||null),wRollCat:'Blocken',
-    th,egMult,chance,cv:atkVal,dv:20,adv:0,dis:0,net:0,bonus:0,effTh:0,
-    cBreak:`Aggressor-Trefferwert ${atkVal}`,dBreak:'20 (Block-Folgewurf)',advBreak:'±0',critLbl:'Endziffer 1',
-    formula:`${atkVal} (Aggressor) + 50 − 20 (Schw.) = ${th} (${chance}%)`,cnt:1,res:[{r,ok,crit,baseEg,eg,egMult,meg}]
-  });
-  diceLogs.unshift({t:new Date().toLocaleTimeString('de-DE'),lbl,th,sum:`${r}(${crit?'★':''}${ok?('EG'+eg+(egMult>1?` (${baseEg} ×${egMult})`:'')):'MEG'+meg})`});
-  if(diceLogs.length>40) diceLogs.length=40;
+  // Veralteter 2. Block-Folgewurf wurde durch das 1-Wurf-Blocksystem (statisch 3 EG, kein Krit) ersetzt.
   renderDice();
 }
 export function executeDiceRoll(opts={}){
   const prevWinY=window.scrollY, prevWinX=window.scrollX;
-  const isAtkBlk20=Boolean(opts&&opts.isAttackerBlockFollowUp);
   const T=calcThreshold(), {th}=T, res=[];
   for(let i=0;i<D.cnt;i++){
     const rawR=rollW100(), rollMod=toInt(T.rollMod,0), r=rollMod?Math.max(1,Math.min(100,rawR+rollMod)):rawR, ok=r!==100&&(r===1||r<=T.th);
     let crit=false; if(ok){const ed=r%10,td=parseInt(D.crit,10),rk=x=>x===0?10:x;crit=(D.crit==='1'||D.critMode==='range')?rk(ed)<=rk(td):ed===td;}
-    const baseEg=ok?Math.ceil(r/10):0, eg=ok?baseEg*T.egMult:0, meg=!ok?Math.ceil((101-r)/10):0;
-    res.push({r,rawR,rollMod,ok,crit,baseEg,eg,egMult:T.egMult,meg});
+    const eg=ok?Math.ceil(r/10):0, meg=!ok?Math.ceil((101-r)/10):0;
+    res.push({r,rawR,rollMod,ok,crit,baseEg:eg,eg,egMult:1,meg});
   }
   const isLobRoll=Boolean(UI.inLobby);
   const effWeaponId=isLobRoll?null:getEffectiveDiceWeaponId();
   const effShieldId=isLobRoll?null:getEffectiveDiceShieldId();
   const rollerIsEnemy=Boolean(!isLobRoll&&isEnemySheet(S));
   const c1Name=isLobRoll?(CLOUD.currentUser?CLOUD.currentUser:'Gast'):(String(S.profile.name||'').trim()||(rollerIsEnemy?'Gegner':'Unbenannter Held'));
-  const isVsOpp=Boolean(!isAtkBlk20&&T.opp&&T.opp.ready);
+  const isVsOpp=Boolean(T.opp&&T.opp.ready);
   const hideOppLocal=Boolean(isVsOpp&&T.opp.hideDetails);
   const hideOppInFeed=Boolean(isVsOpp&&T.opp.isEnemy);
+  const c1WpObj=effWeaponId?(S.weapons||[]).find(x=>x.id===effWeaponId):null;
+  const c1ShObj=effShieldId?(S.armors||[]).find(x=>x&&x.id===effShieldId&&isArmorShield(x)):null;
+  const c1HasNichtParierbar=Boolean((c1WpObj?.tags||[]).some(tg=>/^nicht\s+parierbar\b/i.test(String(tg?.name||'').trim())));
+  const isHitVsBlock=Boolean(D.wRollCat==='Trefferwurf'&&isVsOpp&&(T.opp.oppRollCat==='Blocken'||(T.opp.oppRollCat==='Parieren'&&c1HasNichtParierbar)));
   let vsSummary='', vsSummaryFeed='';
   if(isVsOpp){
     const c1Sk=(!isLobRoll&&D.skillId)?(S.skills||[]).find(x=>x.id===D.skillId):null;
-    const c1Wp=effWeaponId?(S.weapons||[]).find(x=>x.id===effWeaponId):null;
-    const c1Sh=effShieldId?(S.armors||[]).find(x=>x&&x.id===effShieldId&&isArmorShield(x)):null;
+    const c1Wp=c1WpObj;
+    const c1Sh=c1ShObj;
     const c1WpName=c1Sh?`🛡️ ${String(c1Sh.name||'').trim()||'Schild'}`:(c1Wp?(String(c1Wp.name||'').trim()||getWeaponSubtype(c1Wp.wType).label):'');
     let c1Short=`Wert ${T.cv}`;
     if(c1Sk) c1Short=`${c1Sk.name} ${T.cv}`;
@@ -1554,10 +1596,9 @@ export function executeDiceRoll(opts={}){
       ?`${c1Name} (${c1FeedShort}) vs. ${T.opp.oppName}`
       :`${c1Name} (${c1FeedShort}) vs. ${T.opp.oppName} (${T.opp.oppShortLabel})`;
   }
-  const rollTitle=isAtkBlk20?`${D.label} • 🛡️ Geblockt (Folgewurf vs. Schw. 20)`:(isVsOpp?vsSummary:D.label);
-  const feedTitle=isAtkBlk20
-    ?(rollerIsEnemy?`${c1Name} • 🛡️ Geblockt (Folgewurf vs. Schw. 20)`:`${D.label} • 🛡️ Geblockt (Folgewurf vs. Schw. 20)`)
-    :(isVsOpp?vsSummaryFeed:(rollerIsEnemy?(D.wRollCat&&D.wRollCat!=='Normaler Test'?`${D.wRollCat}`:'Probe'):D.label));
+  const aimTitleSfx=(D.wRollCat==='Trefferwurf'&&T.aimInfo&&T.aimInfo.active)?` • 🎯 ${T.aimInfo.zoneName}`:'';
+  const rollTitle=(isVsOpp?vsSummary:D.label)+aimTitleSfx;
+  const feedTitle=(isVsOpp?vsSummaryFeed:(rollerIsEnemy?(D.wRollCat&&D.wRollCat!=='Normaler Test'?`${D.wRollCat}`:'Probe'):D.label))+aimTitleSfx;
   const rawAdvSrcParts=buildAdvSrcShortList(T);
   const noOppAdvT=hideOppLocal||hideOppInFeed?{...T,advSrc:(T.advSrc||[]).filter(s=>!s?.fromOpponent)}:T;
   const advSrcParts=hideOppLocal?buildAdvSrcShortList(noOppAdvT):rawAdvSrcParts;
@@ -1575,17 +1616,18 @@ export function executeDiceRoll(opts={}){
   const advSrcRowHtml=advSrcParts.length?`<div class="mt-2 pt-1.5 border-t border-white/10 flex flex-wrap items-center justify-center gap-1 text-[10px] min-w-0 break-words"><span class="font-extrabold t-mut mr-0.5">Vor./Nacht.:</span>${advSrcChipsHtml}</div>`:'';
   let baseHtml='';
   if(res.length===1){
-    const x=res[0], cls=x.crit?'crit-glow border-amber-400 bg-amber-500/15':x.ok?'border-emerald-500/60 bg-emerald-500/10':'border-rose-500/60 bg-rose-500/10';
-    const xMult=x.egMult||T.egMult||1;
-    const blkBanner=isAtkBlk20?`<div class="mt-2.5 pt-2 border-t border-white/10 text-xs font-extrabold ${x.ok?'text-amber-300':'text-rose-400'}">${x.ok?`🛡️ Geblockter Treffer → Erzielte EG für Grundschaden gegen Rüstung: <span class="px-2 py-0.5 rounded bg-amber-500 text-slate-950 font-black">${x.eg} EG${xMult>1?` (${x.baseEg} ×${xMult})`:''}</span>`:`🛡️ Am Block gescheitert → 0 EG Grundschaden (MEG: ${x.meg})`}</div>`:'';
-    baseHtml=`<div class="subcard text-center p-4 border-2 ${cls}"><div class="text-[11px] font-bold t-mut break-words">${esc(rollTitle)} • Schwelle ${th}${xMult>1?` • <span class="text-amber-300">EG ×${xMult}</span>`:''}</div>${vsSideRowHtml}<div class="text-5xl font-black tabular my-1">🎲 ${x.r}${x.rollMod&&x.rawR!==undefined?`<span class="text-xs font-bold text-cyan-300 ml-1">(Wurf ${x.rawR}${fmtSign(x.rollMod)})</span>`:''}</div><div class="text-xs font-black uppercase ${x.crit?'text-amber-500':x.ok?'text-emerald-500':'text-rose-500'}">${x.crit?'★ Kritischer Erfolg! ★':x.ok?'Erfolg':(x.r===100?'💀 Patzer (100)':'Misserfolg')}</div><div class="mt-2"><span class="px-3.5 py-1 rounded-lg text-white font-extrabold text-sm tabular ${x.ok?'bg-emerald-600':'bg-rose-600'}">${x.ok?('EG: '+x.eg+(xMult>1?` (${x.baseEg} ×${xMult})`:'')+(isAtkBlk20?' (Grundschaden)':'')):'MEG: '+x.meg}</span></div>${advSrcRowHtml}${blkBanner}</div>`;
+    const x=res[0], isBlockedMiss=Boolean(isHitVsBlock&&!x.ok&&x.r!==100);
+    const cls=x.crit?'crit-glow border-amber-400 bg-amber-500/15':x.ok?'border-emerald-500/60 bg-emerald-500/10':isBlockedMiss?'border-amber-400/75 bg-amber-500/10':'border-rose-500/60 bg-rose-500/10';
+    const blkBanner=isBlockedMiss
+      ?`<div class="mt-2.5 pt-2 border-t border-white/10 text-xs font-extrabold text-amber-200">🛡️ Erfolgreich geblockt! → Zählt statisch als <span class="px-2 py-0.5 rounded bg-amber-500 text-slate-950 font-black">3 EG (kein Krit)</span> • Verteidiger bestimmt die Trefferzone.</div>`
+      :'';
+    baseHtml=`<div class="subcard text-center p-4 border-2 ${cls}"><div class="text-[11px] font-bold t-mut break-words">${esc(rollTitle)} • Schwelle ${th}</div>${vsSideRowHtml}<div class="text-5xl font-black tabular my-1">🎲 ${x.r}${x.rollMod&&x.rawR!==undefined?`<span class="text-xs font-bold text-cyan-300 ml-1">(Wurf ${x.rawR}${fmtSign(x.rollMod)})</span>`:''}</div><div class="text-xs font-black uppercase ${x.crit?'text-amber-500':x.ok?'text-emerald-500':isBlockedMiss?'text-amber-300':'text-rose-500'}">${x.crit?'★ Kritischer Erfolg! ★':x.ok?'Erfolg':(x.r===100?'💀 Patzer (100)':(isBlockedMiss?'🛡️ Geblockt (Misserfolg)':'Misserfolg'))}</div><div class="mt-2"><span class="px-3.5 py-1 rounded-lg text-white font-extrabold text-sm tabular ${x.ok?'bg-emerald-600':isBlockedMiss?'bg-amber-600':'bg-rose-600'}">${x.ok?('EG: '+x.eg):(isBlockedMiss?'Geblockt → 3 EG (MEG: '+x.meg+')':'MEG: '+x.meg)}</span></div>${advSrcRowHtml}${blkBanner}</div>`;
   }else{
-    const w=res.filter(x=>x.ok).length, c=res.filter(x=>x.crit).length;
+    const w=res.filter(x=>x.ok).length, c=res.filter(x=>x.crit).length, blkCnt=isHitVsBlock?res.filter(x=>!x.ok&&x.r!==100).length:0;
     const multiSrcBox=(advSrcParts.length||isVsOpp)?`<div class="subcard py-1.5 px-2.5 space-y-1 text-[10px] min-w-0 break-words">${isVsOpp?`<div class="font-bold text-indigo-300 tabular break-words">${hideOppLocal?`⚔️ ${esc(rollTitle)} (Gegnerwerte verborgen)`:`⚔️ ${esc(rollTitle)} • ${esc(c1Name)} (${T.c1AutoAdv}V/${T.c1AutoDis}N) vs. ${esc(T.opp.oppName)} (${T.oppAutoAdv}V→N / ${T.oppAutoDis}N→V)`}</div>`:''}${advSrcParts.length?`<div class="flex flex-wrap items-center gap-1 min-w-0"><span class="font-extrabold t-mut mr-0.5">Vor./Nacht.:</span>${advSrcChipsHtml}</div>`:''}</div>`:'';
-    baseHtml=`<div class="space-y-1.5"><div class="subcard py-1.5 px-3 flex justify-between text-xs font-extrabold"><span>${D.cnt}× W100 (≤${th})${T.egMult>1?` • <span class="text-amber-300">EG ×${T.egMult}</span>`:''}${isAtkBlk20?' • 🛡️ Folgewurf vs. Schw. 20 (Grundschaden)':''}</span><span>${w}/${D.cnt} Erfolge${c?` • ★ ${c}`:''}</span></div><div class="grid grid-cols-2 gap-1.5">${res.map((x,i)=>{const xm=x.egMult||T.egMult||1;return `<div class="subcard p-2 flex justify-between items-center ${x.crit?'border-amber-400 bg-amber-500/15':x.ok?'border-emerald-500/50 bg-emerald-500/10':'border-rose-500/50 bg-rose-500/10'}"><span class="font-black tabular">#${i+1}: ${x.r}${x.rollMod&&x.rawR!==undefined?` (${x.rawR}${fmtSign(x.rollMod)})`:""}</span><span class="text-xs font-extrabold">${x.crit?'★ ':''}${x.ok?('EG '+x.eg+(xm>1?` ×${xm}`:'')+(isAtkBlk20?' (GS)':'')):'MEG '+x.meg}</span></div>`;}).join('')}</div>${multiSrcBox}</div>`;
+    baseHtml=`<div class="space-y-1.5"><div class="subcard py-1.5 px-3 flex justify-between text-xs font-extrabold"><span>${D.cnt}× W100 (≤${th})</span><span>${w}/${D.cnt} Erfolge${blkCnt?` • 🛡️ ${blkCnt} geblockt`:''}${c?` • ★ ${c}`:''}</span></div><div class="grid grid-cols-2 gap-1.5">${res.map((x,i)=>{const isBlkM=Boolean(isHitVsBlock&&!x.ok&&x.r!==100);return `<div class="subcard p-2 flex justify-between items-center ${x.crit?'border-amber-400 bg-amber-500/15':x.ok?'border-emerald-500/50 bg-emerald-500/10':isBlkM?'border-amber-400/60 bg-amber-500/10':'border-rose-500/50 bg-rose-500/10'}"><span class="font-black tabular">#${i+1}: ${x.r}${x.rollMod&&x.rawR!==undefined?` (${x.rawR}${fmtSign(x.rollMod)})`:""}</span><span class="text-xs font-extrabold">${x.crit?'★ ':''}${x.ok?('EG '+x.eg):(isBlkM?'🛡️ 3 EG':'MEG '+x.meg)}</span></div>`;}).join('')}</div>${multiSrcBox}</div>`;
   }
   if(D.wRollCat==='Blocken'&&res.some(x=>x.ok)){
-    D.blockFollowAtk=getEffD();
     UI.lastBlockBaseHtml=baseHtml;
     UI.lastBlockFollowRes=null;
     UI.lastRollHtml=baseHtml+renderBlockFollowUpBox();
@@ -1621,7 +1663,7 @@ export function executeDiceRoll(opts={}){
     weaponId:effWeaponId||null,
     wRollCat:D.wRollCat||null,
     th:T.th,
-    egMult:T.egMult,
+    egMult:1,
     chance:T.chance,
     cv:rollerIsEnemy?'?':T.cv,
     dv:hideOppInFeed?'?':T.dv,
@@ -1644,9 +1686,9 @@ export function executeDiceRoll(opts={}){
     livePayload.vsSummary=vsSummaryFeed;
   }
   publishLiveRoll(livePayload);
-  diceLogs.unshift({t:new Date().toLocaleTimeString('de-DE'),lbl:rollTitle,th,sum:res.map(x=>`${x.r}(${x.crit?'★':''}${x.ok?('EG'+x.eg+((x.egMult||T.egMult||1)>1?` (${x.baseEg} ×${x.egMult||T.egMult})`:'')):'MEG'+x.meg})`).join(', '),advSrc:advSrcParts.join(', ')});
+  diceLogs.unshift({t:new Date().toLocaleTimeString('de-DE'),lbl:rollTitle,th,sum:res.map(x=>`${x.r}(${x.crit?'★':''}${x.ok?('EG'+x.eg):((isHitVsBlock&&x.r!==100)?'🛡️3EG':'MEG'+x.meg)})`).join(', '),advSrc:advSrcParts.join(', ')});
   if(diceLogs.length>40) diceLogs.length=40;
-  hooks.initCombatFromRoll?.({T,res,isAtkBlk20,attackerName:c1Name});
+  hooks.initCombatFromRoll?.({T,res,attackerName:c1Name});
   if(DUEL.outgoing){
     const wasWaiting=DUEL.outgoing.status==='waiting';
     hooks.clearOutgoingDuel?.({notifyCancel:wasWaiting,silent:true});
