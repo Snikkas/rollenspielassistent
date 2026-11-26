@@ -471,7 +471,8 @@ export function loadAllWinPrefs(){
       const x=(p.x!==null&&p.x!==undefined&&p.x!==''&&Number.isFinite(Number(p.x)))?Math.round(Number(p.x)):null;
       const y=(p.y!==null&&p.y!==undefined&&p.y!==''&&Number.isFinite(Number(p.y)))?Math.round(Number(p.y)):null;
       const floating=Boolean(p.floating);
-      out[k]={w,h,x,y,floating};
+      const compact=Boolean(p.compact);
+      out[k]={w,h,x,y,floating,compact};
     });
     return out;
   }catch(e){return {};}
@@ -491,6 +492,7 @@ export function hydrateWinPrefs(){
     const st=getWinState(k);
     if(!st) return;
     st.w=p.w; st.h=p.h; st.x=p.x; st.y=p.y; st.floating=Boolean(p.floating);
+    if(k==='ini'&&'compact' in st) st.compact=Boolean(p.compact);
     if(st.floating) st.docked=false;
   });
 }
@@ -504,7 +506,8 @@ export function saveWinPref(k){
     h:st.h>0?Math.round(st.h):0,
     x:(st.x!==null&&st.x!==undefined&&Number.isFinite(Number(st.x)))?Math.round(Number(st.x)):null,
     y:(st.y!==null&&st.y!==undefined&&Number.isFinite(Number(st.y)))?Math.round(Number(st.y)):null,
-    floating:Boolean(st.floating)
+    floating:Boolean(st.floating),
+    ...(k==='ini'?{compact:Boolean(st.compact)}:{})
   };
   writeAllWinPrefs(all);
 }
@@ -549,21 +552,29 @@ export function applyWinFrame(k,mount,bd,defWClass){
   }else if(st.floating){
     const pad=12;
     const maxW=Math.max(240,vw-pad*2);
-    const maxH=Math.max(200,vh-pad*2);
-    const minW=Math.min(320,maxW);
-    const minH=Math.min(280,maxH);
-    const defFloatW=Math.min(defCfg.w,Math.max(minW,vw-48));
-    const w=Math.max(minW,Math.min(maxW,st.w>280?st.w:defFloatW));
-    const defFloatH=Math.min(720,Math.max(minH,vh-80));
+    const maxH=Math.max(120,vh-pad*2);
+    const isIniCompact=Boolean(k==='ini'&&st.compact);
+    const isIniCollapsed=Boolean(k==='ini'&&st.collapsed);
+    const minW=Math.min(isIniCompact?260:320,maxW);
+    const minH=Math.min(isIniCollapsed?56:(isIniCompact?200:280),maxH);
+    const defFloatW=Math.min(isIniCompact?340:defCfg.w,Math.max(minW,vw-48));
+    const customW=(st.w>=(isIniCompact?240:280))?st.w:0;
+    const w=Math.max(minW,Math.min(maxW,isIniCompact&&!customW?defFloatW:(customW||defFloatW)));
+    const defFloatH=isIniCompact?Math.min(460,Math.max(minH,vh-120)):Math.min(720,Math.max(minH,vh-80));
     const h=Math.max(minH,Math.min(maxH,st.h>0?st.h:defFloatH));
     const maxX=Math.max(pad,vw-w-pad);
-    const maxY=Math.max(pad,vh-h-pad);
-    const x=st.x!==null?Math.max(pad,Math.min(maxX,st.x)):Math.max(pad,Math.round((vw-w)/2));
-    const y=st.y!==null?Math.max(pad,Math.min(maxY,st.y)):Math.max(pad,Math.min(maxY,70));
+    const maxY=Math.max(pad,vh-(isIniCollapsed?64:h)-pad);
+    const defX=k==='ini'?Math.max(pad,vw-w-16):Math.max(pad,Math.round((vw-w)/2));
+    const x=st.x!==null?Math.max(pad,Math.min(maxX,st.x)):defX;
+    const y=st.y!==null?Math.max(pad,Math.min(maxY,st.y)):Math.max(pad,Math.min(maxY,74));
     const availH=Math.max(minH,Math.min(maxH,vh-y-pad));
     const effH=Math.min(h,availH);
-    mount.className='fixed z-50 overflow-hidden flex flex-col shadow-2xl rounded-2xl';
-    mount.style.cssText=`position:fixed!important;left:${x}px;top:${y}px;width:${w}px;max-width:${maxW}px;height:${effH}px;max-height:${availH}px;z-index:${st.z||50};margin:0;right:auto;bottom:auto`;
+    mount.className=`fixed z-50 overflow-hidden flex flex-col shadow-2xl rounded-2xl${k==='ini'?' ini-floating-overlay':''}`;
+    if(isIniCollapsed){
+      mount.style.cssText=`position:fixed!important;left:${x}px;top:${y}px;width:${w}px;max-width:${maxW}px;height:auto;max-height:${availH}px;z-index:${st.z||50};margin:0;right:auto;bottom:auto`;
+    }else{
+      mount.style.cssText=`position:fixed!important;left:${x}px;top:${y}px;width:${w}px;max-width:${maxW}px;height:${effH}px;max-height:${availH}px;z-index:${st.z||50};margin:0;right:auto;bottom:auto`;
+    }
   }else{
     const maxDw=Math.max(240,vw-32);
     const minDw=Math.min(320,maxDw);
@@ -1438,7 +1449,44 @@ function normalizeSheetObject(raw, { isForeign = false } = {}){
   const isStdOrSubZone=c=>hzCanon.some(h=>h.toLowerCase()===c.toLowerCase())||hzSubCanon.some(h=>h.toLowerCase()===c.toLowerCase());
   sheet.armors=Array.isArray(raw.armors)?raw.armors.map(ar=>{const {customZones:_legacyCz,...arRest}=(ar&&typeof ar==='object'?ar:{});const zns=[],exZ=[];const addU=(arr,val)=>{const c=canonZone(val);if(c&&!arr.some(x=>x.toLowerCase()===c.toLowerCase()))arr.push(c);return c;};(Array.isArray(ar?.zones)?ar.zones:[]).forEach(z=>addU(zns,z));(Array.isArray(ar?.extraZones)?ar.extraZones:[]).forEach(z=>{const c=canonZone(z);if(c&&!isStdOrSubZone(c))addU(exZ,c);});String(_legacyCz||'').split(/[,;]+/).map(s=>s.trim()).filter(Boolean).forEach(cz=>{const c=addU(zns,cz);if(c&&!isStdOrSubZone(c))addU(exZ,c);});return {...makeArmor(),...arRest,id:ar?.id||uid(),color:isHex(ar?.color)?ar.color:'',bgColor:isHex(ar?.bgColor)?ar.bgColor:'',collapsed:Boolean(ar?.collapsed),equipped:ar?.equipped!==undefined?Boolean(ar.equipped):true,img:String(ar?.img||''),grp:String(ar?.grp??'0'),protCut:String(ar?.protCut??'0'),protPierce:String(ar?.protPierce??'0'),protImpact:String(ar?.protImpact??'0'),mentalProt:String(ar?.mentalProt??'0'),customProt:normEqCustomVals(ar?.customProt),zones:zns,extraZones:exZ,tags:normTags(ar?.tags),eqMods:normEqMods(ar?.eqMods),notes:String(ar?.notes||'')};}):def.armors;
   sheet.ammos=Array.isArray(raw.ammos)?raw.ammos.map(am=>({...makeAmmo(),...(am||{}),id:am?.id||uid(),color:isHex(am?.color)?am.color:'',bgColor:isHex(am?.bgColor)?am.bgColor:'',collapsed:Boolean(am?.collapsed),img:String(am?.img||''),qty:Math.max(0,toInt(am?.qty,20)),dmgCut:String(am?.dmgCut??'0'),dmgPierce:String(am?.dmgPierce??'0'),dmgImpact:String(am?.dmgImpact??'0'),customDmg:normEqCustomVals(am?.customDmg),tags:normTags(am?.tags),notes:String(am?.notes||'')})):[];
-  sheet.weapons.forEach(w=>{if(w.ammoId&&!sheet.ammos.some(a=>a.id===w.ammoId))w.ammoId='';});
+  const validAmmoIds=new Set(sheet.ammos.map(a=>a.id));
+  sheet.weapons.forEach(w=>{
+    if(w.ammoId&&!validAmmoIds.has(w.ammoId)) w.ammoId='';
+    if(w.magCfg&&typeof w.magCfg==='object'){
+      const defCap=Math.max(1,Math.min(999,toInt(w.magCfg.cap,6)));
+      const mags=Array.isArray(w.magCfg.mags)?w.magCfg.mags.filter(m=>m&&typeof m==='object').slice(0,50).map((m,idx)=>{
+        const cap=Math.max(1,Math.min(999,toInt(m.cap,defCap)));
+        const count=Math.max(0,Math.min(cap,toInt(m.count,cap)));
+        const dId=String(m.defaultAmmoId||'').trim();
+        const ovr={};
+        if(m.slotOverrides&&typeof m.slotOverrides==='object'){
+          Object.entries(m.slotOverrides).forEach(([sk,sv])=>{
+            const sn=toInt(sk,0), aid=String(sv||'').trim();
+            if(sn>=1&&sn<=cap&&aid&&validAmmoIds.has(aid)) ovr[String(sn)]=aid;
+          });
+        }
+        return {
+          id:String(m.id||'').trim()||uid(),
+          name:String(m.name||'').trim()||`Magazin #${idx+1}`,
+          cap,count,
+          defaultAmmoId:dId&&validAmmoIds.has(dId)?dId:'',
+          slotOverrides:ovr,
+          slotsOpen:Boolean(m.slotsOpen)
+        };
+      }):[];
+      let actId=String(w.magCfg.activeMagId||'').trim();
+      if(actId&&!mags.some(m=>m.id===actId)) actId='';
+      if(!actId&&mags.length) actId=mags[0].id;
+      w.magCfg={
+        enabled:Boolean(w.magCfg.enabled),
+        cap:defCap,
+        autoSyncAmmo:w.magCfg.autoSyncAmmo!==undefined?Boolean(w.magCfg.autoSyncAmmo):true,
+        activeMagId:actId,
+        expanded:w.magCfg.expanded!==undefined?Boolean(w.magCfg.expanded):true,
+        mags
+      };
+    }
+  });
   sheet.invSections=Array.isArray(raw.invSections)?raw.invSections.map(sec=>({id:sec?.id||uid(),name:String(sec?.name||'Neuer Beutel'),color:isHex(sec?.color)?sec.color:'',bgColor:isHex(sec?.bgColor)?sec.bgColor:'',collapsed:Boolean(sec?.collapsed),parentSectionId:String(sec?.parentSectionId||'')})):[];
   sanitizeSecHierarchy(sheet.invSections);
   sheet.inventory=Array.isArray(raw.inventory)?raw.inventory.map(it=>{

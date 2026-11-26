@@ -19,6 +19,9 @@ import {
 import {
   renderRtfToolbarHtml
 } from '../notes.js';
+import {
+  hasActiveMagazines, getWeaponNextShotInfo, getAmmoMagStats, purgeDeletedAmmoFromMagazines, renderWeaponMagazineSectionHtml
+} from '../magazines.js';
 
 export function syncLinkedInvDOM(kind,srcId,sourceEl=null){
   const hadInv=Boolean((S.inventory||[]).some(it=>it?.linkedEq&&it.linkedEq.kind===kind&&it.linkedEq.id===srcId));
@@ -62,6 +65,11 @@ export function syncLinkedAmmoDOM(ammoId,sourceEl=null){
   document.querySelectorAll(`[data-linked-ammo-tags="${ammoId}"]`).forEach(box=>{
     box.innerHTML=tagsHtml;
     box.classList.toggle('hidden',!tagsHtml);
+  });
+  const ms=getAmmoMagStats(ammoId,S);
+  document.querySelectorAll(`[data-ammo-mag-stat="${ammoId}"]`).forEach(el=>{
+    el.textContent=`📦 ${ms.inMags} in Mag. • ${ms.looseQty} lose`;
+    el.dataset.tip=`Davon sind ${ms.inMags} Schuss aktuell in Waffen-Magazinen geladen und ${ms.looseQty} Schuss lose im Vorrat`;
   });
   syncLinkedInvDOM('ammo',ammoId,sourceEl);
 }
@@ -665,6 +673,11 @@ export function duplicateEqItem(kind,id){
   if(Array.isArray(copy.customDmg)) copy.customDmg=copy.customDmg.map(c=>({...c,id:uid()}));
   if(Array.isArray(copy.customProt)) copy.customProt=copy.customProt.map(c=>({...c,id:uid()}));
   if(Array.isArray(copy.eqMods)) copy.eqMods=copy.eqMods.map(m=>({...m,id:uid()}));
+  if(kind==='weapon'&&copy.magCfg&&Array.isArray(copy.magCfg.mags)){
+    const idMap=new Map();
+    copy.magCfg.mags=copy.magCfg.mags.map(m=>{const nid=uid();idMap.set(m.id,nid);return {...m,id:nid};});
+    copy.magCfg.activeMagId=idMap.get(copy.magCfg.activeMagId)||copy.magCfg.mags[0]?.id||'';
+  }
   arr.splice(idx+1,0,copy);
   if(kind==='weapon'||kind==='armor'||kind==='ammo') syncEquipmentToInventory(S,{forceKeys:[`${kind}:${copy.id}`]});
   invalidateModsCache(); syncDiceFromSheet();
@@ -683,6 +696,7 @@ export function deleteEqItem(kind,id){
   if(kind==='ammo'){
     S.ammos=S.ammos.filter(a=>a.id!==id);
     S.weapons.forEach(w=>{if(w.ammoId===id)w.ammoId='';});
+    purgeDeletedAmmoFromMagazines(id,S);
     syncEquipmentToInventory(S);
     invalidateModsCache(); syncDiceFromSheet();
     hooks.renderMain?.(); if(UI.modal==='ammoList') hooks.renderModal?.(); if(D.open) renderDice(); save(); return true;
@@ -1002,6 +1016,8 @@ export function renderWeaponRollBtns(w,wm,compact=false){
 export function renderWeaponCard(w,idx,len){
   const M=calcActiveMods(), wm=getWeaponRollMeta(w,M), dw=getWeaponDualWieldInfo(w,S);
   const wSub=getWeaponSubtype(w.wType), isRng=w.wType==='ranged', isEq=w.equipped!==false;
+  const hasMags=hasActiveMagazines(w);
+  const magInfo=hasMags?getWeaponNextShotInfo(w,S):null;
   const linkedAmmo=isRng&&w.ammoId?S.ammos.find(a=>a.id===w.ammoId):null;
   const colStyle=w.color?`style="color:${esc(w.color)}"`:'', winStyle=cardColorStyle(w);
   const wRaw=String(w.name||'').trim()||wSub.label;
@@ -1034,7 +1050,9 @@ export function renderWeaponCard(w,idx,len){
         ${handBadge}
         ${dwBadge}
         <span class="pill cursor-default text-[11px] py-0.5 px-2 max-w-full whitespace-normal break-words">Schnitt ${esc(w.dmgCut)} • Durchstoß ${esc(w.dmgPierce)} • Einschlag ${esc(w.dmgImpact)}${fmtCustomValSummarySuffix(w.customDmg)}</span>
-        ${linkedAmmo?`<span class="pill cursor-default text-[11px] py-0.5 px-2 text-amber-400">🎯 <span data-linked-ammo-name="${linkedAmmo.id}">${esc(linkedAmmo.name||'Munition')}</span>: <span data-linked-ammo-qty="${linkedAmmo.id}">${linkedAmmo.qty}</span></span>`:''}
+        ${magInfo
+          ?`<span class="pill cursor-default text-[11px] py-0.5 px-2 ${magInfo.count===0?'border-rose-500/55 bg-rose-500/15 text-rose-300':'text-amber-300 border-amber-400/45 bg-amber-500/10'}">📦 ${esc(magInfo.mag?.name||'Magazin')}: ${magInfo.count}/${magInfo.cap}${magInfo.ammo?` • ${magInfo.isOverride?'★ ':''}${esc(magInfo.ammo.name||'Munition')}`:''}</span>`
+          :(linkedAmmo?`<span class="pill cursor-default text-[11px] py-0.5 px-2 text-amber-400">🎯 <span data-linked-ammo-name="${linkedAmmo.id}">${esc(linkedAmmo.name||'Munition')}</span>: <span data-linked-ammo-qty="${linkedAmmo.id}">${linkedAmmo.qty}</span></span>`:'')}
         ${renderEqModsSummaryPills(w)}
       </div>
     </div>`;
@@ -1092,7 +1110,7 @@ export function renderWeaponCard(w,idx,len){
     ${isRng?`<div class="p-2.5 rounded-xl border border-amber-500/35 bg-amber-500/10 space-y-2 text-xs">
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 items-center">
         <div class="min-w-0 space-y-1">
-          <span class="block text-[10px] font-extrabold text-amber-400 uppercase tracking-wider">🎯 Zugeordnete Munition</span>
+          <span class="block text-[10px] font-extrabold text-amber-400 uppercase tracking-wider">🎯 ${hasMags?'Standard-Munition (Fallback)':'Zugeordnete Munition'}</span>
           <button type="button" data-action="open-wp-ammo-picker" data-id="${w.id}" aria-haspopup="menu" aria-expanded="false" class="inp w-full py-1.5 px-2 text-xs font-bold flex items-center justify-between gap-2 text-left cursor-pointer hover:border-amber-400/70"><span class="truncate"${linkedAmmo?` data-wp-ammo-lbl="${linkedAmmo.id}"`:''}>${linkedAmmo?`${esc(linkedAmmo.name||'Unbenannte Munition')} (Vorrat: ${linkedAmmo.qty})`:'— Keine Munition zugeordnet —'}</span><span class="t-mut text-[10px] shrink-0">▾</span></button>
         </div>
         <div class="flex flex-wrap items-center gap-1.5 sm:justify-end">
@@ -1100,7 +1118,7 @@ export function renderWeaponCard(w,idx,len){
           <button type="button" data-action="open-ammo-modal" data-wid="${w.id}" data-tip="Munitions-Liste bearbeiten (Benennung &amp; Anzahl direkt verwalten)" class="btn py-1 px-2 text-[11px]">⚙️ Liste</button>
         </div>
       </div>
-      ${linkedAmmo?`<div class="flex flex-wrap items-center justify-between gap-2 pt-1.5 border-t border-amber-500/25">
+      ${!hasMags&&linkedAmmo?`<div class="flex flex-wrap items-center justify-between gap-2 pt-1.5 border-t border-amber-500/25">
         <div class="flex flex-wrap items-center gap-1.5 tabular">
           <span class="text-[11px] font-extrabold text-amber-400">Vorrat:</span>
           <button type="button" data-action="ammo-step" data-id="${linkedAmmo.id}" data-delta="-1" class="btn w-8 h-8 sm:w-7 sm:h-7 p-0 font-black">−</button>
@@ -1116,6 +1134,7 @@ export function renderWeaponCard(w,idx,len){
         </div>
         <div data-linked-ammo-tags="${linkedAmmo.id}" class="w-full flex flex-wrap items-center gap-1 ${(linkedAmmo.tags||[]).length?'':'hidden'}">${(linkedAmmo.tags||[]).map(tg=>`<span data-tip="${esc(getTagDesc(S.ammoTagList,tg.name,tg.x))}" class="tag !border-amber-400/45 !bg-amber-500/15 !text-amber-300 cursor-help">${esc(fmtTagLabel(tg.name,tg.x))}</span>`).join('')}</div>
       </div>`:''}
+      ${renderWeaponMagazineSectionHtml(w)}
     </div>`:''}
     <div class="grid grid-cols-1 lg:grid-cols-12 gap-2.5 items-start pt-2 border-t bdr-line">
       <div class="lg:col-span-7 min-w-0">${renderEqTagBar('weapon',w,S.weaponTagList,'weaponTags','Waffeneigenschaften')}</div>
@@ -1130,6 +1149,8 @@ export function renderWeaponCard(w,idx,len){
 
 export function renderAmmoCard(am,idx,len){
   const colStyle=am.color?`style="color:${esc(am.color)}"`:'', winStyle=cardColorStyle(am);
+  const magStats=getAmmoMagStats(am.id,S);
+  const magBadgeHtml=magStats.inMags>0?`<span data-ammo-mag-stat="${am.id}" class="pill cursor-default text-[10px] py-0.5 px-2 border-amber-400/45 bg-amber-500/12 text-amber-200 tabular" data-tip="Davon sind ${magStats.inMags} Schuss aktuell in Waffen-Magazinen geladen und ${magStats.looseQty} Schuss lose im Vorrat">📦 ${magStats.inMags} in Mag. • ${magStats.looseQty} lose</span>`:'';
   const hdrRow=`<div class="flex items-center gap-1.5 min-w-0">
     <button type="button" data-action="toggle-eqitem-collapse" data-kind="ammo" data-id="${am.id}" data-tip="${am.collapsed?'Munition ausklappen':'Munition einklappen'}" aria-expanded="${!am.collapsed}" class="btn w-8 h-8 sm:w-7 sm:h-7 p-0 text-xs font-black shrink-0">${am.collapsed?'▸':'▾'}</button>
     <span draggable="true" data-drag-eqitem="ammo:${am.id}" data-tip="Ziehen zum Sortieren" class="w-7 h-7 rounded bg-amber-500/15 border border-amber-500/40 text-amber-400 text-xs font-black cursor-grab select-none shrink-0 inline-flex items-center justify-center">⠿</span>
@@ -1147,12 +1168,14 @@ export function renderAmmoCard(am,idx,len){
       ${hdrRow}
       <div class="flex flex-wrap items-center gap-1.5 tabular min-w-0">
         <span data-ammo-collapsed-dmg="${am.id}" class="pill cursor-default text-[11px] py-0.5 px-2 max-w-full whitespace-normal break-words">Schnitt ${esc(am.dmgCut)} • Durchstoß ${esc(am.dmgPierce)} • Einschlag ${esc(am.dmgImpact)}${fmtCustomValSummarySuffix(am.customDmg)}</span>
+        ${magBadgeHtml}
         ${(am.tags||[]).length?`<span class="pill cursor-default text-[11px] py-0.5 px-2 text-amber-300">🏷️ ${am.tags.length}</span>`:''}
       </div>
     </div>`;
   }
   return `<div data-eqitem="ammo:${am.id}" class="subcard p-2.5 sm:p-3 space-y-3 border-amber-500/30 min-w-0" ${winStyle}>
     ${hdrRow}
+    ${magBadgeHtml?`<div class="flex flex-wrap items-center gap-1.5">${magBadgeHtml}</div>`:''}
     <div class="pt-2 border-t bdr-line space-y-1.5">
       <div class="flex items-center justify-between gap-2">
         <span class="text-[10px] font-extrabold text-amber-400 uppercase tracking-wider">Munitions-Schaden</span>

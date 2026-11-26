@@ -198,4 +198,14 @@ body{max-width:100%;overflow-x:hidden;overflow-x:clip}
   .duel-sheet-panel{max-width:100%!important;max-height:92dvh;border-radius:1.25rem 1.25rem 0 0!important;border-bottom:none!important;border-left:none!important;border-right:none!important}
   .duel-sheet-panel .inp,.duel-sheet-panel select,#diceMount .inp,#diceMount select{font-size:16px!important;min-width:0!important;max-width:100%!important}
 }
+@media (max-height:540px) and (pointer:coarse){
+  .inp:not(.text-lg):not(.text-xl):not(.text-2xl),.inp-line:not(.text-lg):not(.text-xl):not(.text-2xl),.inp-sec-name:not(.text-lg):not(.text-xl):not(.text-2xl),select,textarea{font-size:16px!important;min-width:0;max-width:100%}
+}
+.win-mobile-frame{padding-top:env(safe-area-inset-top,0px);padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inset-right,0px);background:var(--surf)}
+#hdrMount header{padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inset-right,0px)}
+#toast{max-width:calc(100vw - 1.5rem);text-align:center;bottom:max(1.25rem,calc(.75rem + env(safe-area-inset-bottom,0px)))}
+.ini-floating-overlay{box-shadow:0 18px 48px rgba(0,0,0,.55),0 0 0 1px rgba(251,191,36,.24)}
+.ini-overlay-card{background:color-mix(in srgb,var(--surf) 92%,transparent);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
+
+
 

@@ -8,11 +8,11 @@ import {
   hooks
 } from './ui-hooks.js';
 import {
-  S, INI, UI, CLOUD, LIVE_TAB_ID,
+  S, D, CN, LD, INI, FBW, UI, CLOUD, LIVE_TAB_ID,
   normalizeInitiativeState, normalizeInitiativeEntry,
   getCampaigns, getActiveLiveCampaignId, getCharCampaignId, getCharOwner,
-  canManageCampaign, isEnemySheet, getEnemyMeta, canViewEnemySheet,
-  applyWinFrame, renderWinCtrlBtns, renderWinResizeHandles,
+  canManageCampaign, isEnemySheet, getEnemyMeta, canViewEnemySheet, isEnemyDiceVisibleInCampaign,
+  applyWinFrame, renderWinCtrlBtns, renderWinResizeHandles, saveWinPref,
   openCtxMenu, captureScrollState, restoreScrollState, saveRegistryLocal,
   toast, isMobileLayout
 } from './state.js';
@@ -287,7 +287,73 @@ export function addCustomInitiativeEntry(campId = getActiveInitiativeCampaignId(
   toast(`${entry.isEnemy ? '👹' : '👤'} ${entry.name} (${fmtSign(entry.baseIni)} Ini) hinzugefügt.`);
 }
 
-export function openInitiativeAddEnemyPicker(anchorEl, campId = getActiveInitiativeCampaignId()){
+export function getEnemyInitiativeCount(campId, charId){
+  const cid = String(campId || getActiveInitiativeCampaignId() || 'default').trim() || 'default';
+  const tid = String(charId || '').trim();
+  if(!tid) return 0;
+  const st = getCampaignInitiative(cid);
+  return (st.entries || []).filter(e => e && e.charId === tid).length;
+}
+
+export async function addAllCampaignEnemiesToInitiative(campId = getActiveInitiativeCampaignId(), { onlyDiceVisible = true, hidden = false } = {}){
+  const cid = String(campId || 'default').trim() || 'default';
+  if(!canManageCampaign(cid)){
+    toast('🔒 Nur Spielleitung oder Admin kann Gegner in die Initiative laden.');
+    return;
+  }
+  const allCampEnemies = (CLOUD.list || []).filter(c => {
+    if(!c || !c.id || !isEnemySheet(c.id)) return false;
+    const m = getEnemyMeta(c.id);
+    return Boolean(m.isEnemy && !m.archived && m.campaignIds.includes(cid));
+  });
+  const diceVisEnemies = allCampEnemies.filter(c => isEnemyDiceVisibleInCampaign(c.id, cid));
+  const targetList = (onlyDiceVisible && diceVisEnemies.length) ? diceVisEnemies : allCampEnemies;
+  if(!targetList.length){
+    toast('Keine aktiven Gegner in dieser Kampagne gefunden.');
+    return;
+  }
+  const cur = getCampaignInitiative(cid);
+  let added = 0;
+  for(const ch of targetList){
+    const existing = cur.entries.find(e => e.isEnemy && e.charId === ch.id);
+    if(!existing){
+      let sheet = (!UI.inLobby && S?.charId === ch.id) ? S : getCachedForeignSheet(ch.id);
+      if(!sheet){
+        sheet = await fetchForeignCharacterSheet(ch.id, { force: false, silent: true });
+      }
+      cur.entries.push(buildEntryFromCharMeta(ch, sheet, { isEnemyForce: true, hidden }));
+      added++;
+    }
+  }
+  if(!cur.activeEntryId && cur.entries.length){
+    const sorted = getSortedInitiativeEntries(cur, true);
+    if(sorted.length) cur.activeEntryId = sorted[0].id;
+  }
+  commitInitiativeChange(cid, cur);
+  if(added > 0){
+    const scopeLbl = (onlyDiceVisible && diceVisEnemies.length) ? 'sichtbare ' : '';
+    toast(`👹 ${added} ${scopeLbl}Gegner zur Initiative hinzugefügt.`);
+  }else{
+    await refreshAllInitiativeEntries(cid, { silent: true });
+    toast('🔄 Alle ausgewählten Kampagnen-Gegner sind bereits in der Initiative (Werte aktualisiert).');
+  }
+}
+
+export function openInitiativePopout({ compact = null } = {}){
+  INI.open = true;
+  INI.collapsed = false;
+  if(!isMobileLayout()){
+    INI.floating = true;
+    INI.docked = false;
+    if(compact !== null) INI.compact = Boolean(compact);
+    INI.z = Math.max(CN.z || 50, D.z || 50, LD.z || 50, INI.z || 50, FBW.z || 50) + 1;
+    saveWinPref('ini');
+  }
+  syncCloudRegistry(false);
+  updateInitiativeUI();
+}
+
+export function openInitiativeAddEnemyPicker(anchorEl, campId = getActiveInitiativeCampaignId(), forceOpen = false){
   const cid = String(campId || 'default').trim() || 'default';
   if(!canManageCampaign(cid)) return;
   const allList = CLOUD.list || [];
@@ -306,50 +372,123 @@ export function openInitiativeAddEnemyPicker(anchorEl, campId = getActiveInitiat
       campHeroes.push(c);
     }
   });
-  const items = [];
+  campEnemies.sort((a, b) => {
+    const va = isEnemyDiceVisibleInCampaign(a.id, cid) ? 1 : 0;
+    const vb = isEnemyDiceVisibleInCampaign(b.id, cid) ? 1 : 0;
+    if(va !== vb) return vb - va;
+    return String(a.name || '').localeCompare(String(b.name || ''), 'de');
+  });
+  templates.sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), 'de'));
+  campHeroes.sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), 'de'));
+
+  const addHidden = Boolean(INI.pickerHidden);
+  const sel = `[data-action="ini-open-add-picker"][data-camp="${CSS.escape ? CSS.escape(cid) : cid}"]`;
+  const resolveAnchor = () => (anchorEl && anchorEl.isConnected) ? anchorEl : document.querySelector(sel);
+  const diceVisCnt = campEnemies.filter(e => isEnemyDiceVisibleInCampaign(e.id, cid)).length;
+
+  const items = [
+    {
+      icon: addHidden ? '🙈' : '👁️',
+      label: addHidden ? 'Modus: Verborgen (Hinterhalt)' : 'Modus: Direkt sichtbar hinzufügen',
+      sub: 'Klicken zum Umschalten für neu hinzugefügte Gegner',
+      active: addHidden,
+      badge: addHidden ? 'VERBORGEN' : 'SICHTBAR',
+      keepOpen: true,
+      onClick: () => {
+        INI.pickerHidden = !INI.pickerHidden;
+        openInitiativeAddEnemyPicker(resolveAnchor(), cid, true);
+      }
+    }
+  ];
+
   if(campEnemies.length){
-    items.push({ type: 'label', label: '👹 Gegner dieser Kampagne (mehrfach wählbar)' });
-    campEnemies.forEach(e => {
+    items.push({ sep: true });
+    if(diceVisCnt > 0){
+      items.push({
+        icon: '⚡',
+        label: `Alle sichtbaren Gegner laden (${diceVisCnt})`,
+        sub: 'Fügt alle im Würfelassistent sichtbaren Gegner dieser Kampagne ein',
+        keepOpen: true,
+        onClick: async () => {
+          await addAllCampaignEnemiesToInitiative(cid, { onlyDiceVisible: true, hidden: Boolean(INI.pickerHidden) });
+          openInitiativeAddEnemyPicker(resolveAnchor(), cid, true);
+        }
+      });
+    }
+    if(campEnemies.length > diceVisCnt){
       items.push({
         icon: '👹',
-        label: String(e.name || 'Gegner').trim(),
-        sub: `Basis-Ini ${fmtSign(toInt(e.ini, 0))} • Klick fügt Instanz hinzu`,
-        badge: fmtSign(toInt(e.ini, 0)),
+        label: `Alle aktiven SL-Gegner laden (${campEnemies.length})`,
+        sub: 'Fügt alle nicht archivierten Gegner dieser Kampagne ein',
         keepOpen: true,
-        onClick: () => { addCharacterOrEnemyToInitiative(cid, e.id, { isEnemy: true, allowDuplicate: true }); }
+        onClick: async () => {
+          await addAllCampaignEnemiesToInitiative(cid, { onlyDiceVisible: false, hidden: Boolean(INI.pickerHidden) });
+          openInitiativeAddEnemyPicker(resolveAnchor(), cid, true);
+        }
+      });
+    }
+    items.push({ type: 'label', label: '👹 Gegner dieser Kampagne (mehrfach wählbar)' });
+    campEnemies.forEach(e => {
+      const vis = isEnemyDiceVisibleInCampaign(e.id, cid);
+      const cnt = getEnemyInitiativeCount(cid, e.id);
+      const subParts = [`Basis-Ini ${fmtSign(toInt(e.ini, 0))}`];
+      if(vis) subParts.push('👁️ Im Würfel');
+      if(cnt > 0) subParts.push(`im Kampf: ${cnt}×`);
+      items.push({
+        icon: vis ? '👁️' : '👹',
+        label: String(e.name || 'Gegner').trim(),
+        sub: subParts.join(' • '),
+        badge: cnt > 0 ? `${cnt}× | ${fmtSign(toInt(e.ini, 0))}` : fmtSign(toInt(e.ini, 0)),
+        active: cnt > 0,
+        keepOpen: true,
+        onClick: async () => {
+          await addCharacterOrEnemyToInitiative(cid, e.id, { isEnemy: true, allowDuplicate: true, hidden: Boolean(INI.pickerHidden) });
+          openInitiativeAddEnemyPicker(resolveAnchor(), cid, true);
+        }
       });
     });
   }
   if(templates.length){
-    if(items.length) items.push({ sep: true });
+    items.push({ sep: true });
     items.push({ type: 'label', label: '📋 Gegner-Vorlagen / Bestiarium' });
     templates.forEach(t => {
       const cat = getEnemyMeta(t.id).category;
+      const cnt = getEnemyInitiativeCount(cid, t.id);
       items.push({
         icon: '📋',
         label: String(t.name || 'Vorlage').trim(),
-        sub: `${cat ? `${cat} • ` : ''}Basis-Ini ${fmtSign(toInt(t.ini, 0))}`,
-        badge: fmtSign(toInt(t.ini, 0)),
+        sub: `${cat ? `${cat} • ` : ''}Basis-Ini ${fmtSign(toInt(t.ini, 0))}${cnt > 0 ? ` • im Kampf: ${cnt}×` : ''}`,
+        badge: cnt > 0 ? `${cnt}× | ${fmtSign(toInt(t.ini, 0))}` : fmtSign(toInt(t.ini, 0)),
+        active: cnt > 0,
         keepOpen: true,
-        onClick: () => { addCharacterOrEnemyToInitiative(cid, t.id, { isEnemy: true, allowDuplicate: true }); }
+        onClick: async () => {
+          await addCharacterOrEnemyToInitiative(cid, t.id, { isEnemy: true, allowDuplicate: true, hidden: Boolean(INI.pickerHidden) });
+          openInitiativeAddEnemyPicker(resolveAnchor(), cid, true);
+        }
       });
     });
   }
   if(campHeroes.length){
-    if(items.length) items.push({ sep: true });
+    items.push({ sep: true });
     items.push({ type: 'label', label: '👥 Kampagnen-Charaktere' });
     campHeroes.forEach(h => {
+      const cnt = getEnemyInitiativeCount(cid, h.id);
       items.push({
         icon: '👤',
         label: String(h.name || 'Held').trim(),
-        sub: `Ini ${fmtSign(toInt(h.ini, 0))}`,
+        sub: `Ini ${fmtSign(toInt(h.ini, 0))}${cnt > 0 ? ' • bereits in Ini' : ''}`,
         badge: fmtSign(toInt(h.ini, 0)),
+        active: cnt > 0,
         keepOpen: true,
-        onClick: () => { addCharacterOrEnemyToInitiative(cid, h.id, { isEnemy: false, allowDuplicate: false }); }
+        onClick: async () => {
+          await addCharacterOrEnemyToInitiative(cid, h.id, { isEnemy: false, allowDuplicate: false });
+          openInitiativeAddEnemyPicker(resolveAnchor(), cid, true);
+        }
       });
     });
   }
-  if(!items.length){
+  if(items.length <= 1){
+    items.push({ sep: true });
     items.push({ label: 'Keine Gegner, Vorlagen oder Helden gefunden', disabled: true });
   }
   openCtxMenu({
@@ -357,8 +496,9 @@ export function openInitiativeAddEnemyPicker(anchorEl, campId = getActiveInitiat
     title: 'Teilnehmer zur Initiative hinzufügen',
     anchorEl,
     align: 'left',
-    minWidth: 270,
+    minWidth: 285,
     showClose: true,
+    forceOpen,
     items
   });
 }
@@ -715,6 +855,77 @@ export function renderInitiativeBodyHtml(campId = getActiveInitiativeCampaignId(
   return `${gmControlsHtml}<div data-scroll-key="iniList" class="${listWrapCls}">${rowsHtml}</div>${statusHintHtml}`;
 }
 
+export function renderInitiativeCompactOverlayHtml(campId = getActiveInitiativeCampaignId()){
+  const cid = String(campId || 'default').trim() || 'default';
+  const isGm = canManageCampaign(cid);
+  const st = getCampaignInitiative(cid);
+  const sorted = getSortedInitiativeEntries(st, isGm);
+  const activeEntry = sorted.find(e => e.id === st.activeEntryId) || null;
+
+  const ctrlBar = isGm
+    ? `<div class="shrink-0 flex flex-wrap items-center justify-between gap-1 pb-1.5 border-b bdr-line">
+        <div class="flex items-center gap-1">
+          <button type="button" data-action="ini-step" data-camp="${esc(cid)}" data-delta="-1" data-tip="Vorheriger Zug" class="btn h-7 px-2 text-xs font-black">◀</button>
+          <button type="button" data-action="ini-step" data-camp="${esc(cid)}" data-delta="1" data-tip="Nächster Zug" class="btn btn-pri h-7 px-2.5 text-xs font-black">Weiter ▶</button>
+          <button type="button" data-action="ini-reset-round" data-camp="${esc(cid)}" data-tip="Auf Runde 1 zurücksetzen" class="btn h-7 px-1.5 text-xs">↺</button>
+        </div>
+        <div class="flex items-center gap-1">
+          <button type="button" data-action="ini-open-add-picker" data-camp="${esc(cid)}" aria-haspopup="menu" data-tip="Gegner, Vorlage oder Held hinzufügen" class="btn h-7 px-2 text-[11px] font-extrabold border-rose-400/55 bg-rose-500/15 text-rose-200">+ 👹</button>
+          <button type="button" data-action="ini-refresh-all" data-camp="${esc(cid)}" data-tip="Werte aktualisieren" class="btn h-7 px-1.5 text-xs">🔄</button>
+          <button type="button" data-action="ini-toggle-active" data-camp="${esc(cid)}" data-tip="${st.active ? 'Initiative beenden' : 'Initiative aktivieren'}" class="btn h-7 px-2 text-[11px] font-black ${st.active ? 'bg-rose-600/80 text-white border-rose-400/60' : 'btn-ok'}">${st.active ? '⏹️' : '⚡'}</button>
+        </div>
+      </div>`
+    : (st.active ? `<div class="shrink-0 flex items-center justify-between gap-1.5 pb-1.5 border-b bdr-line text-[11px]">
+        <span class="font-extrabold truncate">${activeEntry ? `▶ <strong class="text-amber-300">${esc(activeEntry.name)}</strong>` : 'Initiative aktiv'}</span>
+        <button type="button" data-action="ini-refresh-all" data-camp="${esc(cid)}" data-tip="Werte abgleichen" class="btn h-6 px-1.5 text-[10px] shrink-0">🔄</button>
+      </div>` : '');
+
+  const rowsHtml = !st.active && !isGm
+    ? `<div class="subcard border-dashed py-4 px-3 text-center text-[11px] t-mut">Aktuell keine Initiative aktiv.</div>`
+    : !sorted.length
+      ? `<div class="subcard border-dashed py-4 px-3 text-center text-[11px] t-mut">${isGm ? 'Liste leer – über <strong>+ 👹</strong> Gegner/Helden hinzufügen.' : 'Keine sichtbaren Teilnehmer.'}</div>`
+      : `<div class="space-y-1">${sorted.map((e, idx) => {
+          const isCur = st.activeEntryId === e.id;
+          const isOwn = Boolean(!UI.inLobby && S?.charId && e.charId === S.charId);
+          const canEdit = canUserEditInitiativeEntry(e, cid);
+          const hideVal = Boolean(e.isEnemy && !isGm);
+          const tot = getEntryTotalIni(e);
+          const rowCls = isCur
+            ? 'border border-amber-400 bg-amber-500/20'
+            : e.hidden
+              ? 'border border-dashed border-slate-500/55 bg-black/25 opacity-70'
+              : e.isEnemy
+                ? 'border border-rose-500/35 bg-rose-500/10'
+                : isOwn
+                  ? 'border border-sky-400/50 bg-sky-500/12'
+                  : 'border bdr-line bg-black/25';
+          const tipParts = hideVal ? ['Initiative verborgen (SL)'] : [
+            `Basis ${fmtSign(e.baseIni)}`,
+            ...(e.statusIni || e.statusNote ? [e.statusNote || `Status ${fmtSign(e.statusIni)}`] : []),
+            ...(e.manualMod ? [`Mod ${fmtSign(e.manualMod)}`] : [])
+          ];
+          return `<div class="rounded-lg px-2 py-1.5 ${rowCls} flex items-center justify-between gap-1.5 min-w-0 tabular transition-colors">
+            <div class="flex items-center gap-1.5 min-w-0 flex-1">
+              ${isGm
+                ? `<button type="button" data-action="ini-set-active" data-camp="${esc(cid)}" data-id="${esc(e.id)}" data-tip="Als aktiven Zug setzen" class="w-6 h-6 rounded-md font-black text-[11px] shrink-0 flex items-center justify-center cursor-pointer ${isCur ? 'bg-amber-500 text-slate-950 shadow' : 'bg-black/35 border bdr-line t-mut hover:text-white'}">${isCur ? '▶' : (idx + 1)}</button>`
+                : `<span class="w-6 h-6 rounded-md font-black text-[11px] shrink-0 flex items-center justify-center ${isCur ? 'bg-amber-500 text-slate-950' : 'bg-black/35 border bdr-line t-mut'}">${isCur ? '▶' : (idx + 1)}</span>`}
+              <span class="font-extrabold text-xs truncate min-w-0 ${isCur ? 'text-amber-200' : ''}" data-tip="${esc(`${e.name} • ${tipParts.join(' • ')}`)}">${e.isEnemy ? '👹 ' : ''}${esc(e.name)}</span>
+              ${isOwn ? `<span class="px-1 rounded text-[9px] font-black bg-sky-500/25 text-sky-200 shrink-0">Du</span>` : ''}
+              ${e.hidden && isGm ? `<span class="text-[10px] shrink-0" data-tip="Vor Spielern verborgen">🙈</span>` : ''}
+            </div>
+            <div class="flex items-center gap-0.5 shrink-0">
+              ${!hideVal
+                ? `<span class="px-1.5 py-0.5 rounded bg-black/40 border ${e.statusIni ? 'border-amber-400/55 text-amber-300' : 'bdr-line text-acc'} text-[11px] font-black min-w-[34px] text-center" data-tip="${esc(tipParts.join(' • '))}">${fmtSign(tot)}</span>`
+                : `<span class="px-1.5 py-0.5 rounded bg-black/30 border bdr-line text-[10px] font-black t-mut">🔒</span>`}
+              ${canEdit ? `<button type="button" data-action="ini-mod-step" data-camp="${esc(cid)}" data-id="${esc(e.id)}" data-delta="-10" data-tip="−10 Initiative" class="btn h-6 px-1 text-[9px] font-black text-rose-300">−10</button><button type="button" data-action="ini-mod-step" data-camp="${esc(cid)}" data-id="${esc(e.id)}" data-delta="10" data-tip="+10 Initiative" class="btn h-6 px-1 text-[9px] font-black text-emerald-300">+10</button>` : ''}
+              ${isGm ? `<button type="button" data-action="ini-remove" data-camp="${esc(cid)}" data-id="${esc(e.id)}" data-tip="Entfernen" class="btn w-6 h-6 p-0 text-[10px] hover:text-rose-400">✕</button>` : ''}
+            </div>
+          </div>`;
+        }).join('')}</div>`;
+
+  return `${ctrlBar}<div data-scroll-key="iniList" class="flex-1 min-h-0 overflow-y-auto overscroll-contain pr-0.5">${rowsHtml}</div>`;
+}
+
 export function renderLobbyInitiativeCardHtml(campId = getActiveLiveCampaignId()){
   const cid = String(campId || 'default').trim() || 'default';
   const isGm = canManageCampaign(cid);
@@ -723,6 +934,7 @@ export function renderLobbyInitiativeCardHtml(campId = getActiveLiveCampaignId()
   const campObj = getCampaigns().find(c => c.id === cid);
   const campName = campObj?.name || 'Kampagne';
   const sorted = getSortedInitiativeEntries(st, isGm);
+  const isPopoutActive = Boolean(INI.open && INI.floating);
   return `<section class="subcard p-2.5 sm:p-3 border-2 ${st.active ? 'border-amber-400/65 bg-amber-500/5' : 'bdr-line'} space-y-2.5 min-w-0">
     <div class="flex flex-wrap items-center justify-between gap-2 min-w-0">
       <div class="flex flex-wrap items-center gap-1.5 min-w-0">
@@ -733,7 +945,8 @@ export function renderLobbyInitiativeCardHtml(campId = getActiveLiveCampaignId()
           : `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-black/25 t-mut border bdr-line">Inaktiv (SL)</span>`}
       </div>
       <div class="flex items-center gap-1.5 shrink-0">
-        <button type="button" data-action="toggle-ini" class="btn py-1 px-2.5 text-xs font-extrabold ${INI.open ? 'btn-pri' : 'bdr-acc bg-acc-soft text-acc'}">🪟 Fenster</button>
+        <button type="button" data-action="ini-popout" data-tip="Initiative als schwebendes Pop-Out-Overlay lösen (bleibt ohne Abdunklung über Lobby &amp; Charakterbogen sichtbar)" class="hidden md:inline-flex btn py-1 px-2.5 text-xs font-extrabold ${isPopoutActive ? 'btn-pri ring-1 ring-amber-400' : 'border-amber-400/55 bg-amber-500/15 text-amber-200'}">📌 Pop-Out</button>
+        <button type="button" data-action="toggle-ini" class="btn py-1 px-2.5 text-xs font-extrabold ${INI.open && !INI.floating ? 'btn-pri' : 'bdr-acc bg-acc-soft text-acc'}">🪟 Fenster</button>
       </div>
     </div>
     ${st.active || isGm ? renderInitiativeBodyHtml(cid, { inWindow: false }) : ''}
@@ -747,25 +960,42 @@ export function renderInitiativeWindow(){
   applyWinFrame('ini', mount, bd, WIN_DEFAULTS.ini.dockClass);
   if(!INI.open){ mount.innerHTML = ''; return; }
   const cid = getActiveInitiativeCampaignId();
+  const isGm = canManageCampaign(cid);
   const st = getCampaignInitiative(cid);
   const campObj = getCampaigns().find(c => c.id === cid);
   const campName = campObj?.name || 'Kampagne';
   const mobFlow = isMobileLayout();
-  mount.innerHTML = `<div class="card p-3 sm:p-4 flex flex-col gap-3 min-w-0 max-w-full ${mobFlow ? 'min-h-full' : 'h-full'} border-2 ${st.active ? 'border-amber-400/70' : 'bdr-acc'} shadow-2xl relative">
-    <div data-win-drag="ini" class="shrink-0 flex items-center justify-between gap-2 border-b bdr-line pb-2 ${INI.floating ? 'cursor-move select-none' : ''}">
-      <div class="flex items-center gap-1.5 min-w-0">
-        <h3 class="text-sm sm:text-base font-black text-amber-300 truncate">⚡ Initiative</h3>
-        <span class="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-acc-soft text-acc border bdr-acc truncate max-w-[140px]">${esc(campName)}</span>
-        ${st.active ? `<span class="px-1.5 py-0.5 rounded-full text-[10px] font-black bg-emerald-500/20 text-emerald-300 border border-emerald-400/50 shrink-0">R${st.round}</span>` : ''}
+  const isOverlay = Boolean(INI.floating && !mobFlow);
+  const isCompact = Boolean(isOverlay && INI.compact);
+  const isCollapsed = Boolean(isOverlay && INI.collapsed);
+  const sorted = getSortedInitiativeEntries(st, isGm);
+  const activeEntry = sorted.find(e => e.id === st.activeEntryId) || null;
+  const padCls = isCollapsed ? 'px-2.5 py-2' : (isCompact ? 'p-2.5 gap-2' : (mobFlow ? 'p-0' : 'p-3 sm:p-4 gap-3'));
+  const bodyHtml = isCollapsed
+    ? ''
+    : (isCompact ? renderInitiativeCompactOverlayHtml(cid) : renderInitiativeBodyHtml(cid, { inWindow: true }));
+
+  mount.innerHTML = `<div class="card ${padCls} flex flex-col min-w-0 max-w-full ${mobFlow ? 'rounded-none border-0 flex-1 h-full overflow-hidden' : (isCollapsed ? '' : 'h-full overflow-hidden')} ${mobFlow ? '' : `border-2 ${st.active ? 'border-amber-400/75' : 'bdr-acc'}`} shadow-2xl relative ${isOverlay ? 'ini-overlay-card' : ''}">
+    <div data-win-drag="ini" class="shrink-0 flex items-center justify-between gap-1.5 ${mobFlow ? 'px-3 py-2.5 border-b bdr-line' : (isCollapsed ? '' : 'border-b bdr-line pb-2')} ${INI.floating ? 'cursor-move select-none' : ''}"${mobFlow ? ' style="background:var(--surf2)"' : ''}>
+      <div class="flex items-center gap-1.5 min-w-0 flex-1">
+        <h3 class="${isCompact || isCollapsed ? 'text-xs sm:text-sm' : 'text-sm sm:text-base'} font-black text-amber-300 truncate">⚡${isCompact || isCollapsed ? '' : ' Initiative'}</h3>
+        ${st.active ? `<span class="px-1.5 py-0.5 rounded-full text-[10px] font-black bg-emerald-500/20 text-emerald-300 border border-emerald-400/50 shrink-0 tabular">R${st.round}</span>` : ''}
+        ${isCollapsed && activeEntry
+          ? `<span class="text-xs font-extrabold truncate text-amber-200">▶ ${esc(activeEntry.name)}</span>`
+          : `<span class="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-acc-soft text-acc border bdr-acc truncate max-w-[130px]">${esc(campName)}</span>`}
       </div>
       <div class="flex items-center gap-1 shrink-0">
+        ${isCollapsed && isGm && sorted.length ? `<button type="button" data-action="ini-step" data-camp="${esc(cid)}" data-delta="1" data-tip="Nächster Zug" class="btn btn-pri h-7 px-2 text-[11px] font-black">▶</button>` : ''}
+        ${!mobFlow && !INI.floating ? `<button type="button" data-action="ini-popout" data-tip="Als schwebendes Overlay (Pop-Out ohne dunklen Hintergrund) lösen" class="hidden md:inline-flex btn py-1 px-2 text-xs border-amber-400/55 bg-amber-500/15 text-amber-200 font-extrabold">📌 Pop-Out</button>` : ''}
+        ${isOverlay ? `<button type="button" data-action="ini-toggle-compact" data-tip="${INI.compact ? 'Zur ausführlichen Overlay-Ansicht wechseln' : 'Kompaktes HUD-Overlay aktivieren (ideal neben dem Charakterbogen)'}" class="hidden md:inline-flex btn py-1 px-2 text-xs font-extrabold ${INI.compact ? 'btn-pri' : ''}">${INI.compact ? '⊞ Voll' : '⊟ Kompakt'}</button>` : ''}
+        ${isOverlay ? `<button type="button" data-action="ini-toggle-collapsed" data-tip="${INI.collapsed ? 'Overlay aufklappen' : 'Auf schmale Runden-Leiste einklappen'}" aria-label="${INI.collapsed ? 'Aufklappen' : 'Einklappen'}" class="hidden md:inline-flex btn w-7 h-7 p-0 text-xs font-black">${INI.collapsed ? '▾' : '▴'}</button>` : ''}
         ${xl && !UI.inLobby && !INI.floating ? `<button type="button" data-action="toggle-ini-dock" data-tip="An rechte Seite andocken" class="btn py-1 px-2 text-xs ${INI.docked ? 'btn-pri' : ''}">${INI.docked ? '📌' : '📍'}</button>` : ''}
-        ${renderWinCtrlBtns('ini')}
-        <button type="button" data-action="close-ini" aria-label="Initiative schließen" class="btn w-8 h-8 sm:w-7 sm:h-7 p-0 text-xs font-black">✕</button>
+        ${!isOverlay ? renderWinCtrlBtns('ini') : `<button type="button" data-action="win-reset" data-win="ini" data-tip="Overlay-Position &amp; Größe zurücksetzen" class="hidden md:inline-flex btn py-1 px-1.5 text-xs">↺</button>`}
+        <button type="button" data-action="close-ini" aria-label="Initiative schließen" class="btn ${mobFlow ? 'w-9 h-9 text-sm btn-err' : 'w-8 h-8 sm:w-7 sm:h-7 text-xs'} p-0 font-black">✕</button>
       </div>
     </div>
-    ${renderInitiativeBodyHtml(cid, { inWindow: true })}
-    ${!mobFlow ? renderWinResizeHandles('ini') : ''}
+    ${mobFlow ? `<div data-scroll-key="iniMobileBody" class="flex-1 min-h-0 overflow-y-auto overscroll-contain p-3 flex flex-col gap-3 safe-pb">${bodyHtml}</div>` : bodyHtml}
+    ${!mobFlow && !isCollapsed ? renderWinResizeHandles('ini') : ''}
   </div>`;
   if(snap) restoreScrollState(mount, snap, { preserveWindow: false });
 }
@@ -778,6 +1008,7 @@ export function updateInitiativeUI(){
     lobEl.innerHTML = renderLobbyInitiativeCardHtml(campId);
     if(snap) restoreScrollState(lobEl, snap, { preserveWindow: false });
   }
+  if(UI.inLobby) hooks.refreshGmEnemiesGridDOM?.();
   if(INI.open) renderInitiativeWindow();
   hooks.renderHeader?.();
 }

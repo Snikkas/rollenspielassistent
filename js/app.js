@@ -26,7 +26,10 @@ import {
   initCombatFromRoll, resetCombatState, rollCombatHitZone, rollCombatSubHitZone, publishCombatDamageToFeed, renderCombatDamageBox, hasTagMatch, sendCombatDamageOffer, applyCombatDamageDirectly, spendCombatAmmo, handleCombatLiveEvent, acceptCombatDamageOffer, declineCombatDamageOffer
 } from './combat.js';
 import {
-  getActiveInitiativeCampaignId, toggleCampaignInitiativeActive, loadCampaignHeroesIntoInitiative, addCustomInitiativeEntry, openInitiativeAddEnemyPicker, refreshAllInitiativeEntries, stepInitiativeTurn, setInitiativeActiveEntry, resetInitiativeRound, adjustInitiativeEntryMod, resetInitiativeEntryMod, toggleInitiativeEntryHidden, removeInitiativeEntry, clearInitiativeEntries, syncOwnCharToInitiative, handleInitiativeLiveEvent, renderInitiativeWindow, updateInitiativeUI
+  ensureWeaponMagCfg, purgeDeletedAmmoFromMagazines, toggleWeaponMagazines, toggleWeaponMagAutoSync, setWeaponMagDefaultCap, setWeaponMagCount, addWeaponMagazine, deleteWeaponMagazine, selectWeaponActiveMag, reloadWeaponMagazine, fireWeaponMagazineShot, stepMagazineCount, fillMagazine, fillAllWeaponMagazines, emptyMagazine, syncWeaponAmmoExactFromMags, clearMagSlotOverrides, openMagDefaultAmmoPicker, openMagSlotAmmoPicker, syncAmmoTotalsFromMagazines
+} from './magazines.js';
+import {
+  getActiveInitiativeCampaignId, toggleCampaignInitiativeActive, loadCampaignHeroesIntoInitiative, addCharacterOrEnemyToInitiative, addAllCampaignEnemiesToInitiative, openInitiativePopout, addCustomInitiativeEntry, openInitiativeAddEnemyPicker, refreshAllInitiativeEntries, stepInitiativeTurn, setInitiativeActiveEntry, resetInitiativeRound, adjustInitiativeEntryMod, resetInitiativeEntryMod, toggleInitiativeEntryHidden, removeInitiativeEntry, clearInitiativeEntries, syncOwnCharToInitiative, handleInitiativeLiveEvent, renderInitiativeWindow, updateInitiativeUI
 } from './initiative.js';
 import {
   applyRtfCommand, autoSizeAllTextareas, ensureCampNotesStructure, syncPublicNotesAfterChange, renderCampNotes, getCaretRangeAtPoint, syncPwFieldCursorState, saveEffRangeIfActive, insertTokenAtCursor, placeCaretAtStart, indentRtfLi, outdentRtfLi, RTF_STATE, getOrderedCampNoteFolders
@@ -301,7 +304,7 @@ document.addEventListener('click',async e=>{
   const btn=el, act=el.dataset.action; if(act==='close-modal-bg'&&e.target!==el) return;
   if(act==='fb-set-backlog-user'){if(!CLOUD.isAdmin)return;FEEDBACK.backlogUser=btn.dataset.user||'all';renderModal();return;}
   if(act==='win-float'){ const k=btn.dataset.win, st=getWinState(k); st.floating=!st.floating; if(st.floating){st.docked=false; st.z=Math.max(CN.z||50,D.z||50,LD.z||50,INI.z||50,FBW.z||50)+1;} saveWinPref(k); renderCampNotes(); renderLiveDice(); renderInitiativeWindow(); renderFbAdminWin(); renderDice(); return; }
-  if(act==='win-reset'){ const k=btn.dataset.win, st=getWinState(k); st.w=0; st.h=0; st.x=null; st.y=null; st.floating=false; clearWinPref(k); renderCampNotes(); renderLiveDice(); renderInitiativeWindow(); renderFbAdminWin(); renderDice(); return; }
+  if(act==='win-reset'){ const k=btn.dataset.win, st=getWinState(k); st.w=0; st.h=0; st.x=null; st.y=null; st.floating=false; if(k==='ini'){st.compact=false;st.collapsed=false;} clearWinPref(k); renderCampNotes(); renderLiveDice(); renderInitiativeWindow(); renderFbAdminWin(); renderDice(); return; }
   if(act==='open-fbadmin-win'){ if(CLOUD.isAdmin){ UI.modal=null; FBW.open=true; if(!hasSavedWinPref('fbadmin')) FBW.floating=true; renderModal(); renderFbAdminWin(); fetchFeedback(false); } return; }
   if(act==='close-fbadmin'){ FBW.open=false; renderFbAdminWin(); return; }
   switch(act){
@@ -1356,8 +1359,33 @@ document.addEventListener('click',async e=>{
       if(w){w.ammoId=el.dataset.aid;invalidateModsCache();syncDiceFromSheet();renderMain();renderModal();if(D.open)renderDice();save();toast('Munition zugeordnet');}
       break;
     }
-    case 'del-ammo': {const aid=el.dataset.id; S.ammos=S.ammos.filter(a=>a.id!==aid); S.weapons.forEach(w=>{if(w.ammoId===aid)w.ammoId='';}); syncEquipmentToInventory(S); invalidateModsCache(); syncDiceFromSheet(); renderMain(); if(UI.modal==='ammoList') renderModal(); if(D.open) renderDice(); save(); break;}
+    case 'del-ammo': {const aid=el.dataset.id; S.ammos=S.ammos.filter(a=>a.id!==aid); S.weapons.forEach(w=>{if(w.ammoId===aid)w.ammoId='';}); purgeDeletedAmmoFromMagazines(aid,S); syncEquipmentToInventory(S); invalidateModsCache(); syncDiceFromSheet(); renderMain(); if(UI.modal==='ammoList') renderModal(); if(D.open) renderDice(); save(); break;}
     case 'ammo-step': {const am=S.ammos.find(a=>a.id===el.dataset.id);if(am){am.qty=Math.max(0,toInt(am.qty,0)+Number(el.dataset.delta));syncLinkedAmmoDOM(am.id);save();}break;}
+    case 'wp-mag-toggle': toggleWeaponMagazines(el.dataset.wid); break;
+    case 'wp-mag-toggle-exp': {const w=(S.weapons||[]).find(x=>x.id===el.dataset.wid);if(w){const cfg=ensureWeaponMagCfg(w);cfg.expanded=!cfg.expanded;renderMain();save(false);}break;}
+    case 'wp-mag-toggle-autosync': toggleWeaponMagAutoSync(el.dataset.wid); break;
+    case 'wp-mag-count-step': {const w=(S.weapons||[]).find(x=>x.id===el.dataset.wid);if(w){const cfg=ensureWeaponMagCfg(w);setWeaponMagCount(w.id,cfg.mags.length+toInt(el.dataset.delta,0));}break;}
+    case 'wp-mag-apply-cap-all': {const w=(S.weapons||[]).find(x=>x.id===el.dataset.wid);if(w){const cfg=ensureWeaponMagCfg(w);setWeaponMagDefaultCap(w.id,cfg.cap,{applyToAll:true});toast(`📦 Alle Magazine auf Kapazität ${cfg.cap} gesetzt.`);}break;}
+    case 'wp-mag-fill-all': fillAllWeaponMagazines(el.dataset.wid); break;
+    case 'wp-mag-sync-exact': syncWeaponAmmoExactFromMags(el.dataset.wid); break;
+    case 'wp-mag-select': selectWeaponActiveMag(el.dataset.wid,el.dataset.mid); break;
+    case 'wp-mag-shoot': fireWeaponMagazineShot(el.dataset.wid); break;
+    case 'wp-mag-reload': reloadWeaponMagazine(el.dataset.wid); break;
+    case 'wp-mag-step': stepMagazineCount(el.dataset.wid,el.dataset.mid,toInt(el.dataset.delta,0)); break;
+    case 'wp-mag-fill': fillMagazine(el.dataset.wid,el.dataset.mid); break;
+    case 'wp-mag-empty': emptyMagazine(el.dataset.wid,el.dataset.mid); break;
+    case 'wp-mag-dup': addWeaponMagazine(el.dataset.wid,{duplicateFromId:el.dataset.mid}); break;
+    case 'wp-mag-del': deleteWeaponMagazine(el.dataset.wid,el.dataset.mid); break;
+    case 'wp-mag-defammo': openMagDefaultAmmoPicker(el,el.dataset.wid,el.dataset.mid); break;
+    case 'wp-mag-toggle-slots': {const w=(S.weapons||[]).find(x=>x.id===el.dataset.wid);const m=w?.magCfg?.mags?.find(x=>x.id===el.dataset.mid);if(m){m.slotsOpen=!m.slotsOpen;renderMain();save(false);}break;}
+    case 'wp-mag-slot-pick': openMagSlotAmmoPicker(el,el.dataset.wid,el.dataset.mid,toInt(el.dataset.slot,1)); break;
+    case 'wp-mag-slot-pick-inp': {
+      const inp=$(`inpMagSlot_${el.dataset.wid}_${el.dataset.mid}`);
+      const slotNum=toInt(inp?.value,1);
+      openMagSlotAmmoPicker(el,el.dataset.wid,el.dataset.mid,slotNum);
+      break;
+    }
+    case 'wp-mag-slot-clear': clearMagSlotOverrides(el.dataset.wid,el.dataset.mid); break;
     case 'add-armor': {const na=makeArmor(); S.armors.push(na); syncEquipmentToInventory(S,{forceKeys:[`armor:${na.id}`]}); if(S.equipSecMeta?.armors)S.equipSecMeta.armors.collapsed=false; renderMain(); save(); break;}
     case 'del-armor': S.armors=S.armors.filter(a=>a.id!==el.dataset.id); if(UI.arZoneDrafts) delete UI.arZoneDrafts[el.dataset.id]; syncEquipmentToInventory(S); invalidateModsCache(); syncDiceFromSheet(); renderMain(); if(D.open) renderDice(); save(); break;
     case 'toggle-wp-eq': {
@@ -1567,12 +1595,28 @@ document.addEventListener('click',async e=>{
     case 'close-livedice': LD.open=false; renderHeader(); renderDice(); renderLiveDice(); break;
     case 'dock-livedice':
     case 'toggle-dock-livedice': LD.docked=!LD.docked; if(LD.docked&&LD.floating){LD.floating=false;saveWinPref('livedice');} renderDice(); renderLiveDice(); break;
-    case 'toggle-ini': INI.open=!INI.open; if(INI.open) syncCloudRegistry(false); renderHeader(); renderInitiativeWindow(); break;
+    case 'toggle-ini': INI.open=!INI.open; if(INI.open){INI.collapsed=false;syncCloudRegistry(false);} renderHeader(); renderInitiativeWindow(); break;
     case 'close-ini': INI.open=false; renderHeader(); renderInitiativeWindow(); break;
+    case 'ini-popout': {
+      const fromWin=Boolean(el.closest&&el.closest('#iniMount'));
+      if(!fromWin&&INI.open&&INI.floating){
+        INI.open=false;
+        renderHeader(); renderInitiativeWindow();
+        if(UI.inLobby) updateInitiativeUI();
+      }else{
+        openInitiativePopout();
+      }
+      break;
+    }
+    case 'ini-toggle-compact': INI.compact=!INI.compact; INI.collapsed=false; if(INI.compact){INI.w=0;INI.h=0;} saveWinPref('ini'); renderInitiativeWindow(); break;
+    case 'ini-toggle-collapsed': INI.collapsed=!INI.collapsed; renderInitiativeWindow(); break;
     case 'dock-ini':
     case 'toggle-ini-dock': INI.docked=!INI.docked; if(INI.docked&&INI.floating){INI.floating=false;saveWinPref('ini');} renderInitiativeWindow(); break;
     case 'ini-toggle-active': await toggleCampaignInitiativeActive(el.dataset.camp||getActiveInitiativeCampaignId()); break;
     case 'ini-load-heroes': await loadCampaignHeroesIntoInitiative(el.dataset.camp||getActiveInitiativeCampaignId()); break;
+    case 'ini-add-enemy': await addCharacterOrEnemyToInitiative(el.dataset.camp||getActiveInitiativeCampaignId(),el.dataset.id||'',{isEnemy:true,allowDuplicate:true,hidden:false}); break;
+    case 'ini-add-enemy-hidden': await addCharacterOrEnemyToInitiative(el.dataset.camp||getActiveInitiativeCampaignId(),el.dataset.id||'',{isEnemy:true,allowDuplicate:true,hidden:true}); break;
+    case 'ini-add-visible-enemies': await addAllCampaignEnemiesToInitiative(el.dataset.camp||getActiveInitiativeCampaignId(),{onlyDiceVisible:true,hidden:false}); break;
     case 'ini-open-add-picker': openInitiativeAddEnemyPicker(el,el.dataset.camp||getActiveInitiativeCampaignId()); break;
     case 'ini-toggle-custom': INI.addCustomOpen=!INI.addCustomOpen; updateInitiativeUI(); break;
     case 'ini-add-custom': addCustomInitiativeEntry(el.dataset.camp||getActiveInitiativeCampaignId()); break;
@@ -3952,6 +3996,12 @@ document.addEventListener('input',e=>{
     return;
   }
   if(el.dataset.wpf){const [id,f]=el.dataset.wpf.split(':'),w=S.weapons.find(x=>x.id===id);if(w){w[f]=el.value;syncLinkedInvDOM('weapon',id,el);if(f==='name'&&D.weaponId===id){syncDiceFromSheet();if(D.open)renderDice();}saveSoon();}return;}
+  if(el.dataset.wpmagF){
+    const [wid,mid,f]=el.dataset.wpmagF.split(':');
+    const w=(S.weapons||[]).find(x=>x.id===wid), m=w?.magCfg?.mags?.find(x=>x.id===mid);
+    if(m&&f==='name'){m.name=el.value;saveSoon();}
+    return;
+  }
   if(el.dataset.amf){
     const [id,f]=el.dataset.amf.split(':'),am=S.ammos.find(x=>x.id===id);
     if(am){
@@ -4402,6 +4452,35 @@ document.addEventListener('change',e=>{
     const f=el.dataset.duelSel;
     if(f==='weaponId'){DUEL.reply.weaponId=el.value;DUEL.reply.sitActive={};renderDuelReplyModal();return;}
     if(f==='skillId'){DUEL.reply.skillId=el.value;DUEL.reply.sitActive={};renderDuelReplyModal();return;}
+  }
+  if(el.dataset.wpmagCfg){
+    const [wid,f]=el.dataset.wpmagCfg.split(':');
+    if(f==='count') setWeaponMagCount(wid,el.value);
+    else if(f==='cap') setWeaponMagDefaultCap(wid,el.value);
+    return;
+  }
+  if(el.dataset.wpmagF){
+    const [wid,mid,f]=el.dataset.wpmagF.split(':');
+    const w=(S.weapons||[]).find(x=>x.id===wid), m=w?.magCfg?.mags?.find(x=>x.id===mid);
+    if(w&&m){
+      if(f==='cap'){
+        const newCap=Math.max(1,Math.min(999,toInt(el.value,m.cap||6)));
+        const wasFull=m.count>=m.cap;
+        m.cap=newCap;
+        if(wasFull&&w.magCfg.autoSyncAmmo) m.count=newCap;
+        else m.count=Math.min(m.count,newCap);
+        if(m.slotOverrides){
+          Object.keys(m.slotOverrides).forEach(sk=>{if(toInt(sk,0)>newCap) delete m.slotOverrides[sk];});
+        }
+        if(w.magCfg.autoSyncAmmo) syncAmmoTotalsFromMagazines(S,{mode:'ensureMin'});
+        invalidateModsCache(); syncDiceFromSheet();
+        renderMain(); if(D.open) renderDice(); save();
+      }else if(f==='name'){
+        m.name=String(el.value||'').trim()||`Magazin #${w.magCfg.mags.indexOf(m)+1}`;
+        renderMain(); if(D.open) renderDice(); save();
+      }
+    }
+    return;
   }
   if(el.dataset.amf){
     const [id,f]=el.dataset.amf.split(':'),am=S.ammos.find(x=>x.id===id);
@@ -5768,7 +5847,7 @@ document.addEventListener('keydown',e=>{
     updateCalcDOM();
     return;
   }
-  if(e.key==='Escape'){if(CTX_MENU.open){closeCtxMenu();}else if(DUEL.reply){closeDuelReplyModal();}else if(UI.openPwMenu){closePwDropdown();}else if(UI.modal){closeActiveModal();}else if(D.open&&!D.docked){D.open=false;renderHeader();renderDice();}else if(INI.open&&!INI.docked){INI.open=false;renderHeader();renderInitiativeWindow();}else if(CN.open&&!CN.docked){CN.open=false;renderHeader();renderCampNotes();}}
+  if(e.key==='Escape'){if(CTX_MENU.open){closeCtxMenu();}else if(DUEL.reply){closeDuelReplyModal();}else if(UI.openPwMenu){closePwDropdown();}else if(UI.modal){closeActiveModal();}else if(D.open&&!D.docked){D.open=false;renderHeader();renderDice();}else if(INI.open&&!INI.docked&&!INI.floating){INI.open=false;renderHeader();renderInitiativeWindow();}else if(CN.open&&!CN.docked){CN.open=false;renderHeader();renderCampNotes();}}
 });
 document.addEventListener('focusout',e=>{
   const inp=e.target;
@@ -5984,7 +6063,9 @@ registerHooks({
   resetCombatState,
   renderCombatDamageBox,
   handleCombatLiveEvent,
-  syncLinkedAmmoDOM
+  syncLinkedAmmoDOM,
+  refreshGmEnemiesGridDOM,
+  invalidateModsCache
 });
 hydrateWinPrefs();
 load();
@@ -6094,9 +6175,10 @@ document.addEventListener('pointermove',e=>{
   }else if(mode==='rw'){
     const dx=e.clientX-winAct.startClientX;
     if(Math.abs(dx)<1&&!winAct.dirty) return;
+    const minW=(k==='ini'&&st.compact)?260:320;
     if(st.floating){
       const rightEdge=winAct.startX+winAct.startW;
-      const newW=Math.max(320,Math.min(rightEdge-12,winAct.startW-dx));
+      const newW=Math.max(minW,Math.min(rightEdge-12,winAct.startW-dx));
       const newX=rightEdge-newW;
       st.w=Math.round(newW);
       st.x=Math.round(newX);
@@ -6118,11 +6200,13 @@ document.addEventListener('pointermove',e=>{
   }else{
     const dx=e.clientX-winAct.startClientX, dy=e.clientY-winAct.startClientY;
     if(Math.abs(dx)<1&&Math.abs(dy)<1&&!winAct.dirty) return;
+    const minW=(k==='ini'&&st.compact)?260:320;
+    const minH=(k==='ini'&&st.compact)?200:280;
     if(st.floating){
-      const maxW=Math.max(320,vw-winAct.startX-12);
-      const maxH=Math.max(280,vh-winAct.startY-12);
-      st.w=Math.max(320,Math.min(maxW,Math.round(winAct.startW+dx)));
-      st.h=Math.max(280,Math.min(maxH,Math.round(winAct.startH+dy)));
+      const maxW=Math.max(minW,vw-winAct.startX-12);
+      const maxH=Math.max(minH,vh-winAct.startY-12);
+      st.w=Math.max(minW,Math.min(maxW,Math.round(winAct.startW+dx)));
+      st.h=Math.max(minH,Math.min(maxH,Math.round(winAct.startH+dy)));
       if(st.x===null) st.x=Math.round(winAct.startX);
       if(st.y===null) st.y=Math.round(winAct.startY);
       mount.style.width=st.w+'px';
