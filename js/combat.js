@@ -8,16 +8,16 @@ import {
   hooks
 } from './ui-hooks.js';
 import {
-  S, D, UI, CLOUD, DUEL, COMBAT, LIVE_TAB_ID, diceLogs, getWeaponSubtype, getCharCampaignId, getCharOwner, getActiveLiveCampaignId, canManageCampaign, isGlobalGM, isEnemySheet, getEnemyMeta, shouldHideOpponentDetails, toast, triggerNiceEasterEgg, logChron, save
+  S, D, UI, CLOUD, DUEL, COMBAT, LIVE_TAB_ID, diceLogs, getWeaponSubtype, isArmorShield, isWeaponBlockable, getCharCampaignId, getCharOwner, getActiveLiveCampaignId, canManageCampaign, isGlobalGM, isEnemySheet, getEnemyMeta, shouldHideOpponentDetails, toast, triggerNiceEasterEgg, logChron, save
 } from './state.js';
 import {
-  calcActiveMods
+  calcActiveMods, getSheetShields
 } from './calc.js';
 import {
   getCachedForeignSheet, publishLiveRoll, sendLiveBroadcast, applyCloudResourceDelta, isSecretRollActive
 } from './cloud.js';
 import {
-  getActiveDiceCampaignId, isLobbyNeutralDice, rollW100, renderDice, getEffectiveDiceWeaponId, doesWeaponApplyToPool
+  getActiveDiceCampaignId, isLobbyNeutralDice, rollW100, renderDice, getEffectiveDiceWeaponId, getEffectiveDiceShieldId, doesWeaponApplyToPool
 } from './dice.js';
 import {
   hasActiveMagazines, getEffectiveWeaponAmmo, getWeaponNextShotInfo, fireWeaponMagazineShot
@@ -165,7 +165,7 @@ export function getPartialArmorsForMainZone(targetSheet, mainZoneName, subZones 
   const subNamesLow = new Set((subZones || []).map(sz => String(sz?.zone || '').trim().toLowerCase()).filter(Boolean));
   const out = [];
   (targetSheet.armors || []).forEach(ar => {
-    if(!ar || ar.equipped === false) return;
+    if(!ar || ar.equipped === false || isArmorShield(ar)) return;
     const zList = (Array.isArray(ar.zones) ? ar.zones : []).map(z => String(z || '').trim().toLowerCase()).filter(Boolean);
     if(zList.includes(znLow)) return;
     const matchedSubs = [];
@@ -184,40 +184,79 @@ export function getPartialArmorsForMainZone(targetSheet, mainZoneName, subZones 
   return out;
 }
 
-export function getTargetZoneArmor(targetSheet, targetM, zoneName, dmgOpt, pool = 'lp', subZoneName = '', subZones = []){
+export function calcArmorPieceProtection(ar, dmgOpt, pool = 'lp'){
+  if(!ar) return { grp: 0, spec: 0, specDesc: '', total: 0 };
+  if(pool === 'mlp'){
+    const mProt = toInt(ar.mentalProt, 0);
+    let customSpec = 0;
+    if(dmgOpt?.isCustom){
+      const cLow = String(dmgOpt.customLabel || '').trim().toLowerCase();
+      customSpec = (Array.isArray(ar.customProt) ? ar.customProt : [])
+        .filter(cp => String(cp?.label || '').trim().toLowerCase() === cLow)
+        .reduce((acc, cp) => acc + toInt(cp?.val, 0), 0);
+    }
+    const total = mProt + customSpec;
+    const specDesc = customSpec
+      ? `Ment. RS ${mProt} + ${dmgOpt.customLabel} ${customSpec}`
+      : `Ment. RS ${mProt}`;
+    return { grp: 0, spec: total, specDesc, total };
+  }
+  const grp = toInt(ar.grp, 0);
+  let spec = 0;
+  let specDesc = '';
+  if(dmgOpt?.key === 'cut'){
+    spec = toInt(ar.protCut, 0);
+    specDesc = `Schnitt ${spec}`;
+  }else if(dmgOpt?.key === 'pierce'){
+    spec = toInt(ar.protPierce, 0);
+    specDesc = `Durchstoß ${spec}`;
+  }else if(dmgOpt?.key === 'impact'){
+    spec = toInt(ar.protImpact, 0);
+    specDesc = `Einschlag ${spec}`;
+  }else if(dmgOpt?.key === 'impact_cut'){
+    const pC = toInt(ar.protCut, 0), pI = toInt(ar.protImpact, 0);
+    spec = Math.min(pC, pI);
+    specDesc = `min(Einschlag ${pI}, Schnitt ${pC})`;
+  }else if(dmgOpt?.key === 'impact_pierce'){
+    const pP = toInt(ar.protPierce, 0), pI = toInt(ar.protImpact, 0);
+    spec = Math.min(pP, pI);
+    specDesc = `min(Einschlag ${pI}, Durchstoß ${pP})`;
+  }else if(dmgOpt?.isCustom){
+    const cLow = String(dmgOpt.customLabel || '').trim().toLowerCase();
+    spec = (Array.isArray(ar.customProt) ? ar.customProt : [])
+      .filter(cp => String(cp?.label || '').trim().toLowerCase() === cLow)
+      .reduce((acc, cp) => acc + toInt(cp?.val, 0), 0);
+    specDesc = `${dmgOpt.customLabel} ${spec}`;
+  }
+  const total = grp + spec;
+  return { grp, spec, specDesc, total };
+}
+
+export function getTargetZoneArmor(targetSheet, targetM, zoneName, dmgOpt, pool = 'lp', subZoneName = '', subZones = [], blockShield = null){
   const isMlp = pool === 'mlp';
   const znLow = String(zoneName || '').trim().toLowerCase();
   const subClean = String(subZoneName || '').trim();
   const subLow = subClean.toLowerCase();
   const pieces = [];
   let pieceSum = 0;
+  let shieldBlockTotal = 0;
+  let shieldBlockName = '';
   if(targetSheet){
-    const equipped = (targetSheet.armors || []).filter(ar => ar && ar.equipped !== false);
+    const equipped = (targetSheet.armors || []).filter(ar => ar && ar.equipped !== false && !isArmorShield(ar));
     if(isMlp){
       equipped.forEach(ar => {
         const arName = String(ar.name || '').trim() || 'Rüstung';
-        const mProt = toInt(ar.mentalProt, 0);
-        let customSpec = 0;
-        if(dmgOpt?.isCustom){
-          const cLow = String(dmgOpt.customLabel || '').trim().toLowerCase();
-          customSpec = (Array.isArray(ar.customProt) ? ar.customProt : [])
-            .filter(cp => String(cp?.label || '').trim().toLowerCase() === cLow)
-            .reduce((acc, cp) => acc + toInt(cp?.val, 0), 0);
-        }
-        const tot = mProt + customSpec;
-        if(!tot) return;
-        pieceSum += tot;
-        const specDesc = customSpec
-          ? `Ment. RS ${mProt} + ${dmgOpt.customLabel} ${customSpec}`
-          : `Ment. RS ${mProt}`;
+        const p = calcArmorPieceProtection(ar, dmgOpt, 'mlp');
+        if(!p.total) return;
+        pieceSum += p.total;
         pieces.push({
           id: ar.id,
           name: arName,
           grp: 0,
-          spec: tot,
-          specDesc,
-          total: tot,
-          detail: `${arName} (${specDesc} = ${tot})`
+          spec: p.total,
+          specDesc: p.specDesc,
+          total: p.total,
+          detail: `${arName} (${p.specDesc} = ${p.total})`
         });
       });
     }else if(znLow){
@@ -230,47 +269,38 @@ export function getTargetZoneArmor(targetSheet, targetM, zoneName, dmgOpt, pool 
         if(!coversFull && !coversSub) return;
         const arName = String(ar.name || '').trim() || 'Rüstung';
         const matchTag = (!coversFull && coversSub && subClean) ? ` [${subClean}]` : '';
-        const grp = toInt(ar.grp, 0);
-        let spec = 0;
-        let specDesc = '';
-        if(dmgOpt?.key === 'cut'){
-          spec = toInt(ar.protCut, 0);
-          specDesc = `Schnitt ${spec}`;
-        }else if(dmgOpt?.key === 'pierce'){
-          spec = toInt(ar.protPierce, 0);
-          specDesc = `Durchstoß ${spec}`;
-        }else if(dmgOpt?.key === 'impact'){
-          spec = toInt(ar.protImpact, 0);
-          specDesc = `Einschlag ${spec}`;
-        }else if(dmgOpt?.key === 'impact_cut'){
-          const pC = toInt(ar.protCut, 0), pI = toInt(ar.protImpact, 0);
-          spec = Math.min(pC, pI);
-          specDesc = `min(Einschlag ${pI}, Schnitt ${pC})`;
-        }else if(dmgOpt?.key === 'impact_pierce'){
-          const pP = toInt(ar.protPierce, 0), pI = toInt(ar.protImpact, 0);
-          spec = Math.min(pP, pI);
-          specDesc = `min(Einschlag ${pI}, Durchstoß ${pP})`;
-        }else if(dmgOpt?.isCustom){
-          const cLow = String(dmgOpt.customLabel || '').trim().toLowerCase();
-          spec = (Array.isArray(ar.customProt) ? ar.customProt : [])
-            .filter(cp => String(cp?.label || '').trim().toLowerCase() === cLow)
-            .reduce((acc, cp) => acc + toInt(cp?.val, 0), 0);
-          specDesc = `${dmgOpt.customLabel} ${spec}`;
-        }
-        const tot = grp + spec;
-        pieceSum += tot;
+        const p = calcArmorPieceProtection(ar, dmgOpt, 'lp');
+        pieceSum += p.total;
         pieces.push({
           id: ar.id,
           name: `${arName}${matchTag}`,
-          grp,
-          spec,
-          specDesc,
-          total: tot,
+          grp: p.grp,
+          spec: p.spec,
+          specDesc: p.specDesc,
+          total: p.total,
           matchType: coversFull ? 'full' : 'sub',
-          detail: grp > 0 ? `${arName}${matchTag} (gRP ${grp} + ${specDesc} = ${tot})` : `${arName}${matchTag} (${specDesc} = ${tot})`
+          detail: p.grp > 0 ? `${arName}${matchTag} (gRP ${p.grp} + ${p.specDesc} = ${p.total})` : `${arName}${matchTag} (${p.specDesc} = ${p.total})`
         });
       });
     }
+  }
+  if(blockShield && isArmorShield(blockShield)){
+    const sp = calcArmorPieceProtection(blockShield, dmgOpt, pool);
+    shieldBlockName = String(blockShield.name || '').trim() || 'Schild';
+    shieldBlockTotal = sp.total;
+    pieceSum += sp.total;
+    pieces.push({
+      id: blockShield.id,
+      name: `🛡️ Schild (Block): ${shieldBlockName}`,
+      grp: sp.grp,
+      spec: sp.spec,
+      specDesc: sp.specDesc,
+      total: sp.total,
+      isShieldBlock: true,
+      detail: sp.grp > 0
+        ? `Schild ${shieldBlockName} (gRP ${sp.grp} + ${sp.specDesc} = ${sp.total})`
+        : `Schild ${shieldBlockName} (${sp.specDesc} = ${sp.total})`
+    });
   }
   const globalMod = isMlp ? toInt(targetM?.mentalArmor, 0) : toInt(targetM?.armor, 0);
   const manualMod = toInt(COMBAT.armorMod, 0);
@@ -283,6 +313,8 @@ export function getTargetZoneArmor(targetSheet, targetM, zoneName, dmgOpt, pool 
     isMental: isMlp,
     pieces,
     pieceSum,
+    shieldBlockTotal,
+    shieldBlockName,
     globalMod,
     manualMod,
     total,
@@ -318,13 +350,17 @@ export function calculateCombatDamage(){
   const isLob = isLobbyNeutralDice();
   const pool = COMBAT.pool === 'mlp' ? 'mlp' : 'lp';
   const rawWeapon = (!isLob && COMBAT.weaponId) ? (S.weapons || []).find(w => w.id === COMBAT.weaponId) : null;
-  const weaponApplies = rawWeapon ? doesWeaponApplyToPool(rawWeapon, pool, 'Trefferwurf') : false;
-  const weapon = weaponApplies ? rawWeapon : null;
+  const rawShield = (!isLob && !rawWeapon && COMBAT.shieldId) ? (S.armors || []).find(a => a.id === COMBAT.shieldId && isArmorShield(a)) : null;
+  const rawAtkItem = rawWeapon || rawShield;
+  const weaponApplies = rawAtkItem ? doesWeaponApplyToPool(rawAtkItem, pool, 'Trefferwurf') : false;
+  const weapon = (rawWeapon && weaponApplies) ? rawWeapon : null;
+  const atkShield = (rawShield && weaponApplies) ? rawShield : null;
+  const atkItem = weapon || atkShield;
   const ammo = (!isLob && weapon && weapon.wType === 'ranged')
     ? (COMBAT.ammoId ? (S.ammos || []).find(a => a.id === COMBAT.ammoId) : getEffectiveWeaponAmmo(weapon, S))
     : null;
-  const tags = getWeaponAllTags(weapon, ammo);
-  const opts = getWeaponDamageOptions(weapon, ammo);
+  const tags = getWeaponAllTags(atkItem, ammo);
+  const opts = getWeaponDamageOptions(atkItem, ammo);
   const selOpt = opts.find(o => o.key === COMBAT.dmgType) || opts[0] || { key: 'cut', label: 'Schnitt', val: 0 };
 
   const targetSheet = resolveCombatTargetSheet(COMBAT.targetCharId);
@@ -338,6 +374,10 @@ export function calculateCombatDamage(){
   const subZoneName = subZoneMatch ? String(subZoneMatch.zone || '').trim() : '';
   const fullZoneName = subZoneName ? `${zoneName} → ${subZoneName}` : zoneName;
   const partialArmors = (pool !== 'mlp' && targetSheet) ? getPartialArmorsForMainZone(targetSheet, zoneName, subZones) : [];
+  const targetShields = targetSheet ? getSheetShields(targetSheet) : [];
+  const blockShield = (COMBAT.isBlocked && COMBAT.blockShieldId && targetSheet)
+    ? (targetSheet.armors || []).find(a => a && a.id === COMBAT.blockShieldId && isArmorShield(a)) || null
+    : null;
 
   const eg = Math.max(0, toInt(COMBAT.eg, 0));
   const weaponDmg = toInt(selOpt.val, 0);
@@ -350,10 +390,10 @@ export function calculateCombatDamage(){
   const dmgMod = toInt(COMBAT.dmgMod, 0);
   const rawDmg = Math.max(0, eg + weaponDmg + verheerendBonus + mehrfachschussBonus + dmgMod);
 
-  const blockRed = (COMBAT.isBlocked && COMBAT.blockItemRed) ? 2 : 0;
+  const blockRed = (COMBAT.isBlocked && !blockShield && COMBAT.blockItemRed) ? 2 : 0;
   const afterBlock = Math.max(0, rawDmg - blockRed);
 
-  const armor = getTargetZoneArmor(targetSheet, targetM, zoneName, selOpt, pool, subZoneName, subZones);
+  const armor = getTargetZoneArmor(targetSheet, targetM, zoneName, selOpt, pool, subZoneName, subZones, blockShield);
   const afterArmor = Math.max(0, afterBlock - armor.total);
 
   const durchschlagApplied = Boolean(COMBAT.isBlocked && durchschlagX > 0 && afterArmor === 0);
@@ -361,28 +401,42 @@ export function calculateCombatDamage(){
   const threshold = evaluateThresholds(targetSheet, targetM, finalDmg, pool);
 
   const parts = [`${eg} EG`];
-  if(weaponDmg) parts.push(`+ ${weaponDmg} Waffe${ammo ? '/Mun.' : ''}`);
+  if(weaponDmg) parts.push(`+ ${weaponDmg} ${atkShield ? 'Schild' : `Waffe${ammo ? '/Mun.' : ''}`}`);
   if(verheerendBonus) parts.push(`+ ${verheerendBonus} Verheerend`);
   if(mehrfachschussBonus) parts.push(`+ ${mehrfachschussBonus} Mehrfachschuss (${mehrfachschussX})`);
   if(dmgMod) parts.push(`${dmgMod > 0 ? '+' : '−'} ${Math.abs(dmgMod)} Mod`);
   if(blockRed) parts.push(`− ${blockRed} Block`);
-  if(armor.total) parts.push(`− ${armor.total} ${pool === 'mlp' ? 'Ment. Rüstung' : 'Rüstung'}`);
+  if(armor.total){
+    const armorBaseLbl = pool === 'mlp' ? 'Ment. Rüstung' : 'Rüstung';
+    if(armor.shieldBlockTotal > 0){
+      const baseArmor = Math.max(0, armor.total - armor.shieldBlockTotal);
+      parts.push(baseArmor > 0
+        ? `− ${armor.total} ${armorBaseLbl} (${baseArmor} + ${armor.shieldBlockTotal} Schild)`
+        : `− ${armor.total} Schild-Rüstung`);
+    }else{
+      parts.push(`− ${armor.total} ${armorBaseLbl}`);
+    }
+  }
   const poolLbl = pool === 'mlp' ? 'mLP' : 'LP';
   let formula = `${parts.join(' ')} = ${afterArmor} ${poolLbl}`;
   if(durchschlagApplied){
     formula += ` → Durchschlag (${durchschlagX}) = ${finalDmg} ${poolLbl}`;
   }
 
-  const weaponName = weapon
-    ? (String(weapon.name || '').trim() || getWeaponSubtype(weapon.wType).label)
-    : (pool === 'mlp' ? 'Mentaler Angriff / ohne Waffe' : 'Waffenlos / Angriff');
+  const weaponName = atkShield
+    ? `🛡️ ${String(atkShield.name || '').trim() || 'Schild'}`
+    : (weapon
+      ? (String(weapon.name || '').trim() || getWeaponSubtype(weapon.wType).label)
+      : (pool === 'mlp' ? 'Mentaler Angriff / ohne Waffe' : 'Waffenlos / Angriff'));
   const ammoName = ammo ? (String(ammo.name || '').trim() || 'Munition') : '';
   const targetName = targetSheet ? (String(targetSheet.profile?.name || '').trim() || COMBAT.targetName || 'Ziel') : (COMBAT.targetName || '');
 
   return {
     rawWeapon,
+    rawShield,
     weaponApplies,
     weapon,
+    atkShield,
     ammo,
     weaponName,
     ammoName,
@@ -392,6 +446,8 @@ export function calculateCombatDamage(){
     targetSheet,
     targetM,
     targetName,
+    targetShields,
+    blockShield,
     hitZones,
     zoneObj,
     zoneName,
@@ -433,7 +489,10 @@ export function resetCombatState(){
   COMBAT.baseEg = 0;
   COMBAT.isBlocked = false;
   COMBAT.blockItemRed = false;
+  COMBAT.blockShieldId = '';
+  COMBAT.blockShieldName = '';
   COMBAT.weaponId = null;
+  COMBAT.shieldId = null;
   COMBAT.ammoId = null;
   COMBAT.attackerName = '';
   COMBAT.targetCharId = '';
@@ -464,17 +523,22 @@ export function initCombatFromRoll({ T, res, isAtkBlk20 = false, attackerName = 
   const isLob = isLobbyNeutralDice();
   const initPool = D.atkPool === 'mlp' ? 'mlp' : 'lp';
   const effWpId = isLob ? null : getEffectiveDiceWeaponId();
+  const effShId = isLob ? null : getEffectiveDiceShieldId();
   const weapon = effWpId ? (S.weapons || []).find(w => w.id === effWpId) : null;
+  const atkShield = (!weapon && effShId) ? (S.armors || []).find(a => a.id === effShId && isArmorShield(a)) : null;
+  const atkItem = weapon || atkShield;
   const ammo = (!isLob && weapon && weapon.wType === 'ranged')
     ? getEffectiveWeaponAmmo(weapon, S)
     : null;
-  const tags = getWeaponAllTags(weapon, ammo);
+  const tags = getWeaponAllTags(atkItem, ammo);
   const nichtParierbar = hasTagMatch(tags, /^nicht\s+parierbar\b/i);
 
   const opp = T?.opp?.ready ? T.opp : null;
   const prevTargetId = COMBAT.targetCharId;
   const prevTargetName = COMBAT.targetName;
   const prevBlockItemRed = COMBAT.blockItemRed;
+  const prevBlockShieldId = COMBAT.blockShieldId || '';
+  const prevBlockShieldName = COMBAT.blockShieldName || '';
 
   const targetCharId = isAtkBlk20 ? (opp?.charId || prevTargetId || '') : (opp?.charId || '');
   const targetName = isAtkBlk20 ? (opp?.oppName || prevTargetName || '') : (opp?.oppName || '');
@@ -489,7 +553,13 @@ export function initCombatFromRoll({ T, res, isAtkBlk20 = false, attackerName = 
     const isDefBlock = oppCat === 'Blocken';
     const isDefParryUnparryable = oppCat === 'Parieren' && nichtParierbar;
     if(isDefBlock || isDefParryUnparryable){
-      const oppHasBlockItem = isDefParryUnparryable || Boolean(opp.oppWeapon && hasTagMatch(opp.oppWeapon.tags, /^blockf[äa]hig\b/i));
+      const defShield = (!isDefParryUnparryable && opp.oppShield) ? opp.oppShield : null;
+      const defShieldId = !isDefParryUnparryable ? (defShield?.id || opp.oppShieldId || '') : '';
+      const defShieldName = !isDefParryUnparryable
+        ? (defShield ? (String(defShield.name || '').trim() || 'Schild') : (opp.oppShieldName || ''))
+        : '';
+      const oppHasBlockItem = isDefParryUnparryable
+        || (!defShieldId && (Boolean(opp.oppWeapon && isWeaponBlockable(opp.oppWeapon)) || opp.oppBlockKind === 'item'));
       resetCombatState();
       COMBAT.active = true;
       COMBAT.hitOk = false;
@@ -497,7 +567,10 @@ export function initCombatFromRoll({ T, res, isAtkBlk20 = false, attackerName = 
       COMBAT.blockPromptReason = isDefParryUnparryable ? 'nicht_parierbar' : 'blocked';
       COMBAT.isBlocked = true;
       COMBAT.blockItemRed = oppHasBlockItem;
+      COMBAT.blockShieldId = defShieldId;
+      COMBAT.blockShieldName = defShieldName;
       COMBAT.weaponId = weapon?.id || null;
+      COMBAT.shieldId = atkShield?.id || null;
       COMBAT.ammoId = ammo?.id || null;
       COMBAT.pool = initPool;
       COMBAT.attackerName = attackerName;
@@ -512,7 +585,7 @@ export function initCombatFromRoll({ T, res, isAtkBlk20 = false, attackerName = 
     return;
   }
 
-  const opts = getWeaponDamageOptions(weapon, ammo);
+  const opts = getWeaponDamageOptions(atkItem, ammo);
   const defDmgType = pickDefaultDamageType(opts, tags);
   const targetSheet = resolveCombatTargetSheet(targetCharId);
   const hitZones = getTargetHitZones(targetSheet);
@@ -527,8 +600,11 @@ export function initCombatFromRoll({ T, res, isAtkBlk20 = false, attackerName = 
   COMBAT.egMult = toInt(bestOk.egMult || T?.egMult, 1);
   COMBAT.baseEg = toInt(bestOk.baseEg ?? bestOk.eg, 0);
   COMBAT.isBlocked = Boolean(isAtkBlk20);
-  COMBAT.blockItemRed = isAtkBlk20 ? (prevBlockItemRed || true) : false;
+  COMBAT.blockShieldId = isAtkBlk20 ? prevBlockShieldId : '';
+  COMBAT.blockShieldName = isAtkBlk20 ? prevBlockShieldName : '';
+  COMBAT.blockItemRed = isAtkBlk20 ? (prevBlockShieldId ? false : (prevBlockItemRed || !targetCharId)) : false;
   COMBAT.weaponId = weapon?.id || null;
+  COMBAT.shieldId = atkShield?.id || null;
   COMBAT.ammoId = ammo?.id || null;
   COMBAT.attackerName = attackerName;
   COMBAT.targetCharId = targetCharId;
@@ -651,7 +727,7 @@ export function rollCombatSubHitZone(){
 
 function buildHiddenEnemyDmgFormula(calc){
   const parts = [`${calc.eg} EG`];
-  if(calc.weaponDmg) parts.push(`+ ${calc.weaponDmg} Waffe${calc.ammo ? '/Mun.' : ''}`);
+  if(calc.weaponDmg) parts.push(`+ ${calc.weaponDmg} ${calc.atkShield ? 'Schild' : `Waffe${calc.ammo ? '/Mun.' : ''}`}`);
   if(calc.verheerendBonus) parts.push(`+ ${calc.verheerendBonus} Verheerend`);
   if(calc.mehrfachschussBonus) parts.push(`+ ${calc.mehrfachschussBonus} Mehrfachschuss (${calc.mehrfachschussX})`);
   if(calc.dmgMod) parts.push(`${calc.dmgMod > 0 ? '+' : '−'} ${Math.abs(calc.dmgMod)} Mod`);
@@ -1084,13 +1160,25 @@ export function renderCombatDamageBox(){
   if(!COMBAT.active) return '';
   if(COMBAT.blockPrompt && !COMBAT.hitOk){
     const calc = calculateCombatDamage();
+    const hidePromptTarget = Boolean(COMBAT.targetCharId && shouldHideOpponentDetails(COMBAT.targetCharId, getActiveDiceCampaignId()));
     const isUnparry = COMBAT.blockPromptReason === 'nicht_parierbar';
+    const hasDefShield = Boolean(!isUnparry && (calc.blockShield || COMBAT.blockShieldId));
+    const defShieldNm = calc.blockShield ? (String(calc.blockShield.name || '').trim() || 'Schild') : (COMBAT.blockShieldName || 'Schild');
     const title = isUnparry
       ? '🛡️ „Nicht parierbar“ – Parade gilt als Blocken!'
       : '🛡️ Angriff wurde erfolgreich geblockt!';
-    const desc = isUnparry
-      ? `${esc(calc.targetName || 'Verteidiger')} hat gegen „Nicht parierbar“ pariert – das zählt regeltechnisch wie Blocken mit einem blockfähigen Gegenstand (−2 Schaden).`
-      : `${esc(calc.targetName || 'Verteidiger')} hat erfolgreich geblockt. Würfle jetzt den Block-Folgewurf (Trefferwert gegen Schw. 20), um die EG für den Grundschaden zu bestimmen.`;
+    let desc = '';
+    if(isUnparry){
+      desc = `${esc(calc.targetName || 'Verteidiger')} hat gegen „Nicht parierbar“ pariert – das zählt regeltechnisch wie Blocken mit einem blockfähigen Gegenstand (−2 Schaden).`;
+    }else if(hasDefShield){
+      desc = hidePromptTarget
+        ? `${esc(calc.targetName || 'Verteidiger')} hat erfolgreich geblockt. Würfle jetzt den Block-Folgewurf (Trefferwert gegen Schw. 20), um die EG für den Grundschaden zu bestimmen.`
+        : `${esc(calc.targetName || 'Verteidiger')} hat mit <strong>🛡️ ${esc(defShieldNm)}</strong> geblockt – dessen Rüstungswert wird im Schadensrechner zur normalen Rüstung addiert. Würfle jetzt den Block-Folgewurf (Trefferwert gegen Schw. 20).`;
+    }else if(COMBAT.blockItemRed){
+      desc = `${esc(calc.targetName || 'Verteidiger')} hat mit einem blockfähigen Gegenstand (−2 Schaden) geblockt. Würfle jetzt den Block-Folgewurf (Trefferwert gegen Schw. 20), um die EG für den Grundschaden zu bestimmen.`;
+    }else{
+      desc = `${esc(calc.targetName || 'Verteidiger')} hat erfolgreich geblockt. Würfle jetzt den Block-Folgewurf (Trefferwert gegen Schw. 20), um die EG für den Grundschaden zu bestimmen.`;
+    }
     return `<div id="combatDamageBox" class="subcard p-3 border-2 border-amber-400/65 bg-amber-500/10 space-y-2 min-w-0">
       <div class="flex items-start justify-between gap-2 min-w-0">
         <div class="min-w-0">
@@ -1144,9 +1232,19 @@ export function renderCombatDamageBox(){
     return `<button type="button" data-action="combat-set-dmgtype" data-dmgtype="${esc(o.key)}" class="btn py-1 px-2 text-[11px] font-extrabold tabular ${act ? 'btn-pri' : 'opacity-85 hover:opacity-100'}">${esc(o.shortLabel || o.label)} <span class="opacity-80">+${o.val}</span></button>`;
   }).join('');
 
+  const shieldBlockBtnsHtml = (!hideTarget && calc.targetShields && calc.targetShields.length)
+    ? calc.targetShields.map(sh => {
+        const act = COMBAT.blockShieldId === sh.id;
+        const shName = String(sh.name || '').trim() || 'Schild';
+        const sp = calcArmorPieceProtection(sh, calc.selOpt, calc.pool);
+        return `<button type="button" data-action="combat-set-block-shield" data-id="${esc(sh.id)}" data-tip="Addiert den Schild-Rüstungswert (+${sp.total} ${calc.pool === 'mlp' ? 'mRS' : 'RS'}) zur normalen Zonenrüstung" class="btn py-1 px-2.5 text-[11px] font-extrabold tabular ${act ? 'border-cyan-400 bg-cyan-500/25 text-cyan-100' : 'opacity-80 hover:opacity-100'}">${act ? '☑' : '☐'} 🛡️ ${esc(shName)} (+${sp.total} ${calc.pool === 'mlp' ? 'mRS' : 'RS'})</button>`;
+      }).join('')
+    : '';
+
   const blockToggleHtml = COMBAT.isBlocked
     ? `<div class="flex flex-wrap items-center gap-1.5">
-        <button type="button" data-action="combat-toggle-block-red" class="btn py-1 px-2.5 text-[11px] font-extrabold ${COMBAT.blockItemRed ? 'border-amber-400 bg-amber-500/20 text-amber-200' : 'opacity-80'}">${COMBAT.blockItemRed ? '☑' : '☐'} 🛡️ Blockfähiger Gegenstand (−2 Schaden)</button>
+        ${shieldBlockBtnsHtml}
+        <button type="button" data-action="combat-toggle-block-red" class="btn py-1 px-2.5 text-[11px] font-extrabold ${(COMBAT.blockItemRed && !calc.blockShield) ? 'border-amber-400 bg-amber-500/20 text-amber-200' : 'opacity-80'}">${(COMBAT.blockItemRed && !calc.blockShield) ? '☑' : '☐'} ⚔️ Blockfähige Waffe (−2 Schaden)</button>
         ${calc.durchschlagX ? `<span class="px-2 py-1 rounded-lg border text-[10px] font-black tabular ${calc.durchschlagApplied ? 'border-cyan-400 bg-cyan-500/25 text-cyan-200' : 'border-cyan-400/35 bg-cyan-500/10 text-cyan-300/80'}">⚡ Durchschlag (${calc.durchschlagX})${calc.durchschlagApplied ? ' AKTIV!' : ''}</span>` : ''}
       </div>`
     : '';
@@ -1161,7 +1259,12 @@ export function renderCombatDamageBox(){
 
   const isMlpPool = calc.pool === 'mlp';
   const armorRowsHtml = calc.armor.pieces.length
-    ? calc.armor.pieces.map(p => `<div class="flex items-center justify-between gap-2 text-[11px] tabular min-w-0"><span class="truncate font-bold">${esc(p.name)}</span><span class="t-mut shrink-0">${p.grp ? `gRP ${p.grp} + ` : ''}${esc(p.specDesc)} = <strong class="${isMlpPool ? 'text-indigo-300' : 'text-emerald-300'}">${p.total}</strong></span></div>`).join('')
+    ? calc.armor.pieces.map(p => {
+        if(p.isShieldBlock){
+          return `<div class="flex items-center justify-between gap-2 text-[11px] tabular min-w-0 px-1.5 py-0.5 -mx-1.5 rounded bg-cyan-500/15 border border-cyan-400/35"><span class="truncate font-extrabold text-cyan-200">${esc(p.name)}</span><span class="text-cyan-200/90 shrink-0">${p.grp ? `gRP ${p.grp} + ` : ''}${esc(p.specDesc)} = <strong class="text-cyan-200">+${p.total}</strong></span></div>`;
+        }
+        return `<div class="flex items-center justify-between gap-2 text-[11px] tabular min-w-0"><span class="truncate font-bold">${esc(p.name)}</span><span class="t-mut shrink-0">${p.grp ? `gRP ${p.grp} + ` : ''}${esc(p.specDesc)} = <strong class="${isMlpPool ? 'text-indigo-300' : 'text-emerald-300'}">${p.total}</strong></span></div>`;
+      }).join('')
     : `<div class="text-[11px] t-mut">${calc.targetSheet ? (isMlpPool ? 'Keine angelegte Rüstung bietet mentalen Schutz (mRS).' : `Keine angelegte Rüstung deckt „${esc(calc.zoneName)}“ ab.`) : 'Kein Ziel-Charakterbogen gewählt (Rüstung über ± manuell anpassbar).'}</div>`;
 
   const armorSectionHtml = hideTarget
@@ -1169,9 +1272,9 @@ export function renderCombatDamageBox(){
         <span class="font-bold ${isMlpPool ? 'text-indigo-300/90' : 'text-emerald-300/90'}">${isMlpPool ? '🧠 Mentale Rüstung' : `🛡️ Rüstung (${esc(calc.fullZoneName)})`}</span>
         <span class="text-[10px] font-semibold">🔒 Automatisch verrechnet (Details verborgen)</span>
       </div>`
-    : `<div class="p-2 rounded-lg bg-black/25 border ${isMlpPool ? 'border-indigo-400/35' : 'bdr-line'} space-y-1 min-w-0">
+    : `<div class="p-2 rounded-lg bg-black/25 border ${calc.blockShield ? 'border-cyan-400/45' : (isMlpPool ? 'border-indigo-400/35' : 'bdr-line')} space-y-1 min-w-0">
         <div class="flex items-center justify-between gap-2 text-[10px] font-extrabold">
-          <span class="${isMlpPool ? 'text-indigo-300' : 'text-emerald-300'} uppercase tracking-wider">${isMlpPool ? '🧠 Mentale Rüstung (global)' : `🛡️ Rüstung (${esc(calc.fullZoneName)} • ${esc(calc.selOpt.shortLabel || calc.selOpt.label)})`}</span>
+          <span class="${isMlpPool ? 'text-indigo-300' : 'text-emerald-300'} uppercase tracking-wider">${isMlpPool ? '🧠 Mentale Rüstung (global)' : `🛡️ Rüstung (${esc(calc.fullZoneName)} • ${esc(calc.selOpt.shortLabel || calc.selOpt.label)})`}${calc.blockShield ? ' <span class="text-cyan-300">+ Schild</span>' : ''}</span>
           <span class="${isMlpPool ? 'text-indigo-300' : 'text-emerald-300'} tabular">Gesamt: ${calc.armor.total}</span>
         </div>
         ${armorRowsHtml}
@@ -1237,17 +1340,18 @@ export function renderCombatDamageBox(){
       </div>`
     : '';
 
-  const wpMismatchBanner = (calc.rawWeapon && !calc.weaponApplies)
+  const rawMismatchItem = (!calc.weaponApplies) ? (calc.rawWeapon || calc.rawShield) : null;
+  const wpMismatchBanner = rawMismatchItem
     ? `<div class="p-2 rounded-lg border border-amber-400/55 bg-amber-500/12 text-[11px] flex flex-wrap items-center justify-between gap-1.5">
-        <span class="font-bold text-amber-200 min-w-0">⚠️ <strong>${esc(String(calc.rawWeapon.name || '').trim() || getWeaponSubtype(calc.rawWeapon.wType).label)}</strong> gilt nur für ${calc.rawWeapon.dmgPool === 'mlp' ? '🧠 mLP' : '❤️ LP'} – Waffenschaden &amp; Tags pausiert.</span>
-        <button type="button" data-action="dice-wp-set-pool" data-id="${esc(calc.rawWeapon.id)}" data-pool="both" class="btn py-0.5 px-2 text-[10px] font-black border-purple-400/60 bg-purple-500/20 text-purple-200 shrink-0">Für Beide freigeben</button>
+        <span class="font-bold text-amber-200 min-w-0">⚠️ <strong>${esc(String(rawMismatchItem.name || '').trim() || (calc.rawShield ? 'Schild' : getWeaponSubtype(rawMismatchItem.wType).label))}</strong> gilt nur für ${rawMismatchItem.dmgPool === 'mlp' ? '🧠 mLP' : '❤️ LP'} – Schaden &amp; Tags pausiert.</span>
+        <button type="button" data-action="${calc.rawShield ? 'set-ar-dmgpool' : 'dice-wp-set-pool'}" data-id="${esc(rawMismatchItem.id)}" data-pool="both" class="btn py-0.5 px-2 text-[10px] font-black border-purple-400/60 bg-purple-500/20 text-purple-200 shrink-0">Für Beide freigeben</button>
       </div>`
     : '';
 
   return `<div id="combatDamageBox" class="subcard p-3 border-2 border-rose-500/50 bg-rose-500/5 space-y-2.5 min-w-0">
     ${hdr}
     <div class="text-[11px] t-mut flex flex-wrap items-center gap-x-2 gap-y-0.5 tabular">
-      <span>${isMlpPool ? '🧠' : '🗡️'} <strong>${esc(calc.weaponName)}</strong>${calc.ammoName ? ` + 🎯 ${esc(calc.ammoName)}` : ''}</span>
+      <span>${isMlpPool ? '🧠' : (calc.atkShield ? '🛡️' : '🗡️')} <strong>${esc(calc.weaponName)}</strong>${calc.ammoName ? ` + 🎯 ${esc(calc.ammoName)}` : ''}</span>
       <span>•</span>
       <span>Grundschaden: <strong class="text-emerald-300">${calc.eg} EG</strong>${COMBAT.egMult > 1 ? ` (${COMBAT.baseEg} ×${COMBAT.egMult})` : ''}${COMBAT.isBlocked ? ' <span class="text-amber-300">(Geblockt)</span>' : ''}</span>
     </div>
