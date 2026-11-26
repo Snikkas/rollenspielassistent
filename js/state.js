@@ -1449,7 +1449,44 @@ function normalizeSheetObject(raw, { isForeign = false } = {}){
   const isStdOrSubZone=c=>hzCanon.some(h=>h.toLowerCase()===c.toLowerCase())||hzSubCanon.some(h=>h.toLowerCase()===c.toLowerCase());
   sheet.armors=Array.isArray(raw.armors)?raw.armors.map(ar=>{const {customZones:_legacyCz,...arRest}=(ar&&typeof ar==='object'?ar:{});const zns=[],exZ=[];const addU=(arr,val)=>{const c=canonZone(val);if(c&&!arr.some(x=>x.toLowerCase()===c.toLowerCase()))arr.push(c);return c;};(Array.isArray(ar?.zones)?ar.zones:[]).forEach(z=>addU(zns,z));(Array.isArray(ar?.extraZones)?ar.extraZones:[]).forEach(z=>{const c=canonZone(z);if(c&&!isStdOrSubZone(c))addU(exZ,c);});String(_legacyCz||'').split(/[,;]+/).map(s=>s.trim()).filter(Boolean).forEach(cz=>{const c=addU(zns,cz);if(c&&!isStdOrSubZone(c))addU(exZ,c);});return {...makeArmor(),...arRest,id:ar?.id||uid(),color:isHex(ar?.color)?ar.color:'',bgColor:isHex(ar?.bgColor)?ar.bgColor:'',collapsed:Boolean(ar?.collapsed),equipped:ar?.equipped!==undefined?Boolean(ar.equipped):true,img:String(ar?.img||''),grp:String(ar?.grp??'0'),protCut:String(ar?.protCut??'0'),protPierce:String(ar?.protPierce??'0'),protImpact:String(ar?.protImpact??'0'),mentalProt:String(ar?.mentalProt??'0'),customProt:normEqCustomVals(ar?.customProt),zones:zns,extraZones:exZ,tags:normTags(ar?.tags),eqMods:normEqMods(ar?.eqMods),notes:String(ar?.notes||'')};}):def.armors;
   sheet.ammos=Array.isArray(raw.ammos)?raw.ammos.map(am=>({...makeAmmo(),...(am||{}),id:am?.id||uid(),color:isHex(am?.color)?am.color:'',bgColor:isHex(am?.bgColor)?am.bgColor:'',collapsed:Boolean(am?.collapsed),img:String(am?.img||''),qty:Math.max(0,toInt(am?.qty,20)),dmgCut:String(am?.dmgCut??'0'),dmgPierce:String(am?.dmgPierce??'0'),dmgImpact:String(am?.dmgImpact??'0'),customDmg:normEqCustomVals(am?.customDmg),tags:normTags(am?.tags),notes:String(am?.notes||'')})):[];
-  sheet.weapons.forEach(w=>{if(w.ammoId&&!sheet.ammos.some(a=>a.id===w.ammoId))w.ammoId='';});
+  const validAmmoIds=new Set(sheet.ammos.map(a=>a.id));
+  sheet.weapons.forEach(w=>{
+    if(w.ammoId&&!validAmmoIds.has(w.ammoId)) w.ammoId='';
+    if(w.magCfg&&typeof w.magCfg==='object'){
+      const defCap=Math.max(1,Math.min(999,toInt(w.magCfg.cap,6)));
+      const mags=Array.isArray(w.magCfg.mags)?w.magCfg.mags.filter(m=>m&&typeof m==='object').slice(0,50).map((m,idx)=>{
+        const cap=Math.max(1,Math.min(999,toInt(m.cap,defCap)));
+        const count=Math.max(0,Math.min(cap,toInt(m.count,cap)));
+        const dId=String(m.defaultAmmoId||'').trim();
+        const ovr={};
+        if(m.slotOverrides&&typeof m.slotOverrides==='object'){
+          Object.entries(m.slotOverrides).forEach(([sk,sv])=>{
+            const sn=toInt(sk,0), aid=String(sv||'').trim();
+            if(sn>=1&&sn<=cap&&aid&&validAmmoIds.has(aid)) ovr[String(sn)]=aid;
+          });
+        }
+        return {
+          id:String(m.id||'').trim()||uid(),
+          name:String(m.name||'').trim()||`Magazin #${idx+1}`,
+          cap,count,
+          defaultAmmoId:dId&&validAmmoIds.has(dId)?dId:'',
+          slotOverrides:ovr,
+          slotsOpen:Boolean(m.slotsOpen)
+        };
+      }):[];
+      let actId=String(w.magCfg.activeMagId||'').trim();
+      if(actId&&!mags.some(m=>m.id===actId)) actId='';
+      if(!actId&&mags.length) actId=mags[0].id;
+      w.magCfg={
+        enabled:Boolean(w.magCfg.enabled),
+        cap:defCap,
+        autoSyncAmmo:w.magCfg.autoSyncAmmo!==undefined?Boolean(w.magCfg.autoSyncAmmo):true,
+        activeMagId:actId,
+        expanded:w.magCfg.expanded!==undefined?Boolean(w.magCfg.expanded):true,
+        mags
+      };
+    }
+  });
   sheet.invSections=Array.isArray(raw.invSections)?raw.invSections.map(sec=>({id:sec?.id||uid(),name:String(sec?.name||'Neuer Beutel'),color:isHex(sec?.color)?sec.color:'',bgColor:isHex(sec?.bgColor)?sec.bgColor:'',collapsed:Boolean(sec?.collapsed),parentSectionId:String(sec?.parentSectionId||'')})):[];
   sanitizeSecHierarchy(sheet.invSections);
   sheet.inventory=Array.isArray(raw.inventory)?raw.inventory.map(it=>{

@@ -10,6 +10,9 @@ import {
 import {
   syncPwUseCostsLegacy, toast, logChron, normPwEntry, save, findMainArt, isReservedPwTerm, getWeaponSubtype, isWeaponMassiv, S, D, UI
 } from './state.js';
+import {
+  getEffectiveWeaponAmmo
+} from './magazines.js';
 
 export const getTagDesc=(list,name,x,sheet=S)=>{
   const found=findEqTagDef(name,list,sheet);
@@ -1156,7 +1159,7 @@ export function getAdvDisForContext(ctx={},M=null,sheet=S){
   const eqSources=[];
   if(w){
     (w.tags||[]).forEach(tg=>eqSources.push(analyzeEqTagTooltip(tg,target.weaponTagList,'weapon',w,target)));
-    const linkedAmmo=w.wType==='ranged'&&w.ammoId?(target.ammos||[]).find(a=>a.id===w.ammoId):null;
+    const linkedAmmo=w.wType==='ranged'?getEffectiveWeaponAmmo(w,target):null;
     if(linkedAmmo){
       (linkedAmmo.tags||[]).forEach(tg=>eqSources.push(analyzeEqTagTooltip(tg,target.ammoTagList,'ammo',linkedAmmo,target)));
     }

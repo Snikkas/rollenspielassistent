@@ -16,6 +16,9 @@ import {
 import {
   renderLobbyLiveDiceHtml, publishLiveRoll, formatSecretRollSummary, isSecretRollActive, getCachedForeignSheet, getForeignSheetLoadedAt, isForeignSheetLoading, getForeignSheetError, fetchForeignCharacterSheet, fetchLobbyList
 } from './cloud.js';
+import {
+  renderDiceMagazineStripHtml
+} from './magazines.js';
 
 export const getCSkVal=()=>D.cSkill==='custom'?toInt(D.cCustom):toInt(D.cSkill);
 export const getDSkVal=()=>D.dSkill==='custom'?toInt(D.dCustom):toInt(D.dSkill);
@@ -976,6 +979,7 @@ export function renderDice(){
           </select>
           ${aw?`<button type="button" data-action="toggle-dice-wp-edit" data-tip="Waffe direkt im Würfelassistenten anpassen (LP/mLP, Attribut, Fertigkeit, Munition, Schaden)" class="btn py-1 px-2 text-xs font-extrabold shrink-0 ${D.wpEditOpen?'btn-pri':''}">⚙️ <span class="hidden sm:inline">Anpassen</span></button>`:''}
         </div>
+        ${aw?renderDiceMagazineStripHtml(aw):''}
         ${mismatchHtml}
         ${dwBarHtml}
         ${quickEditHtml}

@@ -19,6 +19,9 @@ import {
 import {
   getActiveDiceCampaignId, isLobbyNeutralDice, rollW100, renderDice, getEffectiveDiceWeaponId, doesWeaponApplyToPool
 } from './dice.js';
+import {
+  hasActiveMagazines, getEffectiveWeaponAmmo, getWeaponNextShotInfo, fireWeaponMagazineShot
+} from './magazines.js';
 
 export function getWeaponAllTags(weapon, ammo = null){
   return [
@@ -317,8 +320,8 @@ export function calculateCombatDamage(){
   const rawWeapon = (!isLob && COMBAT.weaponId) ? (S.weapons || []).find(w => w.id === COMBAT.weaponId) : null;
   const weaponApplies = rawWeapon ? doesWeaponApplyToPool(rawWeapon, pool, 'Trefferwurf') : false;
   const weapon = weaponApplies ? rawWeapon : null;
-  const ammo = (!isLob && weapon && weapon.wType === 'ranged' && (COMBAT.ammoId || weapon.ammoId))
-    ? (S.ammos || []).find(a => a.id === (COMBAT.ammoId || weapon.ammoId))
+  const ammo = (!isLob && weapon && weapon.wType === 'ranged')
+    ? (COMBAT.ammoId ? (S.ammos || []).find(a => a.id === COMBAT.ammoId) : getEffectiveWeaponAmmo(weapon, S))
     : null;
   const tags = getWeaponAllTags(weapon, ammo);
   const opts = getWeaponDamageOptions(weapon, ammo);
@@ -462,8 +465,8 @@ export function initCombatFromRoll({ T, res, isAtkBlk20 = false, attackerName = 
   const initPool = D.atkPool === 'mlp' ? 'mlp' : 'lp';
   const effWpId = isLob ? null : getEffectiveDiceWeaponId();
   const weapon = effWpId ? (S.weapons || []).find(w => w.id === effWpId) : null;
-  const ammo = (!isLob && weapon && weapon.wType === 'ranged' && weapon.ammoId)
-    ? (S.ammos || []).find(a => a.id === weapon.ammoId)
+  const ammo = (!isLob && weapon && weapon.wType === 'ranged')
+    ? getEffectiveWeaponAmmo(weapon, S)
     : null;
   const tags = getWeaponAllTags(weapon, ammo);
   const nichtParierbar = hasTagMatch(tags, /^nicht\s+parierbar\b/i);
@@ -1055,6 +1058,10 @@ export async function applyCombatDamageDirectly(){
 export function spendCombatAmmo(){
   if(isLobbyNeutralDice()) return;
   const weapon = COMBAT.weaponId ? (S.weapons || []).find(w => w.id === COMBAT.weaponId) : null;
+  if(weapon && hasActiveMagazines(weapon)){
+    fireWeaponMagazineShot(weapon.id, { fromCombat: true });
+    return;
+  }
   const ammoId = COMBAT.ammoId || weapon?.ammoId || '';
   if(!ammoId) return;
   const am = (S.ammos || []).find(a => a.id === ammoId);
@@ -1209,9 +1216,15 @@ export function renderCombatDamageBox(){
       </div>`;
 
   const canDirect = canDirectApplyCombatDamage(COMBAT.targetCharId);
-  const ammoBtnHtml = calc.ammo
-    ? `<button type="button" data-action="combat-spend-ammo" ${toInt(calc.ammo.qty, 0) <= 0 ? 'disabled' : ''} class="btn w-full py-1.5 px-3 text-xs font-extrabold ${COMBAT.ammoSpent ? 'border-emerald-400/60 bg-emerald-500/15 text-emerald-200' : 'border-amber-400/50 bg-amber-500/10 text-amber-200 hover:bg-amber-500/20'}">${COMBAT.ammoSpent ? `✓ −1 ${esc(calc.ammoName)} verbraucht (Vorrat: ${toInt(calc.ammo.qty, 0)})` : `🏹 −1 ${esc(calc.ammoName)} verbrauchen (Vorrat: ${toInt(calc.ammo.qty, 0)})`}</button>`
-    : '';
+  const magInfo = (calc.weapon && hasActiveMagazines(calc.weapon)) ? getWeaponNextShotInfo(calc.weapon, S) : null;
+  const ammoBtnHtml = magInfo
+    ? `<div class="flex flex-wrap items-center gap-1.5">
+        <button type="button" data-action="combat-spend-ammo" ${magInfo.count <= 0 ? 'disabled' : ''} class="btn flex-1 min-w-[160px] py-1.5 px-3 text-xs font-extrabold ${COMBAT.ammoSpent ? 'border-emerald-400/60 bg-emerald-500/15 text-emerald-200' : 'border-amber-400/50 bg-amber-500/10 text-amber-200 hover:bg-amber-500/20'}">${COMBAT.ammoSpent ? `✓ Abgefeuert • ${esc(magInfo.mag?.name || 'Magazin')}: ${magInfo.count}/${magInfo.cap}` : `🏹 −1 Schuss (${esc(magInfo.mag?.name || 'Magazin')}: ${magInfo.count}/${magInfo.cap}${magInfo.isOverride ? ` • ★ ${esc(calc.ammoName)}` : ''})`}</button>
+        <button type="button" data-action="wp-mag-reload" data-wid="${esc(calc.weapon.id)}" ${!magInfo.nextReloadMag ? 'disabled' : ''} class="btn py-1.5 px-2.5 text-xs font-black shrink-0 ${magInfo.count === 0 && magInfo.nextReloadMag ? 'btn-ok' : 'bdr-acc bg-acc-soft text-acc'}">🔄 Nachladen</button>
+      </div>`
+    : (calc.ammo
+      ? `<button type="button" data-action="combat-spend-ammo" ${toInt(calc.ammo.qty, 0) <= 0 ? 'disabled' : ''} class="btn w-full py-1.5 px-3 text-xs font-extrabold ${COMBAT.ammoSpent ? 'border-emerald-400/60 bg-emerald-500/15 text-emerald-200' : 'border-amber-400/50 bg-amber-500/10 text-amber-200 hover:bg-amber-500/20'}">${COMBAT.ammoSpent ? `✓ −1 ${esc(calc.ammoName)} verbraucht (Vorrat: ${toInt(calc.ammo.qty, 0)})` : `🏹 −1 ${esc(calc.ammoName)} verbrauchen (Vorrat: ${toInt(calc.ammo.qty, 0)})`}</button>`
+      : '');
 
   const applyActionsHtml = COMBAT.targetCharId
     ? `<div class="space-y-1.5 pt-1 border-t border-white/10">
