@@ -41,7 +41,7 @@ import {
   buildPwCatPillsHtml, moveChrSecOrder, moveChrPwOrder, openChrSecMenu, openChrPwMenu, tplChronicle, applyEp
 } from './tabs/chronicle.js';
 import {
-  syncLinkedInvDOM, syncLinkedAmmoDOM, syncInvSecNameDOM, addEqTagToItem, openAddWeaponMenu, openEqTagPicker, openWpTypePicker, openWpAttrPicker, openWpSkillPicker, openWpAmmoPicker, openArZonePicker, openInvSecPicker, openInvSecParentPicker, isTab5EquipNotesCollapsed, isTab5BioGalleryCollapsed, isTab5BioFieldCollapsed, moveEqSecOrder, moveEqItemOrder, moveInvSecOrder, openEqItemMenu, openEqSecMenu, openInvSecMenu, tplEquipment
+  syncLinkedInvDOM, syncLinkedAmmoDOM, syncInvSecNameDOM, addEqTagToItem, openAddWeaponMenu, openEqTagPicker, openEqModPicker, openWpTypePicker, openWpAttrPicker, openWpSkillPicker, openWpAmmoPicker, openArZonePicker, openInvSecPicker, openInvSecParentPicker, isTab5EquipNotesCollapsed, isTab5BioGalleryCollapsed, isTab5BioFieldCollapsed, moveEqSecOrder, moveEqItemOrder, moveInvSecOrder, openEqItemMenu, openEqSecMenu, openInvSecMenu, tplEquipment
 } from './tabs/equipment.js';
 import {
   openLobbyCharMenu, openEnemyCampaignPicker, openGmTemplateAddPicker, openLobbyEnemyMenu, tplLobbyScreen, refreshGmEnemiesGridDOM, refreshTemplatesGridDOM
@@ -1458,6 +1458,37 @@ document.addEventListener('click',async e=>{
     case 'toggle-ar-eq': {
       const ar=S.armors.find(a=>a.id===el.dataset.id);
       if(ar){ar.equipped=ar.equipped===false?true:false;invalidateModsCache();syncDiceFromSheet();renderMain();if(D.open)renderDice();save();}
+      break;
+    }
+    case 'toggle-inv-eq': {
+      const it=(S.inventory||[]).find(x=>x.id===el.dataset.id);
+      if(it&&!it.linkedEq){
+        it.equipped=!it.equipped;
+        invalidateModsCache(); syncDiceFromSheet();
+        renderHeader(); renderMain(); if(D.open) renderDice(); save();
+      }
+      break;
+    }
+    case 'open-eq-mod-picker': openEqModPicker(el,el.dataset.kind,el.dataset.id); break;
+    case 'rm-eq-mod': {
+      const it=findEqItem(el.dataset.kind,el.dataset.id);
+      const mid=el.dataset.mid;
+      if(it&&Array.isArray(it.eqMods)&&mid){
+        it.eqMods=it.eqMods.filter(m=>m.id!==mid);
+        invalidateModsCache(); syncDiceFromSheet();
+        renderHeader(); renderMain(); if(D.open) renderDice(); save();
+      }
+      break;
+    }
+    case 'toggle-eq-mod-kind': {
+      const it=findEqItem(el.dataset.kind,el.dataset.id);
+      const mid=el.dataset.mid;
+      const m=(it&&Array.isArray(it.eqMods))?it.eqMods.find(x=>x.id===mid):null;
+      if(m&&(m.kind==='adv'||m.kind==='dis')){
+        m.kind=m.kind==='dis'?'adv':'dis';
+        invalidateModsCache(); syncDiceFromSheet();
+        renderHeader(); renderMain(); if(D.open) renderDice(); save();
+      }
       break;
     }
     case 'rm-eq-tag': {
@@ -3923,6 +3954,19 @@ document.addEventListener('input',e=>{
     }
     return;
   }
+  if(el.dataset.eqmodVal){
+    const [kind,id,mid]=el.dataset.eqmodVal.split(':'), it=findEqItem(kind,id);
+    const m=(it&&Array.isArray(it.eqMods))?it.eqMods.find(x=>x.id===mid):null;
+    if(m){
+      m.val=el.value;
+      invalidateModsCache();
+      syncDiceFromSheet();
+      renderHeader();
+      if(D.open) renderDice();
+      saveSoon();
+    }
+    return;
+  }
   if(el.dataset.eqtagX){
     const [kind,id,ti]=el.dataset.eqtagX.split(':'),k={weapon:'weapons',armor:'armors',ammo:'ammos'}[kind],tList={weapon:S.weaponTagList,armor:S.armorTagList,ammo:S.ammoTagList}[kind],it=(S[k]||[]).find(x=>x.id===id);
     if(it&&it.tags?.[+ti]){
@@ -4348,6 +4392,16 @@ document.addEventListener('change',e=>{
     const inv=(S.inventory||[]).find(it=>it?.linkedEq&&it.linkedEq.kind===kind&&it.linkedEq.id===id);
     if(inv&&!document.querySelector(`[data-inv-item="${inv.id}"]`)) renderMain();
     save();
+    return;
+  }
+  if(el.dataset.eqmodVal){
+    const [kind,id,mid]=el.dataset.eqmodVal.split(':'), it=findEqItem(kind,id);
+    const m=(it&&Array.isArray(it.eqMods))?it.eqMods.find(x=>x.id===mid):null;
+    if(m){
+      if(m.kind==='stat') m.val=m.target==='moveBase'?String(toFlt(el.value,0)):String(toInt(el.value,0));
+      else m.val=String(Math.max(1,Math.abs(toInt(el.value,1))));
+      invalidateModsCache(); syncDiceFromSheet(); renderHeader(); renderMain(); if(D.open) renderDice(); save();
+    }
     return;
   }
   if(el.dataset.eqcv||el.dataset.inv||el.dataset.eqtagX){save();return;}

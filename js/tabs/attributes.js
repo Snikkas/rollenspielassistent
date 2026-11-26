@@ -8,7 +8,7 @@ import {
   renderSystemIconHtml, S, isMobileLayout, UI
 } from '../state.js';
 import {
-  getStatusEffValues, getReservedTotals, getEffectivePoolCap, getReservedSrcList, calcActiveMods, buildAttrTip, buildSecTip, getMentalArmorSummary, getTrCost, getResLabel, getAttrCol, getSecCol, getTrBonus, getAttrTot, getLpBase, getLpMax, getMlpBase, getMlpMax, getLpRegenAuto, getMlpRegenAuto, hasLpRegenOvr, hasMlpRegenOvr, getLpRegen, getMlpRegen, getIniBase, getIniTot, getApMax, getMapMax, getCresBase, getCresMax, getExtraSecBase, getBstAuto, hasBstOvr, getBstBase, getEffBst
+  getStatusEffValues, getReservedTotals, getEffectivePoolCap, getReservedSrcList, calcActiveMods, fmtSrcLines, buildAttrTip, buildSecTip, getMentalArmorSummary, getTrCost, getResLabel, getAttrCol, getSecCol, getTrBonus, getAttrTot, getLpBase, getLpMax, getMlpBase, getMlpMax, getLpRegenAuto, getMlpRegenAuto, hasLpRegenOvr, hasMlpRegenOvr, getLpRegen, getMlpRegen, getIniBase, getIniTot, getApMax, getMapMax, getCresBase, getCresMax, getExtraSecBase, getBstAuto, hasBstOvr, getBstBase, getEffBst
 } from '../calc.js';
 import {
   renderRtfToolbarHtml
@@ -401,6 +401,7 @@ export function tplAttributes(){
           <h3 class="text-sm sm:text-base font-extrabold cursor-pointer" data-tip="Meter pro Bewegen-Aktion (Standard-BSt = 1/5 der Basis-Bewegung; Änderungen der BSt durch Overwrite oder Statuseffekte wirken auf Bew (BSt)). Bew (BSt) kann pro Zeile auch manuell überschrieben werden.">Bewegungen (Bew &amp; BSt)</h3>
         </button>
         <span id="t1Prev_bst" data-tip="${bstTip}" class="px-2 py-0.5 rounded-md border text-[11px] font-black cursor-help tabular ${hasBstOvr()?'border-amber-400/60 bg-amber-500/15 text-amber-300':'bdr-acc bg-acc-soft text-acc'}">BSt ${bst}</span>
+        ${M.moveBase?`<span data-tip="${esc('Aktive BEW-Modifikatoren:\n'+fmtSrcLines(M,'moveBase'))}" class="px-2 py-0.5 rounded-md border text-[11px] font-black cursor-help tabular ${M.moveBase>0?'border-emerald-500/50 bg-emerald-500/15 text-emerald-300':'border-rose-500/50 bg-rose-500/15 text-rose-300'}">BEW ${fmtSign(M.moveBase)}</span>`:''}
         ${mv0?`<span id="t1Prev_move0" class="px-2 py-0.5 rounded-md border bdr-line bg-black/20 text-[11px] font-bold tabular">${esc(mv0.type)}: <strong>${fmtN(mv0Bew)} m</strong>${S.movements.length>1?` <span class="t-mut">(+${S.movements.length-1})</span>`:''}</span>`:''}
       </div>
     </div>

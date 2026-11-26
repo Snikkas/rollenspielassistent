@@ -355,6 +355,7 @@ export const getEffD=()=>{
 export function formatSrcOriginLabel(s){
   if(!s) return 'Quelle';
   if(s.srcKind==='Kraft'||s.srcKind==='Augment') return s.srcName?`${s.srcKind}: ${s.srcName}`:s.srcKind;
+  if(s.srcKind==='Rüstung'||s.srcKind==='Waffe'||s.srcKind==='Ausrüstung') return s.srcName?`${s.srcKind}: ${s.srcName}`:s.srcKind;
   if(s.srcKind==='Statuseffekt') return `Status: ${s.srcName||s.label||'Effekt'}`;
   if(s.srcKind==='Waffen-Tag'||s.srcKind==='Munitions-Tag'||s.srcKind==='Rüstungs-Tag'){
     const tg=s.tagLbl?String(s.tagLbl).replace(/\(\s*(\d+)\s*\)/g,' $1').trim():(s.srcName||'Tag');

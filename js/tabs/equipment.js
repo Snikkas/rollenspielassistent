@@ -2,7 +2,7 @@ import {
   ATTRS, SK_RANKS, BIO_FIELDS, WEAPON_SUBTYPES, DEF_EQ_SEC_ORDER
 } from '../constants.js';
 import {
-  $, uid, esc, clone, toInt, fmtSign, stripHtml, toRtfHtml, cardColorStyle, hasTagX, fmtTagLabel, canSetSecParent
+  $, uid, esc, clone, toInt, toFlt, fmtSign, stripHtml, toRtfHtml, cardColorStyle, hasTagX, fmtTagLabel, canSetSecParent
 } from '../utils.js';
 import {
   hooks
@@ -11,7 +11,7 @@ import {
   openCtxMenu, toast, save, getWeaponSubtype, fmtCustomValSummarySuffix, renderLinkedAmmoCustomDmgHtml, isWeaponMassiv, syncEquipmentToInventory, S, D, isMobileLayout, UI
 } from '../state.js';
 import {
-  invalidateModsCache, calcActiveMods, getAdvDisForContext, getWeaponRollMeta, getWeaponDualWieldInfo, getTagDesc, fmtAdvSrcLines, getAttrTot, getSkBonus, findEqItem, getMentalArmorSummary
+  invalidateModsCache, calcActiveMods, getAdvDisForContext, getWeaponRollMeta, getWeaponDualWieldInfo, getEqModStatOptions, getEqModAdvDisOptions, formatEqModTargetLabel, formatEqModShort, getTagDesc, fmtAdvSrcLines, getAttrTot, getSkBonus, findEqItem, getMentalArmorSummary
 } from '../calc.js';
 import {
   applyDiceAutoAdvDis, syncDiceFromSheet, renderDice
@@ -485,6 +485,98 @@ export function renderEqTagBar(kind,item,tagList,ltype,lbl){
   </div>`;
 }
 
+export function openEqModPicker(anchorEl,kind,itemId){
+  const it=findEqItem(kind,itemId);
+  if(!it) return;
+  const addMod=(modKind,target,targetLabel,defVal)=>{
+    if(!Array.isArray(it.eqMods)) it.eqMods=[];
+    it.eqMods.push({id:uid(),kind:modKind,target,targetLabel:String(targetLabel||''),val:String(defVal)});
+    if(kind==='inv'&&!it.linkedEq&&it.equipped!==true) it.equipped=true;
+    invalidateModsCache();
+    syncDiceFromSheet();
+    hooks.renderMain?.();
+    if(D.open) renderDice();
+    save();
+  };
+  const statOpts=getEqModStatOptions(S);
+  const advDisOpts=getEqModAdvDisOptions(S);
+  const items=[];
+  const pushGrouped=(list,groupFilter,hdrLabel,modKind,defVal,icon)=>{
+    const grp=list.filter(o=>o.group===groupFilter);
+    if(!grp.length) return;
+    if(items.length) items.push({sep:true});
+    items.push({type:'label',label:hdrLabel});
+    grp.forEach(o=>{
+      items.push({
+        icon,
+        label:o.label,
+        badge:modKind==='stat'?String(defVal):`+${defVal}N`,
+        onClick:()=>addMod(modKind,o.target,o.label,defVal)
+      });
+    });
+  };
+  pushGrouped(statOpts,'Bewegung & Sekundärattribute','Sekundärattribute & Bewegung (Wert ±)','stat','-1','⚡');
+  pushGrouped(statOpts,'Sekundärattribute','Eigene Ressourcen (Wert ±)','stat','-1','⚡');
+  pushGrouped(statOpts,'Schwellenwerte','Verwundungs- & Traumaschwellen (Wert ±)','stat','-1','🩸');
+  pushGrouped(statOpts,'Attribute','Attribute (Wert ±)','stat','-1','📊');
+  pushGrouped(advDisOpts,'Attribute','Nachteil / Vorteil auf Attribute (umschaltbar)','dis','1','👎');
+  pushGrouped(advDisOpts,'Fertigkeiten','Nachteil / Vorteil auf Fertigkeiten (umschaltbar)','dis','1','🎯');
+  pushGrouped(advDisOpts,'Kampf & Allgemein','Nachteil / Vorteil im Kampf (umschaltbar)','dis','1','⚔️');
+  openCtxMenu({
+    key:`eq-mod-picker:${kind}:${itemId}`,
+    title:'Modifikator / Nachteil hinzufügen',
+    anchorEl,
+    align:'left',
+    minWidth:275,
+    showClose:true,
+    items
+  });
+}
+
+export function renderEqModsSummaryPills(item){
+  const list=Array.isArray(item?.eqMods)?item.eqMods:[];
+  if(!list.length) return '';
+  return list.map(m=>{
+    const txt=formatEqModShort(m,S);
+    const isNeg=m.kind==='dis'||(m.kind==='stat'&&(m.target==='moveBase'?toFlt(m.val,0):toInt(m.val,0))<0);
+    const cls=isNeg?'border-rose-500/45 bg-rose-500/15 text-rose-200':'border-emerald-500/45 bg-emerald-500/15 text-emerald-200';
+    return `<span class="pill cursor-default text-[10px] py-0.5 px-2 font-extrabold tabular ${cls}">${esc(txt)}</span>`;
+  }).join('');
+}
+
+export function renderEqModsBlock(kind,item){
+  const list=Array.isArray(item?.eqMods)?item.eqMods:[];
+  const isActive=kind==='inv'?(!item.linkedEq&&item.equipped===true):(item.equipped!==false);
+  const chipsHtml=list.map(m=>{
+    const lbl=formatEqModTargetLabel(m,S);
+    if(m.kind==='stat'){
+      const numVal=m.target==='moveBase'?toFlt(m.val,0):toInt(m.val,0);
+      const isNeg=numVal<0, isPos=numVal>0;
+      const cls=isNeg?'border-rose-500/50 bg-rose-500/12 text-rose-200':isPos?'border-emerald-500/50 bg-emerald-500/12 text-emerald-200':'bdr-line bg-black/25';
+      return `<span class="inline-flex items-center gap-1 px-2 py-1 rounded-lg border text-xs tabular ${cls}">
+        <input data-eqmod-val="${kind}:${item.id}:${m.id}" type="text" inputmode="${m.target==='moveBase'?'decimal':'numeric'}" value="${esc(m.val)}" data-tip="Wert-Modifikator für ${esc(lbl)} (negativ für Malus z. B. -2, positiv für Bonus z. B. +2)" class="inp !py-0 !px-1 w-12 text-center text-[11px] font-black"/>
+        <span class="font-bold">${esc(lbl)}</span>
+        <button type="button" data-action="rm-eq-mod" data-kind="${kind}" data-id="${item.id}" data-mid="${m.id}" data-tip="Modifikator entfernen" class="hover:text-rose-400 font-black ml-0.5">✕</button>
+      </span>`;
+    }
+    const isDis=m.kind==='dis';
+    const cls=isDis?'border-rose-500/50 bg-rose-500/12 text-rose-200':'border-emerald-500/50 bg-emerald-500/12 text-emerald-200';
+    return `<span class="inline-flex items-center gap-1 px-2 py-1 rounded-lg border text-xs tabular ${cls}">
+      <input data-eqmod-val="${kind}:${item.id}:${m.id}" type="text" inputmode="numeric" value="${esc(m.val)}" data-tip="Anzahl ${isDis?'Nachteile':'Vorteile'}" class="inp !py-0 !px-1 w-9 text-center text-[11px] font-black"/>
+      <button type="button" data-action="toggle-eq-mod-kind" data-kind="${kind}" data-id="${item.id}" data-mid="${m.id}" data-tip="Klicken zum Umschalten zwischen Nachteil und Vorteil" class="px-1.5 py-0.5 rounded font-black text-[10px] cursor-pointer ${isDis?'bg-rose-600/70 text-white':'bg-emerald-600/70 text-white'}">${isDis?'Nachteil':'Vorteil'}</button>
+      <span class="font-bold">${esc(lbl)}</span>
+      <button type="button" data-action="rm-eq-mod" data-kind="${kind}" data-id="${item.id}" data-mid="${m.id}" data-tip="Modifikator entfernen" class="hover:text-rose-400 font-black ml-0.5">✕</button>
+    </span>`;
+  }).join('');
+  return `<div class="pt-2 border-t bdr-line space-y-1.5">
+    <div class="flex flex-wrap items-center justify-between gap-2">
+      <span class="text-[11px] font-bold t-mut">Attribute / Sekundärwerte / Fertigkeits-Modifikatoren ${!isActive&&list.length?'<span class="text-amber-400 font-semibold">(pausiert – abgelegt)</span>':''}</span>
+      <button type="button" data-action="open-eq-mod-picker" data-kind="${kind}" data-id="${item.id}" aria-haspopup="menu" aria-expanded="false" data-tip="Fügt einen Malus/Bonus auf beliebige Attribute, Sekundärattribute (z. B. BEW, BSt, Ini, LP) oder Fertigkeiten hinzu" class="btn py-0.5 px-2 text-[11px] border-rose-400/50 bg-rose-500/10 text-rose-200 hover:bg-rose-500/20">+ Modifikator / Nachteil</button>
+    </div>
+    ${list.length?`<div class="flex flex-wrap items-center gap-1.5">${chipsHtml}</div>`:''}
+  </div>`;
+}
+
 export const isTab5PhoneDefault=()=>window.innerWidth<768||isMobileLayout();
 export function isTab5EquipNotesCollapsed(){
   const ov=UI.tab5?.equipNotes;
@@ -572,6 +664,7 @@ export function duplicateEqItem(kind,id){
   if(String(copy.name||'').trim()) copy.name=`${String(copy.name).trim()} (Kopie)`;
   if(Array.isArray(copy.customDmg)) copy.customDmg=copy.customDmg.map(c=>({...c,id:uid()}));
   if(Array.isArray(copy.customProt)) copy.customProt=copy.customProt.map(c=>({...c,id:uid()}));
+  if(Array.isArray(copy.eqMods)) copy.eqMods=copy.eqMods.map(m=>({...m,id:uid()}));
   arr.splice(idx+1,0,copy);
   if(kind==='weapon'||kind==='armor'||kind==='ammo') syncEquipmentToInventory(S,{forceKeys:[`${kind}:${copy.id}`]});
   invalidateModsCache(); syncDiceFromSheet();
@@ -942,6 +1035,7 @@ export function renderWeaponCard(w,idx,len){
         ${dwBadge}
         <span class="pill cursor-default text-[11px] py-0.5 px-2 max-w-full whitespace-normal break-words">Schnitt ${esc(w.dmgCut)} • Durchstoß ${esc(w.dmgPierce)} • Einschlag ${esc(w.dmgImpact)}${fmtCustomValSummarySuffix(w.customDmg)}</span>
         ${linkedAmmo?`<span class="pill cursor-default text-[11px] py-0.5 px-2 text-amber-400">🎯 <span data-linked-ammo-name="${linkedAmmo.id}">${esc(linkedAmmo.name||'Munition')}</span>: <span data-linked-ammo-qty="${linkedAmmo.id}">${linkedAmmo.qty}</span></span>`:''}
+        ${renderEqModsSummaryPills(w)}
       </div>
     </div>`;
   }
@@ -1030,6 +1124,7 @@ export function renderWeaponCard(w,idx,len){
         <input data-wpf="${w.id}:notes" type="text" value="${esc(w.notes)}" placeholder="Notizen" class="inp w-full min-w-0 text-xs"/>
       </div>
     </div>
+    ${renderEqModsBlock('weapon',w)}
   </div>`;
 }
 
@@ -1100,6 +1195,7 @@ export function renderArmorCard(ar,idx,len,hzNames){
         ${mProtVal?`<span class="pill cursor-default text-[11px] py-0.5 px-2 border-indigo-400/50 bg-indigo-500/15 text-indigo-300 font-black">🧠 mRS ${esc(ar.mentalProt)}</span>`:''}
         <span class="pill cursor-default text-[11px] py-0.5 px-2 max-w-full whitespace-normal break-words">Schnitt ${esc(ar.protCut)} • Durchstoß ${esc(ar.protPierce)} • Einschlag ${esc(ar.protImpact)}${fmtCustomValSummarySuffix(ar.customProt)}</span>
         ${(ar.zones||[]).length?`<span class="pill cursor-default text-[11px] py-0.5 px-2 max-w-full whitespace-normal break-words">🎯 ${esc(ar.zones.join(', '))}</span>`:''}
+        ${renderEqModsSummaryPills(ar)}
       </div>
     </div>`;
   }
@@ -1168,6 +1264,7 @@ export function renderArmorCard(ar,idx,len,hzNames){
         <input data-arf="${ar.id}:notes" type="text" value="${esc(ar.notes)}" placeholder="Notizen" class="inp w-full min-w-0 text-xs"/>
       </div>
     </div>
+    ${renderEqModsBlock('armor',ar)}
   </div>`;
 }
 
@@ -1193,6 +1290,8 @@ export function renderInvItemCard(it,idx,len,invSecs){
         :{ico:'🎯',lbl:'Munition',cls:'border-amber-400/50 bg-amber-500/15 text-amber-300'};
     return `<button type="button" data-action="jump-eq-item" data-kind="${esc(lnk.kind)}" data-id="${esc(lnk.id)}" data-tip="Automatisch mit ${cfg.lbl} verknüpft – klicken zum Springen" class="px-1.5 py-0.5 rounded-md border text-[10px] font-black shrink-0 inline-flex items-center gap-1 cursor-pointer hover:brightness-110 ${cfg.cls}"><span>${cfg.ico}</span><span class="hidden sm:inline">${cfg.lbl}</span><span class="opacity-75">↗</span></button>`;
   })():'';
+  const invEqOn=Boolean(!lnk&&it.equipped===true);
+  const invEqBtnHtml=!lnk?`<button type="button" data-action="toggle-inv-eq" data-id="${it.id}" data-tip="Gegenstand an-/ablegen (aktiviert dessen Modifikatoren/Nachteile)" class="btn h-8 sm:h-7 px-2 text-[11px] font-extrabold shrink-0 whitespace-nowrap ${invEqOn?'btn-ok':'opacity-65'}">${invEqOn?'✓<span class="hidden sm:inline"> Angelegt</span>':'○<span class="hidden sm:inline"> Abgelegt</span>'}</button>`:'';
   const namePh=lnk?(lnk.kind==='weapon'?'Waffenname...':lnk.kind==='armor'?'Rüstungsname...':'Munitionsname...'):'Gegenstand...';
   const hdrRow=`<div class="flex items-center gap-1.5 min-w-0">
     <button type="button" data-action="toggle-eqitem-collapse" data-kind="inv" data-id="${it.id}" data-tip="${it.collapsed?'Gegenstand ausklappen':'Gegenstand einklappen'}" aria-expanded="${!it.collapsed}" class="btn w-8 h-8 sm:w-7 sm:h-7 p-0 text-xs font-black shrink-0">${it.collapsed?'▸':'▾'}</button>
@@ -1200,16 +1299,19 @@ export function renderInvItemCard(it,idx,len,invSecs){
     ${renderEqMiniThumb('inv',it.id,it.img)}
     <input data-inv="${it.id}:name" type="text" value="${esc(it.name)}" ${colStyle} placeholder="${namePh}" class="inp-line flex-1 min-w-0 text-sm sm:text-base font-extrabold"/>
     ${lnkBadgeHtml}
+    ${invEqBtnHtml}
     ${it.collapsed&&qtyTxt?`<span data-inv-collapsed-qty="${it.id}" class="pill cursor-default text-[11px] py-0.5 px-2 tabular text-acc shrink-0">× ${esc(qtyTxt)}</span>`:''}
     ${renderEqItemMenuBtn('inv',it.id)}
   </div>`;
+  const invModsPills=!lnk?renderEqModsSummaryPills(it):'';
   if(it.collapsed){
-    const hasBadges=Boolean((catTxt&&catTxt!=='Inventar'&&!lnk)||curSecObj||noteTxt);
+    const hasBadges=Boolean((catTxt&&catTxt!=='Inventar'&&!lnk)||curSecObj||noteTxt||invModsPills);
     return `<div data-inv-item="${it.id}" class="subcard py-2 px-2.5 sm:px-3 space-y-1.5 min-w-0" ${winStyle}>
       ${hdrRow}
       ${hasBadges?`<div class="flex flex-wrap items-center gap-1.5 min-w-0">
         ${catTxt&&catTxt!=='Inventar'&&!lnk?`<span class="pill cursor-default text-[11px] py-0.5 px-2">${esc(catTxt)}</span>`:''}
         ${curSecObj?`<span class="pill cursor-default text-[11px] py-0.5 px-2 text-acc" data-inv-sec-lbl="${curSecObj.id}">🎒 ${esc(curSecObj.name||'Beutel')}</span>`:''}
+        ${invModsPills}
         ${noteTxt?`<span class="text-[11px] t-mut truncate max-w-full">📝 ${esc(noteTxt)}</span>`:''}
       </div>`:''}
     </div>`;
@@ -1234,6 +1336,7 @@ export function renderInvItemCard(it,idx,len,invSecs){
         <input data-inv="${it.id}:notes" type="text" value="${esc(it.notes)}" placeholder="Notizen..." class="inp w-full min-w-0 py-1.5 px-2 text-xs"/>
       </div>
     </div>
+    ${!lnk?renderEqModsBlock('inv',it):''}
   </div>`;
 }
 
