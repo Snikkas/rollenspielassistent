@@ -641,13 +641,16 @@ export function normalizeCampaigns(rawCamps){
       gmUsers: id==='default'?[]:(Array.isArray(c.gmUsers)?[...new Set(c.gmUsers.map(u=>String(u||'').trim()).filter(Boolean))]:[]),
       img: String(c.img||''),
       color: isHex(c.color)?c.color:'',
-      bgColor: isHex(c.bgColor)?c.bgColor:''
+      bgColor: isHex(c.bgColor)?c.bgColor:'',
+      archived: id==='default'?false:Boolean(c.archived),
+      archivedAt: id==='default'?'':String(c.archivedAt||''),
+      archivedAtMs: id==='default'?0:Math.max(0,toInt(c.archivedAtMs,0))
     };
   }):[];
   if(!list.length){
-    list.push({id:'default',name:'Ohne Kampagne / Allgemein',allowedUsers:[],gmUsers:[],img:''});
+    list.push({id:'default',name:'Ohne Kampagne / Allgemein',allowedUsers:[],gmUsers:[],img:'',color:'',bgColor:'',archived:false,archivedAt:'',archivedAtMs:0});
   }else if(!list.some(c=>c.id==='default')){
-    list.unshift({id:'default',name:'Ohne Kampagne / Allgemein',allowedUsers:[],gmUsers:[],img:''});
+    list.unshift({id:'default',name:'Ohne Kampagne / Allgemein',allowedUsers:[],gmUsers:[],img:'',color:'',bgColor:'',archived:false,archivedAt:'',archivedAtMs:0});
   }
   return list;
 }
@@ -922,12 +925,18 @@ export function normalizeInitiativeState(raw){
     entries
   };
 }
-export const CLOUD={serverUrl:'',list:[],trashedList:[],trashedLoading:false,trashedError:'',confirmPermDelTrashId:null,confirmEmptyTrash:false,loading:false,syncing:false,error:'',lastSyncTs:'',viewingRemote:false,remoteCharId:'',confirmDelCloudId:null,confirmDelCampPageId:null,filterMine:false,currentUser:'',isAdmin:false,showAdminBar:false,userMgmtOpen:false,activeCampaignId:'default',campAction:'',newCharOpen:false,newCharName:'',newCharAncestry:'',newCharConcept:'',newCharCampId:'default',gmEnemiesOpen:true,gmEnemyTab:'active',gmEnemySearch:'',templatesOpen:false,templateFilter:'all',templateSearch:'',newTemplateOpen:false,newTemplateName:'',newTemplateAncestry:'',newTemplateConcept:'',newTemplateCategory:'',newTemplateAsEnemyCampId:'',publicNotesOpen:true,activePublicPageKey:'',registryLoaded:false,diceFeed:[],secretRolls:[],diceConnected:false,diceToast:true,diceCollapsed:false,lobbyDiceH:340,galleryCollapsed:false,confirmClearDice:false,registry:{users:{},claims:{},charCampaigns:{},enemyMeta:{},initiatives:{},publicNotes:{},campaignSharedNotes:{},deletedCharIds:[],campaigns:[{id:'default',name:'Ohne Kampagne / Allgemein',allowedUsers:[],gmUsers:[],img:''}],gmUsers:[],lobbyLogo:'',adminHash:'',diceFeed:[],diceClearedAt:0,diceClearedByCamp:{}}};
+export const CLOUD={serverUrl:'',list:[],trashedList:[],trashedLoading:false,trashedError:'',confirmPermDelTrashId:null,confirmEmptyTrash:false,confirmArchCampId:null,confirmDelCampId:null,loading:false,syncing:false,error:'',lastSyncTs:'',viewingRemote:false,remoteCharId:'',confirmDelCloudId:null,confirmDelCampPageId:null,filterMine:false,currentUser:'',isAdmin:false,showAdminBar:false,userMgmtOpen:false,activeCampaignId:'default',campAction:'',newCharOpen:false,newCharName:'',newCharAncestry:'',newCharConcept:'',newCharCampId:'default',gmEnemiesOpen:true,gmEnemyTab:'active',gmEnemySearch:'',templatesOpen:false,templateFilter:'all',templateSearch:'',newTemplateOpen:false,newTemplateName:'',newTemplateAncestry:'',newTemplateConcept:'',newTemplateCategory:'',newTemplateAsEnemyCampId:'',publicNotesOpen:true,activePublicPageKey:'',registryLoaded:false,diceFeed:[],secretRolls:[],diceConnected:false,diceToast:true,diceCollapsed:false,lobbyDiceH:340,galleryCollapsed:false,confirmClearDice:false,registry:{users:{},claims:{},charCampaigns:{},enemyMeta:{},initiatives:{},publicNotes:{},campaignSharedNotes:{},deletedCharIds:[],campaigns:[{id:'default',name:'Ohne Kampagne / Allgemein',allowedUsers:[],gmUsers:[],img:'',archived:false,archivedAt:'',archivedAtMs:0}],gmUsers:[],lobbyLogo:'',adminHash:'',diceFeed:[],diceClearedAt:0,diceClearedByCamp:{}}};
 export const CLOUD_SYNC={inFlight:false,inFlightPromise:null,dirty:false,seq:0,syncedSeq:0,status:'saved',debounceTimer:null,retryTimer:null,retryStep:0,lastMetaSig:'',lastMetaCharId:'',pendingSilent:true,pendingForceRegistry:false,lastError:''};
 export const PWLIB={loaded:false,loading:false,saving:false,error:'',repoPacks:[],cloudPacks:[],tab:'server',search:'',filterCat:'',filterTier:'',selectedPackId:'',openCats:{},openPacks:{},openAugFolders:{},selSecIds:{},selPwIds:{},selAugIds:{},targetSecId:'',dedupeMode:'skipExisting',lastLoadedTs:'',adminSrc:'all',adminName:'',adminCat:'Allgemein',adminDesc:'',adminIsBasis:false,confirmDelPackId:''};
 export function getCampaigns(){
   CLOUD.registry.campaigns=normalizeCampaigns(CLOUD.registry?.campaigns);
   return CLOUD.registry.campaigns;
+}
+export function getActiveCampaigns(){
+  return getCampaigns().filter(c=>c&&(c.id==='default'||!c.archived));
+}
+export function getArchivedCampaigns(){
+  return getCampaigns().filter(c=>c&&c.id!=='default'&&Boolean(c.archived));
 }
 export function setActiveCampaign(campId){
   const id=String(campId||'default').trim()||'default';
@@ -945,7 +954,7 @@ export function isGlobalGM(username=CLOUD.currentUser){const u=String(username||
 export function isCampaignMainGM(campOrId,username=CLOUD.currentUser){const u=String(username||'').trim().toLowerCase();if(!u||!isGlobalGM(u))return false;const c=typeof campOrId==='string'?getCampaigns().find(x=>x.id===campOrId):campOrId;if(!c||c.id==='default')return false;return Array.isArray(c.gmUsers)&&c.gmUsers.some(x=>String(x||'').trim().toLowerCase()===u);}
 export function canManageCampaign(campOrId,username=CLOUD.currentUser){if(CLOUD.isAdmin) return true; return isCampaignMainGM(campOrId, username);}
 export function getGmManageableCampaigns(username=CLOUD.currentUser){
-  const all=getCampaigns().filter(c=>c&&c.id!=='default');
+  const all=getActiveCampaigns().filter(c=>c&&c.id!=='default');
   if(CLOUD.isAdmin) return all;
   return all.filter(c=>isCampaignMainGM(c,username));
 }
@@ -967,7 +976,7 @@ export function canClearLiveDice(campOrId=getActiveLiveCampaignId(),username=CLO
   return Boolean(inCampGmList||isGmInCamp);
 }
 export function getAccessibleCampaigns(username=CLOUD.currentUser){
-  const all=getCampaigns(); if(CLOUD.isAdmin) return all;
+  const all=getActiveCampaigns(); if(CLOUD.isAdmin) return all;
   return all.filter(c=>c.id==='default'||(username&&(isUserInCampaign(c,username)||isCampaignMainGM(c,username))));
 }
 export function getCreatableCampaigns(username=CLOUD.currentUser){
@@ -1784,7 +1793,7 @@ export function mergeLoaded(raw){
 
 export const getCharOwner=id=>{const ch=CLOUD.list.find(x=>x.id===id);const cl=CLOUD.registry.claims?.[id];return String(cl!==undefined?cl:(ch?.owner||'')).trim();};
 export const getCharCampaignId=id=>{
-  const camps=getCampaigns();
+  const camps=getActiveCampaigns();
   const validIds=new Set(camps.map(c=>c.id));
   const ch=CLOUD.list.find(x=>x.id===id);
   const regC=CLOUD.registry.charCampaigns?.[id];

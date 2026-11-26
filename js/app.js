@@ -8,13 +8,13 @@ import {
   registerHooks
 } from './ui-hooks.js';
 import {
-  syncPwUseCostsLegacy, makeDefaultStatusEffects, defaultState, setS, setD, clearDiceLogs, syncBodyScrollLock, positionFloatingMenu, openCtxMenu, closeCtxMenu, closePwDropdown, repositionOpenPwMenus, hydrateWinPrefs, saveWinPref, clearWinPref, applyWinFrame, setPwMode, normalizeCampaigns, normalizeEnemyMeta, getUserBgLocalKey, getCampaigns, setActiveCampaign, canManageCampaign, canClearLiveDice, getCreatableCampaigns, isEnemySheet, getEnemyMeta, canToggleEnemyStatus, canManageEnemySheet, canViewEnemySheet, ensureAllRegistryUsers, findUserKeyByName, findUserKeyById, getUserAvatar, canViewUserProfile, saveRegistryLocal, saveSecretRollsLocal, getActiveLiveCampaignId, captureScrollState, restoreScrollState, toast, triggerNiceEasterEgg, logChron, mergeLoaded, saveLastActiveTab, save, flushPendingSave, saveSoon, load, flushThemePrefsSync, cancelThemePrefsSync, applySessionTheme, persistCurrentThemeChange, syncPalDraftFromSlot, applyTheme, CUSTOM_ICONS, findMainArt, findActionSub, isReservedPwTerm, getWeaponSubtype, isWeaponMassiv, isArmorShield, isWeaponBlockable, makeWeapon, makeAmmo, makeArmor, makeInvItem, makeEqSecMeta, makeChrSecMeta, makeSection, makeSkSection, makeInvSection, makePower, makeAugment, syncEquipmentToInventory, S, D, CN, LD, INI, FBW, DUEL, COMBAT, isMobileLayout, CTX_MENU, getWinState, hasSavedWinPref, savedEffRanges, savedPwRanges, lastPwFieldById, pwQuickKey, UI, LIVE_TAB_ID, PATCHNOTES, FEEDBACK, CLOUD, CLOUD_SYNC, PWLIB, getCharOwner, getCharCampaignId, canManageChar, getEditStyleSlot
+  syncPwUseCostsLegacy, makeDefaultStatusEffects, defaultState, setS, setD, clearDiceLogs, syncBodyScrollLock, positionFloatingMenu, openCtxMenu, closeCtxMenu, closePwDropdown, repositionOpenPwMenus, hydrateWinPrefs, saveWinPref, clearWinPref, applyWinFrame, setPwMode, normalizeCampaigns, normalizeEnemyMeta, getUserBgLocalKey, getCampaigns, getActiveCampaigns, setActiveCampaign, canManageCampaign, canClearLiveDice, getCreatableCampaigns, isEnemySheet, getEnemyMeta, canToggleEnemyStatus, canManageEnemySheet, canViewEnemySheet, ensureAllRegistryUsers, findUserKeyByName, findUserKeyById, getUserAvatar, canViewUserProfile, saveRegistryLocal, saveSecretRollsLocal, getActiveLiveCampaignId, captureScrollState, restoreScrollState, toast, triggerNiceEasterEgg, logChron, mergeLoaded, saveLastActiveTab, save, flushPendingSave, saveSoon, load, flushThemePrefsSync, cancelThemePrefsSync, applySessionTheme, persistCurrentThemeChange, syncPalDraftFromSlot, applyTheme, CUSTOM_ICONS, findMainArt, findActionSub, isReservedPwTerm, getWeaponSubtype, isWeaponMassiv, isArmorShield, isWeaponBlockable, makeWeapon, makeAmmo, makeArmor, makeInvItem, makeEqSecMeta, makeChrSecMeta, makeSection, makeSkSection, makeInvSection, makePower, makeAugment, syncEquipmentToInventory, S, D, CN, LD, INI, FBW, DUEL, COMBAT, isMobileLayout, CTX_MENU, getWinState, hasSavedWinPref, savedEffRanges, savedPwRanges, lastPwFieldById, pwQuickKey, UI, LIVE_TAB_ID, PATCHNOTES, FEEDBACK, CLOUD, CLOUD_SYNC, PWLIB, getCharOwner, getCharCampaignId, canManageChar, getEditStyleSlot
 } from './state.js';
 import {
   getStatusEffValues, formatPwUseCosts, getReservablePwCosts, getEffectivePoolCap, getPwBuilderToken, parseStatusTokens, getAllParsedEffectChips, invalidateModsCache, calcActiveMods, buildAttrTip, buildSecTip, getMentalArmorSummary, syncCresRenameInTokens, syncSkillRenameInTokens, purgeExtraSecFromPowers, calcAutoSkCost, findDuplicatePwEntry, makeUniquePwName, updatePwNameDupHint, enforceUniquePwName, buildPowerExportPack, downloadPowerPackJson, resolveLibraryAugmentParentName, getSuggestedAugmentsForPower, importPowerPackIntoSheet, getTrCost, performSimpleRest, performFullRest, withPoolSync, linkAugToPower, unlinkAugFromPower, calcPwCost, calcSkCost, calcProg, getWeaponRollMeta, getShieldRollMeta, getSheetBlockOptions, getEquippedWeaponsForSkill, getEquippedShieldsForSkill, formatBlockModShort, getWeaponDualWieldInfo, getTagDesc, cresName, makeExtraSec, getExtraSecName, getResLabel, escReStr, getAttrCol, getSecCol, getAttrTot, getLpBase, getLpMax, getMlpBase, getMlpMax, getLpRegenAuto, getMlpRegenAuto, hasLpRegenOvr, hasMlpRegenOvr, getLpRegen, getMlpRegen, getIniBase, getIniTot, getApBase, getApMax, getMapBase, getMapMax, getCresBase, getCresMax, getExtraSecBase, getBstAuto, hasBstOvr, getBstBase, getEffBst, getSkAutoBonus, hasSkBonusOvr, getSkBonus, findPwItem, findEqItem, getLinkedAugs, getValidPwSecId
 } from './calc.js';
 import {
-  updateLobbyLiveDiceDOM, initLiveDiceChannel, publishLiveRoll, revealSecretRoll, publishLiveCampNote, clearLiveDiceFeed, syncCloudRegistry, renameUserAccount, addCampaignAllowedUser, removeCampaignAllowedUser, toggleGlobalGMTag, addCampaignMainGM, removeCampaignMainGM, kickCharFromCampaign, duplicateCharacterSheet, getCampaignSharedPages, extractPublicPages, upsertPublicNoteEntry, fetchLobbyList, fetchForeignCharacterSheet, canWriteCurrentSheetToCloud, resetCloudSyncState, updateCloudSyncStatusDOM, scheduleCloudSync, pushToCloud, flushCloudSyncNow, flushBeforeCharacterSwitch, loadCloudCharacter, createNewUserCharacter, updateCloudCharacterMeta, fetchTrashedCharacters, deleteCloudCharacter, restoreTrashedCharacter, permanentDeleteTrashedCharacter, emptyTrashedCharacters, updateEnemyMetaCloud, createNewEnemyOrTemplate, toggleEnemyActiveStatus, toggleEnemyCampaignAssignment, toggleEnemyDiceVisibility, hideAllEnemiesInCampaignDice, toggleEnemyArchived, cloneEnemyToCampaign, stripLibraryPackMeta, getAllLibraryPacks, fetchPowerLibrary, publishPackToCloudLibrary, deletePackFromCloudLibrary, parsePatchnoteTsMs, getNewestPatchnoteId, isPatchnoteCollapsed, normalizePatchnoteEntry, fetchPatchnotes, savePatchnotesToServer, fetchFeedback, saveFeedbackStore, loadCustomIconsCache, fetchCustomIcons, saveCustomIconsToServer, loadNotifSeen, saveNotifSeen, markNotifRead, markAllNotifsRead, updateNotifBadges, refreshUserNotificationsBg, fetchAndSyncBasisPowers, isSecretRollActive
+  updateLobbyLiveDiceDOM, initLiveDiceChannel, publishLiveRoll, revealSecretRoll, publishLiveCampNote, clearLiveDiceFeed, syncCloudRegistry, renameUserAccount, addCampaignAllowedUser, removeCampaignAllowedUser, archiveCampaignById, restoreCampaignById, deleteCampaignById, toggleGlobalGMTag, addCampaignMainGM, removeCampaignMainGM, kickCharFromCampaign, duplicateCharacterSheet, getCampaignSharedPages, extractPublicPages, upsertPublicNoteEntry, fetchLobbyList, fetchForeignCharacterSheet, canWriteCurrentSheetToCloud, resetCloudSyncState, updateCloudSyncStatusDOM, scheduleCloudSync, pushToCloud, flushCloudSyncNow, flushBeforeCharacterSwitch, loadCloudCharacter, createNewUserCharacter, updateCloudCharacterMeta, fetchTrashedCharacters, deleteCloudCharacter, restoreTrashedCharacter, permanentDeleteTrashedCharacter, emptyTrashedCharacters, updateEnemyMetaCloud, createNewEnemyOrTemplate, toggleEnemyActiveStatus, toggleEnemyCampaignAssignment, toggleEnemyDiceVisibility, hideAllEnemiesInCampaignDice, toggleEnemyArchived, cloneEnemyToCampaign, stripLibraryPackMeta, getAllLibraryPacks, fetchPowerLibrary, publishPackToCloudLibrary, deletePackFromCloudLibrary, parsePatchnoteTsMs, getNewestPatchnoteId, isPatchnoteCollapsed, normalizePatchnoteEntry, fetchPatchnotes, savePatchnotesToServer, fetchFeedback, saveFeedbackStore, loadCustomIconsCache, fetchCustomIcons, saveCustomIconsToServer, loadNotifSeen, saveNotifSeen, markNotifRead, markAllNotifsRead, updateNotifBadges, refreshUserNotificationsBg, fetchAndSyncBasisPowers, isSecretRollActive
 } from './cloud.js';
 import {
   resetDiceToLobbyNeutral, exitLobbyNeutralDice, ensureLobbyNeutralDiceOnOpen, applyDiceAutoAdvDis, calcThreshold, openWeaponRoll, openShieldRoll, selectDiceWeapon, syncDiceFromSheet, buildAdvDisInnerHtml, renderDice, renderLiveDice, rollW100, renderBlockFollowUpBox, executeBlockFollowUpRoll, executeDiceRoll, rollCustomDice, getCSkVal, getDSkVal, getEffC, getEffD, isLobbyNeutralDice, calcEgMultiplier, buildThresholdInnerHtml, activateVsCharMode, selectDiceOpponent, resolveOpponentComparison
@@ -2478,7 +2478,7 @@ document.addEventListener('click',async e=>{
     case 'camp-new-open': {
       if(!CLOUD.isAdmin) break;
       CLOUD.campAction=CLOUD.campAction==='new'?'':'new';
-      renderModal();
+      renderMain(); renderModal();
       if(CLOUD.campAction==='new') setTimeout(()=>{const inp=$('inpCampaignName');if(inp)inp.focus();},30);
       break;
     }
@@ -2488,19 +2488,19 @@ document.addEventListener('click',async e=>{
       if(!nm){toast('⚠️ Bitte einen Namen für die neue Kampagne eingeben.');break;}
       const camps=getCampaigns();
       const newId='camp_'+uid();
-      camps.push({id:newId,name:nm,allowedUsers:[]});
+      camps.push({id:newId,name:nm,allowedUsers:[],gmUsers:[],img:'',archived:false,archivedAt:'',archivedAtMs:0});
       CLOUD.registry.campaigns=normalizeCampaigns(camps);
       setActiveCampaign(newId);
       CLOUD.campAction='';
       syncCloudRegistry(true);
-      renderModal();
+      renderMain(); renderModal();
       toast(`🗺️ Kampagne „${nm}“ erstellt!`);
       break;
     }
     case 'camp-rename-open': {
       if(!CLOUD.isAdmin) break;
       CLOUD.campAction=CLOUD.campAction==='rename'?'':'rename';
-      renderModal();
+      renderMain(); renderModal();
       if(CLOUD.campAction==='rename') setTimeout(()=>{const inp=$('inpCampaignName');if(inp){inp.focus();inp.select();}},30);
       break;
     }
@@ -2515,80 +2515,74 @@ document.addEventListener('click',async e=>{
         CLOUD.registry.campaigns=normalizeCampaigns(camps);
         CLOUD.campAction='';
         syncCloudRegistry(true);
-        renderModal();
+        renderMain(); renderModal();
         toast(`✏️ Kampagne in „${nm}“ umbenannt!`);
       }
+      break;
+    }
+    case 'camp-archive-ask': {
+      if(!CLOUD.isAdmin||CLOUD.activeCampaignId==='default') break;
+      CLOUD.campAction='archive';
+      renderMain();
+      break;
+    }
+    case 'camp-archive-confirm': {
+      if(!CLOUD.isAdmin||CLOUD.activeCampaignId==='default') break;
+      archiveCampaignById(CLOUD.activeCampaignId);
       break;
     }
     case 'camp-delete-ask': {
       if(!CLOUD.isAdmin||CLOUD.activeCampaignId==='default') break;
       CLOUD.campAction='delete';
-      renderModal();
+      renderMain();
       break;
     }
     case 'camp-delete-confirm': {
       if(!CLOUD.isAdmin||CLOUD.activeCampaignId==='default') break;
-      const delId=CLOUD.activeCampaignId;
-      const camps=getCampaigns();
-      const delCamp=camps.find(c=>c.id===delId);
-      const delName=delCamp?.name||'Kampagne';
-      const nextCamps=normalizeCampaigns(camps.filter(c=>c.id!==delId));
-      CLOUD.registry.campaigns=nextCamps;
-      if(!CLOUD.registry.charCampaigns||typeof CLOUD.registry.charCampaigns!=='object') CLOUD.registry.charCampaigns={};
-      const affectedIds=[];
-      CLOUD.list.forEach(ch=>{
-        if(getCharCampaignId(ch.id)===delId){
-          ch.campaignId='default';
-          CLOUD.registry.charCampaigns[ch.id]='default';
-          affectedIds.push(ch.id);
-        }
-      });
-      Object.keys(CLOUD.registry.charCampaigns).forEach(cid=>{
-        if(CLOUD.registry.charCampaigns[cid]===delId){
-          CLOUD.registry.charCampaigns[cid]='default';
-          if(!affectedIds.includes(cid)) affectedIds.push(cid);
-        }
-      });
-      // Auch Multi-Kampagnen-Zuordnungen von Gegnern bereinigen
-      const validIds=new Set(nextCamps.map(c=>c.id));
-      const affectedEnemyIds=[];
-      if(!CLOUD.registry.enemyMeta||typeof CLOUD.registry.enemyMeta!=='object') CLOUD.registry.enemyMeta={};
-      const allEnemyIds=new Set([
-        ...Object.keys(CLOUD.registry.enemyMeta),
-        ...(CLOUD.list||[]).filter(ch=>ch&&isEnemySheet(ch.id)).map(ch=>ch.id)
-      ]);
-      allEnemyIds.forEach(eid=>{
-        const m=getEnemyMeta(eid);
-        if(m.campaignIds.includes(delId)||m.diceVisibleByCamp?.[delId]){
-          const nextM=normalizeEnemyMeta({
-            ...m,
-            campaignIds:m.campaignIds.filter(x=>x!==delId),
-            diceVisibleByCamp:Object.fromEntries(Object.entries(m.diceVisibleByCamp||{}).filter(([k])=>k!==delId)),
-            updatedAtMs:Date.now()
-          },validIds);
-          CLOUD.registry.enemyMeta[eid]=clone(nextM);
-          const li=(CLOUD.list||[]).find(c=>c&&c.id===eid);
-          if(li) li.enemyMeta=clone(nextM);
-          if(S.charId===eid){S.enemyMeta=clone(nextM);save(false);}
-          affectedEnemyIds.push({id:eid,meta:nextM});
-        }
-      });
-      if(S.campaignId===delId){S.campaignId='default';save(false);}
-      setActiveCampaign('default');
-      CLOUD.campAction='';
-      syncCloudRegistry(true);
-      affectedIds.forEach(cid=>{
-        updateCloudCharacterMeta(cid,d=>{d.campaignId='default';if(d._summary)d._summary.campaignId='default';},'');
-      });
-      affectedEnemyIds.forEach(({id:eid,meta:nm})=>{
-        updateCloudCharacterMeta(eid,d=>{d.enemyMeta=clone(nm);if(d._summary)d._summary.enemyMeta=clone(nm);},'');
-      });
-      renderMain(); renderModal();
-      toast(`🗑️ Kampagne „${delName}“ gelöscht (Charaktere in Hauptkampagne verschoben).`);
+      deleteCampaignById(CLOUD.activeCampaignId);
       break;
     }
     case 'camp-action-cancel': {
       CLOUD.campAction='';
+      renderMain(); renderModal();
+      break;
+    }
+    case 'admin-camp-archive-ask': {
+      if(!CLOUD.isAdmin) break;
+      const cid=String(el.dataset.id||'').trim();
+      if(!cid||cid==='default') break;
+      CLOUD.confirmArchCampId=cid;
+      CLOUD.confirmDelCampId=null;
+      renderModal();
+      break;
+    }
+    case 'admin-camp-archive-confirm': {
+      if(!CLOUD.isAdmin) break;
+      archiveCampaignById(el.dataset.id||'');
+      break;
+    }
+    case 'admin-camp-restore': {
+      if(!CLOUD.isAdmin) break;
+      restoreCampaignById(el.dataset.id||'');
+      break;
+    }
+    case 'admin-camp-delete-ask': {
+      if(!CLOUD.isAdmin) break;
+      const cid=String(el.dataset.id||'').trim();
+      if(!cid||cid==='default') break;
+      CLOUD.confirmDelCampId=cid;
+      CLOUD.confirmArchCampId=null;
+      renderModal();
+      break;
+    }
+    case 'admin-camp-delete-confirm': {
+      if(!CLOUD.isAdmin) break;
+      deleteCampaignById(el.dataset.id||'');
+      break;
+    }
+    case 'admin-camp-action-cancel': {
+      CLOUD.confirmArchCampId=null;
+      CLOUD.confirmDelCampId=null;
       renderModal();
       break;
     }
@@ -4720,7 +4714,7 @@ document.addEventListener('change',e=>{
     const cid=el.dataset.adminCampChar, newCampId=String(el.value||'default').trim()||'default';
     const owner=getCharOwner(cid), isMyChar=Boolean(owner&&CLOUD.currentUser&&owner.toLowerCase()===CLOUD.currentUser.toLowerCase());
     if(!CLOUD.isAdmin&&!isMyChar&&!canManageCampaign(getCharCampaignId(cid))) return;
-    const camps=CLOUD.isAdmin?getCampaigns():getCreatableCampaigns(CLOUD.currentUser);
+    const camps=CLOUD.isAdmin?getActiveCampaigns():getCreatableCampaigns(CLOUD.currentUser);
     const targetCamp=camps.find(c=>c.id===newCampId)||camps[0]||{id:'default',name:'Ohne Kampagne / Allgemein'};
     const effCampId=targetCamp.id;
     if(!CLOUD.registry.charCampaigns||typeof CLOUD.registry.charCampaigns!=='object') CLOUD.registry.charCampaigns={};

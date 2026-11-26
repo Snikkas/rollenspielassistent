@@ -8,7 +8,7 @@ import {
   hooks
 } from './ui-hooks.js';
 import {
-  renderSystemIconHtml, syncBodyScrollLock, bindSwipeDownClose, closeCtxMenu, openCtxMenu, applyWinFrame, renderWinCtrlBtns, renderWinResizeHandles, setModalSwipeCleanup, cleanupModalSwipe, isOversizedBgDataUrl, compressBgDataUrlForProfile, getCampaigns, isGlobalGM, canManageCampaign, canToggleEnemyStatus, isEnemySheet, getEnemyMeta, canManageEnemySheet, isEnemyDiceVisibleInCampaign, ensureUserRecord, ensureAllRegistryUsers, findUserKeyByName, findUserKeyById, getUserAvatar, canViewUserProfile, renderUserNamePill, saveRegistryLocal, getCampaignFilteredDiceFeed, captureScrollState, restoreScrollState, toast, save, persistCurrentThemeChange, applyTheme, CUSTOM_ICONS, getPwTermTip, fmtCustomValSummarySuffix, syncEquipmentToInventory, S, D, CN, LD, INI, FBW, isMobileLayout, CTX_MENU, UI, PATCHNOTES, FEEDBACK, CLOUD, CLOUD_SYNC, PWLIB, getCharOwner, getEditStyleSlot
+  renderSystemIconHtml, syncBodyScrollLock, bindSwipeDownClose, closeCtxMenu, openCtxMenu, applyWinFrame, renderWinCtrlBtns, renderWinResizeHandles, setModalSwipeCleanup, cleanupModalSwipe, isOversizedBgDataUrl, compressBgDataUrlForProfile, getCampaigns, getActiveCampaigns, getArchivedCampaigns, isGlobalGM, canManageCampaign, canToggleEnemyStatus, isEnemySheet, getEnemyMeta, canManageEnemySheet, isEnemyDiceVisibleInCampaign, ensureUserRecord, ensureAllRegistryUsers, findUserKeyByName, findUserKeyById, getUserAvatar, canViewUserProfile, renderUserNamePill, saveRegistryLocal, getCampaignFilteredDiceFeed, captureScrollState, restoreScrollState, toast, save, persistCurrentThemeChange, applyTheme, CUSTOM_ICONS, getPwTermTip, fmtCustomValSummarySuffix, syncEquipmentToInventory, S, D, CN, LD, INI, FBW, isMobileLayout, CTX_MENU, UI, PATCHNOTES, FEEDBACK, CLOUD, CLOUD_SYNC, PWLIB, getCharOwner, getCharCampaignId, getEditStyleSlot
 } from './state.js';
 import {
   formatPwUseCosts, getEffectivePoolCap, getReservedSrcList, calcActiveMods, buildPowerExportPack, getSuggestedAugmentsForPower, calcPwCost, calcProg, getPwSecOptionsFlat, cresName, getResLabel, getLpRegen, getMlpRegen, findPwItem, findEqItem
@@ -1314,7 +1314,10 @@ export function renderAdminPanelModalHtml(){
   const regUsers=Object.keys(CLOUD.registry?.users||{}).filter(k=>CLOUD.registry.users[k]&&!CLOUD.registry.users[k]._deleted).sort((a,b)=>a.localeCompare(b,'de'));
   const globalGms=Array.isArray(CLOUD.registry?.gmUsers)?[...new Set(CLOUD.registry.gmUsers.map(u=>String(u||'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'de')):[];
   const allCamps=getCampaigns();
+  const activeCustomCamps=getActiveCampaigns().filter(c=>c&&c.id!=='default');
+  const archivedCamps=getArchivedCampaigns();
   const campNameMap=new Map(allCamps.map(c=>[c.id,c.name||'Kampagne']));
+  const heroCharList=(CLOUD.list||[]).filter(ch=>ch&&!isEnemySheet(ch.id));
   const customIconCnt=Object.keys(CUSTOM_ICONS?.icons||{}).length;
   const fbItems=Array.isArray(FEEDBACK?.items)?FEEDBACK.items:[];
   const fbBacklog=Array.isArray(FEEDBACK?.backlog)?FEEDBACK.backlog:[];
@@ -1325,7 +1328,7 @@ export function renderAdminPanelModalHtml(){
 
   const titleHtml=isAdm?'👑 Admin-Verwaltung':'👑 Admin-Anmeldung';
   const subHtml=isAdm
-    ?'Zentrale Steuerung für Accounts, Spielleiter, Papierkorb, Icons, Feedback, Lobby-Logo &amp; Sicherheit'
+    ?'Zentrale Steuerung für Kampagnen-Archiv, Accounts, Spielleiter, Papierkorb, Icons, Feedback &amp; Sicherheit'
     :(hasHash?'Master-PIN eingeben, um die Admin-Verwaltung freizuschalten':'Ersteinrichtung: Neue Admin-Master-PIN für das Backend festlegen');
 
   let bodyHtml='';
@@ -1354,6 +1357,72 @@ export function renderAdminPanelModalHtml(){
     </div>`;
     footHtml=`<button type="button" data-action="close-modal" class="btn px-5">Schließen</button>`;
   }else{
+    const campMgmtSectionHtml=`<div class="subcard p-3.5 space-y-3 border ${archivedCamps.length?'border-amber-400/50 bg-amber-500/5':''}">
+      <div class="flex flex-wrap items-center justify-between gap-2 border-b bdr-line pb-2">
+        <div class="min-w-0">
+          <div class="text-xs sm:text-sm font-black text-amber-300 flex flex-wrap items-center gap-1.5">
+            <span>🗺️ Kampagnen-Verwaltung (Aktiv &amp; Archiv)</span>
+            <span class="px-2 py-0.5 rounded-full text-[10px] font-black tabular bg-acc-soft text-acc border bdr-acc">${activeCustomCamps.length} aktiv</span>
+            <span class="px-2 py-0.5 rounded-full text-[10px] font-black tabular ${archivedCamps.length?'bg-amber-500/25 text-amber-200 border border-amber-400/50':'bg-black/25 t-mut border bdr-line'}">📦 ${archivedCamps.length} archiviert</span>
+          </div>
+          <div class="text-[11px] t-mut">Archivierte Kampagnen verschwinden aus der Lobby und können hier jederzeit wiederhergestellt oder dauerhaft gelöscht werden. Zugeordnete Charaktere landen standardmäßig in „Ohne Kampagne / Allgemein“.</div>
+        </div>
+      </div>
+      <div class="space-y-2.5">
+        <div class="space-y-1.5">
+          <div class="text-[11px] font-extrabold text-acc uppercase tracking-wider">📁 Aktive Kampagnen (${activeCustomCamps.length})</div>
+          ${activeCustomCamps.length?`<div class="space-y-1.5 max-h-56 overflow-y-auto pr-0.5" data-scroll-key="adminActiveCamps">${activeCustomCamps.map(c=>{
+            const cChars=heroCharList.filter(ch=>getCharCampaignId(ch.id)===c.id).length;
+            const cUsers=(c.allowedUsers||[]).length, cGms=(c.gmUsers||[]).length;
+            const isArchAsk=CLOUD.confirmArchCampId===c.id;
+            const isDelAsk=CLOUD.confirmDelCampId===c.id;
+            return `<div class="p-2.5 rounded-xl bg-black/25 border bdr-line flex flex-wrap items-center justify-between gap-2 text-xs min-w-0">
+              <div class="flex items-center gap-2.5 min-w-0 flex-1">
+                ${c.img?`<img src="${c.img}" class="w-8 h-8 rounded-lg object-cover border bdr-acc shrink-0" alt=""/>`:`<div class="w-8 h-8 rounded-lg border bdr-line bg-black/35 flex items-center justify-center text-sm shrink-0">📁</div>`}
+                <div class="min-w-0 flex-1">
+                  <div class="font-black text-xs sm:text-sm truncate" ${isHex(c.color)?`style="color:${esc(c.color)}"`:''}>${esc(c.name||'Kampagne')}</div>
+                  <div class="text-[11px] t-mut tabular">👤 ${cChars} ${cChars===1?'Charakter':'Charaktere'} • 👥 ${cUsers} Spieler • 🎲 ${cGms} SL</div>
+                </div>
+              </div>
+              <div class="flex flex-wrap items-center gap-1.5 shrink-0">
+                ${isArchAsk
+                  ?`<button type="button" data-action="admin-camp-archive-confirm" data-id="${esc(c.id)}" class="btn bg-amber-500 text-slate-950 border-amber-400 py-1 px-2.5 text-[11px] font-black">Archivieren? (${cChars} → Allgemein)</button><button type="button" data-action="admin-camp-action-cancel" class="btn py-1 px-2 text-[11px]">✕</button>`
+                  :(isDelAsk
+                    ?`<button type="button" data-action="admin-camp-delete-confirm" data-id="${esc(c.id)}" class="btn bg-rose-600 text-white border-rose-500 py-1 px-2.5 text-[11px] font-black">Endgültig löschen? (${cChars} → Allgemein)</button><button type="button" data-action="admin-camp-action-cancel" class="btn py-1 px-2 text-[11px]">✕</button>`
+                    :`<button type="button" data-action="admin-camp-archive-ask" data-id="${esc(c.id)}" data-tip="Kampagne archivieren (aus Lobby entfernen, später wiederherstellbar; Charaktere → Allgemein)" class="btn py-1 px-2.5 text-[11px] font-black border-amber-400/55 bg-amber-500/15 text-amber-200">📦 Archivieren</button><button type="button" data-action="admin-camp-delete-ask" data-id="${esc(c.id)}" data-tip="Kampagne endgültig löschen (Charaktere → Allgemein)" class="btn btn-err py-1 px-2.5 text-[11px] font-black">🗑️ Löschen</button>`)}
+              </div>
+            </div>`;
+          }).join('')}</div>`:`<div class="text-xs t-mut italic py-1">Keine zusätzlichen aktiven Kampagnen vorhanden (nur der öffentliche Bereich „Ohne Kampagne / Allgemein“).</div>`}
+        </div>
+
+        <div class="space-y-1.5 pt-2 border-t border-white/10">
+          <div class="text-[11px] font-extrabold text-amber-300 uppercase tracking-wider">📦 Archivierte Kampagnen (${archivedCamps.length})</div>
+          ${archivedCamps.length?`<div class="space-y-1.5 max-h-56 overflow-y-auto pr-0.5" data-scroll-key="adminArchivedCamps">${archivedCamps.map(c=>{
+            const cUsers=(c.allowedUsers||[]).length, cGms=(c.gmUsers||[]).length;
+            const isDelAsk=CLOUD.confirmDelCampId===c.id;
+            return `<div class="p-2.5 rounded-xl bg-amber-500/10 border border-amber-400/35 flex flex-wrap items-center justify-between gap-2 text-xs min-w-0">
+              <div class="flex items-center gap-2.5 min-w-0 flex-1">
+                ${c.img?`<img src="${c.img}" class="w-8 h-8 rounded-lg object-cover border border-amber-400/50 opacity-85 shrink-0" alt=""/>`:`<div class="w-8 h-8 rounded-lg border border-amber-400/40 bg-black/35 flex items-center justify-center text-sm shrink-0">📦</div>`}
+                <div class="min-w-0 flex-1">
+                  <div class="flex flex-wrap items-center gap-1.5 min-w-0">
+                    <span class="font-black text-xs sm:text-sm truncate">${esc(c.name||'Kampagne')}</span>
+                    <span class="px-1.5 py-0.2 rounded text-[10px] font-black bg-amber-500/25 text-amber-200 border border-amber-400/40 shrink-0">Archiviert</span>
+                  </div>
+                  <div class="text-[11px] t-mut tabular">👥 ${cUsers} Spieler • 🎲 ${cGms} SL${c.archivedAt?` • 📦 ${esc(c.archivedAt)}`:''}</div>
+                </div>
+              </div>
+              <div class="flex flex-wrap items-center gap-1.5 shrink-0">
+                <button type="button" data-action="admin-camp-restore" data-id="${esc(c.id)}" data-tip="Kampagne wiederherstellen und zurück in die Lobby bringen" class="btn btn-ok py-1 px-2.5 text-[11px] font-black">↩️ Wiederherstellen</button>
+                ${isDelAsk
+                  ?`<button type="button" data-action="admin-camp-delete-confirm" data-id="${esc(c.id)}" class="btn bg-rose-600 text-white border-rose-500 py-1 px-2.5 text-[11px] font-black">Endgültig löschen? (2/2)</button><button type="button" data-action="admin-camp-action-cancel" class="btn py-1 px-2 text-[11px]">✕</button>`
+                  :`<button type="button" data-action="admin-camp-delete-ask" data-id="${esc(c.id)}" data-tip="Archivierte Kampagne endgültig und unwiderruflich löschen" class="btn btn-err py-1 px-2.5 text-[11px] font-black">🔥 Löschen</button>`}
+              </div>
+            </div>`;
+          }).join('')}</div>`:`<div class="text-xs t-mut italic py-1">Keine archivierten Kampagnen vorhanden.</div>`}
+        </div>
+      </div>
+    </div>`;
+
     const trashSectionHtml=`<div class="subcard p-3.5 space-y-3 border ${trashedList.length?'border-rose-400/45 bg-rose-500/5':''}">
       <div class="flex flex-wrap items-center justify-between gap-2 border-b bdr-line pb-2">
         <div class="min-w-0">
@@ -1419,15 +1488,19 @@ export function renderAdminPanelModalHtml(){
         <div class="flex flex-wrap items-center gap-1.5 text-[11px]">
           <span class="pill cursor-default py-0.5 px-2 tabular">👥 ${regUsers.length} ${regUsers.length===1?'Account':'Accounts'}</span>
           <span class="pill cursor-default py-0.5 px-2 tabular">🎲 ${globalGms.length} Spielleiter</span>
-          <span class="pill cursor-default py-0.5 px-2 tabular">🗺️ ${allCamps.length} ${allCamps.length===1?'Kampagne':'Kampagnen'}</span>
+          <span class="pill cursor-default py-0.5 px-2 tabular">🗺️ ${activeCustomCamps.length+1} aktiv</span>
+          <span class="pill cursor-default py-0.5 px-2 tabular ${archivedCamps.length?'border-amber-400/60 bg-amber-500/15 text-amber-200':''}">📦 ${archivedCamps.length} archiviert</span>
           <span class="pill cursor-default py-0.5 px-2 tabular ${trashedList.length?'border-rose-400/60 bg-rose-500/15 text-rose-200':''}">🗑️ ${trashedList.length} im Papierkorb</span>
           <span class="pill cursor-default py-0.5 px-2 tabular">🎨 ${customIconCnt}/${SYSTEM_ICON_DEFS.length} Icons</span>
           <span class="pill cursor-default py-0.5 px-2 tabular">💬 ${fbItems.length} offenes Feedback</span>
         </div>
-        <p class="text-[11px] text-amber-200/90 leading-relaxed">Du kannst alle Kampagnen verwalten, Spieler zuordnen, gelöschte Bögen aus dem Papierkorb wiederherstellen sowie Charakter-Besitzer und Kampagnen-Zugehörigkeiten jederzeit ändern.</p>
+        <p class="text-[11px] text-amber-200/90 leading-relaxed">Du kannst Kampagnen archivieren, wiederherstellen oder löschen, Spieler zuordnen, gelöschte Bögen aus dem Papierkorb wiederherstellen sowie Charakter-Besitzer und Kampagnen-Zugehörigkeiten jederzeit ändern.</p>
       </div>
 
-      <!-- 2. Papierkorb -->
+      <!-- 2. Kampagnen-Verwaltung (Aktiv & Archiv) -->
+      ${campMgmtSectionHtml}
+
+      <!-- 3. Papierkorb -->
       ${trashSectionHtml}
 
       <!-- 3. Zentrale Admin-Werkzeuge -->

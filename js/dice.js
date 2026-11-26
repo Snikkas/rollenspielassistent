@@ -1422,7 +1422,7 @@ export function renderLiveDice(){
   const hadContent=mount.childElementCount>0;
   const snap=hadContent?captureScrollState(mount):null;
   applyWinFrame('livedice', mount, bd, WIN_DEFAULTS.livedice.dockClass); if(!LD.open){mount.innerHTML='';mount.dataset.lastCampId='';return;}
-  const allCamps=getCampaigns();
+  const allCamps=getCampaigns().filter(c=>c&&(c.id==='default'||!c.archived));
   const visCamps=CLOUD.isAdmin?allCamps:(CLOUD.currentUser?allCamps.filter(c=>c.id==='default'||isUserInCampaign(c,CLOUD.currentUser)||canManageCampaign(c)):allCamps);
   const activeCampId=getActiveLiveCampaignId();
   const sameCamp=hadContent&&mount.dataset.lastCampId===activeCampId;

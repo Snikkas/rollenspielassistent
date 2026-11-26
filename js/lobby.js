@@ -2,7 +2,7 @@ import {
   $, esc, isHex, sortAlpha, stripHtml, toRtfHtml
 } from './utils.js';
 import {
-  openCtxMenu, closeCtxMenu, getCampaigns, setActiveCampaign, isUserInCampaign, isGlobalGM, isCampaignMainGM, canManageCampaign, getGmManageableCampaigns, canToggleEnemyStatus, isEnemySheet, getEnemyMeta, canManageEnemySheet, canViewEnemySheet, isEnemyDiceVisibleInCampaign, getAccessibleCampaigns, getCreatableCampaigns, getUserAvatar, renderUserNamePill, getActiveLiveCampaignId, save, load, S, UI, CLOUD, getCharOwner, getCharCampaignId, canManageChar
+  openCtxMenu, closeCtxMenu, getCampaigns, getActiveCampaigns, getArchivedCampaigns, setActiveCampaign, isUserInCampaign, isGlobalGM, isCampaignMainGM, canManageCampaign, getGmManageableCampaigns, canToggleEnemyStatus, isEnemySheet, getEnemyMeta, canManageEnemySheet, canViewEnemySheet, isEnemyDiceVisibleInCampaign, getAccessibleCampaigns, getCreatableCampaigns, getUserAvatar, renderUserNamePill, getActiveLiveCampaignId, save, load, S, UI, CLOUD, getCharOwner, getCharCampaignId, canManageChar
 } from './state.js';
 import {
   renderLobbyLiveDiceHtml, getCampaignSharedPages, extractPublicPages, updateCloudCharacterMeta, toggleEnemyActiveStatus, toggleEnemyCampaignAssignment, toggleEnemyDiceVisibility, toggleEnemyArchived, cloneEnemyToCampaign
@@ -18,7 +18,7 @@ export function setLobbyCharCampaign(cid,newCampId){
   const cleanCampId=String(newCampId||'default').trim()||'default';
   const owner=getCharOwner(cid), isMyChar=Boolean(owner&&CLOUD.currentUser&&owner.toLowerCase()===CLOUD.currentUser.toLowerCase());
   if(!CLOUD.isAdmin&&!isMyChar&&!canManageCampaign(getCharCampaignId(cid))) return;
-  const camps=CLOUD.isAdmin?getCampaigns():getCreatableCampaigns(CLOUD.currentUser);
+  const camps=CLOUD.isAdmin?getActiveCampaigns():getCreatableCampaigns(CLOUD.currentUser);
   const targetCamp=camps.find(c=>c.id===cleanCampId)||camps[0]||{id:'default',name:'Ohne Kampagne / Allgemein'};
   const effCampId=targetCamp.id;
   if(!CLOUD.registry.charCampaigns||typeof CLOUD.registry.charCampaigns!=='object') CLOUD.registry.charCampaigns={};
@@ -43,7 +43,7 @@ export function openLobbyCharCampPicker(anchorEl,cid){
   const ch=CLOUD.list.find(x=>x.id===cid);
   const charName=ch?.name||'Charakter';
   const curCampId=getCharCampaignId(cid);
-  const camps=CLOUD.isAdmin?getCampaigns():getCreatableCampaigns(CLOUD.currentUser);
+  const camps=CLOUD.isAdmin?getActiveCampaigns():getCreatableCampaigns(CLOUD.currentUser);
   const items=[
     {type:'label',label:`Kampagne für „${charName}“`},
     ...camps.map(c=>({
@@ -997,9 +997,16 @@ export function tplLobbyScreen(){
           ${CLOUD.isAdmin?`
             <button type="button" data-action="camp-new-open" aria-label="Neue Kampagne erstellen" data-tip="Neue Kampagne erstellen" class="btn btn-ok py-1.5 px-2.5 sm:px-3 text-xs font-extrabold shrink-0">+ <span class="hidden sm:inline">Neue </span>Kampagne</button>
             ${activeCamp?`<button type="button" data-action="camp-rename-open" aria-label="Kampagne umbenennen" data-tip="Aktive Kampagne umbenennen" class="btn py-1.5 px-2.5 sm:px-3 text-xs border-amber-400/50 text-amber-300 shrink-0">✏️<span class="hidden sm:inline"> Umbenennen</span></button><button type="button" data-action="open-camp-color" data-id="${esc(activeCamp.id)}" data-cmode="text" aria-label="Textfarbe des Kampagnen-Titels anpassen" data-tip="👑 Admin: Textfarbe des Kampagnen-Titels anpassen" class="btn py-1.5 px-2 sm:px-2.5 text-xs shrink-0" ${activeCamp.color?`style="border-color:${esc(activeCamp.color)};color:${esc(activeCamp.color)}"`:''}>🎨<span class="hidden sm:inline"> Titel</span></button><button type="button" data-action="open-camp-color" data-id="${esc(activeCamp.id)}" data-cmode="bg" aria-label="Fensterfarbe des Kampagnen-Tabs anpassen" data-tip="👑 Admin: Fensterfarbe des Kampagnen-Tabs anpassen" class="btn py-1.5 px-2 sm:px-2.5 text-xs shrink-0" ${activeCamp.bgColor?`style="border-color:${esc(activeCamp.bgColor)};background:color-mix(in srgb,${esc(activeCamp.bgColor)} 38%,var(--surf2))"` :''}>🪟<span class="hidden sm:inline"> Tab-Farbe</span></button>`:''}
+            ${(()=>{const archCnt=getArchivedCampaigns().length;return archCnt>0?`<button type="button" data-action="open-admin-panel" data-tip="Archivierte Kampagnen im Admin-Menü verwalten / wiederherstellen" class="btn py-1.5 px-2.5 text-xs font-extrabold border-amber-400/50 bg-amber-500/15 text-amber-200 shrink-0 tabular">📦 <span class="hidden sm:inline">Archiv </span>(${archCnt})</button>`:'';})()}
           `:''}
           <button type="button" data-action="cloud-refresh-list" ${CLOUD.loading?'disabled':''} aria-label="Lobby-Liste aktualisieren" data-tip="Charakter- und Kampagnenliste vom Server aktualisieren" class="btn py-1.5 px-2.5 sm:px-3 text-xs shrink-0">${CLOUD.loading?'⏳':'🔄'}<span class="hidden sm:inline"> ${CLOUD.loading?'Lade...':'Aktualisieren'}</span></button>
-          ${CLOUD.isAdmin&&activeCamp&&activeCamp.id!=='default'?`<div class="sm:pl-2.5 sm:ml-1 sm:border-l bdr-line flex flex-wrap items-center max-w-full shrink-0">${CLOUD.campAction==='delete'?`<span class="inline-flex flex-wrap items-center gap-1 max-w-full"><button type="button" data-action="camp-delete-confirm" class="btn bg-rose-600 text-white border-rose-600 py-1 px-2.5 text-[11px] font-black whitespace-normal text-left">Löschen? (${campCharList.length} → Allgemein)</button><button type="button" data-action="camp-action-cancel" aria-label="Löschen abbrechen" class="btn py-1 px-2 text-[11px] shrink-0">✕</button></span>`:`<button type="button" data-action="camp-delete-ask" aria-label="Kampagne löschen" data-tip="Kampagne löschen (enthaltene Charaktere werden automatisch in den allgemeinen Bereich verschoben)" class="btn btn-err py-1.5 px-2.5 sm:px-3 text-xs shrink-0">🗑️<span class="hidden sm:inline"> Kampagne löschen</span></button>`}</div>`:''}
+          ${CLOUD.isAdmin&&activeCamp&&activeCamp.id!=='default'?`<div class="sm:pl-2.5 sm:ml-1 sm:border-l bdr-line flex flex-wrap items-center gap-1.5 max-w-full shrink-0">
+            ${CLOUD.campAction==='archive'
+              ?`<span class="inline-flex flex-wrap items-center gap-1 max-w-full"><button type="button" data-action="camp-archive-confirm" class="btn bg-amber-500 text-slate-950 border-amber-400 py-1 px-2.5 text-[11px] font-black whitespace-normal text-left">Archivieren? (${campCharList.length} → Allgemein)</button><button type="button" data-action="camp-action-cancel" aria-label="Archivieren abbrechen" class="btn py-1 px-2 text-[11px] shrink-0">✕</button></span>`
+              :(CLOUD.campAction==='delete'
+                ?`<span class="inline-flex flex-wrap items-center gap-1 max-w-full"><button type="button" data-action="camp-delete-confirm" class="btn bg-rose-600 text-white border-rose-600 py-1 px-2.5 text-[11px] font-black whitespace-normal text-left">Endgültig löschen? (${campCharList.length} → Allgemein)</button><button type="button" data-action="camp-action-cancel" aria-label="Löschen abbrechen" class="btn py-1 px-2 text-[11px] shrink-0">✕</button></span>`
+                :`<button type="button" data-action="camp-archive-ask" aria-label="Kampagne archivieren" data-tip="Kampagne archivieren (aus Lobby entfernen, im Admin-Menü wiederherstellbar; Charaktere → Allgemein)" class="btn py-1.5 px-2.5 sm:px-3 text-xs border-amber-400/55 bg-amber-500/15 text-amber-200 shrink-0">📦<span class="hidden sm:inline"> Archivieren</span></button><button type="button" data-action="camp-delete-ask" aria-label="Kampagne löschen" data-tip="Kampagne dauerhaft löschen (enthaltene Charaktere werden automatisch in den allgemeinen Bereich verschoben)" class="btn btn-err py-1.5 px-2.5 sm:px-3 text-xs shrink-0">🗑️<span class="hidden sm:inline"> Löschen</span></button>`)}
+          </div>`:''}
         </div>
       </div>
 
