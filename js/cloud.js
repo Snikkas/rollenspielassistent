@@ -181,8 +181,6 @@ export function renderLobbyLiveDiceHtml(inFloatingWin=false){
       </div>`;
     }else if(res.length===1){
       const x=res[0];
-      const xMult=x.egMult||entry.egMult||1;
-      const xBaseEg=x.baseEg!==undefined?x.baseEg:(xMult>1?Math.round(x.eg/xMult):x.eg);
       const stTxt=x.crit?'★ KRITISCHER ERFOLG! ★':x.ok?'✓ ERFOLG':(x.r===100?'💀 PATZER (100)':'✕ MISSERFOLG');
       const stCol=x.crit?'text-amber-400':x.ok?'text-emerald-400':'text-rose-400';
       resHtml=`<div class="flex flex-wrap items-center justify-between gap-2 pt-1.5 border-t border-white/10 tabular">
@@ -190,22 +188,22 @@ export function renderLobbyLiveDiceHtml(inFloatingWin=false){
           <span class="px-2.5 py-1 rounded-xl bg-black/35 border bdr-line text-lg sm:text-2xl font-black ${stCol}">🎲 ${x.r}${x.rollMod&&x.rawR!==undefined?`<span class="text-xs font-bold text-cyan-300 ml-1">(Wurf ${x.rawR}${fmtSign(x.rollMod)})</span>`:''}</span>
           <div class="min-w-0">
             <div class="text-xs sm:text-sm font-black uppercase ${stCol}">${stTxt}</div>
-            <div class="text-[11px] t-mut">Schwelle ≤ <strong>${entry.th}</strong> (${entry.chance??Math.max(1,Math.min(99,entry.th))}%)${xMult>1?` • <strong class="text-amber-300">EG ×${xMult}</strong>`:''}</div>
+            <div class="text-[11px] t-mut">Schwelle ≤ <strong>${entry.th}</strong> (${entry.chance??Math.max(1,Math.min(99,entry.th))}%)</div>
           </div>
         </div>
         <div class="flex flex-wrap items-center gap-1.5">
           ${x.crit?`<span class="px-2.5 py-1 rounded-lg bg-amber-500 text-slate-950 font-black text-xs sm:text-sm shadow">★ KRIT</span>`:''}
-          <span class="px-3 py-1 rounded-lg text-white font-black text-xs sm:text-sm shadow ${x.ok?'bg-emerald-600':'bg-rose-600'}">${x.ok?('EG: '+x.eg+(xMult>1?` (${xBaseEg} ×${xMult})`:'')):'MEG: '+x.meg}</span>
+          <span class="px-3 py-1 rounded-lg text-white font-black text-xs sm:text-sm shadow ${x.ok?'bg-emerald-600':'bg-rose-600'}">${x.ok?('EG: '+x.eg):'MEG: '+x.meg}</span>
         </div>
       </div>`;
     }else if(res.length>1){
-      const w=res.filter(x=>x.ok).length, c=res.filter(x=>x.crit).length, eMult=entry.egMult||res[0]?.egMult||1;
+      const w=res.filter(x=>x.ok).length, c=res.filter(x=>x.crit).length;
       resHtml=`<div class="space-y-1.5 pt-1.5 border-t border-white/10 tabular">
         <div class="flex flex-wrap items-center justify-between gap-2 text-xs font-extrabold">
-          <span class="t-mut">${res.length}× W100 gegen Schwelle ≤ <strong>${entry.th}</strong> (${entry.chance??Math.max(1,Math.min(99,entry.th))}%)${eMult>1?` • <strong class="text-amber-300">EG ×${eMult}</strong>`:''}</span>
+          <span class="t-mut">${res.length}× W100 gegen Schwelle ≤ <strong>${entry.th}</strong> (${entry.chance??Math.max(1,Math.min(99,entry.th))}%)</span>
           <span class="${w>0?'text-emerald-400':'text-rose-400'}">${w}/${res.length} Erfolge${c?` • <strong class="text-amber-400">★ ${c} Krit</strong>`:''}</span>
         </div>
-        <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-1.5">${res.map((x,i)=>{const xm=x.egMult||entry.egMult||1;return `<div class="px-2 py-1 rounded-lg border flex items-center justify-between gap-1 text-xs min-w-0 ${x.crit?'border-amber-400 bg-amber-500/20 text-amber-200':x.ok?'border-emerald-500/40 bg-emerald-500/15 text-emerald-200':'border-rose-500/40 bg-rose-500/15 text-rose-200'}"><span class="font-black truncate">#${i+1}: ${x.r}${x.rollMod&&x.rawR!==undefined?` (${x.rawR}${fmtSign(x.rollMod)})`:""}</span><span class="font-extrabold text-[11px] shrink-0">${x.crit?'★ ':''}${x.ok?('EG '+x.eg+(xm>1?` ×${xm}`:'')):'MEG '+x.meg}</span></div>`;}).join('')}</div>
+        <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-1.5">${res.map((x,i)=>`<div class="px-2 py-1 rounded-lg border flex items-center justify-between gap-1 text-xs min-w-0 ${x.crit?'border-amber-400 bg-amber-500/20 text-amber-200':x.ok?'border-emerald-500/40 bg-emerald-500/15 text-emerald-200':'border-rose-500/40 bg-rose-500/15 text-rose-200'}"><span class="font-black truncate">#${i+1}: ${x.r}${x.rollMod&&x.rawR!==undefined?` (${x.rawR}${fmtSign(x.rollMod)})`:""}</span><span class="font-extrabold text-[11px] shrink-0">${x.crit?'★ ':''}${x.ok?('EG '+x.eg):'MEG '+x.meg}</span></div>`).join('')}</div>
       </div>`;
     }
     return `<div class="subcard p-2.5 sm:p-3 space-y-2 border-2 ${bdrCls} ${isFirst?' ring-1 ring-sky-400/30':''} min-w-0">
@@ -596,9 +594,8 @@ export function handleIncomingDicePayload(rawObj,isRealtimePush=false){
   const activeCampClr=toInt(CLOUD.registry?.diceClearedByCamp?.[activeCampNow],0);
   if(isRealtimePush&&rawObj.senderTabId!==LIVE_TAB_ID&&CLOUD.diceToast&&tsVal>activeCampClr&&rollVisCamps.includes(activeCampNow)){
     const r0=rawObj.res[0];
-    const r0Mult=r0?.egMult||rawObj.egMult||1;
     const sumTxt=rawObj.isDamage?`💥 ${toInt(rawObj.finalDmg,0)} ${rawObj.pool==='mlp'?'mLP':'LP'}${rawObj.hzZone?` (${rawObj.hzZone})`:''}${rawObj.thresholdLabel?` • ${rawObj.thresholdLabel}`:''}`:rawObj.isHz?`W100 = ${r0?.r} (${rawObj.hzZone||'Zone'})`:rawObj.isCustomDice?`${rawObj.customFormula} = ${rawObj.customTotal}`:rawObj.res.length===1
-      ?`${r0.r} (${r0.crit?'★ KRIT! ':''}${r0.ok?('EG '+r0.eg+(r0Mult>1?` ×${r0Mult}`:'')):'MEG '+r0.meg})`
+      ?`${r0.r} (${r0.crit?'★ KRIT! ':''}${r0.ok?('EG '+r0.eg):'MEG '+r0.meg})`
       :`${rawObj.res.filter(x=>x.ok).length}/${rawObj.res.length} Erfolge`;
     toast(`${rawObj.wasSecret?'🕵️ Enthüllt – ':''}🎲 Live-Wurf (${rawObj.charName||'Spieler'}): ${rawObj.label||'Probe'} → ${sumTxt}`);
   }
@@ -758,12 +755,12 @@ export function formatSecretRollSummary(r){
   }
   const res=Array.isArray(r.res)?r.res:[];
   if(res.length===1){
-    const x=res[0], xm=x.egMult||r.egMult||1, xb=x.baseEg!==undefined?x.baseEg:(xm>1?Math.round(x.eg/xm):x.eg);
-    return `W100: ${x.r} [≤${r.th}] → ${x.crit?'★ KRIT ':''}${x.ok?('EG '+x.eg+(xm>1?` (${xb} ×${xm})`:'')):'MEG '+x.meg}`;
+    const x=res[0];
+    return `W100: ${x.r} [≤${r.th}] → ${x.crit?'★ KRIT ':''}${x.ok?('EG '+x.eg):'MEG '+x.meg}`;
   }
   if(res.length>1){
-    const w=res.filter(x=>x.ok).length, c=res.filter(x=>x.crit).length, em=r.egMult||res[0]?.egMult||1;
-    return `${res.length}× W100 [≤${r.th}] → ${w}/${res.length} Erfolge${c?` • ★${c}`:''}${em>1?` • EG ×${em}`:''}`;
+    const w=res.filter(x=>x.ok).length, c=res.filter(x=>x.crit).length;
+    return `${res.length}× W100 [≤${r.th}] → ${w}/${res.length} Erfolge${c?` • ★${c}`:''}`;
   }
   return '';
 }

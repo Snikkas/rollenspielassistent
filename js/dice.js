@@ -586,14 +586,14 @@ export function calcRollAdvDis(M=isLobbyNeutralDice()?{testTh:0}:calcActiveMods(
   const r=applyDiceAutoAdvDis(false,M);
   return {...r,effAdv:D.adv,effDis:D.dis};
 }
-export const calcEgMultiplier = th => th > 100 ? Math.floor(th / 100) + 1 : 1;
+export const calcEgMultiplier = () => 1;
 export function calcThreshold(){
   const isNeutral=isLobbyNeutralDice();
   const M=isNeutral?{testTh:0}:calcActiveMods(),ad=calcRollAdvDis(M),cv=getEffC(),dv=(ad.opp&&ad.opp.ready)?ad.opp.oppVal:getEffD(),rawNet=D.adv-D.dis,net=Math.max(-5,Math.min(5,rawNet));
   const bonus=(net===0?0:Math.sign(net)*(10+(Math.abs(net)-1)*5))+(M.testTh||0), th=cv+50-dv+bonus;
   const effCritIdx=Math.max(0,Math.min(CRIT_SEQ.length-1,(ad.autoCrit||0)+toInt(D.critOff,0))), effCrit=CRIT_SEQ[effCritIdx];
   D.crit=effCrit;
-  return {cv,dv,effAdv:D.adv,effDis:D.dis,autoAdv:ad.autoAdv,autoDis:ad.autoDis,c1AutoAdv:ad.c1AutoAdv||0,c1AutoDis:ad.c1AutoDis||0,c1AdvSrc:ad.c1AdvSrc||[],opp:ad.opp||null,oppAutoAdv:ad.oppAutoAdv||0,oppAutoDis:ad.oppAutoDis||0,oppAdvSrc:ad.oppAdvSrc||[],oppSitOptions:ad.oppSitOptions||[],advAdj:toInt(D.advAdj,0),disAdj:toInt(D.disAdj,0),advSrc:ad.src,sitOptions:ad.sitOptions||[],autoCrit:ad.autoCrit||0,critSrc:ad.critSrc||[],rollMod:ad.autoRollMod||0,rollModSrc:ad.rollModSrc||[],effCrit,effCritIdx,rawNet,net,bonus,th,egMult:calcEgMultiplier(th),effTh:M.testTh||0,chance:Math.max(1,Math.min(99,th))};
+  return {cv,dv,effAdv:D.adv,effDis:D.dis,autoAdv:ad.autoAdv,autoDis:ad.autoDis,c1AutoAdv:ad.c1AutoAdv||0,c1AutoDis:ad.c1AutoDis||0,c1AdvSrc:ad.c1AdvSrc||[],opp:ad.opp||null,oppAutoAdv:ad.oppAutoAdv||0,oppAutoDis:ad.oppAutoDis||0,oppAdvSrc:ad.oppAdvSrc||[],oppSitOptions:ad.oppSitOptions||[],advAdj:toInt(D.advAdj,0),disAdj:toInt(D.disAdj,0),advSrc:ad.src,sitOptions:ad.sitOptions||[],autoCrit:ad.autoCrit||0,critSrc:ad.critSrc||[],rollMod:ad.autoRollMod||0,rollModSrc:ad.rollModSrc||[],effCrit,effCritIdx,rawNet,net,bonus,th,egMult:1,effTh:M.testTh||0,chance:Math.max(1,Math.min(99,th))};
 }
 export function selectDiceWeapon(itemRef){
   if(isLobbyNeutralDice()) return;
@@ -858,7 +858,6 @@ export const buildThresholdInnerHtml=T=>{
   return `<div class="flex items-baseline gap-2 flex-wrap min-w-0">
     <span class="text-3xl sm:text-4xl font-black tabular leading-none">${T.th}</span>
     <span class="px-1.5 py-0.5 rounded-md bg-acc-soft border bdr-acc text-acc text-[11px] font-black tabular">${T.chance}%</span>
-    ${T.egMult>1?`<span class="px-1.5 py-0.5 rounded-md bg-amber-500/20 border border-amber-400/60 text-amber-300 text-[10px] font-black tabular">✨ EG ×${T.egMult}</span>`:''}
   </div>
   <div class="text-[10px] t-mut tabular truncate mt-0.5" data-tip="${esc(formulaLine+' = '+T.th)}">Schwelle ≤ ${T.th} • ${formulaLine}</div>
   ${T.rollMod?`<div class="text-[10px] font-extrabold text-cyan-300 mt-0.5">⚡ Wurf ${fmtSign(T.rollMod)} (${esc((T.rollModSrc||[]).map(x=>x.tagLbl||x.srcName).join(', '))})</div>`:''}`;
@@ -1524,8 +1523,8 @@ export function executeDiceRoll(opts={}){
   for(let i=0;i<D.cnt;i++){
     const rawR=rollW100(), rollMod=toInt(T.rollMod,0), r=rollMod?Math.max(1,Math.min(100,rawR+rollMod)):rawR, ok=r!==100&&(r===1||r<=T.th);
     let crit=false; if(ok){const ed=r%10,td=parseInt(D.crit,10),rk=x=>x===0?10:x;crit=(D.crit==='1'||D.critMode==='range')?rk(ed)<=rk(td):ed===td;}
-    const baseEg=ok?Math.ceil(r/10):0, eg=ok?baseEg*T.egMult:0, meg=!ok?Math.ceil((101-r)/10):0;
-    res.push({r,rawR,rollMod,ok,crit,baseEg,eg,egMult:T.egMult,meg});
+    const eg=ok?Math.ceil(r/10):0, meg=!ok?Math.ceil((101-r)/10):0;
+    res.push({r,rawR,rollMod,ok,crit,baseEg:eg,eg,egMult:1,meg});
   }
   const isLobRoll=Boolean(UI.inLobby);
   const effWeaponId=isLobRoll?null:getEffectiveDiceWeaponId();

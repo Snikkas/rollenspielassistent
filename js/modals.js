@@ -2383,14 +2383,8 @@ export function renderInfoDiceWikiHtml(){
           </div>
         </div>
       </div>
-      <div class="subcard rounded-xl p-3.5 border border-amber-400/55 bg-amber-500/10 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-        <div class="space-y-1">
-          <div class="flex flex-wrap items-center gap-2">
-            <span class="font-black text-xs sm:text-sm text-amber-300">⚡ Testschwelle über 100 (EG-Multiplikator)</span>
-            <span class="px-2 py-0.5 rounded-md bg-amber-500/20 border border-amber-400/50 text-amber-200 font-black text-[11px] tabular">Faktor = ⌊Schwelle / 100⌋ + 1</span>
-          </div>
-          <p class="text-xs t-mut leading-relaxed">Ab einer Schwelle <strong class="text-amber-200 tabular">&gt; 100</strong> werden alle erzielten EG multipliziert: bei <strong class="text-amber-200 tabular">101–199 → ×2</strong>, bei <strong class="text-amber-200 tabular">200–299 → ×3</strong> usw. <span class="text-rose-300 font-semibold">(Eine gewürfelte 100 bleibt dennoch immer ein Patzer.)</span></p>
-        </div>
+      <div class="subcard rounded-xl p-3 border bdr-line bg-black/20 text-xs t-mut leading-relaxed">
+        ℹ️ Eine Testschwelle <strong class="tabular">&gt; 100</strong> bringt keinen zusätzlichen EG-Bonus — es zählen stets die einfachen Erfolgsgrade (<span class="tabular font-bold">1–10 EG</span>), und eine gewürfelte <strong class="text-rose-300 tabular">100</strong> bleibt immer ein Patzer.
       </div>
     </section>
 

@@ -1706,7 +1706,7 @@ function renderSingleCombatHitBodyHtml(hitEntry, hitIdx, isMulti){
     <div class="text-[11px] t-mut flex flex-wrap items-center gap-x-2 gap-y-0.5 tabular">
       <span>${isMlpPool ? '🧠' : (calc.atkShield ? '🛡️' : '🗡️')} <strong>${esc(calc.weaponName)}</strong>${calc.ammoName ? ` + 🎯 ${esc(calc.ammoName)}` : ''}</span>
       <span>•</span>
-      <span>Grundschaden: <strong class="text-emerald-300">${calc.eg} EG</strong>${hitEntry.egMult > 1 ? ` (${hitEntry.baseEg} ×${hitEntry.egMult})` : ''}${calc.isCrit ? ' <strong class="text-amber-300">+ 2 Krit</strong>' : ''}${hitEntry.isBlocked ? ' <span class="text-amber-300">(Geblockt)</span>' : ''}</span>
+      <span>Grundschaden: <strong class="text-emerald-300">${calc.eg} EG</strong>${calc.isCrit ? ' <strong class="text-amber-300">+ 2 Krit</strong>' : ''}${hitEntry.isBlocked ? ' <span class="text-amber-300">(Geblockt)</span>' : ''}</span>
     </div>
     ${critBannerHtml}
     ${wpMismatchBanner}
