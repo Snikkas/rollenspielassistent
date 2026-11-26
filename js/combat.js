@@ -591,8 +591,9 @@ export function resetCombatState(){
   COMBAT.combinedDirectAppliedNote = '';
 }
 
-export function initCombatFromRoll({ T, res, isAtkBlk20 = false, attackerName = '' }){
-  const isWeaponHit = Boolean(isAtkBlk20 || D.wRollCat === 'Trefferwurf');
+export function initCombatFromRoll({ T, res, isManualBlocked = false, isAtkBlk20 = false, attackerName = '' }){
+  const manualBlk = Boolean(isManualBlocked || isAtkBlk20);
+  const isWeaponHit = Boolean(manualBlk || D.wRollCat === 'Trefferwurf');
   if(!isWeaponHit){
     resetCombatState();
     return;
@@ -611,54 +612,67 @@ export function initCombatFromRoll({ T, res, isAtkBlk20 = false, attackerName = 
   const nichtParierbar = hasTagMatch(tags, /^nicht\s+parierbar\b/i);
 
   const opp = T?.opp?.ready ? T.opp : null;
-  const prevTargetId = COMBAT.targetCharId;
-  const prevTargetName = COMBAT.targetName;
-  const prevBlockItemRed = COMBAT.blockItemRed;
-  const prevBlockShieldId = COMBAT.blockShieldId || '';
-  const prevBlockShieldName = COMBAT.blockShieldName || '';
+  const targetCharId = opp?.charId || (manualBlk ? (COMBAT.targetCharId || '') : '');
+  const targetName = opp?.oppName || (manualBlk ? (COMBAT.targetName || '') : '');
 
-  const targetCharId = isAtkBlk20 ? (opp?.charId || prevTargetId || '') : (opp?.charId || '');
-  const targetName = isAtkBlk20 ? (opp?.oppName || prevTargetName || '') : (opp?.oppName || '');
+  const oppCat = opp?.oppRollCat || '';
+  const isDefBlock = Boolean(opp && oppCat === 'Blocken');
+  const isDefParryUnparryable = Boolean(opp && oppCat === 'Parieren' && nichtParierbar);
+  const canResolveBlock = Boolean(isDefBlock || isDefParryUnparryable);
 
-  const okRolls = (res || [])
-    .map((x, idx) => (x ? { ...x, rollIdx: idx + 1 } : null))
-    .filter(x => x && x.ok);
-  const anyOk = okRolls.length > 0;
+  const defShield = (!isDefParryUnparryable && opp?.oppShield) ? opp.oppShield : null;
+  const defShieldId = !isDefParryUnparryable ? (defShield?.id || opp?.oppShieldId || '') : '';
+  const defShieldName = !isDefParryUnparryable
+    ? (defShield ? (String(defShield.name || '').trim() || 'Schild') : (opp?.oppShieldName || ''))
+    : '';
+  const oppHasBlockItem = isDefParryUnparryable
+    || (!defShieldId && (Boolean(opp?.oppWeapon && isWeaponBlockable(opp.oppWeapon)) || opp?.oppBlockKind === 'item'));
 
-  // Sonderfall: Verteidiger blockt erfolgreich ODER pariert erfolgreich gegen „Nicht parierbar“
-  if(!isAtkBlk20 && !anyOk && opp){
-    const oppCat = opp.oppRollCat;
-    const isDefBlock = oppCat === 'Blocken';
-    const isDefParryUnparryable = oppCat === 'Parieren' && nichtParierbar;
-    if(isDefBlock || isDefParryUnparryable){
-      const defShield = (!isDefParryUnparryable && opp.oppShield) ? opp.oppShield : null;
-      const defShieldId = !isDefParryUnparryable ? (defShield?.id || opp.oppShieldId || '') : '';
-      const defShieldName = !isDefParryUnparryable
-        ? (defShield ? (String(defShield.name || '').trim() || 'Schild') : (opp.oppShieldName || ''))
-        : '';
-      const oppHasBlockItem = isDefParryUnparryable
-        || (!defShieldId && (Boolean(opp.oppWeapon && isWeaponBlockable(opp.oppWeapon)) || opp.oppBlockKind === 'item'));
-      resetCombatState();
-      COMBAT.active = true;
-      COMBAT.hitOk = false;
-      COMBAT.blockPrompt = true;
-      COMBAT.blockPromptReason = isDefParryUnparryable ? 'nicht_parierbar' : 'blocked';
-      COMBAT.isBlocked = true;
-      COMBAT.blockItemRed = oppHasBlockItem;
-      COMBAT.blockShieldId = defShieldId;
-      COMBAT.blockShieldName = defShieldName;
-      COMBAT.weaponId = weapon?.id || null;
-      COMBAT.shieldId = atkShield?.id || null;
-      COMBAT.ammoId = ammo?.id || null;
-      COMBAT.pool = initPool;
-      COMBAT.attackerName = attackerName;
-      COMBAT.targetCharId = targetCharId;
-      COMBAT.targetName = targetName;
-      return;
-    }
+  const resolvedHits = [];
+  if(manualBlk){
+    resolvedHits.push({
+      rollIdx: 1,
+      rollVal: 0,
+      isCrit: false,
+      eg: 3,
+      isBlocked: true,
+      blockReason: 'blocked',
+      blockShieldId: defShieldId,
+      blockShieldName: defShieldName,
+      blockItemRed: defShieldId ? false : (oppHasBlockItem || !targetCharId)
+    });
+  }else{
+    (res || []).forEach((x, idx) => {
+      if(!x) return;
+      if(x.ok){
+        resolvedHits.push({
+          rollIdx: idx + 1,
+          rollVal: toInt(x.r, 0),
+          isCrit: Boolean(x.crit),
+          eg: toInt(x.eg, 0),
+          isBlocked: false,
+          blockReason: '',
+          blockShieldId: '',
+          blockShieldName: '',
+          blockItemRed: false
+        });
+      }else if(canResolveBlock && toInt(x.r, 0) !== 100){
+        resolvedHits.push({
+          rollIdx: idx + 1,
+          rollVal: toInt(x.r, 0),
+          isCrit: false,
+          eg: 3,
+          isBlocked: true,
+          blockReason: isDefParryUnparryable ? 'nicht_parierbar' : 'blocked',
+          blockShieldId: defShieldId,
+          blockShieldName: defShieldName,
+          blockItemRed: oppHasBlockItem
+        });
+      }
+    });
   }
 
-  if(!anyOk){
+  if(!resolvedHits.length){
     resetCombatState();
     return;
   }
@@ -668,9 +682,6 @@ export function initCombatFromRoll({ T, res, isAtkBlk20 = false, attackerName = 
   const targetSheet = resolveCombatTargetSheet(targetCharId);
   const hitZones = getTargetHitZones(targetSheet);
   const defZone = (hitZones[1]?.zone || hitZones[0]?.zone || 'Rumpf');
-  const effBlockShieldId = isAtkBlk20 ? prevBlockShieldId : '';
-  const effBlockShieldName = isAtkBlk20 ? prevBlockShieldName : '';
-  const effBlockItemRed = isAtkBlk20 ? (prevBlockShieldId ? false : (prevBlockItemRed || !targetCharId)) : false;
 
   COMBAT.active = true;
   COMBAT.collapsed = false;
@@ -689,18 +700,19 @@ export function initCombatFromRoll({ T, res, isAtkBlk20 = false, attackerName = 
   COMBAT.combinedOfferNote = '';
   COMBAT.combinedDirectApplying = false;
   COMBAT.combinedDirectAppliedNote = '';
-  COMBAT.hits = okRolls.map(roll => ({
+  COMBAT.hits = resolvedHits.map(rh => ({
     id: 'hit_' + uid(),
-    rollIdx: roll.rollIdx,
-    rollVal: toInt(roll.r, 0),
-    isCrit: Boolean(roll.crit),
-    eg: toInt(roll.eg, 0),
-    egMult: toInt(roll.egMult || T?.egMult, 1),
-    baseEg: toInt(roll.baseEg ?? roll.eg, 0),
-    isBlocked: Boolean(isAtkBlk20),
-    blockShieldId: effBlockShieldId,
-    blockShieldName: effBlockShieldName,
-    blockItemRed: effBlockItemRed,
+    rollIdx: rh.rollIdx,
+    rollVal: rh.rollVal,
+    isCrit: rh.isCrit,
+    eg: rh.eg,
+    egMult: 1,
+    baseEg: rh.eg,
+    isBlocked: rh.isBlocked,
+    blockReason: rh.blockReason || '',
+    blockShieldId: rh.blockShieldId || '',
+    blockShieldName: rh.blockShieldName || '',
+    blockItemRed: Boolean(rh.blockItemRed),
     dmgType: defDmgType,
     pool: initPool,
     zoneName: defZone,
@@ -1612,6 +1624,14 @@ function renderSingleCombatHitBodyHtml(hitEntry, hitIdx, isMulti){
     ? `<div class="text-[11px] font-black px-2.5 py-1 rounded-lg border border-amber-400/75 bg-amber-500/20 text-amber-200 tabular">★ Kritischer Erfolg beim Trefferwurf: +${calc.critBonus} Extraschaden aktiv!</div>`
     : '';
 
+  const blockedBannerHtml = hitEntry.isBlocked
+    ? `<div class="text-[11px] font-extrabold px-2.5 py-1.5 rounded-lg border border-amber-400/65 bg-amber-500/15 text-amber-200 leading-snug">
+        🛡️ ${hitEntry.blockReason === 'nicht_parierbar'
+          ? '„Nicht parierbar“ – Parade zählt als Blocken'
+          : 'Erfolgreich geblockt'}: statisch <strong class="text-white">3 EG</strong> (kein kritischer Treffer) • Verteidiger bestimmt die geblockte Trefferzone${calc.blockShield && !hideTarget ? ` (inkl. 🛡️ ${esc(calc.blockShield.name || 'Schild')} + Zonenrüstung)` : (hitEntry.blockItemRed ? ' (inkl. −2 Schaden durch blockfähige Waffe + Zonenrüstung)' : ' (+ dahinterliegende Rüstung)')}.
+      </div>`
+    : '';
+
   const verheerendHtml = calc.verheerendX
     ? `<div class="text-[10px] font-extrabold px-2 py-1 rounded-lg border tabular ${calc.verheerendBonus ? 'border-orange-400/60 bg-orange-500/20 text-orange-200' : 'bdr-line bg-black/20 t-mut'}">🔥 Verheerend (${calc.verheerendX}): ${calc.verheerendBonus ? `+${calc.verheerendBonus} Schaden aktiv (${calc.eg} ≥ 5 EG)` : `inaktiv (${calc.eg} < 5 EG)`}</div>`
     : '';
@@ -1715,9 +1735,10 @@ function renderSingleCombatHitBodyHtml(hitEntry, hitIdx, isMulti){
     <div class="text-[11px] t-mut flex flex-wrap items-center gap-x-2 gap-y-0.5 tabular">
       <span>${isMlpPool ? '🧠' : (calc.atkShield ? '🛡️' : '🗡️')} <strong>${esc(calc.weaponName)}</strong>${calc.ammoName ? ` + 🎯 ${esc(calc.ammoName)}` : ''}</span>
       <span>•</span>
-      <span>Grundschaden: <strong class="text-emerald-300">${calc.eg} EG</strong>${calc.isCrit ? ' <strong class="text-amber-300">+ 2 Krit</strong>' : ''}${hitEntry.isBlocked ? ' <span class="text-amber-300">(Geblockt)</span>' : ''}</span>
+      <span>Grundschaden: <strong class="text-emerald-300">${calc.eg} EG</strong>${calc.isCrit ? ' <strong class="text-amber-300">+ 2 Krit</strong>' : ''}${hitEntry.isBlocked ? ' <span class="text-amber-300">(Geblockt • kein Krit)</span>' : ''}</span>
     </div>
     ${critBannerHtml}
+    ${blockedBannerHtml}
     ${wpMismatchBanner}
 
     <div class="space-y-1.5 pt-1.5 border-t border-white/10 min-w-0">
@@ -1783,6 +1804,7 @@ function renderSingleCombatHitBodyHtml(hitEntry, hitIdx, isMulti){
       <span class="text-xs font-black text-rose-400 w-3 shrink-0">${hitEntry.collapsed ? '▸' : '▾'}</span>
       <span class="text-xs font-black text-rose-200">Treffer #${hitEntry.rollIdx || (hitIdx + 1)}</span>
       ${rollLbl ? `<span class="text-[10px] font-bold t-mut tabular">(${rollLbl} • ${calc.eg} EG)</span>` : ''}
+      ${hitEntry.isBlocked ? `<span class="px-1.5 py-0.2 rounded text-[10px] font-black bg-amber-500/25 text-amber-200 border border-amber-400/50 shrink-0">🛡️ GEBLOCKT (3 EG)</span>` : ''}
       ${calc.isCrit ? `<span class="px-1.5 py-0.2 rounded text-[10px] font-black bg-amber-500 text-slate-950 shrink-0">★ KRIT +2</span>` : ''}
       <span class="text-[10px] font-bold text-acc truncate">🎯 ${esc(calc.fullZoneName)}</span>
     </button>
@@ -1799,42 +1821,7 @@ function renderSingleCombatHitBodyHtml(hitEntry, hitIdx, isMulti){
 }
 
 export function renderCombatDamageBox(){
-  if(!COMBAT.active) return '';
-  if(COMBAT.blockPrompt && !COMBAT.hitOk){
-    const calc = calculateCombatDamage(0);
-    const hidePromptTarget = Boolean(COMBAT.targetCharId && shouldHideOpponentDetails(COMBAT.targetCharId, getActiveDiceCampaignId()));
-    const isUnparry = COMBAT.blockPromptReason === 'nicht_parierbar';
-    const hasDefShield = Boolean(!isUnparry && (calc.blockShield || COMBAT.blockShieldId));
-    const defShieldNm = calc.blockShield ? (String(calc.blockShield.name || '').trim() || 'Schild') : (COMBAT.blockShieldName || 'Schild');
-    const title = isUnparry
-      ? '🛡️ „Nicht parierbar“ – Parade gilt als Blocken!'
-      : '🛡️ Angriff wurde erfolgreich geblockt!';
-    let desc = '';
-    if(isUnparry){
-      desc = `${esc(calc.targetName || 'Verteidiger')} hat gegen „Nicht parierbar“ pariert – das zählt regeltechnisch wie Blocken mit einem blockfähigen Gegenstand (−2 Schaden).`;
-    }else if(hasDefShield){
-      desc = hidePromptTarget
-        ? `${esc(calc.targetName || 'Verteidiger')} hat erfolgreich geblockt. Würfle jetzt den Block-Folgewurf (Trefferwert gegen Schw. 20), um die EG für den Grundschaden zu bestimmen.`
-        : `${esc(calc.targetName || 'Verteidiger')} hat mit <strong>🛡️ ${esc(defShieldNm)}</strong> geblockt – dessen Rüstungswert wird im Schadensrechner zur normalen Rüstung addiert. Würfle jetzt den Block-Folgewurf (Trefferwert gegen Schw. 20).`;
-    }else if(COMBAT.blockItemRed){
-      desc = `${esc(calc.targetName || 'Verteidiger')} hat mit einem blockfähigen Gegenstand (−2 Schaden) geblockt. Würfle jetzt den Block-Folgewurf (Trefferwert gegen Schw. 20), um die EG für den Grundschaden zu bestimmen.`;
-    }else{
-      desc = `${esc(calc.targetName || 'Verteidiger')} hat erfolgreich geblockt. Würfle jetzt den Block-Folgewurf (Trefferwert gegen Schw. 20), um die EG für den Grundschaden zu bestimmen.`;
-    }
-    return `<div id="combatDamageBox" class="subcard p-3 border-2 border-amber-400/65 bg-amber-500/10 space-y-2 min-w-0">
-      <div class="flex items-start justify-between gap-2 min-w-0">
-        <div class="min-w-0">
-          <div class="text-xs font-black text-amber-300">${title}</div>
-          <div class="text-[11px] t-mut mt-0.5 break-words">${desc}</div>
-          ${calc.durchschlagX ? `<div class="text-[10px] font-extrabold text-cyan-300 mt-1">⚡ Durchschlag (${calc.durchschlagX}) aktiv: Mindestens ${calc.durchschlagX} Schaden, falls durch Blocken auf 0 reduziert.</div>` : ''}
-        </div>
-        <button type="button" data-action="combat-close" aria-label="Schließen" class="btn w-6 h-6 p-0 text-[10px] font-black shrink-0">✕</button>
-      </div>
-      <button type="button" data-action="combat-roll-blocked-20" class="btn btn-pri w-full py-2 px-3 text-xs font-black">${isSecretRollActive() ? '🕵️ ' : ''}🛡️ Block-Folgewurf würfeln (gegen Schwierigkeit 20)</button>
-    </div>`;
-  }
-
-  if(!COMBAT.hitOk) return '';
+  if(!COMBAT.active || !COMBAT.hitOk) return '';
   const hits = getCombatHits();
   const effHits = hits.length ? hits : [COMBAT];
   const isMulti = effHits.length > 1;

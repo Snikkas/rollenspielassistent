@@ -2425,10 +2425,10 @@ export function renderInfoDiceWikiHtml(){
       </div>
       <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
         <div class="subcard rounded-xl p-3.5 border border-sky-500/40 bg-sky-500/5 space-y-2">
-          <div class="font-black text-xs sm:text-sm text-sky-300">🛡️ Blocken &amp; Folgewurf</div>
-          <p class="text-xs t-mut leading-relaxed">Gelingt ein Blocken-Test, folgt ein Folgewurf mit dem <strong class="text-sky-200">Aggressor-Trefferwert gegen Schwierigkeit 20</strong>, dessen EG den Grundschaden gegen die Rüstung bestimmen.</p>
+          <div class="font-black text-xs sm:text-sm text-sky-300">🛡️ Blocken (1-Wurf-System)</div>
+          <p class="text-xs t-mut leading-relaxed">Es gibt nur noch <strong class="text-sky-200">einen Trefferwurf</strong> gegen den Blocker: Trifft der Angreifer erfolgreich durch den Block, zählen normale EG (+ ggf. Krit). Blockt der Verteidiger erfolgreich (Misserfolg des Angreifers), zählt der Treffer statisch als <strong class="text-amber-300">3 EG (kein kritischer Treffer)</strong> — der Verteidiger bestimmt die geblockte Trefferzone (z. B. Schild oder blockfähige Waffe + dahinterliegende Rüstung).</p>
           <div class="rounded-lg p-2.5 bg-black/25 border border-sky-400/35 text-xs font-extrabold text-sky-200 text-center tabular">
-            Folgewurf-Schwelle = Aggressor-Wert + 50 − 20 = <span class="text-acc">Aggressor + 30</span>
+            Erfolgreicher Block = <span class="text-amber-300">3 EG (kein Krit)</span> • Verteidiger wählt Zone &amp; Schild/Waffe
           </div>
         </div>
         <div class="subcard rounded-xl p-3.5 border bdr-line space-y-2 overflow-x-auto max-w-full min-w-0">

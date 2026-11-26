@@ -2264,31 +2264,14 @@ document.addEventListener('click',async e=>{
     case 'crit-mode': D.critMode=D.critMode==='range'?'exact':'range'; renderDice(); break;
     case 'roll-d100': executeDiceRoll(); break;
     case 'roll-block-followup': executeBlockFollowUpRoll(); break;
+    case 'combat-open-blocked-3eg':
     case 'combat-roll-blocked-20':
     case 'roll-blocked-hit-20': {
-      if(D.dMode==='character'&&D.oppCharId){
-        const opp=resolveOpponentComparison(D.wRollCat||'Trefferwurf');
-        if(opp&&opp.ready){
-          COMBAT.targetCharId=opp.charId;
-          COMBAT.targetName=opp.oppName;
-          if(el.dataset.action==='roll-blocked-hit-20'){
-            const defShId=opp.oppShield?.id||opp.oppShieldId||'';
-            if(defShId){
-              COMBAT.blockShieldId=defShId;
-              COMBAT.blockShieldName=opp.oppShield?(String(opp.oppShield.name||'').trim()||'Schild'):(opp.oppShieldName||'Schild');
-              COMBAT.blockItemRed=false;
-            }else{
-              COMBAT.blockShieldId='';
-              COMBAT.blockShieldName='';
-              COMBAT.blockItemRed=Boolean((opp.oppWeapon&&isWeaponBlockable(opp.oppWeapon))||opp.oppBlockKind==='item');
-            }
-          }
-        }
-      }
-      clearOutgoingDuel({notifyCancel:true,silent:true});
-      D.dMode='direct'; D.dDirect=20;
-      applyDiceAutoAdvDis(false);
-      executeDiceRoll({isAttackerBlockFollowUp:true});
+      const T=calcThreshold();
+      const isLob=isLobbyNeutralDice();
+      const atkName=isLob?(CLOUD.currentUser||'Gast'):(String(S.profile.name||'').trim()||(isEnemySheet(S)?'Gegner':'Unbenannter Held'));
+      initCombatFromRoll({T,res:[],isManualBlocked:true,attackerName:atkName});
+      renderDice();
       break;
     }
     case 'combat-close': resetCombatState(); renderDice(); break;
