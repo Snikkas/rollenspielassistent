@@ -23,7 +23,7 @@ import {
   sendDuelChallenge, cancelOutgoingDuel, clearOutgoingDuel, handleLiveDuelEvent, ignoreIncomingDuel, openDuelReplyModal, closeDuelReplyModal, submitDuelReply, renderDuelBanner, renderDuelReplyModal
 } from './duel.js';
 import {
-  initCombatFromRoll, resetCombatState, rollCombatHitZone, publishCombatDamageToFeed, renderCombatDamageBox, hasTagMatch, sendCombatDamageOffer, applyCombatDamageDirectly, spendCombatAmmo, handleCombatLiveEvent, acceptCombatDamageOffer, declineCombatDamageOffer
+  initCombatFromRoll, resetCombatState, rollCombatHitZone, rollCombatSubHitZone, publishCombatDamageToFeed, renderCombatDamageBox, hasTagMatch, sendCombatDamageOffer, applyCombatDamageDirectly, spendCombatAmmo, handleCombatLiveEvent, acceptCombatDamageOffer, declineCombatDamageOffer
 } from './combat.js';
 import {
   applyRtfCommand, autoSizeAllTextareas, ensureCampNotesStructure, syncPublicNotesAfterChange, renderCampNotes, getCaretRangeAtPoint, syncPwFieldCursorState, saveEffRangeIfActive, insertTokenAtCursor, placeCaretAtStart, indentRtfLi, outdentRtfLi, RTF_STATE, getOrderedCampNoteFolders
@@ -628,12 +628,53 @@ document.addEventListener('click',async e=>{
     case 'reset-mv-ovr': {const mv=S.movements.find(x=>x.id===el.dataset.id);if(mv){mv.ovr='';renderMain();save();toast('Bew (BSt) auf Automatik zurückgesetzt');}break;}
     case 'add-move': S.movements.push({id:uid(),type:'Bewegung',base:5,ovr:''}); renderMain(); save(); break;
     case 'del-move': S.movements=S.movements.filter(m=>m.id!==el.dataset.id); renderMain(); save(); break;
-    case 'add-hz': S.hitZones.push({id:uid(),range:'01 - 10',zone:'Neue Zone',size:'normal',armor:''}); renderMain(); save(); break;
+    case 'add-hz': S.hitZones.push({id:uid(),range:'01 - 10',zone:'Neue Zone',size:'normal',armor:'',subZones:[]}); renderMain(); save(); break;
     case 'del-hz': if(S.hitZones.length>1){S.hitZones=S.hitZones.filter(z=>z.id!==el.dataset.id);renderMain();save();} break;
+    case 'toggle-hz-sub': {
+      const hid=el.dataset.id;
+      if(hid){if(!UI.hzSubExp)UI.hzSubExp={};UI.hzSubExp[hid]=!UI.hzSubExp[hid];renderMain();}
+      break;
+    }
+    case 'add-hz-sub': {
+      const hz=S.hitZones.find(z=>z.id===el.dataset.id);
+      if(hz){
+        if(!Array.isArray(hz.subZones)) hz.subZones=[];
+        hz.subZones.push({id:uid(),range:'01 - 50',zone:'Neue Detailzone'});
+        if(!UI.hzSubExp) UI.hzSubExp={};
+        UI.hzSubExp[hz.id]=true;
+        renderMain(); save();
+      }
+      break;
+    }
+    case 'del-hz-sub': {
+      const hz=S.hitZones.find(z=>z.id===el.dataset.id), sid=el.dataset.subid;
+      if(hz&&Array.isArray(hz.subZones)&&sid){
+        hz.subZones=hz.subZones.filter(sz=>sz.id!==sid);
+        renderMain(); save();
+      }
+      break;
+    }
     case 'reset-hz': UI.confirmHzStep=1; UI.modal='resetHz'; renderModal(); break;
     case 'confirm-reset-hz-1': UI.confirmHzStep=2; renderModal(); break;
-    case 'confirm-reset-hz-2': S.hitZones=JSON.parse(JSON.stringify(DEF_HZ)); S.lastHzRoll=null; UI.modal=null; renderMain(); renderModal(); save(); toast('Standard-Trefferzonen wiederhergestellt'); break;
-    case 'roll-hz': {const prevWinY=window.scrollY,prevWinX=window.scrollX;const r=rollW100(); if(r===69) triggerNiceEasterEgg();S.lastHzRoll=r;const hzHit=S.hitZones.find(z=>{const m=String(z.range||'').match(/\d+/g);return m&&r>=Math.min(+m[0],+(m[1]??m[0]))&&r<=Math.max(+m[0],+(m[1]??m[0]));});const isLobHz=Boolean(UI.inLobby);publishLiveRoll({id:uid(),tsMs:Date.now(),ts:new Date().toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit',second:'2-digit'}),senderTabId:LIVE_TAB_ID,charId:isLobHz?'':(S.charId||''),charName:isLobHz?(CLOUD.currentUser?CLOUD.currentUser:'Gast'):(String(S.profile.name||'').trim()||'Unbenannter Held'),playerName:isLobHz?'':String(CLOUD.currentUser||S.owner||'').trim(),campaignId:isLobHz?getActiveLiveCampaignId():getCharCampaignId(S.charId),label:'🎯 Trefferzonen-Wurf',isHz:true,hzZone:hzHit?`${hzHit.zone} (${hzHit.size||'normal'})`:'Keine Zone',th:100,chance:100,res:[{r,ok:true,crit:false,eg:0,meg:0}]});renderMain();if(window.scrollY!==prevWinY)window.scrollTo(prevWinX,prevWinY);save();if(!isSecretRollActive()) toast(`Trefferzone W100 = ${r}${hzHit?` (${hzHit.zone})`:''}`);break;}
+    case 'confirm-reset-hz-2': S.hitZones=JSON.parse(JSON.stringify(DEF_HZ)); S.lastHzRoll=null; S.lastSubHzRoll=null; S.lastSubHzZone=''; UI.modal=null; renderMain(); renderModal(); save(); toast('Standard-Trefferzonen wiederhergestellt'); break;
+    case 'roll-hz': {const prevWinY=window.scrollY,prevWinX=window.scrollX;const r=rollW100(); if(r===69) triggerNiceEasterEgg();S.lastHzRoll=r;S.lastSubHzRoll=null;S.lastSubHzZone='';const hzHit=S.hitZones.find(z=>{const m=String(z.range||'').match(/\d+/g);return m&&r>=Math.min(+m[0],+(m[1]??m[0]))&&r<=Math.max(+m[0],+(m[1]??m[0]));});const isLobHz=Boolean(UI.inLobby);publishLiveRoll({id:uid(),tsMs:Date.now(),ts:new Date().toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit',second:'2-digit'}),senderTabId:LIVE_TAB_ID,charId:isLobHz?'':(S.charId||''),charName:isLobHz?(CLOUD.currentUser?CLOUD.currentUser:'Gast'):(String(S.profile.name||'').trim()||'Unbenannter Held'),playerName:isLobHz?'':String(CLOUD.currentUser||S.owner||'').trim(),campaignId:isLobHz?getActiveLiveCampaignId():getCharCampaignId(S.charId),label:'🎯 Trefferzonen-Wurf',isHz:true,hzZone:hzHit?`${hzHit.zone} (${hzHit.size||'normal'})`:'Keine Zone',th:100,chance:100,res:[{r,ok:true,crit:false,eg:0,meg:0}]});renderMain();if(window.scrollY!==prevWinY)window.scrollTo(prevWinX,prevWinY);save();if(!isSecretRollActive()) toast(`Trefferzone W100 = ${r}${hzHit?` (${hzHit.zone})`:''}`);break;}
+    case 'roll-subhz': {
+      const prevWinY=window.scrollY, prevWinX=window.scrollX;
+      const hzHit=S.lastHzRoll!==null?S.hitZones.find(z=>{const m=String(z.range||'').match(/\d+/g);return m&&S.lastHzRoll>=Math.min(+m[0],+(m[1]??m[0]))&&S.lastHzRoll<=Math.max(+m[0],+(m[1]??m[0]));}):null;
+      const subs=Array.isArray(hzHit?.subZones)?hzHit.subZones:[];
+      if(!hzHit||!subs.length){toast('Keine Detailzonen für die aktuelle Trefferzone vorhanden.');break;}
+      const r2=rollW100(); if(r2===69) triggerNiceEasterEgg();
+      const sHit=subs.find(sz=>{const m=String(sz.range||'').match(/\d+/g);return m&&r2>=Math.min(+m[0],+(m[1]??m[0]))&&r2<=Math.max(+m[0],+(m[1]??m[0]));})||subs[0];
+      S.lastSubHzRoll=r2;
+      S.lastSubHzZone=sHit?String(sHit.zone||'').trim():'';
+      if(!UI.hzSubExp) UI.hzSubExp={};
+      UI.hzSubExp[hzHit.id]=true;
+      const isLobHz=Boolean(UI.inLobby);
+      publishLiveRoll({id:uid(),tsMs:Date.now(),ts:new Date().toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit',second:'2-digit'}),senderTabId:LIVE_TAB_ID,charId:isLobHz?'':(S.charId||''),charName:isLobHz?(CLOUD.currentUser?CLOUD.currentUser:'Gast'):(String(S.profile.name||'').trim()||'Unbenannter Held'),playerName:isLobHz?'':String(CLOUD.currentUser||S.owner||'').trim(),campaignId:isLobHz?getActiveLiveCampaignId():getCharCampaignId(S.charId),label:'🔍 Detail-Trefferzone',isHz:true,hzZone:`${hzHit.zone} → ${S.lastSubHzZone||'Detailzone'}`,th:100,chance:100,res:[{r:r2,ok:true,crit:false,eg:0,meg:0}]});
+      renderMain(); if(window.scrollY!==prevWinY) window.scrollTo(prevWinX,prevWinY); save();
+      if(!isSecretRollActive()) toast(`🔍 Detailzone (${hzHit.zone}): W100 = ${r2} → ${S.lastSubHzZone}`);
+      break;
+    }
     case 'roll-attr': {const k=el.dataset.attr,v=getAttrTot(k);D.weaponId=null;D.wRollCat='Normaler Test';D.skillId=null;D.attrKey=k;D.critOff=0;D.sitActive={};D.cMode='breakdown';D.cAttr=v;D.cSkill='0';D.cDirect=v;D.label=`Normaler Test: ${k} (${v})`;applyDiceAutoAdvDis(true);D.open=true;renderHeader();renderDice();break;}
     case 'toggle-sk-edit': {
       const sid=el.dataset.id;
@@ -1366,6 +1407,11 @@ document.addEventListener('click',async e=>{
       }
       break;
     }
+    case 'toggle-ar-subzones': {
+      const aid=el.dataset.id;
+      if(aid){if(!UI.arSubZonesOpen)UI.arSubZonesOpen={};UI.arSubZonesOpen[aid]=!UI.arSubZonesOpen[aid];renderMain();}
+      break;
+    }
     case 'toggle-ar-zone': {
       const ar=S.armors.find(a=>a.id===el.dataset.id), zn=String(el.dataset.zone||'').trim();
       if(ar&&zn){
@@ -1964,7 +2010,9 @@ document.addEventListener('click',async e=>{
     case 'combat-close': resetCombatState(); renderDice(); break;
     case 'combat-toggle-collapse': COMBAT.collapsed=!COMBAT.collapsed; renderDice(); break;
     case 'combat-roll-hz': COMBAT.offerStatus=''; COMBAT.offerNote=''; COMBAT.directAppliedNote=''; rollCombatHitZone(); break;
-    case 'combat-set-zone': COMBAT.zoneName=el.dataset.zone||''; COMBAT.lastHzRoll=null; COMBAT.posted=false; COMBAT.offerStatus=''; COMBAT.offerNote=''; COMBAT.directAppliedNote=''; renderDice(); break;
+    case 'combat-roll-subhz': COMBAT.offerStatus=''; COMBAT.offerNote=''; COMBAT.directAppliedNote=''; rollCombatSubHitZone(); break;
+    case 'combat-set-zone': COMBAT.zoneName=el.dataset.zone||''; COMBAT.subZoneName=''; COMBAT.lastHzRoll=null; COMBAT.lastSubHzRoll=null; COMBAT.posted=false; COMBAT.offerStatus=''; COMBAT.offerNote=''; COMBAT.directAppliedNote=''; renderDice(); break;
+    case 'combat-set-subzone': COMBAT.subZoneName=el.dataset.subzone||''; COMBAT.lastSubHzRoll=null; COMBAT.posted=false; COMBAT.offerStatus=''; COMBAT.offerNote=''; COMBAT.directAppliedNote=''; renderDice(); break;
     case 'combat-set-dmgtype': COMBAT.dmgType=el.dataset.dmgtype||'cut'; COMBAT.posted=false; COMBAT.offerStatus=''; COMBAT.offerNote=''; COMBAT.directAppliedNote=''; renderDice(); break;
     case 'combat-set-pool': COMBAT.pool=el.dataset.pool==='mlp'?'mlp':'lp'; COMBAT.posted=false; COMBAT.offerStatus=''; COMBAT.offerNote=''; COMBAT.directAppliedNote=''; renderDice(); break;
     case 'combat-toggle-block-red': COMBAT.blockItemRed=!COMBAT.blockItemRed; COMBAT.posted=false; COMBAT.offerStatus=''; COMBAT.offerNote=''; COMBAT.directAppliedNote=''; renderDice(); break;
@@ -3671,6 +3719,7 @@ document.addEventListener('input',e=>{
   }
   if(el.dataset.th){const k=el.dataset.th,M=calcActiveMods();S.thresholds[k]=toInt(el.value,0)-(M[k]||0);syncLiveCalculations();return;}
   if(el.dataset.mv){const [id,f]=el.dataset.mv.split(':'),m=S.movements.find(x=>x.id===id);if(m){m[f]=el.value;syncLiveCalculations();}return;}
+  if(el.dataset.hzSub){const [hid,sid,f]=el.dataset.hzSub.split(':'),z=S.hitZones.find(x=>x.id===hid),sz=(z&&Array.isArray(z.subZones))?z.subZones.find(s=>s.id===sid):null;if(sz&&(f==='range'||f==='zone')){sz[f]=el.value;saveSoon();}return;}
   if(el.dataset.hz){const [id,f]=el.dataset.hz.split(':'),z=S.hitZones.find(x=>x.id===id);if(z){z[f]=el.value;saveSoon();}return;}
   if(el.dataset.fbNewFolder){
     FEEDBACK.newFolderName=el.value;

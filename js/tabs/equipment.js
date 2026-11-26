@@ -326,7 +326,17 @@ export function openWpAmmoPicker(anchorEl,wId){
 export function openArZonePicker(anchorEl,arId,forceOpen=false){
   const ar=S.armors.find(a=>a.id===arId); if(!ar) return;
   const hzNames=[...new Set(S.hitZones.map(z=>String(z.zone||'').trim()).filter(Boolean))];
-  const customNames=[...new Set([...(ar.extraZones||[]),...(ar.zones||[])])].filter(zn=>zn&&!hzNames.some(h=>h.toLowerCase()===zn.toLowerCase()));
+  const subZonePairs=[];
+  (S.hitZones||[]).forEach(z=>{
+    const zn=String(z?.zone||'').trim();
+    if(!zn||!Array.isArray(z.subZones)) return;
+    z.subZones.forEach(sz=>{
+      const sn=String(sz?.zone||'').trim();
+      if(sn) subZonePairs.push({main:zn,sub:sn,key:`${zn}: ${sn}`});
+    });
+  });
+  const subKeySet=new Set(subZonePairs.map(p=>p.key.toLowerCase()));
+  const customNames=[...new Set([...(ar.extraZones||[]),...(ar.zones||[])])].filter(zn=>zn&&!hzNames.some(h=>h.toLowerCase()===zn.toLowerCase())&&!subKeySet.has(zn.toLowerCase()));
   const toggleZ=zn=>{
     if(!Array.isArray(ar.zones)) ar.zones=[];
     const idx=ar.zones.findIndex(z=>z.toLowerCase()===zn.toLowerCase());
@@ -336,11 +346,20 @@ export function openArZonePicker(anchorEl,arId,forceOpen=false){
     const freshAnchor=document.querySelector(`[data-action="open-ar-zone-picker"][data-id="${ar.id}"]`);
     openArZonePicker(freshAnchor||anchorEl,ar.id,true);
   };
-  const items=[{type:'label',label:'Standard-Trefferzonen (Mehrfachauswahl)'}];
+  const items=[{type:'label',label:'Vollzonen (decken automatisch alle Detailzonen ab)'}];
   hzNames.forEach(zn=>{
     const on=(ar.zones||[]).some(z=>z.toLowerCase()===zn.toLowerCase());
     items.push({label:zn,active:on,badge:on?'✓':'',keepOpen:true,onClick:()=>toggleZ(zn)});
   });
+  if(subZonePairs.length){
+    items.push({sep:true});
+    items.push({type:'label',label:'Detail- / Teilzonen (z. B. nur Gesicht oder Hand)'});
+    subZonePairs.forEach(p=>{
+      const fullOn=(ar.zones||[]).some(z=>z.toLowerCase()===p.main.toLowerCase());
+      const on=(ar.zones||[]).some(z=>z.toLowerCase()===p.key.toLowerCase());
+      items.push({label:p.key,sub:fullOn?`Bereits durch Vollzone „${p.main}“ abgedeckt`:'',active:on,badge:on?'✓':(fullOn?'Voll':''),keepOpen:true,onClick:()=>toggleZ(p.key)});
+    });
+  }
   if(customNames.length){
     items.push({sep:true});
     items.push({type:'label',label:'Eigene Zonen'});
@@ -354,7 +373,7 @@ export function openArZonePicker(anchorEl,arId,forceOpen=false){
     title:`Trefferzonen • ${String(ar.name||'').trim()||'Rüstung'}`,
     anchorEl,
     align:'left',
-    minWidth:240,
+    minWidth:260,
     showClose:true,
     forceOpen,
     items
@@ -1101,20 +1120,42 @@ export function renderArmorCard(ar,idx,len,hzNames){
       </div>
     </div>
     <div class="pt-2 border-t bdr-line space-y-2 text-xs">
-      <div class="flex flex-wrap items-center justify-between gap-2">
-        <label class="block text-[11px] font-bold t-mut">Abgedeckte Trefferzonen</label>
-        <button type="button" data-action="open-ar-zone-picker" data-id="${ar.id}" aria-haspopup="menu" aria-expanded="false" data-tip="Trefferzonen bequem per Popover/Bottom-Sheet mehrfach an- &amp; abwählen" class="btn py-0.5 px-2 text-[11px] bdr-acc bg-acc-soft text-acc">🎯 Zonen (${(ar.zones||[]).length}) ▾</button>
-      </div>
-      <div class="flex flex-wrap items-center gap-1.5">
-        ${hzNames.map(zn=>{
-          const on=(ar.zones||[]).some(z=>z.toLowerCase()===zn.toLowerCase());
-          return `<button type="button" data-action="toggle-ar-zone" data-id="${ar.id}" data-zone="${esc(zn)}" class="btn py-1 px-2 text-[11px] ${on?'btn-ok':'opacity-75'}">${on?'✓ ':''}${esc(zn)}</button>`;
-        }).join('')}
-        ${[...new Set([...(ar.extraZones||[]),...(ar.zones||[])])].filter(zn=>zn&&!hzNames.some(h=>h.toLowerCase()===zn.toLowerCase())).map(zn=>{
-          const on=(ar.zones||[]).some(z=>z.toLowerCase()===zn.toLowerCase());
-          return `<span class="inline-flex items-center"><button type="button" data-action="toggle-ar-zone" data-id="${ar.id}" data-zone="${esc(zn)}" class="btn py-1 px-2 text-[11px] rounded-r-none ${on?'btn-ok':'opacity-75'}">${on?'✓ ':''}${esc(zn)}</button><button type="button" data-action="del-ar-zone" data-id="${ar.id}" data-zone="${esc(zn)}" data-tip="Eigene Zone „${esc(zn)}“ löschen" class="btn py-1 px-1.5 text-[10px] rounded-l-none border-l-0 hover:text-rose-400 opacity-75">✕</button></span>`;
-        }).join('')}
-      </div>
+      ${(()=>{
+        const subGroups=(S.hitZones||[]).map(z=>({main:String(z?.zone||'').trim(),subs:(Array.isArray(z?.subZones)?z.subZones:[]).map(sz=>String(sz?.zone||'').trim()).filter(Boolean)})).filter(g=>g.main&&g.subs.length);
+        const allSubKeys=new Set(subGroups.flatMap(g=>g.subs.map(s=>`${g.main}: ${s}`.toLowerCase())));
+        const activeSubZones=(ar.zones||[]).filter(z=>allSubKeys.has(String(z||'').toLowerCase()));
+        const subOpen=Boolean(UI.arSubZonesOpen?.[ar.id]);
+        const customOnly=[...new Set([...(ar.extraZones||[]),...(ar.zones||[])])].filter(zn=>zn&&!hzNames.some(h=>h.toLowerCase()===zn.toLowerCase())&&!allSubKeys.has(zn.toLowerCase()));
+        return `<div class="flex flex-wrap items-center justify-between gap-2">
+          <label class="block text-[11px] font-bold t-mut">Abgedeckte Trefferzonen</label>
+          <div class="flex flex-wrap items-center gap-1.5">
+            ${subGroups.length?`<button type="button" data-action="toggle-ar-subzones" data-id="${ar.id}" data-tip="Spezifische Teilzonen wie „Kopf: Gesicht“ oder „Arm links: Hand“ auswählen (für Teilrüstungen)" class="btn py-0.5 px-2 text-[11px] ${subOpen?'btn-pri':activeSubZones.length?'border-cyan-400/60 bg-cyan-500/15 text-cyan-200':'opacity-85'}">🔍 Teilzonen${activeSubZones.length?` (${activeSubZones.length})`:''} ${subOpen?'▾':'▸'}</button>`:''}
+            <button type="button" data-action="open-ar-zone-picker" data-id="${ar.id}" aria-haspopup="menu" aria-expanded="false" data-tip="Trefferzonen &amp; Teilzonen bequem per Popover/Bottom-Sheet mehrfach an- &amp; abwählen" class="btn py-0.5 px-2 text-[11px] bdr-acc bg-acc-soft text-acc">🎯 Zonen (${(ar.zones||[]).length}) ▾</button>
+          </div>
+        </div>
+        <div class="flex flex-wrap items-center gap-1.5">
+          ${hzNames.map(zn=>{
+            const on=(ar.zones||[]).some(z=>z.toLowerCase()===zn.toLowerCase());
+            return `<button type="button" data-action="toggle-ar-zone" data-id="${ar.id}" data-zone="${esc(zn)}" data-tip="Vollzone „${esc(zn)}“ (deckt automatisch alle Detailzonen von ${esc(zn)} ab)" class="btn py-1 px-2 text-[11px] ${on?'btn-ok':'opacity-75'}">${on?'✓ ':''}${esc(zn)}</button>`;
+          }).join('')}
+          ${!subOpen?activeSubZones.map(zn=>`<button type="button" data-action="toggle-ar-zone" data-id="${ar.id}" data-zone="${esc(zn)}" data-tip="Teilzone aktiv – klicken zum Entfernen" class="btn py-1 px-2 text-[11px] border-cyan-400/60 bg-cyan-500/20 text-cyan-200 font-bold">✓ 🔍 ${esc(zn)}</button>`).join(''):''}
+          ${customOnly.map(zn=>{
+            const on=(ar.zones||[]).some(z=>z.toLowerCase()===zn.toLowerCase());
+            return `<span class="inline-flex items-center"><button type="button" data-action="toggle-ar-zone" data-id="${ar.id}" data-zone="${esc(zn)}" class="btn py-1 px-2 text-[11px] rounded-r-none ${on?'btn-ok':'opacity-75'}">${on?'✓ ':''}${esc(zn)}</button><button type="button" data-action="del-ar-zone" data-id="${ar.id}" data-zone="${esc(zn)}" data-tip="Eigene Zone „${esc(zn)}“ löschen" class="btn py-1 px-1.5 text-[10px] rounded-l-none border-l-0 hover:text-rose-400 opacity-75">✕</button></span>`;
+          }).join('')}
+        </div>
+        ${subOpen&&subGroups.length?`<div class="p-2 rounded-lg bg-black/20 border border-cyan-400/35 space-y-2">
+          <div class="text-[10px] font-bold text-cyan-200/90">🔍 Spezifische Teilzonen (schützen nur den gewählten Teilbereich; Vollzonen decken immer alle Teilzonen ab):</div>
+          <div class="space-y-1.5">${subGroups.map(g=>{
+            const fullOn=(ar.zones||[]).some(z=>z.toLowerCase()===g.main.toLowerCase());
+            return `<div class="flex flex-wrap items-center gap-1"><span class="text-[10px] font-extrabold t-mut min-w-[74px]">${esc(g.main)}:</span>${g.subs.map(sn=>{
+              const key=`${g.main}: ${sn}`;
+              const on=(ar.zones||[]).some(z=>z.toLowerCase()===key.toLowerCase());
+              return `<button type="button" data-action="toggle-ar-zone" data-id="${ar.id}" data-zone="${esc(key)}" class="btn py-0.5 px-2 text-[10px] ${on?'border-cyan-400 bg-cyan-500/25 text-cyan-100 font-extrabold':fullOn?'opacity-50':'opacity-80'}">${on?'✓ ':''}${esc(sn)}</button>`;
+            }).join('')}</div>`;
+          }).join('')}</div>
+        </div>`:''}`;
+      })()}
       <div class="flex items-center gap-1.5 w-full sm:max-w-xs">
         <input id="inpArCz_${ar.id}" data-ar-zone-draft="${ar.id}" type="text" value="${esc(UI.arZoneDrafts?.[ar.id]||'')}" placeholder="Weitere Zonen..." class="inp py-1 px-2 text-xs flex-1 min-w-0"/>
         <button type="button" data-action="add-ar-zone" data-id="${ar.id}" data-tip="Eingetragene Zone speichern &amp; als anwählbaren Button hinzufügen (oder Enter drücken)" class="btn btn-ok py-1 px-2.5 text-[11px] shrink-0">+ Zone</button>
