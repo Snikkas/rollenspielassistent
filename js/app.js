@@ -8,16 +8,16 @@ import {
   registerHooks
 } from './ui-hooks.js';
 import {
-  syncPwUseCostsLegacy, makeDefaultStatusEffects, defaultState, setS, setD, clearDiceLogs, syncBodyScrollLock, positionFloatingMenu, openCtxMenu, closeCtxMenu, closePwDropdown, repositionOpenPwMenus, hydrateWinPrefs, saveWinPref, clearWinPref, applyWinFrame, setPwMode, normalizeCampaigns, normalizeEnemyMeta, getUserBgLocalKey, getCampaigns, setActiveCampaign, canManageCampaign, canClearLiveDice, getCreatableCampaigns, isEnemySheet, getEnemyMeta, canToggleEnemyStatus, canManageEnemySheet, canViewEnemySheet, ensureAllRegistryUsers, findUserKeyByName, findUserKeyById, getUserAvatar, canViewUserProfile, saveRegistryLocal, saveSecretRollsLocal, getActiveLiveCampaignId, captureScrollState, restoreScrollState, toast, triggerNiceEasterEgg, logChron, mergeLoaded, saveLastActiveTab, save, flushPendingSave, saveSoon, load, flushThemePrefsSync, cancelThemePrefsSync, applySessionTheme, persistCurrentThemeChange, syncPalDraftFromSlot, applyTheme, CUSTOM_ICONS, findMainArt, findActionSub, isReservedPwTerm, getWeaponSubtype, isWeaponMassiv, makeWeapon, makeAmmo, makeArmor, makeInvItem, makeEqSecMeta, makeChrSecMeta, makeSection, makeSkSection, makeInvSection, makePower, makeAugment, syncEquipmentToInventory, S, D, CN, LD, INI, FBW, DUEL, COMBAT, isMobileLayout, CTX_MENU, getWinState, hasSavedWinPref, savedEffRanges, savedPwRanges, lastPwFieldById, pwQuickKey, UI, LIVE_TAB_ID, PATCHNOTES, FEEDBACK, CLOUD, CLOUD_SYNC, PWLIB, getCharOwner, getCharCampaignId, canManageChar, getEditStyleSlot
+  syncPwUseCostsLegacy, makeDefaultStatusEffects, defaultState, setS, setD, clearDiceLogs, syncBodyScrollLock, positionFloatingMenu, openCtxMenu, closeCtxMenu, closePwDropdown, repositionOpenPwMenus, hydrateWinPrefs, saveWinPref, clearWinPref, applyWinFrame, setPwMode, normalizeCampaigns, normalizeEnemyMeta, getUserBgLocalKey, getCampaigns, setActiveCampaign, canManageCampaign, canClearLiveDice, getCreatableCampaigns, isEnemySheet, getEnemyMeta, canToggleEnemyStatus, canManageEnemySheet, canViewEnemySheet, ensureAllRegistryUsers, findUserKeyByName, findUserKeyById, getUserAvatar, canViewUserProfile, saveRegistryLocal, saveSecretRollsLocal, getActiveLiveCampaignId, captureScrollState, restoreScrollState, toast, triggerNiceEasterEgg, logChron, mergeLoaded, saveLastActiveTab, save, flushPendingSave, saveSoon, load, flushThemePrefsSync, cancelThemePrefsSync, applySessionTheme, persistCurrentThemeChange, syncPalDraftFromSlot, applyTheme, CUSTOM_ICONS, findMainArt, findActionSub, isReservedPwTerm, getWeaponSubtype, isWeaponMassiv, isArmorShield, isWeaponBlockable, makeWeapon, makeAmmo, makeArmor, makeInvItem, makeEqSecMeta, makeChrSecMeta, makeSection, makeSkSection, makeInvSection, makePower, makeAugment, syncEquipmentToInventory, S, D, CN, LD, INI, FBW, DUEL, COMBAT, isMobileLayout, CTX_MENU, getWinState, hasSavedWinPref, savedEffRanges, savedPwRanges, lastPwFieldById, pwQuickKey, UI, LIVE_TAB_ID, PATCHNOTES, FEEDBACK, CLOUD, CLOUD_SYNC, PWLIB, getCharOwner, getCharCampaignId, canManageChar, getEditStyleSlot
 } from './state.js';
 import {
-  getStatusEffValues, formatPwUseCosts, getReservablePwCosts, getEffectivePoolCap, getPwBuilderToken, parseStatusTokens, getAllParsedEffectChips, invalidateModsCache, calcActiveMods, buildAttrTip, buildSecTip, getMentalArmorSummary, syncCresRenameInTokens, syncSkillRenameInTokens, purgeExtraSecFromPowers, calcAutoSkCost, findDuplicatePwEntry, makeUniquePwName, updatePwNameDupHint, enforceUniquePwName, buildPowerExportPack, downloadPowerPackJson, resolveLibraryAugmentParentName, getSuggestedAugmentsForPower, importPowerPackIntoSheet, getTrCost, performSimpleRest, performFullRest, withPoolSync, linkAugToPower, unlinkAugFromPower, calcPwCost, calcSkCost, calcProg, getWeaponRollMeta, getEquippedWeaponsForSkill, getWeaponDualWieldInfo, getTagDesc, cresName, makeExtraSec, getExtraSecName, getResLabel, escReStr, getAttrCol, getSecCol, getAttrTot, getLpBase, getLpMax, getMlpBase, getMlpMax, getLpRegenAuto, getMlpRegenAuto, hasLpRegenOvr, hasMlpRegenOvr, getLpRegen, getMlpRegen, getIniBase, getIniTot, getApBase, getApMax, getMapBase, getMapMax, getCresBase, getCresMax, getExtraSecBase, getBstAuto, hasBstOvr, getBstBase, getEffBst, getSkAutoBonus, hasSkBonusOvr, getSkBonus, findPwItem, findEqItem, getLinkedAugs, getValidPwSecId
+  getStatusEffValues, formatPwUseCosts, getReservablePwCosts, getEffectivePoolCap, getPwBuilderToken, parseStatusTokens, getAllParsedEffectChips, invalidateModsCache, calcActiveMods, buildAttrTip, buildSecTip, getMentalArmorSummary, syncCresRenameInTokens, syncSkillRenameInTokens, purgeExtraSecFromPowers, calcAutoSkCost, findDuplicatePwEntry, makeUniquePwName, updatePwNameDupHint, enforceUniquePwName, buildPowerExportPack, downloadPowerPackJson, resolveLibraryAugmentParentName, getSuggestedAugmentsForPower, importPowerPackIntoSheet, getTrCost, performSimpleRest, performFullRest, withPoolSync, linkAugToPower, unlinkAugFromPower, calcPwCost, calcSkCost, calcProg, getWeaponRollMeta, getShieldRollMeta, getSheetBlockOptions, getEquippedWeaponsForSkill, getEquippedShieldsForSkill, formatBlockModShort, getWeaponDualWieldInfo, getTagDesc, cresName, makeExtraSec, getExtraSecName, getResLabel, escReStr, getAttrCol, getSecCol, getAttrTot, getLpBase, getLpMax, getMlpBase, getMlpMax, getLpRegenAuto, getMlpRegenAuto, hasLpRegenOvr, hasMlpRegenOvr, getLpRegen, getMlpRegen, getIniBase, getIniTot, getApBase, getApMax, getMapBase, getMapMax, getCresBase, getCresMax, getExtraSecBase, getBstAuto, hasBstOvr, getBstBase, getEffBst, getSkAutoBonus, hasSkBonusOvr, getSkBonus, findPwItem, findEqItem, getLinkedAugs, getValidPwSecId
 } from './calc.js';
 import {
   updateLobbyLiveDiceDOM, initLiveDiceChannel, publishLiveRoll, revealSecretRoll, publishLiveCampNote, clearLiveDiceFeed, syncCloudRegistry, renameUserAccount, addCampaignAllowedUser, removeCampaignAllowedUser, toggleGlobalGMTag, addCampaignMainGM, removeCampaignMainGM, kickCharFromCampaign, duplicateCharacterSheet, getCampaignSharedPages, extractPublicPages, upsertPublicNoteEntry, fetchLobbyList, fetchForeignCharacterSheet, canWriteCurrentSheetToCloud, resetCloudSyncState, updateCloudSyncStatusDOM, scheduleCloudSync, pushToCloud, flushCloudSyncNow, flushBeforeCharacterSwitch, loadCloudCharacter, createNewUserCharacter, updateCloudCharacterMeta, fetchTrashedCharacters, deleteCloudCharacter, restoreTrashedCharacter, permanentDeleteTrashedCharacter, emptyTrashedCharacters, updateEnemyMetaCloud, createNewEnemyOrTemplate, toggleEnemyActiveStatus, toggleEnemyCampaignAssignment, toggleEnemyDiceVisibility, hideAllEnemiesInCampaignDice, toggleEnemyArchived, cloneEnemyToCampaign, stripLibraryPackMeta, getAllLibraryPacks, fetchPowerLibrary, publishPackToCloudLibrary, deletePackFromCloudLibrary, parsePatchnoteTsMs, getNewestPatchnoteId, isPatchnoteCollapsed, normalizePatchnoteEntry, fetchPatchnotes, savePatchnotesToServer, fetchFeedback, saveFeedbackStore, loadCustomIconsCache, fetchCustomIcons, saveCustomIconsToServer, loadNotifSeen, saveNotifSeen, markNotifRead, markAllNotifsRead, updateNotifBadges, refreshUserNotificationsBg, fetchAndSyncBasisPowers, isSecretRollActive
 } from './cloud.js';
 import {
-  resetDiceToLobbyNeutral, exitLobbyNeutralDice, ensureLobbyNeutralDiceOnOpen, applyDiceAutoAdvDis, calcThreshold, openWeaponRoll, selectDiceWeapon, syncDiceFromSheet, buildAdvDisInnerHtml, renderDice, renderLiveDice, rollW100, renderBlockFollowUpBox, executeBlockFollowUpRoll, executeDiceRoll, rollCustomDice, getCSkVal, getDSkVal, getEffC, getEffD, isLobbyNeutralDice, calcEgMultiplier, buildThresholdInnerHtml, activateVsCharMode, selectDiceOpponent, resolveOpponentComparison
+  resetDiceToLobbyNeutral, exitLobbyNeutralDice, ensureLobbyNeutralDiceOnOpen, applyDiceAutoAdvDis, calcThreshold, openWeaponRoll, openShieldRoll, selectDiceWeapon, syncDiceFromSheet, buildAdvDisInnerHtml, renderDice, renderLiveDice, rollW100, renderBlockFollowUpBox, executeBlockFollowUpRoll, executeDiceRoll, rollCustomDice, getCSkVal, getDSkVal, getEffC, getEffD, isLobbyNeutralDice, calcEgMultiplier, buildThresholdInnerHtml, activateVsCharMode, selectDiceOpponent, resolveOpponentComparison
 } from './dice.js';
 import {
   sendDuelChallenge, cancelOutgoingDuel, clearOutgoingDuel, handleLiveDuelEvent, ignoreIncomingDuel, openDuelReplyModal, closeDuelReplyModal, submitDuelReply, renderDuelBanner, renderDuelReplyModal
@@ -47,7 +47,7 @@ import {
   buildPwCatPillsHtml, moveChrSecOrder, moveChrPwOrder, openChrSecMenu, openChrPwMenu, tplChronicle, applyEp
 } from './tabs/chronicle.js';
 import {
-  syncLinkedInvDOM, syncLinkedAmmoDOM, syncInvSecNameDOM, addEqTagToItem, openAddWeaponMenu, openEqTagPicker, openEqModPicker, openWpTypePicker, openWpAttrPicker, openWpSkillPicker, openWpAmmoPicker, openArZonePicker, openInvSecPicker, openInvSecParentPicker, isTab5EquipNotesCollapsed, isTab5BioGalleryCollapsed, isTab5BioFieldCollapsed, moveEqSecOrder, moveEqItemOrder, moveInvSecOrder, openEqItemMenu, openEqSecMenu, openInvSecMenu, tplEquipment
+  syncLinkedInvDOM, syncLinkedAmmoDOM, syncInvSecNameDOM, addEqTagToItem, openAddWeaponMenu, openAddArmorMenu, openEqTagPicker, openEqModPicker, openWpTypePicker, openWpAttrPicker, openWpSkillPicker, openWpAmmoPicker, openShieldAttrPicker, openShieldSkillPicker, openArZonePicker, openInvSecPicker, openInvSecParentPicker, isTab5EquipNotesCollapsed, isTab5BioGalleryCollapsed, isTab5BioFieldCollapsed, moveEqSecOrder, moveEqItemOrder, moveInvSecOrder, openEqItemMenu, openEqSecMenu, openInvSecMenu, tplEquipment
 } from './tabs/equipment.js';
 import {
   openLobbyCharMenu, openEnemyCampaignPicker, openGmTemplateAddPicker, openLobbyEnemyMenu, tplLobbyScreen, refreshGmEnemiesGridDOM, refreshTemplatesGridDOM
@@ -682,7 +682,7 @@ document.addEventListener('click',async e=>{
       if(!isSecretRollActive()) toast(`🔍 Detailzone (${hzHit.zone}): W100 = ${r2} → ${S.lastSubHzZone}`);
       break;
     }
-    case 'roll-attr': {const k=el.dataset.attr,v=getAttrTot(k);D.weaponId=null;D.wRollCat='Normaler Test';D.skillId=null;D.attrKey=k;D.critOff=0;D.sitActive={};D.cMode='breakdown';D.cAttr=v;D.cSkill='0';D.cDirect=v;D.label=`Normaler Test: ${k} (${v})`;applyDiceAutoAdvDis(true);D.open=true;renderHeader();renderDice();break;}
+    case 'roll-attr': {const k=el.dataset.attr,v=getAttrTot(k);D.weaponId=null;D.shieldId=null;D.wRollCat='Normaler Test';D.skillId=null;D.attrKey=k;D.critOff=0;D.sitActive={};D.cMode='breakdown';D.cAttr=v;D.cSkill='0';D.cDirect=v;D.label=`Normaler Test: ${k} (${v})`;applyDiceAutoAdvDis(true);D.open=true;renderHeader();renderDice();break;}
     case 'toggle-sk-edit': {
       const sid=el.dataset.id;
       if(UI.editSkNameId===sid){
@@ -706,7 +706,7 @@ document.addEventListener('click',async e=>{
       if(!sk) break;
       const startNormalSkillRoll=()=>{
         const ak=sk.linkedAttr||'PR',av=getAttrTot(ak),b=getSkBonus(sk);
-        D.weaponId=null;D.wRollCat='Normaler Test';D.dualWieldOvr='auto';D.skillId=sk.id;D.attrKey=ak;D.critOff=0;D.sitActive={};
+        D.weaponId=null;D.shieldId=null;D.wRollCat='Normaler Test';D.dualWieldOvr='auto';D.skillId=sk.id;D.attrKey=ak;D.critOff=0;D.sitActive={};
         D.cMode='breakdown';D.cAttr=av;
         if(['0','10','15','20','30'].includes(String(b))){D.cSkill=String(b);}else{D.cSkill='custom';D.cCustom=b;}
         D.cDirect=av+b;
@@ -714,37 +714,62 @@ document.addEventListener('click',async e=>{
         applyDiceAutoAdvDis(true);D.open=true;renderHeader();renderDice();
       };
       const eqWps=getEquippedWeaponsForSkill(sk.id,S);
-      if(eqWps.length===1){
+      const eqShs=getEquippedShieldsForSkill(sk.id,S);
+      if(eqWps.length===1&&eqShs.length===0){
         openWeaponRoll(eqWps[0].id,'Trefferwurf');
-      }else if(eqWps.length>=2){
-        const items=[
-          {type:'label',label:`Angelegte Waffen für „${sk.name||'Fertigkeit'}“`},
-          ...eqWps.map(w=>{
+      }else if(eqShs.length>0||eqWps.length>=2){
+        const items=[];
+        if(eqShs.length){
+          items.push({type:'label',label:`Angelegte Schilde für „${sk.name||'Fertigkeit'}“`});
+          eqShs.forEach(sh=>{
+            const sm=getShieldRollMeta(sh);
+            const shNm=String(sh.name||'').trim()||'Schild';
+            const bm=formatBlockModShort(sh.blockMod);
+            items.push({
+              icon:'🧱',
+              label:`Blocken: ${shNm}`,
+              sub:`Pool ${sm.pool} (${sm.attrKey} ${sm.attrVal} ${fmtSign(sm.skBonus)})${bm?` • Block-Mod ${bm}`:''}`,
+              badge:bm||`🎲 ${sm.pool}`,
+              onClick:()=>{openShieldRoll(sh.id,'Blocken');}
+            });
+            items.push({
+              icon:'⚔️',
+              label:`Schildangriff: ${shNm}`,
+              sub:`Trefferwurf • Pool ${sm.pool} (${sm.attrKey} ${sm.attrVal} ${fmtSign(sm.skBonus)})`,
+              badge:`🎲 ${sm.pool}`,
+              onClick:()=>{openShieldRoll(sh.id,'Trefferwurf');}
+            });
+          });
+        }
+        if(eqWps.length){
+          if(items.length) items.push({sep:true});
+          items.push({type:'label',label:`Angelegte Waffen für „${sk.name||'Fertigkeit'}“`});
+          eqWps.forEach(w=>{
             const sub=getWeaponSubtype(w.wType), wm=getWeaponRollMeta(w), dw=getWeaponDualWieldInfo(w,S);
             const wNm=String(w.name||'').trim()||sub.label;
             const handSub=dw.isDualWield?`${dw.label} (+${dw.dis} Nachteil${dw.dis>1?'e':''}) • `:(dw.label?`${dw.label} • `:'');
-            return {
+            items.push({
               icon:sub.icon,
               label:wNm,
               sub:`${handSub}Pool ${wm.pool} (${wm.attrKey} ${wm.attrVal} ${fmtSign(wm.skBonus)})`,
               badge:dw.isDualWield?`+${dw.dis}N`:`🎲 ${wm.pool}`,
               onClick:()=>{openWeaponRoll(w.id,'Trefferwurf');}
-            };
-          }),
-          {sep:true},
-          {
-            icon:'📋',
-            label:'Normaler Test (ohne Waffe)',
-            sub:`${sk.linkedAttr||'PR'} ${getAttrTot(sk.linkedAttr||'PR')} ${fmtSign(getSkBonus(sk))} = ${getAttrTot(sk.linkedAttr||'PR')+getSkBonus(sk)}`,
-            onClick:()=>startNormalSkillRoll()
-          }
-        ];
+            });
+          });
+        }
+        items.push({sep:true});
+        items.push({
+          icon:'📋',
+          label:'Normaler Test (ohne Waffe/Schild)',
+          sub:`${sk.linkedAttr||'PR'} ${getAttrTot(sk.linkedAttr||'PR')} ${fmtSign(getSkBonus(sk))} = ${getAttrTot(sk.linkedAttr||'PR')+getSkBonus(sk)}`,
+          onClick:()=>startNormalSkillRoll()
+        });
         openCtxMenu({
           key:`roll-skill-wp:${sk.id}`,
-          title:`⚔️ ${String(sk.name||'Fertigkeit').trim()} – Waffe wählen`,
+          title:`${eqShs.length&&!eqWps.length?'🛡️':'⚔️'} ${String(sk.name||'Fertigkeit').trim()} – Aktion wählen`,
           anchorEl:el,
           align:'left',
-          minWidth:265,
+          minWidth:275,
           showClose:true,
           items
         });
@@ -754,6 +779,7 @@ document.addEventListener('click',async e=>{
       break;
     }
     case 'roll-weapon': openWeaponRoll(el.dataset.id,el.dataset.wcat); break;
+    case 'roll-shield': openShieldRoll(el.dataset.id,el.dataset.wcat); break;
     case 'set-dice-dw-ovr': {
       const ovr=['auto','off','main','offhand'].includes(el.dataset.ovr)?el.dataset.ovr:'auto';
       D.dualWieldOvr=ovr;
@@ -769,7 +795,31 @@ document.addEventListener('click',async e=>{
     case 'set-dice-wcat': {
       const wc=el.dataset.wcat||'Normaler Test';
       D.wRollCat=wc;D.sitActive={};
-      if(wc==='Normaler Test'||wc==='Ausweichen') D.wpEditOpen=false;
+      if(wc==='Normaler Test'||wc==='Ausweichen'){
+        D.wpEditOpen=false;
+      }else if(wc==='Parieren'&&D.shieldId){
+        D.shieldId=null;
+        D.wpEditOpen=false;
+      }else if(wc==='Blocken'&&!isLobbyNeutralDice()){
+        const curSh=D.shieldId?(S.armors||[]).find(a=>a.id===D.shieldId&&isArmorShield(a)):null;
+        const curWp=D.weaponId?(S.weapons||[]).find(w=>w.id===D.weaponId):null;
+        const curWpBlockable=Boolean(curWp&&isWeaponBlockable(curWp));
+        if(!curSh&&!curWpBlockable){
+          D.weaponId=null;
+          const blkOpts=getSheetBlockOptions(S);
+          const pickSh=blkOpts.shields.find(s=>s.equipped!==false)||blkOpts.shields[0]||null;
+          const pickWp=!pickSh?(blkOpts.blockWeapons.find(w=>w.equipped!==false)||blkOpts.blockWeapons[0]||null):null;
+          if(pickSh){
+            const sm=getShieldRollMeta(pickSh);
+            D.shieldId=pickSh.id;
+            D.attrKey=sm.attrKey;
+            D.skillId=sm.sk?sm.sk.id:D.skillId;
+          }else if(pickWp){
+            D.weaponId=pickWp.id;
+            D.shieldId=null;
+          }
+        }
+      }
       if(D.dMode==='character'){
         if(wc==='Trefferwurf'){D.oppKind='preset';if(!['dodge','parry','block'].includes(D.oppPreset))D.oppPreset='dodge';D.oppSitActive={};}
         else if(wc==='Parieren'||wc==='Blocken'||wc==='Ausweichen'){D.oppKind='preset';D.oppPreset='attack';D.oppSitActive={};}
@@ -781,7 +831,7 @@ document.addEventListener('click',async e=>{
       D.sitActive={};
       applyDiceAutoAdvDis(false);syncDiceFromSheet();renderDice();break;
     }
-    case 'clear-dice-weapon': D.weaponId=null; D.dualWieldOvr='auto'; D.wpEditOpen=false; D.wRollCat='Normaler Test'; D.critOff=0; D.sitActive={}; applyDiceAutoAdvDis(true); syncDiceFromSheet(); renderDice(); break;
+    case 'clear-dice-weapon': D.weaponId=null; D.shieldId=null; D.dualWieldOvr='auto'; D.wpEditOpen=false; D.wRollCat='Normaler Test'; D.critOff=0; D.sitActive={}; applyDiceAutoAdvDis(true); syncDiceFromSheet(); renderDice(); break;
     case 'dice-clear-weapon-only': selectDiceWeapon('__none__'); break;
     case 'toggle-dice-wp-edit': D.wpEditOpen=!D.wpEditOpen; renderDice(); break;
     case 'toggle-dice-advsrc': D.advSrcOpen=!D.advSrcOpen; renderDice(); break;
@@ -815,8 +865,8 @@ document.addEventListener('click',async e=>{
       break;
     }
     case 'toggle-dice-sit': {const sk=el.dataset.sit;if(sk){if(!D.sitActive)D.sitActive={};D.sitActive[sk]=!D.sitActive[sk];applyDiceAutoAdvDis(false);renderDice();}break;}
-    case 'dice-pick-lobby-attr': {const ak=el.dataset.attr||'ST';D.cAttr=50;D.cDirect=D.cMode==='breakdown'?50+getCSkVal():50;D.label='Freie Probe: '+ak+' (50)';D.attrKey=null;D.skillId=null;D.weaponId=null;applyDiceAutoAdvDis(false);renderDice();break;}
-    case 'dice-pick-attr': {if(isLobbyNeutralDice()){const ak=el.dataset.attr||'ST';D.cAttr=50;D.cDirect=D.cMode==='breakdown'?50+getCSkVal():50;D.label='Freie Probe: '+ak+' (50)';D.attrKey=null;D.skillId=null;D.weaponId=null;applyDiceAutoAdvDis(false);renderDice();break;}const k=el.dataset.attr,av=getAttrTot(k);D.attrKey=k;if(D.weaponId){D.cMode='breakdown';syncDiceFromSheet();}else if(D.skillId){const sk=S.skills.find(x=>x.id===D.skillId);if(sk){const b=getSkBonus(sk);D.cMode='breakdown';D.cAttr=av;if(['0','10','15','20','30'].includes(String(b))){D.cSkill=String(b);}else{D.cSkill='custom';D.cCustom=b;}D.cDirect=av+b;D.label=`${sk.name} (${fmtSign(b)}) + ${k} (${av})`;applyDiceAutoAdvDis(false);}}else{D.cMode='breakdown';D.cAttr=av;D.cSkill='0';D.cDirect=av;D.label=`Attributsprobe: ${k} (${av})`;applyDiceAutoAdvDis(false);}renderDice();break;}
+    case 'dice-pick-lobby-attr': {const ak=el.dataset.attr||'ST';D.cAttr=50;D.cDirect=D.cMode==='breakdown'?50+getCSkVal():50;D.label='Freie Probe: '+ak+' (50)';D.attrKey=null;D.skillId=null;D.weaponId=null;D.shieldId=null;applyDiceAutoAdvDis(false);renderDice();break;}
+    case 'dice-pick-attr': {if(isLobbyNeutralDice()){const ak=el.dataset.attr||'ST';D.cAttr=50;D.cDirect=D.cMode==='breakdown'?50+getCSkVal():50;D.label='Freie Probe: '+ak+' (50)';D.attrKey=null;D.skillId=null;D.weaponId=null;D.shieldId=null;applyDiceAutoAdvDis(false);renderDice();break;}const k=el.dataset.attr,av=getAttrTot(k);D.attrKey=k;if(D.weaponId||D.shieldId){D.cMode='breakdown';syncDiceFromSheet();}else if(D.skillId){const sk=S.skills.find(x=>x.id===D.skillId);if(sk){const b=getSkBonus(sk);D.cMode='breakdown';D.cAttr=av;if(['0','10','15','20','30'].includes(String(b))){D.cSkill=String(b);}else{D.cSkill='custom';D.cCustom=b;}D.cDirect=av+b;D.label=`${sk.name} (${fmtSign(b)}) + ${k} (${av})`;applyDiceAutoAdvDis(false);}}else{D.cMode='breakdown';D.cAttr=av;D.cSkill='0';D.cDirect=av;D.label=`Attributsprobe: ${k} (${av})`;applyDiceAutoAdvDis(false);}renderDice();break;}
     case 'set-sk-rank': {const sk=S.skills.find(x=>x.id===el.dataset.id),rk=+el.dataset.rank;if(sk){sk.rank=sk.rank===rk?rk-1:rk;if(!sk.manualCost){const auto=calcAutoSkCost(sk.category,sk.rank);sk.customSp=auto.sp;sk.customMsp=auto.msp;}logChron(`Fertigkeit "${sk.name}" → ${SK_RANKS[sk.rank].n}.`);syncDiceFromSheet();renderAll();}break;}
     case 'open-sk-rank-menu': openSkRankMenu(el,el.dataset.id); break;
     case 'toggle-sk-mob-exp': {const sid=el.dataset.id;if(sid){if(!UI.skMobExp)UI.skMobExp={};UI.skMobExp[sid]=!UI.skMobExp[sid];renderMain();}break;}
@@ -1278,11 +1328,14 @@ document.addEventListener('click',async e=>{
     case 'open-eq-sec-menu': openEqSecMenu(el,el.dataset.sec); break;
     case 'open-invsec-menu': openInvSecMenu(el,el.dataset.id); break;
     case 'open-add-weapon-menu': openAddWeaponMenu(el,el.dataset.ddkey||'top',el.dataset.align==='right'); break;
+    case 'open-add-armor-menu': openAddArmorMenu(el,el.dataset.ddkey||'top',el.dataset.align==='right'); break;
     case 'open-eq-tag-picker': openEqTagPicker(el,el.dataset.kind,el.dataset.id); break;
     case 'open-wp-type-picker': openWpTypePicker(el,el.dataset.id); break;
     case 'open-wp-attr-picker': openWpAttrPicker(el,el.dataset.id); break;
     case 'open-wp-skill-picker': openWpSkillPicker(el,el.dataset.id); break;
     case 'open-wp-ammo-picker': openWpAmmoPicker(el,el.dataset.id); break;
+    case 'open-shield-attr-picker': openShieldAttrPicker(el,el.dataset.id); break;
+    case 'open-shield-skill-picker': openShieldSkillPicker(el,el.dataset.id); break;
     case 'open-ar-zone-picker': openArZonePicker(el,el.dataset.id); break;
     case 'open-inv-sec-picker': openInvSecPicker(el,el.dataset.id); break;
     case 'open-invsec-parent-picker': openInvSecParentPicker(el,el.dataset.id); break;
@@ -1333,7 +1386,17 @@ document.addEventListener('click',async e=>{
     }
     case 'del-armor-prot': {
       const ar=S.armors.find(x=>x.id===el.dataset.id);
-      if(ar&&Array.isArray(ar.customProt)){ar.customProt=ar.customProt.filter(c=>c.id!==el.dataset.cvid);renderMain();save();}
+      if(ar&&Array.isArray(ar.customProt)){ar.customProt=ar.customProt.filter(c=>c.id!==el.dataset.cvid);renderMain();if(D.open&&COMBAT.active)renderDice();save();}
+      break;
+    }
+    case 'add-armor-dmg': {
+      const ar=S.armors.find(x=>x.id===el.dataset.id);
+      if(ar){if(!Array.isArray(ar.customDmg))ar.customDmg=[];const entry={id:uid(),label:'',val:'0'};ar.customDmg.push(entry);renderMain();save();setTimeout(()=>{document.querySelector(`input[data-eqcv="armorDmg:${ar.id}:${entry.id}:label"]`)?.focus();},0);}
+      break;
+    }
+    case 'del-armor-dmg': {
+      const ar=S.armors.find(x=>x.id===el.dataset.id);
+      if(ar&&Array.isArray(ar.customDmg)){ar.customDmg=ar.customDmg.filter(c=>c.id!==el.dataset.cvid);renderMain();if(D.open&&COMBAT.active)renderDice();save();}
       break;
     }
     case 'add-ammo': {
@@ -1386,8 +1449,61 @@ document.addEventListener('click',async e=>{
       break;
     }
     case 'wp-mag-slot-clear': clearMagSlotOverrides(el.dataset.wid,el.dataset.mid); break;
-    case 'add-armor': {const na=makeArmor(); S.armors.push(na); syncEquipmentToInventory(S,{forceKeys:[`armor:${na.id}`]}); if(S.equipSecMeta?.armors)S.equipSecMeta.armors.collapsed=false; renderMain(); save(); break;}
-    case 'del-armor': S.armors=S.armors.filter(a=>a.id!==el.dataset.id); if(UI.arZoneDrafts) delete UI.arZoneDrafts[el.dataset.id]; syncEquipmentToInventory(S); invalidateModsCache(); syncDiceFromSheet(); renderMain(); if(D.open) renderDice(); save(); break;
+    case 'add-armor': {
+      const arType=el.dataset.artype==='shield'?'shield':'armor';
+      const na=makeArmor(arType);
+      S.armors.push(na);
+      syncEquipmentToInventory(S,{forceKeys:[`armor:${na.id}`]});
+      if(S.equipSecMeta?.armors) S.equipSecMeta.armors.collapsed=false;
+      UI.openPwMenu=''; hideTooltip();
+      renderMain(); save();
+      break;
+    }
+    case 'del-armor': {
+      const aid=el.dataset.id;
+      S.armors=S.armors.filter(a=>a.id!==aid);
+      if(UI.arZoneDrafts) delete UI.arZoneDrafts[aid];
+      if(D.shieldId===aid){D.shieldId=null;D.wpEditOpen=false;if(D.wRollCat==='Blocken'||D.wRollCat==='Trefferwurf')D.wRollCat='Normaler Test';D.sitActive={};applyDiceAutoAdvDis(true);}
+      syncEquipmentToInventory(S); invalidateModsCache(); syncDiceFromSheet(); renderMain(); if(D.open) renderDice(); save();
+      break;
+    }
+    case 'toggle-armor-type': {
+      const ar=(S.armors||[]).find(a=>a.id===el.dataset.id);
+      if(ar){
+        const toShield=!isArmorShield(ar);
+        ar.arType=toShield?'shield':'armor';
+        if(!toShield&&D.shieldId===ar.id){D.shieldId=null;D.wpEditOpen=false;}
+        syncEquipmentToInventory(S);
+        invalidateModsCache(); syncDiceFromSheet();
+        renderMain(); if(D.open) renderDice(); save();
+        toast(toShield?'🛡️ In Schild umgewandelt (Inventar aktualisiert)':'🛡️ In normale Rüstung umgewandelt (Inventar aktualisiert)');
+      }
+      break;
+    }
+    case 'shield-blockmod-step': {
+      const ar=(S.armors||[]).find(a=>a.id===el.dataset.id);
+      if(ar){
+        const next=Math.max(-10,Math.min(10,toInt(ar.blockMod,0)+Number(el.dataset.d||0)));
+        ar.blockMod=String(next);
+        invalidateModsCache(); syncDiceFromSheet();
+        if(S.activeTab==='equipment') renderMain();
+        if(D.open) renderDice();
+        save();
+      }
+      break;
+    }
+    case 'set-ar-dmgpool': {
+      const ar=(S.armors||[]).find(a=>a.id===el.dataset.id);
+      const pl=['lp','mlp','both'].includes(el.dataset.pool)?el.dataset.pool:'lp';
+      if(ar){
+        ar.dmgPool=pl;
+        invalidateModsCache(); syncDiceFromSheet();
+        if(S.activeTab==='equipment') renderMain();
+        if(D.open) renderDice();
+        save();
+      }
+      break;
+    }
     case 'toggle-wp-eq': {
       const w=(S.weapons||[]).find(x=>x.id===el.dataset.id);
       if(w){
@@ -2096,7 +2212,16 @@ document.addEventListener('click',async e=>{
           COMBAT.targetCharId=opp.charId;
           COMBAT.targetName=opp.oppName;
           if(el.dataset.action==='roll-blocked-hit-20'){
-            COMBAT.blockItemRed=Boolean(opp.oppWeapon&&hasTagMatch(opp.oppWeapon.tags,/^blockf[äa]hig\b/i));
+            const defShId=opp.oppShield?.id||opp.oppShieldId||'';
+            if(defShId){
+              COMBAT.blockShieldId=defShId;
+              COMBAT.blockShieldName=opp.oppShield?(String(opp.oppShield.name||'').trim()||'Schild'):(opp.oppShieldName||'Schild');
+              COMBAT.blockItemRed=false;
+            }else{
+              COMBAT.blockShieldId='';
+              COMBAT.blockShieldName='';
+              COMBAT.blockItemRed=Boolean((opp.oppWeapon&&isWeaponBlockable(opp.oppWeapon))||opp.oppBlockKind==='item');
+            }
           }
         }
       }
@@ -2114,7 +2239,28 @@ document.addEventListener('click',async e=>{
     case 'combat-set-subzone': COMBAT.subZoneName=el.dataset.subzone||''; COMBAT.lastSubHzRoll=null; COMBAT.posted=false; COMBAT.offerStatus=''; COMBAT.offerNote=''; COMBAT.directAppliedNote=''; renderDice(); break;
     case 'combat-set-dmgtype': COMBAT.dmgType=el.dataset.dmgtype||'cut'; COMBAT.posted=false; COMBAT.offerStatus=''; COMBAT.offerNote=''; COMBAT.directAppliedNote=''; renderDice(); break;
     case 'combat-set-pool': COMBAT.pool=el.dataset.pool==='mlp'?'mlp':'lp'; COMBAT.posted=false; COMBAT.offerStatus=''; COMBAT.offerNote=''; COMBAT.directAppliedNote=''; renderDice(); break;
-    case 'combat-toggle-block-red': COMBAT.blockItemRed=!COMBAT.blockItemRed; COMBAT.posted=false; COMBAT.offerStatus=''; COMBAT.offerNote=''; COMBAT.directAppliedNote=''; renderDice(); break;
+    case 'combat-toggle-block-red': {
+      const next=!COMBAT.blockItemRed||Boolean(COMBAT.blockShieldId);
+      COMBAT.blockItemRed=next;
+      if(next){COMBAT.blockShieldId='';COMBAT.blockShieldName='';}
+      COMBAT.posted=false; COMBAT.offerStatus=''; COMBAT.offerNote=''; COMBAT.directAppliedNote='';
+      renderDice();
+      break;
+    }
+    case 'combat-set-block-shield': {
+      const sid=String(el.dataset.id||'').trim();
+      if(COMBAT.blockShieldId===sid){
+        COMBAT.blockShieldId='';
+        COMBAT.blockShieldName='';
+      }else{
+        COMBAT.blockShieldId=sid;
+        COMBAT.blockShieldName='';
+        COMBAT.blockItemRed=false;
+      }
+      COMBAT.posted=false; COMBAT.offerStatus=''; COMBAT.offerNote=''; COMBAT.directAppliedNote='';
+      renderDice();
+      break;
+    }
     case 'combat-dmg-step': COMBAT.dmgMod=toInt(COMBAT.dmgMod,0)+Number(el.dataset.d); COMBAT.posted=false; COMBAT.offerStatus=''; COMBAT.offerNote=''; COMBAT.directAppliedNote=''; renderDice(); break;
     case 'combat-armor-step': COMBAT.armorMod=toInt(COMBAT.armorMod,0)+Number(el.dataset.d); COMBAT.posted=false; COMBAT.offerStatus=''; COMBAT.offerNote=''; COMBAT.directAppliedNote=''; renderDice(); break;
     case 'combat-post-feed': publishCombatDamageToFeed(); break;
@@ -4021,16 +4167,44 @@ document.addEventListener('input',e=>{
     UI.arZoneDrafts[el.dataset.arZoneDraft]=el.value;
     return;
   }
-  if(el.dataset.arf){const [id,f]=el.dataset.arf.split(':'),ar=S.armors.find(x=>x.id===id);if(ar){ar[f]=el.value;syncLinkedInvDOM('armor',id,el);if(f==='mentalProt'){const mp=$('eqMentalArmorPill');if(mp){const mRs=getMentalArmorSummary();mp.textContent=`🧠 mRS ${mRs.total}`;mp.dataset.tip=mRs.tip;mp.className=mRs.total?'ml-1.5 px-2 py-0.5 rounded-md border border-indigo-400/50 bg-indigo-500/15 text-indigo-300 text-[11px] font-black cursor-help tabular':'hidden';}if(D.open&&COMBAT.active)renderDice();}saveSoon();}return;}
+  if(el.dataset.arf){
+    const [id,f]=el.dataset.arf.split(':'),ar=S.armors.find(x=>x.id===id);
+    if(ar){
+      ar[f]=el.value;
+      syncLinkedInvDOM('armor',id,el);
+      if(f==='mentalProt'){
+        const mp=$('eqMentalArmorPill');
+        if(mp){
+          const mRs=getMentalArmorSummary();
+          mp.textContent=`🧠 mRS ${mRs.total}`;
+          mp.dataset.tip=mRs.tip;
+          mp.className=mRs.total?'ml-1.5 px-2 py-0.5 rounded-md border border-indigo-400/50 bg-indigo-500/15 text-indigo-300 text-[11px] font-black cursor-help tabular':'hidden';
+        }
+      }
+      if(f==='blockMod'){
+        invalidateModsCache();
+        syncDiceFromSheet();
+        if(D.open) renderDice();
+      }else if(f==='name'&&D.shieldId===id){
+        syncDiceFromSheet();
+        if(D.open) renderDice();
+      }else if(['grp','protCut','protPierce','protImpact','mentalProt','dmgCut','dmgPierce','dmgImpact'].includes(f)&&D.open&&COMBAT.active){
+        renderDice();
+      }
+      saveSoon();
+    }
+    return;
+  }
   if(el.dataset.eqcv){
     const [kind,id,cvId,field]=el.dataset.eqcv.split(':');
-    const arrKey=kind==='weapon'?'weapons':kind==='ammo'?'ammos':kind==='armor'?'armors':'';
+    const arrKey=kind==='weapon'?'weapons':kind==='ammo'?'ammos':(kind==='armor'||kind==='armorDmg')?'armors':'';
     const propKey=kind==='armor'?'customProt':'customDmg';
     const item=arrKey?(S[arrKey]||[]).find(x=>x.id===id):null;
     const cv=item&&Array.isArray(item[propKey])?item[propKey].find(c=>c.id===cvId):null;
     if(cv&&(field==='label'||field==='val')){
       cv[field]=el.value;
       if(kind==='ammo') syncLinkedAmmoDOM(id,el);
+      if((kind==='armor'||kind==='armorDmg')&&D.open&&COMBAT.active) renderDice();
       saveSoon();
     }
     return;
@@ -4078,6 +4252,7 @@ document.addEventListener('input',e=>{
             document.querySelectorAll(`input[${attr}="${srcId}:${f}"]`).forEach(inp=>{if(inp!==el)inp.value=el.value;});
             if(kind==='ammo') syncLinkedAmmoDOM(srcId,el);
             if(kind==='weapon'&&f==='name'&&D.weaponId===srcId){syncDiceFromSheet();if(D.open)renderDice();}
+            if(kind==='armor'&&f==='name'&&D.shieldId===srcId){syncDiceFromSheet();if(D.open)renderDice();}
           }else if(f==='qty'&&kind==='ammo'){
             const raw=String(el.value??'').trim();
             src.qty=raw===''?0:Math.max(0,toInt(raw,0));
@@ -4096,6 +4271,17 @@ document.addEventListener('input',e=>{
     if(w&&['dmgCut','dmgPierce','dmgImpact'].includes(f)){
       w[f]=el.value;
       const twin=document.querySelector(`[data-wpf="${CSS.escape(`${id}:${f}`)}"]`);
+      if(twin&&twin!==el&&twin.value!==el.value) twin.value=el.value;
+      saveSoon();
+    }
+    return;
+  }
+  if(el.dataset.diceShInp){
+    const [id,f]=el.dataset.diceShInp.split(':');
+    const ar=(S.armors||[]).find(x=>x.id===id&&isArmorShield(x));
+    if(ar&&['dmgCut','dmgPierce','dmgImpact'].includes(f)){
+      ar[f]=el.value;
+      const twin=document.querySelector(`[data-arf="${CSS.escape(`${id}:${f}`)}"]`);
       if(twin&&twin!==el&&twin.value!==el.value) twin.value=el.value;
       saveSoon();
     }
@@ -4125,7 +4311,7 @@ document.addEventListener('input',e=>{
       if(UI.lastBlockBaseHtml) UI.lastRollHtml=UI.lastBlockBaseHtml+renderBlockFollowUpBox();
       return;
     }
-    if(el.dataset.dice==='cDirect'){D.skillId=null;D.attrKey=null;D.weaponId=null;D.wpEditOpen=false;D.wRollCat='Normaler Test';}
+    if(el.dataset.dice==='cDirect'){D.skillId=null;D.attrKey=null;D.weaponId=null;D.shieldId=null;D.wpEditOpen=false;D.wRollCat='Normaler Test';}
     if($('diceCMath')) $('diceCMath').textContent=`${D.cAttr} + ${getCSkVal()} = ${toInt(D.cAttr)+getCSkVal()}`;
     if($('diceDMath')) $('diceDMath').textContent=`${D.dAttr} + ${getDSkVal()} = ${toInt(D.dAttr)+getDSkVal()}`;
     const dRstBtn=$('btnResetDiceDiff');
@@ -4440,6 +4626,29 @@ document.addEventListener('change',e=>{
     save();
     return;
   }
+  if(el.dataset.diceShEdit){
+    const f=el.dataset.diceShEdit, sid=el.dataset.sid;
+    const ar=(S.armors||[]).find(x=>x.id===sid&&isArmorShield(x));
+    if(ar){
+      ar[f]=el.value;
+      if(D.shieldId===ar.id){
+        if(f==='wAttr') D.attrKey=ar.wAttr||'ST';
+        if(f==='skillId'){D.skillId=ar.skillId||null; if(!D.skillId) D.cSkill='0';}
+      }
+      invalidateModsCache();
+      syncDiceFromSheet();
+      if(S.activeTab==='equipment') renderMain();
+      renderDice();
+      save();
+    }
+    return;
+  }
+  if(el.dataset.diceShInp){
+    const [id]=el.dataset.diceShInp.split(':');
+    if(COMBAT.active&&COMBAT.shieldId===id) renderDice();
+    save();
+    return;
+  }
   if(el.dataset.diceSel){const f=el.dataset.diceSel;if(f==='crit'){const T=calcThreshold(),si=Math.max(0,CRIT_SEQ.indexOf(el.value));D.critOff=si-T.autoCrit;D.crit=CRIT_SEQ[si];}else{D[f]=f==='cnt'?toInt(el.value,1):el.value;}renderDice();return;}
   if(el.dataset.diceOpp){
     const f=el.dataset.diceOpp;
@@ -4496,8 +4705,21 @@ document.addEventListener('change',e=>{
   }
   if(el.dataset.wpf||el.dataset.arf){
     const isW=Boolean(el.dataset.wpf);
-    const [id]=(isW?el.dataset.wpf:el.dataset.arf).split(':');
+    const [id,f]=(isW?el.dataset.wpf:el.dataset.arf).split(':');
     const kind=isW?'weapon':'armor';
+    if(!isW&&f==='blockMod'){
+      const ar=(S.armors||[]).find(a=>a.id===id);
+      if(ar){
+        const clamped=Math.max(-10,Math.min(10,toInt(el.value,0)));
+        ar.blockMod=String(clamped);
+        invalidateModsCache();
+        syncDiceFromSheet();
+        renderMain();
+        if(D.open) renderDice();
+        save();
+        return;
+      }
+    }
     syncEquipmentToInventory(S);
     const inv=(S.inventory||[]).find(it=>it?.linkedEq&&it.linkedEq.kind===kind&&it.linkedEq.id===id);
     if(inv&&!document.querySelector(`[data-inv-item="${inv.id}"]`)) renderMain();

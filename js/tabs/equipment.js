@@ -1,5 +1,5 @@
 import {
-  ATTRS, SK_RANKS, BIO_FIELDS, WEAPON_SUBTYPES, DEF_EQ_SEC_ORDER
+  ATTRS, SK_RANKS, BIO_FIELDS, WEAPON_SUBTYPES, ARMOR_SUBTYPES, DEF_EQ_SEC_ORDER
 } from '../constants.js';
 import {
   $, uid, esc, clone, toInt, toFlt, fmtSign, stripHtml, toRtfHtml, cardColorStyle, hasTagX, fmtTagLabel, canSetSecParent
@@ -8,10 +8,10 @@ import {
   hooks
 } from '../ui-hooks.js';
 import {
-  openCtxMenu, toast, save, getWeaponSubtype, fmtCustomValSummarySuffix, renderLinkedAmmoCustomDmgHtml, isWeaponMassiv, syncEquipmentToInventory, S, D, isMobileLayout, UI
+  openCtxMenu, toast, save, getWeaponSubtype, isArmorShield, getArmorSubtype, fmtCustomValSummarySuffix, renderLinkedAmmoCustomDmgHtml, isWeaponMassiv, syncEquipmentToInventory, S, D, isMobileLayout, UI
 } from '../state.js';
 import {
-  invalidateModsCache, calcActiveMods, getAdvDisForContext, getWeaponRollMeta, getWeaponDualWieldInfo, getEqModStatOptions, getEqModAdvDisOptions, formatEqModTargetLabel, formatEqModShort, getTagDesc, fmtAdvSrcLines, getAttrTot, getSkBonus, findEqItem, getMentalArmorSummary
+  invalidateModsCache, calcActiveMods, getAdvDisForContext, getWeaponRollMeta, getShieldRollMeta, formatBlockModShort, formatBlockModLong, getWeaponDualWieldInfo, getEqModStatOptions, getEqModAdvDisOptions, formatEqModTargetLabel, formatEqModShort, getTagDesc, fmtAdvSrcLines, getAttrTot, getSkBonus, findEqItem, getMentalArmorSummary
 } from '../calc.js';
 import {
   applyDiceAutoAdvDis, syncDiceFromSheet, renderDice
@@ -138,6 +138,89 @@ export function openAddWeaponMenu(anchorEl,ddKey,alignRight=false){
       action:'add-weapon',
       dataset:{wtype:st.key}
     }))
+  });
+}
+export function openAddArmorMenu(anchorEl,ddKey,alignRight=false){
+  openCtxMenu({
+    key:`eq-add-armor:${ddKey||'top'}`,
+    title:'Rüstung oder Schild anlegen',
+    anchorEl,
+    align:alignRight?'right':'left',
+    minWidth:245,
+    items:ARMOR_SUBTYPES.map(st=>({
+      icon:st.icon,
+      label:st.label,
+      sub:st.key==='shield'?'Mit Block-Mod, Rüstungswert & Schildangriff':'Körperrüstung für Trefferzonen',
+      action:'add-armor',
+      dataset:{artype:st.key}
+    }))
+  });
+}
+export function openShieldAttrPicker(anchorEl,arId){
+  const ar=(S.armors||[]).find(x=>x.id===arId); if(!ar) return;
+  const M=calcActiveMods(), sm=getShieldRollMeta(ar,M);
+  const items=ATTRS.map(a=>({
+    label:`${a.k} – ${a.n}`,
+    badge:String(getAttrTot(a.k,M)),
+    active:sm.attrKey===a.k,
+    onClick:()=>{
+      ar.wAttr=a.k;
+      if(D.shieldId===ar.id){
+        D.attrKey=a.k;
+        syncDiceFromSheet(); if(D.open) renderDice();
+      }
+      hooks.renderMain?.(); save();
+    }
+  }));
+  openCtxMenu({
+    key:`eq-sh-attr:${arId}`,
+    title:'Schild-Attribut wählen',
+    anchorEl,
+    align:'left',
+    minWidth:230,
+    items
+  });
+}
+export function openShieldSkillPicker(anchorEl,arId){
+  const ar=(S.armors||[]).find(x=>x.id===arId); if(!ar) return;
+  const items=[{
+    label:'Keine Fertigkeit',
+    badge:'+0',
+    active:!ar.skillId||!S.skills.some(s=>s.id===ar.skillId),
+    onClick:()=>{
+      ar.skillId='';
+      if(D.shieldId===ar.id){D.skillId=null;D.cSkill='0';syncDiceFromSheet();if(D.open)renderDice();}
+      hooks.renderMain?.(); save();
+    }
+  }];
+  if(S.skills.length){
+    items.push({sep:true});
+    S.skills.forEach(sk=>{
+      const b=getSkBonus(sk), rLbl=SK_RANKS[sk.rank]?.n||('Grad '+sk.rank);
+      items.push({
+        label:sk.name||'Unbenannt',
+        sub:`${rLbl} • ${sk.linkedAttr||'ST'}`,
+        badge:fmtSign(b),
+        active:ar.skillId===sk.id,
+        onClick:()=>{
+          ar.skillId=sk.id;
+          if(D.shieldId===ar.id){
+            D.skillId=sk.id;
+            syncDiceFromSheet(); if(D.open) renderDice();
+          }
+          hooks.renderMain?.(); save();
+        }
+      });
+    });
+  }
+  openCtxMenu({
+    key:`eq-sh-skill:${arId}`,
+    title:'Fertigkeit verknüpfen (Schild)',
+    anchorEl,
+    align:'left',
+    minWidth:250,
+    showClose:true,
+    items
   });
 }
 export function openEqTagPicker(anchorEl,kind,itemId){
@@ -704,6 +787,7 @@ export function deleteEqItem(kind,id){
   if(kind==='armor'){
     S.armors=S.armors.filter(a=>a.id!==id);
     if(UI.arZoneDrafts) delete UI.arZoneDrafts[id];
+    if(D.shieldId===id){D.shieldId=null;D.wRollCat='Normaler Test';D.sitActive={};applyDiceAutoAdvDis(true);}
     syncEquipmentToInventory(S);
     invalidateModsCache(); syncDiceFromSheet();
     hooks.renderMain?.(); if(D.open) renderDice(); save(); return true;
@@ -720,18 +804,26 @@ export function deleteEqItem(kind,id){
 }
 export function openEqItemMenu(anchorEl,kind,id,forceOpen=false){
   const it=findEqItem(kind,id); if(!it) return;
-  const defName={weapon:'Waffe',ammo:'Munition',armor:'Rüstung',inv:'Gegenstand'}[kind]||'Eintrag';
+  const isSh=kind==='armor'&&isArmorShield(it);
+  const defName=isSh?'Schild':({weapon:'Waffe',ammo:'Munition',armor:'Rüstung',inv:'Gegenstand'}[kind]||'Eintrag');
   const titleName=String(it.name||'').trim()||defName;
   const {idx,len}=getEqItemSiblingInfo(kind,id);
   const delKey=`${kind}:${id}`;
   const isDelConfirm=UI.confirmDelEqKey===delKey;
-  const linkedKindLbl=it.linkedEq?({weapon:'Waffe',armor:'Rüstung',ammo:'Munition'}[it.linkedEq.kind]||'Ausrüstung'):'';
+  const lnkSrcObj=it.linkedEq?findEqItem(it.linkedEq.kind,it.linkedEq.id):null;
+  const linkedKindLbl=it.linkedEq?(it.linkedEq.kind==='armor'&&isArmorShield(lnkSrcObj)?'Schild':({weapon:'Waffe',armor:'Rüstung',ammo:'Munition'}[it.linkedEq.kind]||'Ausrüstung')):'';
   const items=[];
   if(kind==='weapon'){
     items.push({type:'label',label:'Kampf-Aktionen'});
     items.push({icon:'🎲',label:'Trefferwurf würfeln',action:'roll-weapon',dataset:{id,wcat:'Trefferwurf'}});
     items.push({icon:'🛡️',label:'Parieren würfeln',action:'roll-weapon',dataset:{id,wcat:'Parieren'}});
-    items.push({icon:'🛡️',label:'Blocken würfeln',action:'roll-weapon',dataset:{id,wcat:'Blocken'}});
+    items.push({icon:'🧱',label:'Blocken würfeln',action:'roll-weapon',dataset:{id,wcat:'Blocken'}});
+    items.push({sep:true});
+  }
+  if(isSh){
+    items.push({type:'label',label:'Kampf-Aktionen'});
+    items.push({icon:'🧱',label:'Blocken würfeln',action:'roll-shield',dataset:{id,wcat:'Blocken'}});
+    items.push({icon:'⚔️',label:'Schildangriff würfeln',action:'roll-shield',dataset:{id,wcat:'Trefferwurf'}});
     items.push({sep:true});
   }
   if(kind==='inv'&&it.linkedEq){
@@ -763,6 +855,15 @@ export function openEqItemMenu(anchorEl,kind,id,forceOpen=false){
       }
     }
   });
+  if(kind==='armor'){
+    items.push({
+      icon:'🔄',
+      label:isSh?'In normale Rüstung umwandeln':'In Schild umwandeln',
+      sub:isSh?'Wechselt zu Körperrüstung mit Trefferzonen':'Fügt Block-Mod, Schildangriff & Fertigkeit hinzu',
+      action:'toggle-armor-type',
+      dataset:{id}
+    });
+  }
   if(kind==='inv'&&Array.isArray(S.invSections)&&S.invSections.length){
     const curSec=S.invSections.find(s=>s.id===it.sectionId);
     items.push({
@@ -1000,16 +1101,19 @@ export function renderEqCustomValBoxes(kind,itemId,list,delAct){
 export function renderAddWeaponDropdown(ddKey,btnCls='btn',alignRight=false){
   return `<button type="button" data-action="open-add-weapon-menu" data-ddkey="${esc(ddKey)}" data-align="${alignRight?'right':'left'}" aria-haspopup="menu" aria-expanded="false" class="${btnCls}">+ Waffe ▾</button>`;
 }
+export function renderAddArmorDropdown(ddKey,btnCls='btn',alignRight=false,label='+ Rüstung ▾'){
+  return `<button type="button" data-action="open-add-armor-menu" data-ddkey="${esc(ddKey)}" data-align="${alignRight?'right':'left'}" aria-haspopup="menu" aria-expanded="false" class="${btnCls}">${label}</button>`;
+}
 export function renderWeaponRollBtns(w,wm,compact=false){
   const M=calcActiveMods(), wSub=getWeaponSubtype(w.wType), wRaw=String(w.name||'').trim()||wSub.label;
   const poolBreak=`${wm.attrKey} ${wm.attrVal}${wm.sk?` ${fmtSign(wm.skBonus)} (${wm.sk.name})`:' + 0 (ohne Fertigkeit)'} = ${wm.pool}`;
-  const wTip=cat=>{const ad=getAdvDisForContext({weaponId:w.id,wRollCat:cat,skillId:wm.sk?.id||null,attrKey:wm.attrKey},M),al=fmtAdvSrcLines(ad.src),cl=(ad.critSrc||[]).map(c=>`• ${c.srcName}: Kritische Ziffer +${c.val}`).join('\n'),sl=(ad.sitOptions||[]).map(s=>`• [Situativ] ${s.sitLabel}: ${s.reduceDis?'-'+s.reduceDis+'N':s.adv?'+'+s.adv+'V':'+'+s.dis+'N'}${s.counterNote?' ('+s.counterNote+')':''}`).join('\n');return esc(`${cat} mit ${wRaw} starten\nPool: ${poolBreak}${cat==='Blocken'&&wm.hasBlock?'\n✓ Tag Blockfähig aktiv':''}${al?'\n'+al:''}${cl?'\n'+cl:''}${sl?'\n'+sl:''}`);};
+  const wTip=cat=>{const ad=getAdvDisForContext({weaponId:w.id,wRollCat:cat,skillId:wm.sk?.id||null,attrKey:wm.attrKey},M),al=fmtAdvSrcLines(ad.src),cl=(ad.critSrc||[]).map(c=>`• ${c.srcName}: Kritische Ziffer +${c.val}`).join('\n'),sl=(ad.sitOptions||[]).map(s=>`• [Situativ] ${s.sitLabel}: ${s.reduceDis?'-'+s.reduceDis+'N':s.adv?'+'+s.adv+'V':'+'+s.dis+'N'}${s.counterNote?' ('+s.counterNote+')':''}`).join('\n');return esc(`${cat} mit ${wRaw} starten\nPool: ${poolBreak}${cat==='Blocken'&&wm.hasBlock?'\n✓ Tag Blockfähig aktiv (−2 Schaden beim 2. Wurf)':''}${al?'\n'+al:''}${cl?'\n'+cl:''}${sl?'\n'+sl:''}`);};
   return `<div class="flex flex-wrap items-center gap-1.5 tabular w-full sm:w-auto sm:inline-flex sm:shrink-0 max-w-full">
     <button type="button" data-action="roll-weapon" data-id="${w.id}" data-wcat="Trefferwurf" data-tip="${wTip('Trefferwurf')}" class="btn btn-pri ${compact?'py-1 px-2.5 text-xs':'py-1.5 px-3 text-xs'} font-black whitespace-nowrap">🎲 Trefferwurf <span class="px-1.5 py-0.5 rounded bg-black/25 text-[11px] font-black">${wm.pool}</span></button>
     <div class="inline-flex items-center rounded-lg border bdr-acc bg-acc-soft overflow-hidden shrink-0 max-w-full" role="group">
       <button type="button" data-action="roll-weapon" data-id="${w.id}" data-wcat="Parieren" data-tip="${wTip('Parieren')}" class="px-2 ${compact?'py-1':'py-1.5'} text-[11px] font-extrabold text-acc hover:bg-black/20 transition-colors cursor-pointer whitespace-nowrap">🛡️ Parieren</button>
       <span class="w-px self-stretch bg-white/15"></span>
-      <button type="button" data-action="roll-weapon" data-id="${w.id}" data-wcat="Blocken" data-tip="${wTip('Blocken')}" class="px-2 ${compact?'py-1':'py-1.5'} text-[11px] font-extrabold ${wm.hasBlock?'text-emerald-400':'text-acc opacity-85'} hover:bg-black/20 transition-colors cursor-pointer whitespace-nowrap">Blocken</button>
+      <button type="button" data-action="roll-weapon" data-id="${w.id}" data-wcat="Blocken" data-tip="${wTip('Blocken')}" class="px-2 ${compact?'py-1':'py-1.5'} text-[11px] font-extrabold ${wm.hasBlock?'text-emerald-300 bg-emerald-500/15':'text-acc opacity-80'} hover:bg-black/20 transition-colors cursor-pointer whitespace-nowrap">${wm.hasBlock?'🧱 Blocken':'Blocken'}</button>
     </div>
   </div>`;
 }
@@ -1198,7 +1302,131 @@ export function renderAmmoCard(am,idx,len){
   </div>`;
 }
 
+export function renderShieldCard(ar,idx,len){
+  const M=calcActiveMods(), sm=getShieldRollMeta(ar,M);
+  const colStyle=ar.color?`style="color:${esc(ar.color)}"`:'', winStyle=cardColorStyle(ar);
+  const isEq=ar.equipped!==false;
+  const shRaw=String(ar.name||'').trim()||'Schild';
+  const bm=sm.blockMod;
+  const bmCls=bm>0?'border-emerald-400/55 bg-emerald-500/15 text-emerald-300':bm<0?'border-rose-400/55 bg-rose-500/15 text-rose-300':'bdr-line bg-black/25 t-mut';
+  const bmShort=formatBlockModShort(bm), bmLong=formatBlockModLong(bm);
+  const poolBreak=`${sm.attrKey} ${sm.attrVal}${sm.sk?` ${fmtSign(sm.skBonus)} (${sm.sk.name})`:' + 0 (ohne Fertigkeit)'} = ${sm.pool}`;
+  const shTip=cat=>{
+    const ad=getAdvDisForContext({shieldId:ar.id,wRollCat:cat,skillId:sm.sk?.id||null,attrKey:sm.attrKey},M);
+    const al=fmtAdvSrcLines(ad.src);
+    return esc(`${cat==='Blocken'?'Blocken':'Schildangriff'} mit ${shRaw} starten\nPool: ${poolBreak}${cat==='Blocken'?`\n🛡️ Block-Mod: ${bmLong}`:''}${al?'\n'+al:''}`);
+  };
+  const hdrRow=`<div class="flex items-center gap-1.5 min-w-0">
+    <button type="button" data-action="toggle-eqitem-collapse" data-kind="armor" data-id="${ar.id}" data-tip="${ar.collapsed?'Schild ausklappen':'Schild einklappen'}" aria-expanded="${!ar.collapsed}" class="btn w-8 h-8 sm:w-7 sm:h-7 p-0 text-xs font-black shrink-0">${ar.collapsed?'▸':'▾'}</button>
+    <span draggable="true" data-drag-eqitem="armor:${ar.id}" data-tip="Ziehen zum Sortieren" class="w-7 h-7 rounded bg-cyan-500/15 border border-cyan-400/45 text-cyan-300 text-xs font-black cursor-grab select-none shrink-0 inline-flex items-center justify-center">⠿</span>
+    ${renderEqMiniThumb('armor',ar.id,ar.img)}
+    <input data-arf="${ar.id}:name" type="text" value="${esc(ar.name)}" ${colStyle} placeholder="Schildname..." class="inp-line flex-1 min-w-0 text-sm sm:text-base font-extrabold"/>
+    <button type="button" data-action="toggle-ar-eq" data-id="${ar.id}" data-tip="Schild an-/ablegen (steuert aktive Tags, Fertigkeits-Verknüpfung &amp; Modifikatoren)" class="btn h-8 sm:h-7 px-2 text-[11px] font-extrabold shrink-0 whitespace-nowrap ${isEq?'btn-ok':'opacity-65'}">${isEq?'✓<span class="hidden sm:inline"> Angelegt</span>':'○<span class="hidden sm:inline"> Abgelegt</span>'}</button>
+    <button type="button" data-action="roll-shield" data-id="${ar.id}" data-wcat="Blocken" data-tip="${shTip('Blocken')}" class="btn h-8 sm:h-7 px-2 text-xs font-black shrink-0 tabular whitespace-nowrap border-cyan-400/60 bg-cyan-500/20 text-cyan-200 hover:bg-cyan-500/30">🧱 <span class="px-1 py-0.5 rounded bg-black/25 text-[11px] font-black">${sm.pool}</span></button>
+    ${renderEqItemMenuBtn('armor',ar.id)}
+  </div>`;
+  const mProtVal=toInt(ar.mentalProt,0);
+  const shPool=['lp','mlp','both'].includes(ar.dmgPool)?ar.dmgPool:'lp';
+  const shPoolBadge=shPool==='mlp'?'<span class="pill cursor-default text-[11px] py-0.5 px-2 border-indigo-400/50 bg-indigo-500/15 text-indigo-300 font-black">🧠 mLP</span>':shPool==='both'?'<span class="pill cursor-default text-[11px] py-0.5 px-2 border-purple-400/50 bg-purple-500/15 text-purple-200 font-black">❤️+🧠 LP/mLP</span>':'';
+  const hasAnyDmg=Boolean(toInt(ar.dmgCut,0)||toInt(ar.dmgPierce,0)||toInt(ar.dmgImpact,0)||fmtCustomValSummarySuffix(ar.customDmg));
+  if(ar.collapsed){
+    return `<div data-eqitem="armor:${ar.id}" class="subcard py-2 px-2.5 sm:px-3 border-cyan-400/40 space-y-1.5 min-w-0 ${isEq?'':'opacity-75'}" ${winStyle}>
+      ${hdrRow}
+      <div class="flex flex-wrap items-center gap-1.5 tabular min-w-0">
+        <span class="pill cursor-default text-[11px] py-0.5 px-2 border-cyan-400/50 bg-cyan-500/15 text-cyan-300 font-black">🛡️ Schild</span>
+        <span class="pill cursor-default text-[11px] py-0.5 px-2 font-black ${bmCls}" data-tip="Block-Mod: ${esc(bmLong)} auf Blocken-Tests">🧱 Block ${esc(bmShort)}</span>
+        <span class="pill cursor-default text-[11px] py-0.5 px-2 text-emerald-400 font-black">gRP ${esc(ar.grp)}</span>
+        ${mProtVal?`<span class="pill cursor-default text-[11px] py-0.5 px-2 border-indigo-400/50 bg-indigo-500/15 text-indigo-300 font-black">🧠 mRS ${esc(ar.mentalProt)}</span>`:''}
+        <span class="pill cursor-default text-[11px] py-0.5 px-2 max-w-full whitespace-normal break-words">Schutz: Schnitt ${esc(ar.protCut)} • Durchstoß ${esc(ar.protPierce)} • Einschlag ${esc(ar.protImpact)}${fmtCustomValSummarySuffix(ar.customProt)}</span>
+        ${hasAnyDmg?`<span class="pill cursor-default text-[11px] py-0.5 px-2 max-w-full whitespace-normal break-words border-amber-400/40 bg-amber-500/10 text-amber-200">⚔️ Schnitt ${esc(ar.dmgCut)} • Durchstoß ${esc(ar.dmgPierce)} • Einschlag ${esc(ar.dmgImpact)}${fmtCustomValSummarySuffix(ar.customDmg)}</span>`:''}
+        ${shPoolBadge}
+        ${sm.sk?`<span class="pill cursor-default text-[11px] py-0.5 px-2 text-acc font-bold">🎯 ${esc(sm.sk.name||'Fertigkeit')} (${fmtSign(sm.skBonus)})</span>`:''}
+        ${renderEqModsSummaryPills(ar)}
+      </div>
+    </div>`;
+  }
+  return `<div data-eqitem="armor:${ar.id}" class="subcard p-2.5 sm:p-3 space-y-3 border-cyan-400/40 min-w-0 ${isEq?'':'opacity-80'}" ${winStyle}>
+    ${hdrRow}
+    <div class="pt-2 border-t bdr-line grid grid-cols-1 sm:grid-cols-3 gap-2.5 items-end">
+      <div class="min-w-0">
+        <div class="flex items-center justify-between gap-1 mb-0.5">
+          <label class="block text-[10px] font-extrabold text-cyan-300 truncate" data-tip="Größe &amp; Handlichkeit beim Blocken: +X = Vorteile, −X = Nachteile auf Blocken-Tests (z. B. −1 kleiner Buckler, +1 großer Turmschild)">BLOCK-MOD (VOR-/NACHT.)</label>
+          <span class="px-1.5 py-0.2 rounded border text-[10px] font-black tabular shrink-0 ${bmCls}">${esc(bmLong)}</span>
+        </div>
+        <div class="flex items-center gap-1 tabular">
+          <button type="button" data-action="shield-blockmod-step" data-id="${ar.id}" data-d="-1" aria-label="Block-Mod minus 1" class="btn w-8 h-8 sm:w-7 sm:h-7 p-0 text-xs font-black shrink-0">−</button>
+          <input data-arf="${ar.id}:blockMod" type="text" inputmode="numeric" value="${esc(bm>0?'+'+bm:String(bm))}" data-tip="Block-Mod direkt eingeben (positiv = Vorteile, negativ = Nachteile)" class="inp flex-1 min-w-0 text-center font-black py-1 px-1.5 text-xs ${bm>0?'border-emerald-400/60 text-emerald-300':bm<0?'border-rose-400/60 text-rose-300':''}"/>
+          <button type="button" data-action="shield-blockmod-step" data-id="${ar.id}" data-d="1" aria-label="Block-Mod plus 1" class="btn w-8 h-8 sm:w-7 sm:h-7 p-0 text-xs font-black shrink-0">+</button>
+        </div>
+      </div>
+      <div class="min-w-0">
+        <label class="block text-[10px] font-extrabold text-acc mb-0.5 truncate" data-tip="Attribut für Blocken- und Schildangriffs-Proben (Standard: ST)">ATTRIBUT <span class="t-mut font-semibold">(Std: ST)</span></label>
+        <button type="button" data-action="open-shield-attr-picker" data-id="${ar.id}" aria-haspopup="menu" aria-expanded="false" class="inp w-full py-1.5 px-2 text-xs font-extrabold tabular flex items-center justify-between gap-2 text-left cursor-pointer hover:border-cyan-400/70"><span class="truncate">${sm.attrKey} – ${esc(ATTRS.find(a=>a.k===sm.attrKey)?.n||sm.attrKey)} (${sm.attrVal})</span><span class="t-mut text-[10px] shrink-0">▾</span></button>
+      </div>
+      <div class="min-w-0">
+        <label class="block text-[10px] font-bold t-mut mb-0.5 truncate" data-tip="Optionale Verknüpfung mit einer gelernten Charakter-Fertigkeit (z. B. Blocken oder Schildkampf)">FERTIGKEIT (OPTIONAL)</label>
+        <button type="button" data-action="open-shield-skill-picker" data-id="${ar.id}" aria-haspopup="menu" aria-expanded="false" class="inp w-full py-1.5 px-2 text-xs font-bold tabular flex items-center justify-between gap-2 text-left cursor-pointer hover:border-cyan-400/70"><span class="truncate">${sm.sk?`${esc(sm.sk.name||'Unbenannt')} (${fmtSign(sm.skBonus)})`:'— Keine (+0) —'}</span><span class="t-mut text-[10px] shrink-0">▾</span></button>
+      </div>
+    </div>
+    <div class="p-2.5 rounded-xl border border-cyan-400/35 bg-cyan-500/10 flex flex-wrap items-center justify-between gap-2">
+      <div class="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs font-bold t-mut tabular min-w-0">
+        <span>Pool: <strong class="text-cyan-300">${sm.attrKey} ${sm.attrVal}${sm.sk?` ${fmtSign(sm.skBonus)}`:''} = ${sm.pool}</strong></span>
+        <span class="px-1.5 py-0.5 rounded border text-[10px] font-black ${bmCls}">Block-Mod ${esc(bmShort)}</span>
+      </div>
+      <div class="flex flex-wrap items-center gap-1.5 tabular w-full sm:w-auto sm:inline-flex sm:shrink-0 max-w-full">
+        <button type="button" data-action="roll-shield" data-id="${ar.id}" data-wcat="Blocken" data-tip="${shTip('Blocken')}" class="btn btn-pri py-1 px-2.5 text-xs font-black whitespace-nowrap">🧱 Blocken <span class="px-1.5 py-0.5 rounded bg-black/25 text-[11px] font-black">${sm.pool}</span></button>
+        <button type="button" data-action="roll-shield" data-id="${ar.id}" data-wcat="Trefferwurf" data-tip="${shTip('Trefferwurf')}" class="btn py-1 px-2.5 text-xs font-extrabold bdr-acc bg-acc-soft text-acc hover:bg-black/20 whitespace-nowrap">⚔️ Schildangriff</button>
+      </div>
+    </div>
+    <div class="pt-2 border-t bdr-line space-y-1.5">
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <div class="flex flex-wrap items-center gap-1.5 min-w-0">
+          <span class="text-[10px] font-extrabold text-emerald-400 uppercase tracking-wider">🛡️ Schild-Rüstungswerte</span>
+          <span class="text-[10px] t-mut font-semibold">(addiert sich beim Blocken zur Zonenrüstung)</span>
+        </div>
+        <button type="button" data-action="add-armor-prot" data-id="${ar.id}" data-tip="Benutzerdefinierten Schutzwert hinzufügen (z.B. Energie, Feuer)" class="btn py-0.5 px-2 text-[11px] shrink-0">+ Wert</button>
+      </div>
+      <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 tabular">
+        <div class="min-w-0 p-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/40"><label class="block text-[10px] font-extrabold text-emerald-400 text-center mb-0.5" data-tip="Generelle Rüstungspunkte (gRP) des Schildes beim Blocken">gRP</label><input data-arf="${ar.id}:grp" type="text" value="${esc(ar.grp)}" placeholder="0" class="inp w-full min-w-0 text-center font-black py-1 px-1.5 text-xs border-emerald-500/50"/></div>
+        <div class="min-w-0 p-1.5 rounded-lg bg-indigo-500/10 border border-indigo-400/45"><label class="block text-[10px] font-extrabold text-indigo-300 text-center mb-0.5" data-tip="Mentaler Rüstungsschutz (mRS) des Schildes beim Blocken gegen mLP-Schaden">🧠 Ment. RS</label><input data-arf="${ar.id}:mentalProt" type="text" value="${esc(ar.mentalProt??'0')}" placeholder="0" class="inp w-full min-w-0 text-center font-black py-1 px-1.5 text-xs border-indigo-400/50 text-indigo-200"/></div>
+        <div class="min-w-0 p-1.5 rounded-lg bg-black/20 border bdr-line"><label class="block text-[10px] font-bold t-mut text-center mb-0.5" data-tip="Schild-Rüstung gegen Schnitt">Schnitt</label><input data-arf="${ar.id}:protCut" type="text" value="${esc(ar.protCut)}" placeholder="0" class="inp w-full min-w-0 text-center font-black py-1 px-1.5 text-xs"/></div>
+        <div class="min-w-0 p-1.5 rounded-lg bg-black/20 border bdr-line"><label class="block text-[10px] font-bold t-mut text-center mb-0.5" data-tip="Schild-Rüstung gegen Durchstoß">Durchstoß</label><input data-arf="${ar.id}:protPierce" type="text" value="${esc(ar.protPierce)}" placeholder="0" class="inp w-full min-w-0 text-center font-black py-1 px-1.5 text-xs"/></div>
+        <div class="min-w-0 p-1.5 rounded-lg bg-black/20 border bdr-line"><label class="block text-[10px] font-bold t-mut text-center mb-0.5" data-tip="Schild-Rüstung gegen Einschlag">Einschlag</label><input data-arf="${ar.id}:protImpact" type="text" value="${esc(ar.protImpact)}" placeholder="0" class="inp w-full min-w-0 text-center font-black py-1 px-1.5 text-xs"/></div>
+        ${renderEqCustomValBoxes('armor',ar.id,ar.customProt,'del-armor-prot')}
+      </div>
+    </div>
+    <div class="pt-2 border-t bdr-line space-y-1.5">
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <div class="flex flex-wrap items-center gap-2">
+          <span class="text-[10px] font-extrabold text-amber-300 uppercase tracking-wider">⚔️ Schild-Schadenswerte</span>
+          <div class="inline-flex rounded-lg p-0.5 bg-black/25 border bdr-line text-[10px]" data-tip="Schadenspool für Angriffe mit dem Schild">
+            <button type="button" data-action="set-ar-dmgpool" data-id="${ar.id}" data-pool="lp" class="px-2 py-0.5 rounded font-black transition-colors ${shPool==='lp'?'bg-rose-500/30 text-rose-200':'t-mut hover:text-white'}">❤️ LP</button>
+            <button type="button" data-action="set-ar-dmgpool" data-id="${ar.id}" data-pool="mlp" class="px-2 py-0.5 rounded font-black transition-colors ${shPool==='mlp'?'bg-indigo-500/35 text-indigo-200':'t-mut hover:text-white'}">🧠 mLP</button>
+            <button type="button" data-action="set-ar-dmgpool" data-id="${ar.id}" data-pool="both" class="px-2 py-0.5 rounded font-black transition-colors ${shPool==='both'?'bg-purple-500/35 text-purple-200':'t-mut hover:text-white'}">Beide</button>
+          </div>
+        </div>
+        <button type="button" data-action="add-armor-dmg" data-id="${ar.id}" data-tip="Benutzerdefinierten Schadenswert für Schildangriffe hinzufügen (z.B. Schock, Feuer)" class="btn py-0.5 px-2 text-[11px] shrink-0">+ Wert</button>
+      </div>
+      <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 tabular">
+        <div class="min-w-0 p-1.5 rounded-lg bg-black/20 border bdr-line"><label class="block text-[10px] font-bold t-mut text-center mb-0.5" data-tip="Schnittschaden-Bonus bei Schildangriff">Schnitt</label><input data-arf="${ar.id}:dmgCut" type="text" value="${esc(ar.dmgCut)}" placeholder="-" class="inp w-full min-w-0 text-center font-black py-1 px-1.5 text-xs"/></div>
+        <div class="min-w-0 p-1.5 rounded-lg bg-black/20 border bdr-line"><label class="block text-[10px] font-bold t-mut text-center mb-0.5" data-tip="Durchstoßschaden-Bonus bei Schildangriff">Durchstoß</label><input data-arf="${ar.id}:dmgPierce" type="text" value="${esc(ar.dmgPierce)}" placeholder="-" class="inp w-full min-w-0 text-center font-black py-1 px-1.5 text-xs"/></div>
+        <div class="min-w-0 p-1.5 rounded-lg bg-black/20 border bdr-line"><label class="block text-[10px] font-bold t-mut text-center mb-0.5" data-tip="Einschlagschaden-Bonus bei Schildangriff">Einschlag</label><input data-arf="${ar.id}:dmgImpact" type="text" value="${esc(ar.dmgImpact)}" placeholder="-" class="inp w-full min-w-0 text-center font-black py-1 px-1.5 text-xs"/></div>
+        ${renderEqCustomValBoxes('armorDmg',ar.id,ar.customDmg,'del-armor-dmg')}
+      </div>
+    </div>
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-2.5 items-start pt-2 border-t bdr-line">
+      <div class="lg:col-span-7 min-w-0">${renderEqTagBar('armor',ar,S.armorTagList,'armorTags','Rüstungs-Tags')}</div>
+      <div class="lg:col-span-5 min-w-0">
+        <label class="block text-[11px] font-bold t-mut mb-1">Notizen</label>
+        <input data-arf="${ar.id}:notes" type="text" value="${esc(ar.notes)}" placeholder="Notizen" class="inp w-full min-w-0 text-xs"/>
+      </div>
+    </div>
+    ${renderEqModsBlock('armor',ar)}
+  </div>`;
+}
+
 export function renderArmorCard(ar,idx,len,hzNames){
+  if(isArmorShield(ar)) return renderShieldCard(ar,idx,len);
   const colStyle=ar.color?`style="color:${esc(ar.color)}"`:'', winStyle=cardColorStyle(ar);
   const isEq=ar.equipped!==false;
   const hdrRow=`<div class="flex items-center gap-1.5 min-w-0">
@@ -1306,16 +1534,19 @@ export function renderInvItemCard(it,idx,len,invSecs){
   const lnk=it.linkedEq&&typeof it.linkedEq==='object'?it.linkedEq:null;
   const lnkSrc=lnk?findEqItem(lnk.kind,lnk.id):null;
   const lnkBadgeHtml=lnk?(()=>{
+    const isLnkShield=lnk.kind==='armor'&&isArmorShield(lnkSrc);
     const cfg=lnk.kind==='weapon'
       ?{ico:lnkSrc?.wType==='ranged'?'🏹':'⚔️',lbl:lnkSrc?.equipped===false?'Waffe (Abgel.)':'Waffe',cls:'border-sky-400/50 bg-sky-500/15 text-sky-300'}
-      :lnk.kind==='armor'
-        ?{ico:'🛡️',lbl:lnkSrc?.equipped===false?'Rüstung (Abgel.)':'Rüstung',cls:'border-emerald-400/50 bg-emerald-500/15 text-emerald-300'}
-        :{ico:'🎯',lbl:'Munition',cls:'border-amber-400/50 bg-amber-500/15 text-amber-300'};
+      :isLnkShield
+        ?{ico:'🛡️',lbl:lnkSrc?.equipped===false?'Schild (Abgel.)':'Schild',cls:'border-cyan-400/55 bg-cyan-500/15 text-cyan-300'}
+        :lnk.kind==='armor'
+          ?{ico:'🛡️',lbl:lnkSrc?.equipped===false?'Rüstung (Abgel.)':'Rüstung',cls:'border-emerald-400/50 bg-emerald-500/15 text-emerald-300'}
+          :{ico:'🎯',lbl:'Munition',cls:'border-amber-400/50 bg-amber-500/15 text-amber-300'};
     return `<button type="button" data-action="jump-eq-item" data-kind="${esc(lnk.kind)}" data-id="${esc(lnk.id)}" data-tip="Automatisch mit ${cfg.lbl} verknüpft – klicken zum Springen" class="px-1.5 py-0.5 rounded-md border text-[10px] font-black shrink-0 inline-flex items-center gap-1 cursor-pointer hover:brightness-110 ${cfg.cls}"><span>${cfg.ico}</span><span class="hidden sm:inline">${cfg.lbl}</span><span class="opacity-75">↗</span></button>`;
   })():'';
   const invEqOn=Boolean(!lnk&&it.equipped===true);
   const invEqBtnHtml=!lnk?`<button type="button" data-action="toggle-inv-eq" data-id="${it.id}" data-tip="Gegenstand an-/ablegen (aktiviert dessen Modifikatoren/Nachteile)" class="btn h-8 sm:h-7 px-2 text-[11px] font-extrabold shrink-0 whitespace-nowrap ${invEqOn?'btn-ok':'opacity-65'}">${invEqOn?'✓<span class="hidden sm:inline"> Angelegt</span>':'○<span class="hidden sm:inline"> Abgelegt</span>'}</button>`:'';
-  const namePh=lnk?(lnk.kind==='weapon'?'Waffenname...':lnk.kind==='armor'?'Rüstungsname...':'Munitionsname...'):'Gegenstand...';
+  const namePh=lnk?(lnk.kind==='weapon'?'Waffenname...':lnk.kind==='armor'?(isArmorShield(lnkSrc)?'Schildname...':'Rüstungsname...'):'Munitionsname...'):'Gegenstand...';
   const hdrRow=`<div class="flex items-center gap-1.5 min-w-0">
     <button type="button" data-action="toggle-eqitem-collapse" data-kind="inv" data-id="${it.id}" data-tip="${it.collapsed?'Gegenstand ausklappen':'Gegenstand einklappen'}" aria-expanded="${!it.collapsed}" class="btn w-8 h-8 sm:w-7 sm:h-7 p-0 text-xs font-black shrink-0">${it.collapsed?'▸':'▾'}</button>
     <span draggable="true" data-drag-invitem="${it.id}" data-tip="Ziehen zum Sortieren oder Verschieben in einen Beutel" class="w-7 h-7 rounded bg-black/25 border bdr-line t-mut text-xs font-black cursor-grab select-none shrink-0 inline-flex items-center justify-center">⠿</span>
@@ -1422,10 +1653,12 @@ export function renderEquipCategorySec(secKey,secIdx,totalSecs,hzNames,eqH){
   }
   if(secKey==='armors'){
     const mRs=getMentalArmorSummary();
+    const shieldCnt=(S.armors||[]).filter(a=>isArmorShield(a)).length;
+    const shieldPill=shieldCnt?`<span class="ml-1.5 px-2 py-0.5 rounded-md border border-cyan-400/50 bg-cyan-500/15 text-cyan-300 text-[11px] font-black tabular">${shieldCnt} ${shieldCnt===1?'Schild':'Schilde'}</span>`:'';
     const mRsBadge=mRs.total?`<span id="eqMentalArmorPill" data-tip="${esc(mRs.tip)}" class="ml-1.5 px-2 py-0.5 rounded-md border border-indigo-400/50 bg-indigo-500/15 text-indigo-300 text-[11px] font-black cursor-help tabular">🧠 mRS ${mRs.total}</span>`:`<span id="eqMentalArmorPill" class="hidden"></span>`;
     return `<section data-eqsec="armors" class="card p-3 sm:p-4 space-y-3 min-w-0" ${winStyle}>
-      ${hdrCommon(`<span class="${meta.color?'':'text-emerald-400'}">🛡️ Rüstungen (${S.armors.length})</span>${mRsBadge}`,`<button type="button" data-action="add-armor" class="btn border-emerald-400/60 text-emerald-400 py-1 px-2.5 text-xs">+ Rüstung</button>`)}
-      ${!meta.collapsed?(!S.armors.length?`<div class="py-3 text-center text-xs t-mut">Noch keine Rüstungen eingetragen.</div>`:`<div class="space-y-2.5">${S.armors.map((ar,i)=>renderArmorCard(ar,i,S.armors.length,hzNames)).join('')}</div>`):''}
+      ${hdrCommon(`<span class="${meta.color?'':'text-emerald-400'}">🛡️ Rüstungen &amp; Schilde (${S.armors.length})</span>${shieldPill}${mRsBadge}`,renderAddArmorDropdown('eq-add-armor:sec','btn border-emerald-400/60 text-emerald-400 py-1 px-2.5 text-xs',true,'+ Rüstung ▾'))}
+      ${!meta.collapsed?(!S.armors.length?`<div class="py-3 text-center text-xs t-mut">Noch keine Rüstungen oder Schilde eingetragen.</div>`:`<div class="space-y-2.5">${S.armors.map((ar,i)=>renderArmorCard(ar,i,S.armors.length,hzNames)).join('')}</div>`):''}
     </section>`;
   }
   const invSecs=Array.isArray(S.invSections)?S.invSections:[];
@@ -1469,7 +1702,7 @@ export function tplEquipment(){
       <button type="button" data-action="collapse-all-eq" data-val="0" class="btn py-1 px-2 text-xs">▾ Alle auf</button>
       ${renderAddWeaponDropdown('eq-add-weapon:top','btn py-1 px-2 text-xs',true)}
       <button type="button" data-action="add-ammo" class="btn border-amber-400/60 text-amber-400 py-1 px-2 text-xs">🎯 + Mun.</button>
-      <button type="button" data-action="add-armor" class="btn border-emerald-400/60 text-emerald-400 py-1 px-2 text-xs">🛡️ + Rüst.</button>
+      ${renderAddArmorDropdown('eq-add-armor:top','btn border-emerald-400/60 text-emerald-400 py-1 px-2 text-xs',true,'🛡️ + Rüst. ▾')}
       <button type="button" data-action="add-inv" class="btn py-1 px-2 text-xs">🎒 + Inv.</button>
     </div>
   </section>

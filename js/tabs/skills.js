@@ -11,7 +11,7 @@ import {
   openCtxMenu, toast, logChron, save, getWeaponSubtype, S, D, isMobileLayout, UI
 } from '../state.js';
 import {
-  calcActiveMods, getAdvDisForContext, getEquippedWeaponsForSkill, getWeaponDualWieldInfo, calcAutoSkCost, calcSkCost, calcProg, fmtAdvSrcLines, getAttrCol, getAttrTot, getSkAutoBonus, hasSkBonusOvr, getSkBonus
+  calcActiveMods, getAdvDisForContext, getEquippedWeaponsForSkill, getEquippedShieldsForSkill, formatBlockModShort, getWeaponDualWieldInfo, calcAutoSkCost, calcSkCost, calcProg, fmtAdvSrcLines, getAttrCol, getAttrTot, getSkAutoBonus, hasSkBonusOvr, getSkBonus
 } from '../calc.js';
 import {
   syncDiceFromSheet
@@ -24,6 +24,7 @@ export function buildSkRollBtnMeta(sk,M=calcActiveMods()){
   const autoB=getSkAutoBonus(sk.rank), hasOvr=hasSkBonusOvr(sk), effB=getSkBonus(sk), av=getAttrTot(sk.linkedAttr,M), pool=av+effB;
   const skAd=getAdvDisForContext({skillId:sk.id,attrKey:sk.linkedAttr},M), adTip=fmtAdvSrcLines(skAd.src);
   const eqWps=getEquippedWeaponsForSkill(sk.id,S);
+  const eqShs=getEquippedShieldsForSkill(sk.id,S);
   const skBadge=(skAd.autoAdv||skAd.autoDis)?`<span class="text-[10px] font-black shrink-0 ${skAd.autoAdv>=skAd.autoDis?'text-emerald-400':'text-rose-400'}">${skAd.autoAdv?`+${skAd.autoAdv}V`:''}${skAd.autoDis?`${skAd.autoAdv?'/':''}+${skAd.autoDis}N`:''}</span>`:'';
   let wpBadge='', wpTip='';
   if(eqWps.length===1){
@@ -36,11 +37,23 @@ export function buildSkRollBtnMeta(sk,M=calcActiveMods()){
     const names=eqWps.map(w=>{const dw=getWeaponDualWieldInfo(w,S);const nm=String(w.name||'').trim()||getWeaponSubtype(w.wType).label;return dw.isDualWield?`${nm} (${dw.label} +${dw.dis}N)`:nm;}).join(', ');
     wpTip=`\n⚔️ ${eqWps.length} angelegte Waffen: ${names} (Klick öffnet Waffenwahl)`;
   }
+  let shBadge='', shTip='';
+  if(eqShs.length===1){
+    const sh0=eqShs[0];
+    const shNm=String(sh0.name||'').trim()||'Schild';
+    const bm=formatBlockModShort(sh0.blockMod);
+    shBadge=`<span class="text-[10px] font-black shrink-0 text-cyan-300">🛡️${bm?bm:''}</span>`;
+    shTip=`\n🛡️ Angelegter Schild: ${shNm}${bm?` (Block ${bm})`:''} (Klick öffnet Schild-Optionen)`;
+  }else if(eqShs.length>=2){
+    shBadge=`<span class="text-[10px] font-black shrink-0 text-cyan-300">🛡️×${eqShs.length}</span>`;
+    const names=eqShs.map(sh=>{const bm=formatBlockModShort(sh.blockMod);const nm=String(sh.name||'').trim()||'Schild';return bm?`${nm} (${bm})`:nm;}).join(', ');
+    shTip=`\n🛡️ ${eqShs.length} angelegte Schilde: ${names} (Klick öffnet Schildwahl)`;
+  }
   const skColStyle=sk.color?`style="color:${esc(sk.color)}"`:`style="color:var(--txt)"`;
   const dispName=String(sk.name||'').trim()||'Unbenannte Fertigkeit';
-  const tip=`Probe auf ${dispName} (${pool} = ${sk.linkedAttr} ${av} ${fmtSign(effB)}${hasOvr?` • Manuell, Grad: +${autoB}`:''})${wpTip}${adTip?'\n'+adTip:''}`;
-  const innerHtml=`<span class="px-2 py-0.5 rounded-md bg-acc-soft border bdr-acc text-acc font-black shrink-0 tabular inline-flex items-center gap-1"><span>🎲 ${pool}</span>${wpBadge}${skBadge}</span><span class="font-extrabold truncate text-left flex-1 min-w-0" ${skColStyle}>${esc(dispName)}</span>`;
-  return {pool,av,effB,autoB,hasOvr,skBadge,wpBadge,tip,innerHtml};
+  const tip=`Probe auf ${dispName} (${pool} = ${sk.linkedAttr} ${av} ${fmtSign(effB)}${hasOvr?` • Manuell, Grad: +${autoB}`:''})${wpTip}${shTip}${adTip?'\n'+adTip:''}`;
+  const innerHtml=`<span class="px-2 py-0.5 rounded-md bg-acc-soft border bdr-acc text-acc font-black shrink-0 tabular inline-flex items-center gap-1"><span>🎲 ${pool}</span>${wpBadge}${shBadge}${skBadge}</span><span class="font-extrabold truncate text-left flex-1 min-w-0" ${skColStyle}>${esc(dispName)}</span>`;
+  return {pool,av,effB,autoB,hasOvr,skBadge,wpBadge,shBadge,tip,innerHtml};
 }
 
 export function moveSkillOrder(skId,dir,isChron=false){
