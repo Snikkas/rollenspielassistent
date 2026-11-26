@@ -11,7 +11,7 @@ import {
   applyWinFrame, renderWinCtrlBtns, renderWinResizeHandles, getCampaigns, isUserInCampaign, canManageCampaign, getActiveLiveCampaignId, getCampaignFilteredDiceFeed, getInitiativeCampaignsForChar, isCharInCampaignInitiative, captureScrollState, restoreScrollState, save, getWeaponSubtype, isWeaponMassiv, isWeaponBlockable, isArmorShield, S, D, LD, DUEL, diceLogs, isMobileLayout, UI, LIVE_TAB_ID, CLOUD, getCharCampaignId, isEnemySheet, getEnemyMeta, isEnemyDiceVisibleInCampaign, canSeeEnemyInDice, shouldHideOpponentDetails
 } from './state.js';
 import {
-  calcActiveMods, getAdvDisForContext, getWeaponRollMeta, getShieldRollMeta, getSheetShields, getSheetBlockOptions, resolveCombatItemByRef, formatBlockModShort, formatBlockModLong, getWeaponDualWieldInfo, fmtAdvSrcLines, getAttrTot, getSkBonus
+  calcActiveMods, getAdvDisForContext, getWeaponRollMeta, getShieldRollMeta, getSheetShields, getSheetBlockOptions, resolveCombatItemByRef, formatBlockModShort, formatBlockModLong, getWeaponDualWieldInfo, fmtAdvSrcLines, getAttrTot, getSkBonus, getCharSizeInfo, getRelativeSizeHitMod
 } from './calc.js';
 import {
   renderLobbyLiveDiceHtml, publishLiveRoll, formatSecretRollSummary, isSecretRollActive, getCachedForeignSheet, getForeignSheetLoadedAt, isForeignSheetLoading, getForeignSheetError, fetchForeignCharacterSheet, fetchLobbyList
@@ -430,6 +430,7 @@ export function formatSrcOriginLabel(s){
     return `${s.srcKind}: ${tg}`;
   }
   if(s.srcKind==='Inspiration') return '✨ Inspiration';
+  if(s.srcKind==='Größe') return `📏 ${s.srcName||'Größenunterschied'}`;
   if(s.srcKind==='Mehrhändig') return s.srcName||'Mehrhändiger Kampf';
   if(s.srcKind==='Waffenwurf') return `Waffenwurf: ${s.srcName||'Waffe'}`;
   if(s.tagLbl) return String(s.tagLbl).replace(/\(\s*(\d+)\s*\)/g,' $1').trim();
@@ -522,18 +523,53 @@ export function applyDiceAutoAdvDis(resetManual=false,M=isLobbyNeutralDice()?{te
   const r1=isLobbyNeutralDice()
     ?{autoAdv:0,autoDis:0,rawAutoAdv:0,rawAutoDis:0,src:[],autoCrit:0,critSrc:[],autoRollMod:0,rollModSrc:[],sitOptions:[]}
     :getAdvDisForContext({weaponId:effWeaponId,shieldId:effShieldId,wRollCat:effCat,skillId:D.skillId||null,attrKey:D.attrKey||null,sitActive:D.sitActive||{},dualWieldOvr:D.dualWieldOvr||'auto',includeInspiration:true,oppDefenseCat:oppDefCat},M);
-  const oppAutoAdv=(opp&&opp.ready)?(opp.ad.autoAdv||0):0;
-  const oppAutoDis=(opp&&opp.ready)?(opp.ad.autoDis||0):0;
+  let c1AutoAdv=r1.autoAdv||0;
+  let c1AutoDis=r1.autoDis||0;
+  let c1RawAutoAdv=r1.rawAutoAdv||0;
+  let c1RawAutoDis=r1.rawAutoDis||0;
+  const c1AdvSrc=[...(r1.src||[])];
+  let oppAutoAdv=(opp&&opp.ready)?(opp.ad.autoAdv||0):0;
+  let oppAutoDis=(opp&&opp.ready)?(opp.ad.autoDis||0):0;
+  let oppRawAutoAdv=(opp&&opp.ready)?(opp.ad.rawAutoAdv||opp.ad.autoAdv||0):0;
+  let oppRawAutoDis=(opp&&opp.ready)?(opp.ad.rawAutoDis||opp.ad.autoDis||0):0;
   const oppAdvSrc=(opp&&opp.ready)?(opp.ad.src||[]).map(s=>({...s,fromOpponent:true,oppName:opp.oppName,oppOrigKind:s.kind,kind:s.kind==='dis'?'adv':'dis'})):[];
-  const totalAutoAdv=r1.autoAdv+oppAutoDis;
-  const totalAutoDis=r1.autoDis+oppAutoAdv;
+  if(opp&&opp.ready&&opp.oppSheet){
+    const selfSheet=isLobbyNeutralDice()?null:S;
+    if(effCat==='Trefferwurf'){
+      const sz=getRelativeSizeHitMod(selfSheet,opp.oppSheet);
+      if(sz.diff>0){
+        c1AutoAdv+=sz.diff;
+        c1RawAutoAdv+=sz.diff;
+        c1AdvSrc.push({val:sz.diff,kind:'adv',scope:'hit',label:`${sz.atkInfo.formatted} vs. ${sz.targetInfo.formatted}`,srcName:`Größe (${sz.atkInfo.lvlStr} vs. ${sz.targetInfo.lvlStr})`,srcKind:'Größe'});
+      }else if(sz.diff<0){
+        const dAbs=Math.abs(sz.diff);
+        c1AutoDis+=dAbs;
+        c1RawAutoDis+=dAbs;
+        c1AdvSrc.push({val:dAbs,kind:'dis',scope:'hit',label:`${sz.atkInfo.formatted} vs. ${sz.targetInfo.formatted}`,srcName:`Größe (${sz.atkInfo.lvlStr} vs. ${sz.targetInfo.lvlStr})`,srcKind:'Größe'});
+      }
+    }else if(opp.oppRollCat==='Trefferwurf'){
+      const oppSz=getRelativeSizeHitMod(opp.oppSheet,selfSheet);
+      if(oppSz.diff>0){
+        oppAutoAdv+=oppSz.diff;
+        oppRawAutoAdv+=oppSz.diff;
+        oppAdvSrc.push({val:oppSz.diff,kind:'dis',oppOrigKind:'adv',fromOpponent:true,oppName:opp.oppName,scope:'hit',label:`${oppSz.atkInfo.formatted} vs. ${oppSz.targetInfo.formatted}`,srcName:`Größe (${oppSz.atkInfo.lvlStr} vs. ${oppSz.targetInfo.lvlStr})`,srcKind:'Größe'});
+      }else if(oppSz.diff<0){
+        const dAbs=Math.abs(oppSz.diff);
+        oppAutoDis+=dAbs;
+        oppRawAutoDis+=dAbs;
+        oppAdvSrc.push({val:dAbs,kind:'adv',oppOrigKind:'dis',fromOpponent:true,oppName:opp.oppName,scope:'hit',label:`${oppSz.atkInfo.formatted} vs. ${oppSz.targetInfo.formatted}`,srcName:`Größe (${oppSz.atkInfo.lvlStr} vs. ${oppSz.targetInfo.lvlStr})`,srcKind:'Größe'});
+      }
+    }
+  }
+  const totalAutoAdv=c1AutoAdv+oppAutoDis;
+  const totalAutoDis=c1AutoDis+oppAutoAdv;
   D.adv=Math.max(0,totalAutoAdv+toInt(D.advAdj,0));
   D.dis=Math.max(0,totalAutoDis+toInt(D.disAdj,0));
   return {
     ...r1,
-    c1AutoAdv:r1.autoAdv,
-    c1AutoDis:r1.autoDis,
-    c1AdvSrc:r1.src||[],
+    c1AutoAdv,
+    c1AutoDis,
+    c1AdvSrc,
     opp,
     oppAutoAdv,
     oppAutoDis,
@@ -541,9 +577,9 @@ export function applyDiceAutoAdvDis(resetManual=false,M=isLobbyNeutralDice()?{te
     oppSitOptions:(opp&&opp.ready)?(opp.ad.sitOptions||[]):[],
     autoAdv:totalAutoAdv,
     autoDis:totalAutoDis,
-    rawAutoAdv:r1.rawAutoAdv+oppAutoDis,
-    rawAutoDis:r1.rawAutoDis+oppAutoAdv,
-    src:[...(r1.src||[]),...oppAdvSrc]
+    rawAutoAdv:c1RawAutoAdv+oppRawAutoDis,
+    rawAutoDis:c1RawAutoDis+oppRawAutoAdv,
+    src:[...c1AdvSrc,...oppAdvSrc]
   };
 }
 export function calcRollAdvDis(M=isLobbyNeutralDice()?{testTh:0}:calcActiveMods()){
@@ -1010,11 +1046,20 @@ export function renderDice(){
         detailHtml=`<div class="text-[11px] t-mut">Dieser Charakter hat keine Fertigkeiten eingetragen.</div>`;
       }
     }
+    const oppSizeInfo=getCharSizeInfo(oppSheet);
+    const selfSizeInfo=isLobbyNeutralDice()?{level:0,lvlStr:'0',formatted:'Normal (0)'}:getCharSizeInfo(S);
+    const hitSizeDiff=oppSizeInfo.level-selfSizeInfo.level;
+    const isHitRoll=D.wRollCat==='Trefferwurf';
+    const sizeBadgeCls=(isHitRoll&&hitSizeDiff!==0)
+      ?(hitSizeDiff>0?'border-emerald-400/55 bg-emerald-500/15 text-emerald-200':'border-rose-400/55 bg-rose-500/15 text-rose-200')
+      :(oppSizeInfo.level!==0?'border-amber-400/45 bg-amber-500/10 text-amber-200':'bdr-line bg-black/25 t-mut');
+    const sizeTip=`Ziel-Größe: ${oppSizeInfo.formatted} • Eigene Größe: ${selfSizeInfo.formatted}${hitSizeDiff!==0?`\nAuf Trefferwürfe: ${hitSizeDiff>0?`+${hitSizeDiff} Vorteil${hitSizeDiff===1?'':'e'}`:`+${Math.abs(hitSizeDiff)} Nachteil${Math.abs(hitSizeDiff)===1?'':'e'}`}`:'\nKein Größenunterschied (±0)'}`;
     return `<div class="subcard p-2.5 border border-indigo-400/45 bg-indigo-500/8 space-y-2 min-w-0">
       <div class="flex flex-wrap items-center justify-between gap-1.5 min-w-0">
-        <div class="flex items-center gap-1.5 min-w-0">
+        <div class="flex flex-wrap items-center gap-1.5 min-w-0">
           <span class="text-[10px] font-black text-indigo-300 uppercase tracking-wider shrink-0">⚔️ Ziel</span>
           ${kindBar}
+          <span data-tip="${esc(sizeTip)}" class="px-1.5 py-0.5 rounded-md border text-[10px] font-extrabold tabular cursor-help shrink-0 ${sizeBadgeCls}">📏 ${esc(oppSizeInfo.formatted)}${(isHitRoll&&hitSizeDiff!==0)?` (${hitSizeDiff>0?`+${hitSizeDiff}V`:`+${Math.abs(hitSizeDiff)}N`})`:''}</span>
         </div>
         ${duelRightHtml}
       </div>

@@ -1,5 +1,5 @@
 import {
-  ATTRS, STATUS_DEFS, DEF_SEC_COLS, DEF_MAIN_ARTS, DEF_ACTION_SUBS, DEF_PW_TAGS, TR_DEFS, SK_CATS, SK_RANKS, PW_TIERS, COL_PRESETS, DYN_FACTOR_PRESETS, DYN_FUNCS, DYN_FUNC_NAMES, POWER_PACK_SCHEMA, LP_REGEN_BASE, MLP_REGEN_BASE
+  ATTRS, STATUS_DEFS, DEF_SEC_COLS, DEF_MAIN_ARTS, DEF_ACTION_SUBS, DEF_PW_TAGS, TR_DEFS, SK_CATS, SK_RANKS, PW_TIERS, COL_PRESETS, DYN_FACTOR_PRESETS, DYN_FUNCS, DYN_FUNC_NAMES, POWER_PACK_SCHEMA, LP_REGEN_BASE, MLP_REGEN_BASE, DEF_SIZE_CATS
 } from './constants.js';
 import {
   $, uid, stamp, esc, clone, toInt, toFlt, fmtN, fmtSign, isHex, sortAlpha, stripHtml, toRtfHtml, hasTagX, fmtTagLabel, sanitizeSecHierarchy, isDynWordChar
@@ -2342,3 +2342,47 @@ export function getPwSecOptionsFlat(sheet=S){
   (sheet.powerSections||[]).forEach(s=>{if(s&&!visited.has(s.id))out.push({id:s.id,name:String(s.name||'Sektion'),depth:0});});
   return out;
 }
+
+export function getCharSizeList(sheet=S){
+  const byLvl=new Map();
+  DEF_SIZE_CATS.forEach(c=>{
+    byLvl.set(c.level,{level:c.level,label:c.label,isDefault:true,isCustom:false});
+  });
+  const cust=Array.isArray(sheet?.charSize?.customLevels)?sheet.charSize.customLevels:[];
+  cust.forEach(c=>{
+    if(!c||typeof c!=='object') return;
+    const lvl=toInt(c.level,NaN);
+    const lbl=String(c.label||'').trim();
+    if(!Number.isFinite(lvl)||!lbl) return;
+    const isDef=DEF_SIZE_CATS.some(d=>d.level===lvl);
+    byLvl.set(lvl,{level:lvl,label:lbl,isDefault:isDef,isCustom:true});
+  });
+  return [...byLvl.values()].sort((a,b)=>a.level-b.level);
+}
+
+export function getCharSizeInfo(sheet=S){
+  const cs=(sheet&&sheet.charSize&&typeof sheet.charSize==='object')?sheet.charSize:{level:0,ovr:'',customLevels:[]};
+  const baseLevel=toInt(cs.level,0);
+  const hasOvr=cs.ovr!==undefined&&cs.ovr!==null&&String(cs.ovr).trim()!=='';
+  const level=hasOvr?toInt(cs.ovr,baseLevel):baseLevel;
+  const list=getCharSizeList(sheet);
+  const match=list.find(x=>x.level===level);
+  const lvlStr=level>0?`+${level}`:String(level);
+  const label=match?match.label:(level===0?'Normal':`Größe ${lvlStr}`);
+  return {
+    level,
+    baseLevel,
+    hasOvr,
+    label,
+    lvlStr,
+    formatted:`${label} (${lvlStr})`
+  };
+}
+
+export function getRelativeSizeHitMod(attackerSheet,targetSheet){
+  const atkInfo=attackerSheet?getCharSizeInfo(attackerSheet):{level:0,baseLevel:0,hasOvr:false,label:'Normal',lvlStr:'0',formatted:'Normal (0)'};
+  const targetInfo=targetSheet?getCharSizeInfo(targetSheet):{level:0,baseLevel:0,hasOvr:false,label:'Normal',lvlStr:'0',formatted:'Normal (0)'};
+  const diff=targetInfo.level-atkInfo.level;
+  return {diff,atkInfo,targetInfo};
+}
+

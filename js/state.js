@@ -140,6 +140,7 @@ export function defaultState(){
     customRes:{name:'Benutzerdefiniert',current:3,max:3,color:'#c084fc'},extraSecList:[],
     statusCollapsed:false,statusEffects:makeDefaultStatusEffects(),inspiration:0,inspirationActive:false,
     thresholds:{woundLight:3,woundMedium:6,woundHeavy:9,traumaLight:3,traumaMedium:6,traumaHeavy:9},
+    charSize:{level:0,ovr:'',customLevels:[]},
     bst:1,bstOvr:'',movements:[{id:'mv1',type:'Laufen',base:5,ovr:''}],hitZones:clone(DEF_HZ),lastHzRoll:null,lastSubHzRoll:null,lastSubHzZone:'',
     combatNotes:{bestehen:'',schaden:'',ruestung:''},skillSections:[],skills:[],powerSections:[],powers:[],augments:[],
     progression:{level:1,ep:0,bonusSp:0,bonusMsp:0,bonusNote:''},
@@ -614,7 +615,7 @@ export function setModalSwipeCleanup(fn){ modalSwipeCleanup=fn; }
 export function cleanupModalSwipe(){if(typeof modalSwipeCleanup==='function'){try{modalSwipeCleanup();}catch(_){}}modalSwipeCleanup=null;}
 export const loadPwMode=()=>{try{return localStorage.getItem(PW_MODE_KEY)==='edit'?'edit':'view';}catch(e){return 'view';}};
 export const pwQuickKey=(kind,id)=>`${kind==='augment'?'augment':'power'}:${id}`;
-export let UI={inLobby:true,sheetLoaded:false,modal:null,profileUser:'',adminReturnModal:'',adminPinError:'',adminIconTargetKey:'',confirmResetAllIcons:false,mobileHdrOpen:false,mobileLobbyMenuOpen:false,infoTab:'dice',glossSearch:'',listType:'art',ammoModalWeaponId:'',arZoneDrafts:{},arSubZonesOpen:{},hzSubExp:{},skSort:{col:'',asc:true},editSkNameId:null,skMobExp:{},imgTargetKind:'',imgTargetId:'',imgZoomOpen:false,imgReturnModal:'',confirmNew:false,confirmLog:false,confirmDelId:null,confirmDelSecId:null,confirmSecPullId:null,confirmDelSkId:null,confirmDelSkSecId:null,confirmSkSecPullId:null,confirmDelInvSecId:null,confirmDelExSecId:null,confirmHzStep:1,openPwMenu:'',dupPwWarn:null,pwMode:loadPwMode(),pwQuickEditIds:new Set(),pwFilterOpen:false,pwFilterMode:'or',pwFilterTypes:[],pwFilterIncludeLinkedAugs:true,pwFilterArts:[],pwFilterActionSubs:[],pwFilterTags:[],pwFilterTiers:[],confirmDelEqKey:'',tab1:{attrs:null,attrPairs:{},sec:null,status:null,insp:null,res:null,thresholds:null,move:null,hz:null,quick:null},tab5:{equipNotes:null,bioSec:false,bioGallery:null,bioFields:{}},statusIniPromptKey:'',lastRollHtml:'',lastBlockBaseHtml:'',lastBlockFollowRes:null,lastSecretRollId:'',secretRollsCollapsed:false,colTarget:'cres',colMode:'text',colPwKind:'power',colPwId:'',colDraft:'#c084fc',attrGroupSel:'ST_KO',palBuilderOpen:false,palDraft:{name:'',isLt:false,bg:'#020617',acc:'#0ea5e9',acc2:'#6366f1',txt:'#f1f5f9',mut:'#94a3b8',btnTxt:'#ffffff'}};
+export let UI={inLobby:true,sheetLoaded:false,modal:null,profileUser:'',adminReturnModal:'',adminPinError:'',adminIconTargetKey:'',confirmResetAllIcons:false,mobileHdrOpen:false,mobileLobbyMenuOpen:false,infoTab:'dice',glossSearch:'',listType:'art',ammoModalWeaponId:'',arZoneDrafts:{},arSubZonesOpen:{},hzSubExp:{},skSort:{col:'',asc:true},editSkNameId:null,skMobExp:{},imgTargetKind:'',imgTargetId:'',imgZoomOpen:false,imgReturnModal:'',confirmNew:false,confirmLog:false,confirmDelId:null,confirmDelSecId:null,confirmSecPullId:null,confirmDelSkId:null,confirmDelSkSecId:null,confirmSkSecPullId:null,confirmDelInvSecId:null,confirmDelExSecId:null,confirmHzStep:1,openPwMenu:'',dupPwWarn:null,pwMode:loadPwMode(),pwQuickEditIds:new Set(),pwFilterOpen:false,pwFilterMode:'or',pwFilterTypes:[],pwFilterIncludeLinkedAugs:true,pwFilterArts:[],pwFilterActionSubs:[],pwFilterTags:[],pwFilterTiers:[],confirmDelEqKey:'',tab1:{attrs:null,size:true,attrPairs:{},sec:null,status:null,insp:null,res:null,thresholds:null,move:null,hz:null,quick:null},tab5:{equipNotes:null,bioSec:false,bioGallery:null,bioFields:{}},statusIniPromptKey:'',lastRollHtml:'',lastBlockBaseHtml:'',lastBlockFollowRes:null,lastSecretRollId:'',secretRollsCollapsed:false,colTarget:'cres',colMode:'text',colPwKind:'power',colPwId:'',colDraft:'#c084fc',attrGroupSel:'ST_KO',palBuilderOpen:false,palDraft:{name:'',isLt:false,bg:'#020617',acc:'#0ea5e9',acc2:'#6366f1',txt:'#f1f5f9',mut:'#94a3b8',btnTxt:'#ffffff'}};
 export function setPwMode(mode){
   const m=mode==='edit'?'edit':'view';
   UI.pwMode=m;
@@ -1424,6 +1425,20 @@ function normalizeSheetObject(raw, { isForeign = false } = {}){
   if(!isHex(sheet.customRes.color)) sheet.customRes.color='#c084fc';
   sheet.secondary.lpRegenOvr=sheet.secondary.lpRegenOvr!==undefined&&sheet.secondary.lpRegenOvr!==null&&String(sheet.secondary.lpRegenOvr).trim()!==''?String(Math.max(0,toInt(sheet.secondary.lpRegenOvr,5))):'';
   sheet.secondary.mlpRegenOvr=sheet.secondary.mlpRegenOvr!==undefined&&sheet.secondary.mlpRegenOvr!==null&&String(sheet.secondary.mlpRegenOvr).trim()!==''?String(Math.max(0,toInt(sheet.secondary.mlpRegenOvr,5))):'';
+  {
+    const rawSz=(raw.charSize&&typeof raw.charSize==='object')?raw.charSize:{};
+    const szLvl=toInt(rawSz.level,0);
+    const szOvr=rawSz.ovr!==undefined&&rawSz.ovr!==null&&String(rawSz.ovr).trim()!==''?String(toInt(rawSz.ovr,szLvl)):'';
+    const seenSz=new Map();
+    if(Array.isArray(rawSz.customLevels)){
+      rawSz.customLevels.forEach(x=>{
+        if(!x||typeof x!=='object') return;
+        const lv=toInt(x.level,NaN), lb=String(x.label||'').trim();
+        if(Number.isFinite(lv)&&lb) seenSz.set(lv,{level:lv,label:lb});
+      });
+    }
+    sheet.charSize={level:szLvl,ovr:szOvr,customLevels:[...seenSz.values()].sort((a,b)=>a.level-b.level)};
+  }
   sheet.extraSecList=Array.isArray(raw.extraSecList)?raw.extraSecList.filter(x=>x&&typeof x==='object').map((x,i)=>({id:x.id||uid(),name:String(x.name||`Ressource ${i+1}`),current:toInt(x.current,3),max:toInt(x.max,3),color:isHex(x.color)?x.color:(COL_PRESETS[(i+6)%COL_PRESETS.length]||'#34d399')})):[];
   sheet.attrColors={...DEF_ATTR_COLS}; if(raw.attrColors) Object.keys(DEF_ATTR_COLS).forEach(k=>{if(isHex(raw.attrColors[k]))sheet.attrColors[k]=raw.attrColors[k];});
   sheet.secColors={...DEF_SEC_COLS}; if(raw.secColors) Object.keys(DEF_SEC_COLS).forEach(k=>{if(isHex(raw.secColors[k]))sheet.secColors[k]=raw.secColors[k];});

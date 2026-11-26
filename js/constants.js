@@ -134,6 +134,7 @@ export const GLOSSARY=[
   ["Vor. / Nacht.","Vorteile & Nachteile","Verrechnen sich 1:1 zur Netto-Differenz (gedeckelt bei ±5): ±1 = ±10, ±2 = ±15, ±3 = ±20, ±4 = ±25, ±5+ = ±30 auf die Testschwelle.","Würfel & Kampf"],
   ["Block-Folgewurf","Blocken & Grundschaden","Bei erfolgreichem Blocken würfelt der Aggressor einen Folgewurf (Aggressor-Trefferwert gegen Schwierigkeit 20), um die EG für den Grundschaden gegen die Rüstung zu bestimmen.","Würfel & Kampf"],
   ["Zonen / GRP","Trefferzonen & Rüstung","W100-Trefferzonentabelle (Kopf 01–10, Rumpf 11–50, Arme 51–74, Beine 75–100) sowie Rüstungsschutz gegen Schnitt, Stich, Einschlag und Gesamt-Rüstungspunkte (GRP).","Würfel & Kampf"],
+  ["Größe","Charaktergröße & Trefferwürfe","Größenkategorien von Sehr klein (−2) über Klein (−1), Normal (0), Groß (+1) bis Sehr Groß (+2) sowie frei erweiterbare Stufen (±3+). Bei Trefferwürfen gilt relativ zum Ziel: Ziel-Stufe − Angreifer-Stufe = Vorteile (+) bzw. Nachteile (−) ausschließlich auf Trefferwürfe.","Würfel & Kampf"],
   ["Aktionsarten","Frei-, Schnell-, Grundaktion & Einsatz","Freiaktionen beliebig oft im Zug; erste Schnellaktion pro Phase frei (weitere = Grundaktion); 1 Grundaktion pro Phase; Einsatz außerhalb des Kampfes. Ergänzend: Reaktion & Sofortaktion.","Aktionen, Zustände & Ressourcen"],
   ["Flut / Ebbe","Phasen & Kraftaktion","Kraftaktionen können nur in einer Flutphase eingesetzt werden; danach ist die nächste eigene Phase automatisch eine Ebbephase.","Aktionen, Zustände & Ressourcen"],
   ["Statuseffekte","Positive & Negative Zustände","Stapelbare Effekte je Attributpaar: Gestärkt/Geschwächt (±2 LP, ST/KO), Beweglich/Eingeschränkt (±1 BSt, PR/GW), Konzentriert/Abgelenkt (±10 Ini nach Wahl, WA/IN), Entschlossen/Verunsichert (±2 mLP, AU/WK) – jeweils +1 Vorteil bzw. Nachteil pro Stapel.","Aktionen, Zustände & Ressourcen"],
@@ -142,6 +143,13 @@ export const GLOSSARY=[
   ["Pause / Rast","Erholung & Regeneration","Pause stellt AP & mAP wieder her (keine ausgebrannten Sekundärattribute). Erholsame Rast heilt 2× LP- & mLP-Regenerationsrate und stellt AP, mAP sowie ausgebrannte Sekundärattribute wieder her.","Aktionen, Zustände & Ressourcen"],
   ["EP / SP / MsP","Erfahrung, Steigerung & Meisterschaft","100 EP = +1 Stufe (mit Rest-Übertrag). Pro Stufe +5 SP; jede 10. Stufe +1 MsP.","Fortschritt & Kräfte"],
   ["Kräfte / Augm.","Basisaktionen, Kräfte & Augmente","Basisaktionen kosten 0 SP; Kräfte/Augmente kosten Marginal (Options) 1 SP, Fundamental (Core) 2 SP, Exzeptionell (Ace) 3 SP oder Grandios (Game Changer) 3 SP + 1 MsP. Bis zu 3 Augmente pro Kraft, kollektiv max. 1 MsP pro Kraft-Gruppe.","Fortschritt & Kräfte"]
+];
+export const DEF_SIZE_CATS = [
+  { level: -2, label: 'Sehr klein' },
+  { level: -1, label: 'Klein' },
+  { level: 0, label: 'Normal' },
+  { level: 1, label: 'Groß' },
+  { level: 2, label: 'Sehr Groß' }
 ];
 export const WEAPON_SUBTYPES = [
   { key: 'melee', label: 'Nahkampfwaffe', icon: '⚔️' },
