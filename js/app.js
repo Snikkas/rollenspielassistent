@@ -23,7 +23,7 @@ import {
   renderDuelBanner
 } from './duel.js';
 import {
-  initCombatFromRoll, resetCombatState, mutateCombatHit, rollCombatHitZone, rollAllCombatHitZones, rollCombatSubHitZone, publishCombatDamageToFeed, publishAllCombatDamageToFeed, renderCombatDamageBox, hasTagMatch, sendCombatDamageOffer, sendCombinedCombatDamageOffer, applyCombatDamageDirectly, applyCombinedCombatDamageDirectly, spendCombatAmmo, handleCombatLiveEvent, acceptCombatDamageOffer, declineCombatDamageOffer
+  initCombatFromRoll, resetCombatState, mutateCombatHit, rollCombatHitZone, rollAllCombatHitZones, rollCombatSubHitZone, publishCombatDamageToFeed, publishAllCombatDamageToFeed, renderCombatDamageBox, hasTagMatch, sendCombatDamageOffer, sendCombinedCombatDamageOffer, applyCombatDamageDirectly, applyCombinedCombatDamageDirectly, spendCombatAmmo, handleCombatLiveEvent, acceptCombatDamageOffer, declineCombatDamageOffer, resolveCombatTargetSheet, applyBlockItemZoneToHit
 } from './combat.js';
 import {
   ensureWeaponMagCfg, purgeDeletedAmmoFromMagazines, toggleWeaponMagazines, toggleWeaponMagAutoSync, setWeaponMagDefaultCap, setWeaponMagCount, addWeaponMagazine, deleteWeaponMagazine, selectWeaponActiveMag, reloadWeaponMagazine, fireWeaponMagazineShot, stepMagazineCount, fillMagazine, fillAllWeaponMagazines, emptyMagazine, syncWeaponAmmoExactFromMags, clearMagSlotOverrides, openMagDefaultAmmoPicker, openMagSlotAmmoPicker, syncAmmoTotalsFromMagazines
@@ -1744,6 +1744,18 @@ document.addEventListener('click',async e=>{
       }
       break;
     }
+    case 'set-block-zone': {
+      const kind=el.dataset.kind, id=el.dataset.id, z=String(el.dataset.zone||'').trim();
+      const item=kind==='weapon'
+        ?(S.weapons||[]).find(x=>x.id===id)
+        :(S.armors||[]).find(x=>x.id===id);
+      if(item){
+        item.blockZone=z;
+        invalidateModsCache(); syncDiceFromSheet();
+        renderMain(); if(D.open) renderDice(); save();
+      }
+      break;
+    }
     case 'toggle-ar-subzones': {
       const aid=el.dataset.id;
       if(aid){if(!UI.arSubZonesOpen)UI.arSubZonesOpen={};UI.arSubZonesOpen[aid]=!UI.arSubZonesOpen[aid];renderMain();}
@@ -2450,10 +2462,15 @@ document.addEventListener('click',async e=>{
     }
     case 'combat-toggle-block-red': {
       const hi=toInt(el.dataset.hitIdx,0);
+      const targetSheet=resolveCombatTargetSheet(COMBAT.targetCharId);
+      const blkWp=targetSheet?(targetSheet.weapons||[]).find(w=>w&&w.equipped!==false&&isWeaponBlockable(w))||null:null;
       mutateCombatHit(hi,h=>{
         const next=!h.blockItemRed||Boolean(h.blockShieldId);
         h.blockItemRed=next;
-        if(next){h.blockShieldId='';h.blockShieldName='';}
+        if(next){
+          h.blockShieldId='';h.blockShieldName='';
+          applyBlockItemZoneToHit(h,blkWp,targetSheet);
+        }
         h.posted=false; h.offerStatus=''; h.offerNote=''; h.directAppliedNote='';
       });
       renderDice();
@@ -2462,14 +2479,17 @@ document.addEventListener('click',async e=>{
     case 'combat-set-block-shield': {
       const hi=toInt(el.dataset.hitIdx,0);
       const sid=String(el.dataset.id||'').trim();
+      const targetSheet=resolveCombatTargetSheet(COMBAT.targetCharId);
+      const sh=targetSheet?(targetSheet.armors||[]).find(a=>a&&a.id===sid&&isArmorShield(a))||null:null;
       mutateCombatHit(hi,h=>{
         if(h.blockShieldId===sid){
           h.blockShieldId='';
           h.blockShieldName='';
         }else{
           h.blockShieldId=sid;
-          h.blockShieldName='';
+          h.blockShieldName=sh?(String(sh.name||'').trim()||'Schild'):'';
           h.blockItemRed=false;
+          applyBlockItemZoneToHit(h,sh,targetSheet);
         }
         h.posted=false; h.offerStatus=''; h.offerNote=''; h.directAppliedNote='';
       });
@@ -4507,8 +4527,8 @@ document.addEventListener('input',e=>{
   if(el.dataset.diceWpInp){
     const [id,f]=el.dataset.diceWpInp.split(':');
     const w=(S.weapons||[]).find(x=>x.id===id);
-    if(w&&['dmgCut','dmgPierce','dmgImpact'].includes(f)){
-      w[f]=el.value;
+    if(w&&['dmgCut','dmgPierce','dmgImpact','blockZone'].includes(f)){
+      w[f]=f==='blockZone'?el.value.trim():el.value;
       const twin=document.querySelector(`[data-wpf="${CSS.escape(`${id}:${f}`)}"]`);
       if(twin&&twin!==el&&twin.value!==el.value) twin.value=el.value;
       saveSoon();
@@ -4518,8 +4538,8 @@ document.addEventListener('input',e=>{
   if(el.dataset.diceShInp){
     const [id,f]=el.dataset.diceShInp.split(':');
     const ar=(S.armors||[]).find(x=>x.id===id&&isArmorShield(x));
-    if(ar&&['dmgCut','dmgPierce','dmgImpact'].includes(f)){
-      ar[f]=el.value;
+    if(ar&&['dmgCut','dmgPierce','dmgImpact','blockZone'].includes(f)){
+      ar[f]=f==='blockZone'?el.value.trim():el.value;
       const twin=document.querySelector(`[data-arf="${CSS.escape(`${id}:${f}`)}"]`);
       if(twin&&twin!==el&&twin.value!==el.value) twin.value=el.value;
       saveSoon();

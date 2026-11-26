@@ -8,7 +8,7 @@ import {
   hooks
 } from '../ui-hooks.js';
 import {
-  openCtxMenu, toast, save, getWeaponSubtype, isArmorShield, getArmorSubtype, fmtCustomValSummarySuffix, renderLinkedAmmoCustomDmgHtml, isWeaponMassiv, normDmgType, getMeleeAttrDmgType, getDmgTypeLabel, syncEquipmentToInventory, S, D, isMobileLayout, UI
+  openCtxMenu, toast, save, getWeaponSubtype, isArmorShield, getArmorSubtype, fmtCustomValSummarySuffix, renderLinkedAmmoCustomDmgHtml, isWeaponMassiv, getEffectiveBlockZoneLabel, normDmgType, getMeleeAttrDmgType, getDmgTypeLabel, syncEquipmentToInventory, S, D, isMobileLayout, UI
 } from '../state.js';
 import {
   invalidateModsCache, calcActiveMods, getAdvDisForContext, getWeaponRollMeta, getShieldRollMeta, formatBlockModShort, formatBlockModLong, getWeaponDualWieldInfo, getHandAllocationInfo, getEqModStatOptions, getEqModAdvDisOptions, formatEqModTargetLabel, formatEqModShort, getTagDesc, fmtAdvSrcLines, getAttrTot, getSkBonus, findEqItem, getMentalArmorSummary
@@ -1151,6 +1151,32 @@ export function renderDmgTypePickerBar(kind,item,customArr=[]){
     </div>
   </div>`;
 }
+export function renderBlockZoneFieldHtml(kind,item){
+  const cur=String(item?.blockZone||'').trim();
+  const eff=getEffectiveBlockZoneLabel(item);
+  const inpAttr=kind==='weapon'?`data-wpf="${esc(item.id)}:blockZone"`:`data-arf="${esc(item.id)}:blockZone"`;
+  const presets=[
+    {val:'',lbl:'Arm / Hand (Std)'},
+    {val:'Arm links',lbl:'Arm links'},
+    {val:'Arm rechts',lbl:'Arm rechts'},
+    {val:'Arm links: Hand',lbl:'Arm links: Hand'},
+    {val:'Arm rechts: Hand',lbl:'Arm rechts: Hand'},
+    {val:'Rumpf',lbl:'Rumpf'}
+  ];
+  return `<div class="p-2 rounded-xl border border-cyan-400/35 bg-cyan-500/8 space-y-1.5 min-w-0">
+    <div class="flex flex-wrap items-center justify-between gap-1.5">
+      <label class="text-[10px] font-extrabold text-cyan-300 uppercase tracking-wider" data-tip="Trefferzone, die bei einem Block mit diesem Gegenstand getroffen wird (überschreibt die zufällige Trefferzone). Leer = Standard „Arm / Hand“.">🛡️ Blockzone <span class="normal-case font-bold text-cyan-200/80">(aktiv: ${esc(eff)})</span></label>
+      <span class="text-[10px] t-mut">Freitext oder Schnellwahl</span>
+    </div>
+    <input ${inpAttr} type="text" value="${esc(cur)}" placeholder="Arm / Hand (Standard)" class="inp w-full text-xs font-bold py-1 px-2"/>
+    <div class="flex flex-wrap items-center gap-1">
+      ${presets.map(p=>{
+        const isSel=cur.toLowerCase()===p.val.toLowerCase();
+        return `<button type="button" data-action="set-block-zone" data-kind="${esc(kind)}" data-id="${esc(item.id)}" data-zone="${esc(p.val)}" class="btn py-0.5 px-2 text-[10px] font-extrabold ${isSel?'btn-pri':'opacity-80 hover:opacity-100'}">${esc(p.lbl)}</button>`;
+      }).join('')}
+    </div>
+  </div>`;
+}
 export function renderWeaponCard(w,idx,len){
   const M=calcActiveMods(), wm=getWeaponRollMeta(w,M), dw=getWeaponDualWieldInfo(w,S);
   const wSub=getWeaponSubtype(w.wType), isRng=w.wType==='ranged', isEq=w.equipped!==false;
@@ -1193,6 +1219,7 @@ export function renderWeaponCard(w,idx,len){
         <span class="pill cursor-default text-[11px] py-0.5 px-2">${esc(wSub.icon)} ${esc(wSub.label)}</span>
         ${wPoolBadge}
         ${dmgTypePillHtml}
+        ${wm.hasBlock?`<span class="pill cursor-default text-[11px] py-0.5 px-2 border-cyan-400/45 bg-cyan-500/10 text-cyan-200 font-bold" data-tip="Blockzone bei Block mit dieser Waffe">🛡️ Block: ${esc(getEffectiveBlockZoneLabel(w))}</span>`:''}
         ${handBadge}
         ${dwBadge}
         <span class="pill cursor-default text-[11px] py-0.5 px-2 max-w-full whitespace-normal break-words">Schnitt ${esc(w.dmgCut)} • Durchstoß ${esc(w.dmgPierce)} • Einschlag ${esc(w.dmgImpact)}${fmtCustomValSummarySuffix(w.customDmg)}</span>
@@ -1235,6 +1262,7 @@ export function renderWeaponCard(w,idx,len){
       </div>
       ${renderWeaponRollBtns(w,wm,true)}
     </div>
+    ${wm.hasBlock?renderBlockZoneFieldHtml('weapon',w):''}
     <div class="space-y-1.5">
       <div class="flex flex-wrap items-center justify-between gap-2">
         <div class="flex flex-wrap items-center gap-2">
@@ -1386,6 +1414,7 @@ export function renderShieldCard(ar,idx,len){
       <div class="flex flex-wrap items-center gap-1.5 tabular min-w-0">
         <span class="pill cursor-default text-[11px] py-0.5 px-2 border-cyan-400/50 bg-cyan-500/15 text-cyan-300 font-black">🛡️ Schild</span>
         <span class="pill cursor-default text-[11px] py-0.5 px-2 font-black ${bmCls}" data-tip="Block-Mod: ${esc(bmLong)} auf Blocken-Tests">🧱 Block ${esc(bmShort)}</span>
+        <span class="pill cursor-default text-[11px] py-0.5 px-2 border-cyan-400/40 bg-cyan-500/10 text-cyan-200 font-bold" data-tip="Blockzone beim Blocken mit diesem Schild">🎯 ${esc(getEffectiveBlockZoneLabel(ar))}</span>
         <span class="pill cursor-default text-[11px] py-0.5 px-2 text-emerald-400 font-black">gRP ${esc(ar.grp)}</span>
         ${mProtVal?`<span class="pill cursor-default text-[11px] py-0.5 px-2 border-indigo-400/50 bg-indigo-500/15 text-indigo-300 font-black">🧠 mRS ${esc(ar.mentalProt)}</span>`:''}
         <span class="pill cursor-default text-[11px] py-0.5 px-2 max-w-full whitespace-normal break-words">Schutz: Schnitt ${esc(ar.protCut)} • Durchstoß ${esc(ar.protPierce)} • Einschlag ${esc(ar.protImpact)}${fmtCustomValSummarySuffix(ar.customProt)}</span>
@@ -1431,6 +1460,7 @@ export function renderShieldCard(ar,idx,len){
         <button type="button" data-action="roll-shield" data-id="${ar.id}" data-wcat="Trefferwurf" data-tip="${shTip('Trefferwurf')}" class="btn py-1 px-2.5 text-xs font-extrabold bdr-acc bg-acc-soft text-acc hover:bg-black/20 whitespace-nowrap">⚔️ Schildangriff</button>
       </div>
     </div>
+    ${renderBlockZoneFieldHtml('armor',ar)}
     <div class="pt-2 border-t bdr-line space-y-1.5">
       <div class="flex flex-wrap items-center justify-between gap-2">
         <div class="flex flex-wrap items-center gap-1.5 min-w-0">

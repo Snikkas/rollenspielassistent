@@ -8,7 +8,7 @@ import {
   hooks
 } from './ui-hooks.js';
 import {
-  applyWinFrame, renderWinCtrlBtns, renderWinResizeHandles, getCampaigns, isUserInCampaign, canManageCampaign, getActiveLiveCampaignId, getCampaignFilteredDiceFeed, getInitiativeCampaignsForChar, isCharInCampaignInitiative, captureScrollState, restoreScrollState, save, getWeaponSubtype, isWeaponMassiv, isWeaponBlockable, isArmorShield, normDmgType, getMeleeAttrDmgType, getDmgTypeLabel, S, D, LD, diceLogs, isMobileLayout, UI, LIVE_TAB_ID, CLOUD, getCharCampaignId, isEnemySheet, getEnemyMeta, isEnemyDiceVisibleInCampaign, canSeeEnemyInDice, shouldHideOpponentDetails
+  applyWinFrame, renderWinCtrlBtns, renderWinResizeHandles, getCampaigns, isUserInCampaign, canManageCampaign, getActiveLiveCampaignId, getCampaignFilteredDiceFeed, getInitiativeCampaignsForChar, isCharInCampaignInitiative, captureScrollState, restoreScrollState, save, getWeaponSubtype, isWeaponMassiv, isWeaponBlockable, isArmorShield, getEffectiveBlockZoneLabel, normDmgType, getMeleeAttrDmgType, getDmgTypeLabel, S, D, LD, diceLogs, isMobileLayout, UI, LIVE_TAB_ID, CLOUD, getCharCampaignId, isEnemySheet, getEnemyMeta, isEnemyDiceVisibleInCampaign, canSeeEnemyInDice, shouldHideOpponentDetails
 } from './state.js';
 import {
   calcActiveMods, getAdvDisForContext, getWeaponRollMeta, getShieldRollMeta, getSheetShields, getSheetBlockOptions, resolveCombatItemByRef, formatBlockModShort, formatBlockModLong, getWeaponDualWieldInfo, getHandAllocationInfo, fmtAdvSrcLines, getAttrTot, getSkBonus, getCharSizeInfo, getRelativeSizeHitMod, normHitZoneSize, getHitZoneSizeMeta
@@ -1208,6 +1208,10 @@ export function renderDice(){
             <div><label class="block text-[9px] font-bold t-mut text-center mb-0.5">Durchstoß</label><input data-dice-wp-inp="${esc(aw.id)}:dmgPierce" type="text" value="${esc(aw.dmgPierce)}" class="inp w-full text-center font-black py-1 text-xs"/></div>
             <div><label class="block text-[9px] font-bold t-mut text-center mb-0.5">Einschlag</label><input data-dice-wp-inp="${esc(aw.id)}:dmgImpact" type="text" value="${esc(aw.dmgImpact)}" class="inp w-full text-center font-black py-1 text-xs"/></div>
           </div>
+          ${isWeaponBlockable(aw)?`<div class="min-w-0">
+            <label class="block text-[9px] font-bold text-cyan-300 uppercase mb-0.5">🛡️ Blockzone (Std: Arm / Hand)</label>
+            <input data-dice-wp-inp="${esc(aw.id)}:blockZone" type="text" value="${esc(aw.blockZone||'')}" placeholder="Arm / Hand" class="inp w-full text-xs font-bold py-1"/>
+          </div>`:''}
         </div>`;
       }else if(ash&&D.wpEditOpen){
         const shPool=['lp','mlp','both'].includes(ash.dmgPool)?ash.dmgPool:'lp';
@@ -1242,6 +1246,10 @@ export function renderDice(){
               <label class="block text-[9px] font-bold t-mut uppercase mb-0.5">Fertigkeit</label>
               <select data-dice-sh-edit="skillId" data-sid="${esc(ash.id)}" class="inp w-full text-xs font-bold py-1"><option value="" ${!ash.skillId?'selected':''}>Keine (+0)</option>${(S.skills||[]).map(sk=>`<option value="${esc(sk.id)}" ${ash.skillId===sk.id?'selected':''}>${esc(sk.name||'Fert.')} (${fmtSign(getSkBonus(sk))})</option>`).join('')}</select>
             </div>
+          </div>
+          <div class="min-w-0">
+            <label class="block text-[9px] font-bold text-cyan-300 uppercase mb-0.5">🛡️ Blockzone (Std: Arm / Hand)</label>
+            <input data-dice-sh-inp="${esc(ash.id)}:blockZone" type="text" value="${esc(ash.blockZone||'')}" placeholder="Arm / Hand" class="inp w-full text-xs font-bold py-1"/>
           </div>
           <div class="grid grid-cols-3 gap-1.5 tabular">
             <div><label class="block text-[9px] font-bold t-mut text-center mb-0.5">Schnitt (Angr.)</label><input data-dice-sh-inp="${esc(ash.id)}:dmgCut" type="text" value="${esc(ash.dmgCut)}" class="inp w-full text-center font-black py-1 text-xs"/></div>
@@ -1507,17 +1515,18 @@ export function rollW100(){
 export function renderBlockFollowUpBox(){
   const activeSh=(!isLobbyNeutralDice()&&D.shieldId)?(S.armors||[]).find(a=>a&&a.id===D.shieldId&&isArmorShield(a)):null;
   const activeBlkWp=(!isLobbyNeutralDice()&&!activeSh&&D.weaponId)?(S.weapons||[]).find(w=>w&&w.id===D.weaponId&&isWeaponBlockable(w)):null;
+  const bzLbl=getEffectiveBlockZoneLabel(activeSh||activeBlkWp);
   const blkMitHtml=activeSh
-    ?`<div class="px-2.5 py-1.5 rounded-lg border border-cyan-400/50 bg-cyan-500/12 text-[11px] font-bold text-cyan-200 tabular">🛡️ Schild-Block (<strong>${esc(String(activeSh.name||'').trim()||'Schild')}</strong>): gRP <strong>${esc(activeSh.grp)}</strong> • Schnitt ${esc(activeSh.protCut)} / Durchstoß ${esc(activeSh.protPierce)} / Einschlag ${esc(activeSh.protImpact)}${toInt(activeSh.mentalProt,0)?` / mRS ${esc(activeSh.mentalProt)}`:''} — <em>wird zu deiner normalen Zonenrüstung addiert!</em></div>`
+    ?`<div class="px-2.5 py-1.5 rounded-lg border border-cyan-400/50 bg-cyan-500/12 text-[11px] font-bold text-cyan-200 tabular">🛡️ Schild-Block (<strong>${esc(String(activeSh.name||'').trim()||'Schild')}</strong> • Blockzone: <strong>${esc(bzLbl)}</strong>): gRP <strong>${esc(activeSh.grp)}</strong> • Schnitt ${esc(activeSh.protCut)} / Durchstoß ${esc(activeSh.protPierce)} / Einschlag ${esc(activeSh.protImpact)}${toInt(activeSh.mentalProt,0)?` / mRS ${esc(activeSh.mentalProt)}`:''} — <em>wird zu deiner normalen Zonenrüstung addiert!</em></div>`
     :(activeBlkWp
-      ?`<div class="px-2.5 py-1.5 rounded-lg border border-amber-400/45 bg-amber-500/10 text-[11px] font-bold text-amber-200">🧱 Blockfähige Waffe (<strong>${esc(String(activeBlkWp.name||'').trim()||'Waffe')}</strong>): reduziert den erlittenen Schaden um <strong>−2</strong> (+ normale Zonenrüstung).</div>`
-      :'');
+      ?`<div class="px-2.5 py-1.5 rounded-lg border border-amber-400/45 bg-amber-500/10 text-[11px] font-bold text-amber-200">🧱 Blockfähige Waffe (<strong>${esc(String(activeBlkWp.name||'').trim()||'Waffe')}</strong> • Blockzone: <strong>${esc(bzLbl)}</strong>): reduziert den erlittenen Schaden um <strong>−2</strong> (+ normale Zonenrüstung).</div>`
+      :`<div class="px-2.5 py-1.5 rounded-lg border bdr-line bg-black/20 text-[11px] font-bold t-mut">🛡️ Standard-Blockzone: <strong>${esc(bzLbl)}</strong></div>`);
   return `<div class="subcard mt-2 p-3 border-2 border-emerald-500/50 bg-emerald-500/10 space-y-2 text-left">
     <div class="text-xs font-extrabold text-emerald-300 flex flex-wrap items-center justify-between gap-2">
       <span>🛡️ Erfolgreich geblockt!</span>
       <span class="px-2 py-0.5 rounded-md bg-amber-500/20 border border-amber-400/50 text-amber-200 text-[11px] font-black tabular">Angreifer: statisch 3 EG • kein Krit</span>
     </div>
-    <p class="text-[11px] t-mut leading-relaxed">Der Angriff gilt als mit <strong class="text-amber-200">3 EG</strong> (ohne kritischen Treffer) getroffen — <strong class="text-emerald-200">du bestimmst absolut die Trefferzone</strong> (Schild / blockfähige Waffe + dahinterliegende Rüstung).</p>
+    <p class="text-[11px] t-mut leading-relaxed">Der Angriff gilt als mit <strong class="text-amber-200">3 EG</strong> (ohne kritischen Treffer) getroffen — die Trefferzone wird durch die <strong class="text-emerald-200">Blockzone (${esc(bzLbl)})</strong> überschrieben.</p>
     ${blkMitHtml}
   </div>`;
 }
@@ -1539,6 +1548,15 @@ export function executeDiceRoll(opts={}){
   const effShieldId=isLobRoll?null:getEffectiveDiceShieldId();
   const rollerIsEnemy=Boolean(!isLobRoll&&isEnemySheet(S));
   const c1Name=isLobRoll?(CLOUD.currentUser?CLOUD.currentUser:'Gast'):(String(S.profile.name||'').trim()||(rollerIsEnemy?'Gegner':'Unbenannter Held'));
+  const combatHits=hooks.initCombatFromRoll?.({T,res,attackerName:c1Name})||[];
+  const fmtHitZoneSummary=h=>{
+    if(!h||!h.zoneName) return '';
+    const zFull=h.subZoneName?`${h.zoneName} → ${h.subZoneName}`:h.zoneName;
+    if(h.isBlocked) return `🛡️ Blockzone: ${zFull}${h.blockZoneSource?` (${h.blockZoneSource})`:''}`;
+    if(h.aimedZone) return `🎯 Gezielte Zone: ${zFull}`;
+    if(h.lastHzRoll!==null) return `🎯 Trefferzone: ${zFull} (W100 = ${h.lastHzRoll}${h.lastSubHzRoll!==null?`, Detail = ${h.lastSubHzRoll}`:''})`;
+    return `🎯 Trefferzone: ${zFull}`;
+  };
   const isVsOpp=Boolean(T.opp&&T.opp.ready);
   const hideOppLocal=Boolean(isVsOpp&&T.opp.hideDetails);
   const hideOppInFeed=Boolean(isVsOpp&&T.opp.isEnemy);
@@ -1583,18 +1601,31 @@ export function executeDiceRoll(opts={}){
       :`<div class="mt-1.5 text-[10px] font-bold text-indigo-300 tabular break-words">⚔️ ${esc(c1Name)}: ${T.c1AutoAdv}V/${T.c1AutoDis}N • ${esc(T.opp.oppName)}: ${T.oppAutoAdv}V→N / ${T.oppAutoDis}N→V</div>`)
     :'';
   const advSrcRowHtml=advSrcParts.length?`<div class="mt-2 pt-1.5 border-t border-white/10 flex flex-wrap items-center justify-center gap-1 text-[10px] min-w-0 break-words"><span class="font-extrabold t-mut mr-0.5">Vor./Nacht.:</span>${advSrcChipsHtml}</div>`:'';
+  let hzFeedSummary='';
   let baseHtml='';
   if(res.length===1){
     const x=res[0], isBlockedMiss=Boolean(isHitVsBlock&&!x.ok&&x.r!==100);
+    const h0=combatHits.find(h=>h.rollIdx===1)||null;
+    const hzTxt=fmtHitZoneSummary(h0);
+    if(hzTxt) hzFeedSummary=hzTxt;
+    const hzRowHtml=hzTxt
+      ?`<div class="mt-2 inline-flex flex-wrap items-center justify-center gap-1 px-2.5 py-1 rounded-lg border text-xs font-extrabold tabular ${h0?.isBlocked?'border-cyan-400/60 bg-cyan-500/15 text-cyan-200':'border-amber-400/55 bg-amber-500/15 text-amber-200'}">${esc(hzTxt)}</div>`
+      :'';
     const cls=x.crit?'crit-glow border-amber-400 bg-amber-500/15':x.ok?'border-emerald-500/60 bg-emerald-500/10':isBlockedMiss?'border-amber-400/75 bg-amber-500/10':'border-rose-500/60 bg-rose-500/10';
     const blkBanner=isBlockedMiss
-      ?`<div class="mt-2.5 pt-2 border-t border-white/10 text-xs font-extrabold text-amber-200">🛡️ Erfolgreich geblockt! → Zählt statisch als <span class="px-2 py-0.5 rounded bg-amber-500 text-slate-950 font-black">3 EG (kein Krit)</span> • Verteidiger bestimmt die Trefferzone.</div>`
+      ?`<div class="mt-2.5 pt-2 border-t border-white/10 text-xs font-extrabold text-amber-200">🛡️ Erfolgreich geblockt! → Zählt statisch als <span class="px-2 py-0.5 rounded bg-amber-500 text-slate-950 font-black">3 EG (kein Krit)</span> • Blockzone wird direkt übernommen.</div>`
       :'';
-    baseHtml=`<div class="subcard text-center p-4 border-2 ${cls}"><div class="text-[11px] font-bold t-mut break-words">${esc(rollTitle)} • Schwelle ${th}</div>${vsSideRowHtml}<div class="text-5xl font-black tabular my-1">🎲 ${x.r}${x.rollMod&&x.rawR!==undefined?`<span class="text-xs font-bold text-cyan-300 ml-1">(Wurf ${x.rawR}${fmtSign(x.rollMod)})</span>`:''}</div><div class="text-xs font-black uppercase ${x.crit?'text-amber-500':x.ok?'text-emerald-500':isBlockedMiss?'text-amber-300':'text-rose-500'}">${x.crit?'★ Kritischer Erfolg! ★':x.ok?'Erfolg':(x.r===100?'💀 Patzer (100)':(isBlockedMiss?'🛡️ Geblockt (Misserfolg)':'Misserfolg'))}</div><div class="mt-2"><span class="px-3.5 py-1 rounded-lg text-white font-extrabold text-sm tabular ${x.ok?'bg-emerald-600':isBlockedMiss?'bg-amber-600':'bg-rose-600'}">${x.ok?('EG: '+x.eg):(isBlockedMiss?'Geblockt → 3 EG (MEG: '+x.meg+')':'MEG: '+x.meg)}</span></div>${advSrcRowHtml}${blkBanner}</div>`;
+    baseHtml=`<div class="subcard text-center p-4 border-2 ${cls}"><div class="text-[11px] font-bold t-mut break-words">${esc(rollTitle)} • Schwelle ${th}</div>${vsSideRowHtml}<div class="text-5xl font-black tabular my-1">🎲 ${x.r}${x.rollMod&&x.rawR!==undefined?`<span class="text-xs font-bold text-cyan-300 ml-1">(Wurf ${x.rawR}${fmtSign(x.rollMod)})</span>`:''}</div><div class="text-xs font-black uppercase ${x.crit?'text-amber-500':x.ok?'text-emerald-500':isBlockedMiss?'text-amber-300':'text-rose-500'}">${x.crit?'★ Kritischer Erfolg! ★':x.ok?'Erfolg':(x.r===100?'💀 Patzer (100)':(isBlockedMiss?'🛡️ Geblockt (Misserfolg)':'Misserfolg'))}</div><div class="mt-2"><span class="px-3.5 py-1 rounded-lg text-white font-extrabold text-sm tabular ${x.ok?'bg-emerald-600':isBlockedMiss?'bg-amber-600':'bg-rose-600'}">${x.ok?('EG: '+x.eg):(isBlockedMiss?'Geblockt → 3 EG (MEG: '+x.meg+')':'MEG: '+x.meg)}</span></div>${hzRowHtml}${advSrcRowHtml}${blkBanner}</div>`;
   }else{
     const w=res.filter(x=>x.ok).length, c=res.filter(x=>x.crit).length, blkCnt=isHitVsBlock?res.filter(x=>!x.ok&&x.r!==100).length:0;
+    if(combatHits.length){
+      hzFeedSummary=combatHits.map(h=>{
+        const zFull=h.subZoneName?`${h.zoneName} → ${h.subZoneName}`:h.zoneName;
+        return `#${h.rollIdx}: ${h.isBlocked?`🛡️ ${zFull}`:`🎯 ${zFull}${h.lastHzRoll!==null?` (${h.lastHzRoll})`:''}`}`;
+      }).join(' • ');
+    }
     const multiSrcBox=(advSrcParts.length||isVsOpp)?`<div class="subcard py-1.5 px-2.5 space-y-1 text-[10px] min-w-0 break-words">${isVsOpp?`<div class="font-bold text-indigo-300 tabular break-words">${hideOppLocal?`⚔️ ${esc(rollTitle)} (Gegnerwerte verborgen)`:`⚔️ ${esc(rollTitle)} • ${esc(c1Name)} (${T.c1AutoAdv}V/${T.c1AutoDis}N) vs. ${esc(T.opp.oppName)} (${T.oppAutoAdv}V→N / ${T.oppAutoDis}N→V)`}</div>`:''}${advSrcParts.length?`<div class="flex flex-wrap items-center gap-1 min-w-0"><span class="font-extrabold t-mut mr-0.5">Vor./Nacht.:</span>${advSrcChipsHtml}</div>`:''}</div>`:'';
-    baseHtml=`<div class="space-y-1.5"><div class="subcard py-1.5 px-3 flex justify-between text-xs font-extrabold"><span>${D.cnt}× W100 (≤${th})</span><span>${w}/${D.cnt} Erfolge${blkCnt?` • 🛡️ ${blkCnt} geblockt`:''}${c?` • ★ ${c}`:''}</span></div><div class="grid grid-cols-2 gap-1.5">${res.map((x,i)=>{const isBlkM=Boolean(isHitVsBlock&&!x.ok&&x.r!==100);return `<div class="subcard p-2 flex justify-between items-center ${x.crit?'border-amber-400 bg-amber-500/15':x.ok?'border-emerald-500/50 bg-emerald-500/10':isBlkM?'border-amber-400/60 bg-amber-500/10':'border-rose-500/50 bg-rose-500/10'}"><span class="font-black tabular">#${i+1}: ${x.r}${x.rollMod&&x.rawR!==undefined?` (${x.rawR}${fmtSign(x.rollMod)})`:""}</span><span class="text-xs font-extrabold">${x.crit?'★ ':''}${x.ok?('EG '+x.eg):(isBlkM?'🛡️ 3 EG':'MEG '+x.meg)}</span></div>`;}).join('')}</div>${multiSrcBox}</div>`;
+    baseHtml=`<div class="space-y-1.5"><div class="subcard py-1.5 px-3 flex justify-between text-xs font-extrabold"><span>${D.cnt}× W100 (≤${th})</span><span>${w}/${D.cnt} Erfolge${blkCnt?` • 🛡️ ${blkCnt} geblockt`:''}${c?` • ★ ${c}`:''}</span></div><div class="grid grid-cols-2 gap-1.5">${res.map((x,i)=>{const isBlkM=Boolean(isHitVsBlock&&!x.ok&&x.r!==100);const hi=combatHits.find(h=>h.rollIdx===i+1)||null;const zFull=hi?(hi.subZoneName?`${hi.zoneName} → ${hi.subZoneName}`:hi.zoneName):'';const zPill=hi?`<div class="text-[10px] font-extrabold truncate ${hi.isBlocked?'text-cyan-300':'text-amber-300'}">${hi.isBlocked?'🛡️ ':'🎯 '}${esc(zFull)}${hi.lastHzRoll!==null?` (${hi.lastHzRoll})`:''}</div>`:'';return `<div class="subcard p-2 space-y-0.5 ${x.crit?'border-amber-400 bg-amber-500/15':x.ok?'border-emerald-500/50 bg-emerald-500/10':isBlkM?'border-amber-400/60 bg-amber-500/10':'border-rose-500/50 bg-rose-500/10'}"><div class="flex justify-between items-center gap-1"><span class="font-black tabular">#${i+1}: ${x.r}${x.rollMod&&x.rawR!==undefined?` (${x.rawR}${fmtSign(x.rollMod)})`:""}</span><span class="text-xs font-extrabold">${x.crit?'★ ':''}${x.ok?('EG '+x.eg):(isBlkM?'🛡️ 3 EG':'MEG '+x.meg)}</span></div>${zPill}</div>`;}).join('')}</div>${multiSrcBox}</div>`;
   }
   if(D.wRollCat==='Blocken'&&res.some(x=>x.ok)){
     UI.lastBlockBaseHtml=baseHtml;
@@ -1649,15 +1680,20 @@ export function executeDiceRoll(opts={}){
     cnt:D.cnt,
     res
   };
+  if(hzFeedSummary) livePayload.hzSummary=hzFeedSummary;
   if(isVsOpp){
     livePayload.vsCharId=T.opp.charId;
     livePayload.vsCharName=T.opp.oppName;
     livePayload.vsSummary=vsSummaryFeed;
   }
   publishLiveRoll(livePayload);
-  diceLogs.unshift({t:new Date().toLocaleTimeString('de-DE'),lbl:rollTitle,th,sum:res.map(x=>`${x.r}(${x.crit?'★':''}${x.ok?('EG'+x.eg):((isHitVsBlock&&x.r!==100)?'🛡️3EG':'MEG'+x.meg)})`).join(', '),advSrc:advSrcParts.join(', ')});
+  const logSum=res.map((x,i)=>{
+    const hi=combatHits.find(h=>h.rollIdx===i+1)||null;
+    const zSfx=hi?` [${hi.isBlocked?'🛡️':'🎯'}${hi.subZoneName?`${hi.zoneName}→${hi.subZoneName}`:hi.zoneName}${hi.lastHzRoll!==null?`/${hi.lastHzRoll}`:''}]`:'';
+    return `${x.r}(${x.crit?'★':''}${x.ok?('EG'+x.eg):((isHitVsBlock&&x.r!==100)?'🛡️3EG':'MEG'+x.meg)})${zSfx}`;
+  }).join(', ');
+  diceLogs.unshift({t:new Date().toLocaleTimeString('de-DE'),lbl:rollTitle,th,sum:logSum,advSrc:advSrcParts.join(', ')});
   if(diceLogs.length>40) diceLogs.length=40;
-  hooks.initCombatFromRoll?.({T,res,attackerName:c1Name});
   if(!isLobbyNeutralDice()&&S.inspirationActive){
     S.inspirationActive=false;
     applyDiceAutoAdvDis(false);
