@@ -2,7 +2,7 @@ import {
   $, esc, isHex, sortAlpha, stripHtml, toRtfHtml
 } from './utils.js';
 import {
-  openCtxMenu, closeCtxMenu, getCampaigns, setActiveCampaign, isUserInCampaign, isGlobalGM, isCampaignMainGM, canManageCampaign, getGmManageableCampaigns, canToggleEnemyStatus, isEnemySheet, getEnemyMeta, canManageEnemySheet, canViewEnemySheet, isEnemyDiceVisibleInCampaign, getAccessibleCampaigns, getCreatableCampaigns, getUserAvatar, renderUserNamePill, getActiveLiveCampaignId, save, load, S, UI, CLOUD, getCharOwner, getCharCampaignId, canManageChar
+  openCtxMenu, closeCtxMenu, getCampaigns, getActiveCampaigns, getArchivedCampaigns, setActiveCampaign, isUserInCampaign, isGlobalGM, isCampaignMainGM, canManageCampaign, getGmManageableCampaigns, canToggleEnemyStatus, isEnemySheet, getEnemyMeta, canManageEnemySheet, canViewEnemySheet, isEnemyDiceVisibleInCampaign, getAccessibleCampaigns, getCreatableCampaigns, getUserAvatar, renderUserNamePill, getActiveLiveCampaignId, save, load, S, UI, CLOUD, getCharOwner, getCharCampaignId, canManageChar
 } from './state.js';
 import {
   renderLobbyLiveDiceHtml, getCampaignSharedPages, extractPublicPages, updateCloudCharacterMeta, toggleEnemyActiveStatus, toggleEnemyCampaignAssignment, toggleEnemyDiceVisibility, toggleEnemyArchived, cloneEnemyToCampaign
@@ -18,7 +18,7 @@ export function setLobbyCharCampaign(cid,newCampId){
   const cleanCampId=String(newCampId||'default').trim()||'default';
   const owner=getCharOwner(cid), isMyChar=Boolean(owner&&CLOUD.currentUser&&owner.toLowerCase()===CLOUD.currentUser.toLowerCase());
   if(!CLOUD.isAdmin&&!isMyChar&&!canManageCampaign(getCharCampaignId(cid))) return;
-  const camps=CLOUD.isAdmin?getCampaigns():getCreatableCampaigns(CLOUD.currentUser);
+  const camps=CLOUD.isAdmin?getActiveCampaigns():getCreatableCampaigns(CLOUD.currentUser);
   const targetCamp=camps.find(c=>c.id===cleanCampId)||camps[0]||{id:'default',name:'Ohne Kampagne / Allgemein'};
   const effCampId=targetCamp.id;
   if(!CLOUD.registry.charCampaigns||typeof CLOUD.registry.charCampaigns!=='object') CLOUD.registry.charCampaigns={};
@@ -43,7 +43,7 @@ export function openLobbyCharCampPicker(anchorEl,cid){
   const ch=CLOUD.list.find(x=>x.id===cid);
   const charName=ch?.name||'Charakter';
   const curCampId=getCharCampaignId(cid);
-  const camps=CLOUD.isAdmin?getCampaigns():getCreatableCampaigns(CLOUD.currentUser);
+  const camps=CLOUD.isAdmin?getActiveCampaigns():getCreatableCampaigns(CLOUD.currentUser);
   const items=[
     {type:'label',label:`Kampagne für „${charName}“`},
     ...camps.map(c=>({
@@ -99,7 +99,7 @@ export function openLobbyCharMenu(anchorEl,cid,forceOpen=false){
   const items=[];
   items.push({type:'label',label:'Ansicht & Teilen'});
   if(canEditThisChar){
-    items.push({icon:'👁️',label:'Im Ansichtsmodus öffnen',sub:'Schreibgeschützte Vorschau',action:'cloud-view-char',dataset:{id:cid}});
+    items.push({icon:'👁️',label:'Im Ansichtsmodus öffnen',sub:'Schreibgeschützte Vorschau (Mittelklick = neuer Tab)',action:'cloud-view-char',href:`?char=${encodeURIComponent(cid)}&view=1`,dataset:{id:cid}});
   }
   items.push({icon:'🔗',label:'Direktlink kopieren',sub:`?char=${cid}`,action:'copy-char-link',dataset:{id:cid}});
   if(CLOUD.currentUser&&!owner){
@@ -303,9 +303,9 @@ export function openLobbyEnemyMenu(anchorEl,cid,contextCampId='',forceOpen=false
   const items=[];
   items.push({type:'label',label:meta.isEnemy?'Gegner-Aktionen':'Vorlagen-Aktionen'});
   if(canManage){
-    items.push({icon:'✏️',label:'Bogen bearbeiten',action:'cloud-edit-char',dataset:{id:cid}});
+    items.push({icon:'✏️',label:'Bogen bearbeiten',sub:'Mittelklick = neuer Tab',action:'cloud-edit-char',href:`?char=${encodeURIComponent(cid)}`,dataset:{id:cid}});
   }
-  items.push({icon:'👁️',label:'Im Ansichtsmodus öffnen',sub:'Schreibgeschützte Vorschau',action:'cloud-view-char',dataset:{id:cid}});
+  items.push({icon:'👁️',label:'Im Ansichtsmodus öffnen',sub:'Schreibgeschützte Vorschau (Mittelklick = neuer Tab)',action:'cloud-view-char',href:`?char=${encodeURIComponent(cid)}&view=1`,dataset:{id:cid}});
   items.push({icon:'🔗',label:'Direktlink kopieren',sub:`?char=${cid}`,action:'copy-char-link',dataset:{id:cid}});
   if(canToggle){
     items.push({sep:true});
@@ -548,7 +548,7 @@ export function renderGmEnemiesListInnerHtml(activeCamp){
             </button>`}
 
         <div class="flex items-center gap-1.5 pt-2 border-t bdr-line min-w-0">
-          <button type="button" data-action="cloud-edit-char" data-id="${esc(ch.id)}" data-tip="Gegnerbogen öffnen und bearbeiten" class="btn btn-pri min-h-[38px] py-1.5 px-2.5 text-xs font-black flex-1 min-w-0"><span class="truncate">✏️ Öffnen</span></button>
+          <a href="?char=${encodeURIComponent(ch.id)}" data-action="cloud-edit-char" data-id="${esc(ch.id)}" data-tip="Gegnerbogen öffnen und bearbeiten (Mittelklick / Rechtsklick = neuer Tab)" class="btn btn-pri min-h-[38px] py-1.5 px-2.5 text-xs font-black flex-1 min-w-0"><span class="truncate">✏️ Öffnen</span></a>
           ${!m.archived?(()=>{const iniCnt=getEnemyInitiativeCount(campId,ch.id);return `<button type="button" data-action="ini-add-enemy" data-id="${esc(ch.id)}" data-camp="${esc(campId)}" data-tip="${iniCnt>0?`Bereits ${iniCnt}× in der Initiative – erneut klicken für weitere Instanz`:'Diesen Gegner direkt in die Initiative dieser Kampagne aufnehmen'}" class="btn min-h-[38px] py-1.5 px-2.5 text-xs font-black shrink-0 tabular ${iniCnt>0?'border-amber-400/70 bg-amber-500/20 text-amber-200':'border-amber-400/45 bg-amber-500/10 text-amber-200'}">⚡${iniCnt>0?` ${iniCnt}×`:' Ini'}</button>`;})():''}
           <button type="button" data-action="open-enemy-camp-picker" data-id="${esc(ch.id)}" aria-haspopup="menu" data-tip="Kampagnen-Zuordnung per Checkbox ändern" class="btn min-h-[38px] py-1.5 px-2 text-xs font-extrabold shrink-0">🗺️ <span class="tabular">${m.campaignIds.length}</span></button>
           <button type="button" data-action="clone-enemy-camp" data-id="${esc(ch.id)}" data-camp="${esc(campId)}" data-tip="Klon für diese Kampagne anlegen (z. B. #1, #2)" class="btn min-h-[38px] py-1.5 px-2 text-xs font-extrabold shrink-0" aria-label="Gegner für Kampagne klonen">🧬</button>
@@ -703,8 +703,8 @@ export function renderTemplatesGridInnerHtml(activeCamp){
 
         <div class="flex items-center gap-1.5 pt-2 border-t bdr-line min-w-0">
           ${canManage
-            ?`<button type="button" data-action="cloud-edit-char" data-id="${esc(ch.id)}" class="btn btn-pri min-h-[38px] py-1.5 px-2.5 text-xs font-black flex-1 min-w-0"><span class="truncate">✏️ Bogen öffnen</span></button>`
-            :`<button type="button" data-action="cloud-view-char" data-id="${esc(ch.id)}" class="btn bdr-acc bg-acc-soft text-acc min-h-[38px] py-1.5 px-2.5 text-xs font-black flex-1 min-w-0"><span class="truncate">👁️ Ansehen</span></button>`}
+            ?`<a href="?char=${encodeURIComponent(ch.id)}" data-action="cloud-edit-char" data-id="${esc(ch.id)}" data-tip="Vorlage / Gegnerbogen öffnen (Mittelklick / Rechtsklick = neuer Tab)" class="btn btn-pri min-h-[38px] py-1.5 px-2.5 text-xs font-black flex-1 min-w-0"><span class="truncate">✏️ Bogen öffnen</span></a>`
+            :`<a href="?char=${encodeURIComponent(ch.id)}&amp;view=1" data-action="cloud-view-char" data-id="${esc(ch.id)}" data-tip="Vorlage im Ansichtsmodus öffnen (Mittelklick / Rechtsklick = neuer Tab)" class="btn bdr-acc bg-acc-soft text-acc min-h-[38px] py-1.5 px-2.5 text-xs font-black flex-1 min-w-0"><span class="truncate">👁️ Ansehen</span></a>`}
           ${canCloneToActiveCamp?`<button type="button" data-action="clone-enemy-camp" data-id="${esc(ch.id)}" data-camp="${esc(activeCampId)}" data-tip="Als eigenständigen Gegner in „${esc(activeCampName)}“ klonen" class="btn min-h-[38px] py-1.5 px-2.5 text-xs font-extrabold border-rose-400/45 bg-rose-500/15 text-rose-200 shrink-0">⚡ <span class="hidden sm:inline">Klonen</span></button>`:''}
           <button type="button" data-action="open-lobby-enemy-menu" data-id="${esc(ch.id)}" data-camp="${esc(canCloneToActiveCamp?activeCampId:'')}" aria-haspopup="menu" aria-label="Weitere Aktionen für ${esc(ch.name||'Vorlage')}" class="btn min-h-[38px] min-w-[38px] py-1.5 px-2 text-base font-black shrink-0">⋮</button>
         </div>
@@ -881,7 +881,7 @@ export function tplLobbyScreen(){
           <h2 class="text-lg sm:text-xl font-black leading-snug">Willkommen in der Scherbensturm-Lobby!</h2>
           <p class="text-xs sm:text-sm t-mut leading-relaxed">Willkommen in der Scherbensturm-Lobby! Melde dich mit deinem Spieler-Account an oder registriere dich, um eigene Charakterbögen zu erstellen und deine freigeschalteten Kampagnen zu sehen.</p>
           <div class="flex flex-wrap items-center gap-2 pt-1">
-            <button type="button" data-action="open-local-sheet" data-tip="Öffnet den lokal gespeicherten Charakterbogen (oder einen Test-Bogen) direkt ohne Cloud-Zwang – ideal zum lokalen Testen vor dem GitHub-Upload" class="btn btn-ok py-1.5 px-3 text-xs font-extrabold">🛠️ Lokalen Bogen öffnen / testen</button>
+            <a href="?sheet=1" data-action="open-local-sheet" data-tip="Öffnet den lokal gespeicherten Charakterbogen (oder einen Test-Bogen) direkt ohne Cloud-Zwang (Mittelklick / Rechtsklick = neuer Tab)" class="btn btn-ok py-1.5 px-3 text-xs font-extrabold">🛠️ Lokalen Bogen öffnen / testen</a>
             <button type="button" data-action="copy-share-link" data-url="${esc(lobbyUrl)}" data-tip="Direktlink zur zentralen Lobby kopieren" class="btn bg-acc-soft bdr-acc text-acc py-1.5 px-3 text-xs">🔗 Lobby-Direktlink</button>
             <button type="button" data-action="open-admin-panel" data-tip="Admin-Fenster (PIN &amp; Verwaltung) öffnen" class="btn py-1.5 px-3 text-xs ${CLOUD.isAdmin?'!border-amber-400 !bg-amber-500/20 text-amber-300':'opacity-85'}">👑 ${CLOUD.isAdmin?'Admin aktiv':'Spielleiter / Admin'}</button>
           </div>
@@ -930,7 +930,7 @@ export function tplLobbyScreen(){
         </div>
         <div class="flex flex-wrap items-center gap-2.5 shrink-0">
           <button type="button" data-action="lobby-new-sheet" class="btn btn-ok py-2.5 px-5 text-sm font-black shadow-lg">✨ + Neuen Charakterbogen erstellen</button>
-          <button type="button" data-action="open-local-sheet" data-tip="Öffnet den lokal gespeicherten Charakterbogen (oder einen Test-Bogen) direkt ohne Cloud-Zwang – ideal zum lokalen Testen vor dem GitHub-Upload" class="btn py-2.5 px-4 text-xs sm:text-sm font-extrabold border-emerald-500/60 bg-emerald-500/15 text-emerald-300">🛠️ Lokalen Bogen öffnen / testen</button>
+          <a href="?sheet=1" data-action="open-local-sheet" data-tip="Öffnet den lokal gespeicherten Charakterbogen (oder einen Test-Bogen) direkt ohne Cloud-Zwang (Mittelklick / Rechtsklick = neuer Tab)" class="btn py-2.5 px-4 text-xs sm:text-sm font-extrabold border-emerald-500/60 bg-emerald-500/15 text-emerald-300">🛠️ Lokalen Bogen öffnen / testen</a>
         </div>
       </div>
       `}
@@ -997,9 +997,16 @@ export function tplLobbyScreen(){
           ${CLOUD.isAdmin?`
             <button type="button" data-action="camp-new-open" aria-label="Neue Kampagne erstellen" data-tip="Neue Kampagne erstellen" class="btn btn-ok py-1.5 px-2.5 sm:px-3 text-xs font-extrabold shrink-0">+ <span class="hidden sm:inline">Neue </span>Kampagne</button>
             ${activeCamp?`<button type="button" data-action="camp-rename-open" aria-label="Kampagne umbenennen" data-tip="Aktive Kampagne umbenennen" class="btn py-1.5 px-2.5 sm:px-3 text-xs border-amber-400/50 text-amber-300 shrink-0">✏️<span class="hidden sm:inline"> Umbenennen</span></button><button type="button" data-action="open-camp-color" data-id="${esc(activeCamp.id)}" data-cmode="text" aria-label="Textfarbe des Kampagnen-Titels anpassen" data-tip="👑 Admin: Textfarbe des Kampagnen-Titels anpassen" class="btn py-1.5 px-2 sm:px-2.5 text-xs shrink-0" ${activeCamp.color?`style="border-color:${esc(activeCamp.color)};color:${esc(activeCamp.color)}"`:''}>🎨<span class="hidden sm:inline"> Titel</span></button><button type="button" data-action="open-camp-color" data-id="${esc(activeCamp.id)}" data-cmode="bg" aria-label="Fensterfarbe des Kampagnen-Tabs anpassen" data-tip="👑 Admin: Fensterfarbe des Kampagnen-Tabs anpassen" class="btn py-1.5 px-2 sm:px-2.5 text-xs shrink-0" ${activeCamp.bgColor?`style="border-color:${esc(activeCamp.bgColor)};background:color-mix(in srgb,${esc(activeCamp.bgColor)} 38%,var(--surf2))"` :''}>🪟<span class="hidden sm:inline"> Tab-Farbe</span></button>`:''}
+            ${(()=>{const archCnt=getArchivedCampaigns().length;return archCnt>0?`<button type="button" data-action="open-admin-panel" data-tip="Archivierte Kampagnen im Admin-Menü verwalten / wiederherstellen" class="btn py-1.5 px-2.5 text-xs font-extrabold border-amber-400/50 bg-amber-500/15 text-amber-200 shrink-0 tabular">📦 <span class="hidden sm:inline">Archiv </span>(${archCnt})</button>`:'';})()}
           `:''}
           <button type="button" data-action="cloud-refresh-list" ${CLOUD.loading?'disabled':''} aria-label="Lobby-Liste aktualisieren" data-tip="Charakter- und Kampagnenliste vom Server aktualisieren" class="btn py-1.5 px-2.5 sm:px-3 text-xs shrink-0">${CLOUD.loading?'⏳':'🔄'}<span class="hidden sm:inline"> ${CLOUD.loading?'Lade...':'Aktualisieren'}</span></button>
-          ${CLOUD.isAdmin&&activeCamp&&activeCamp.id!=='default'?`<div class="sm:pl-2.5 sm:ml-1 sm:border-l bdr-line flex flex-wrap items-center max-w-full shrink-0">${CLOUD.campAction==='delete'?`<span class="inline-flex flex-wrap items-center gap-1 max-w-full"><button type="button" data-action="camp-delete-confirm" class="btn bg-rose-600 text-white border-rose-600 py-1 px-2.5 text-[11px] font-black whitespace-normal text-left">Löschen? (${campCharList.length} → Allgemein)</button><button type="button" data-action="camp-action-cancel" aria-label="Löschen abbrechen" class="btn py-1 px-2 text-[11px] shrink-0">✕</button></span>`:`<button type="button" data-action="camp-delete-ask" aria-label="Kampagne löschen" data-tip="Kampagne löschen (enthaltene Charaktere werden automatisch in den allgemeinen Bereich verschoben)" class="btn btn-err py-1.5 px-2.5 sm:px-3 text-xs shrink-0">🗑️<span class="hidden sm:inline"> Kampagne löschen</span></button>`}</div>`:''}
+          ${CLOUD.isAdmin&&activeCamp&&activeCamp.id!=='default'?`<div class="sm:pl-2.5 sm:ml-1 sm:border-l bdr-line flex flex-wrap items-center gap-1.5 max-w-full shrink-0">
+            ${CLOUD.campAction==='archive'
+              ?`<span class="inline-flex flex-wrap items-center gap-1 max-w-full"><button type="button" data-action="camp-archive-confirm" class="btn bg-amber-500 text-slate-950 border-amber-400 py-1 px-2.5 text-[11px] font-black whitespace-normal text-left">Archivieren? (${campCharList.length} → Allgemein)</button><button type="button" data-action="camp-action-cancel" aria-label="Archivieren abbrechen" class="btn py-1 px-2 text-[11px] shrink-0">✕</button></span>`
+              :(CLOUD.campAction==='delete'
+                ?`<span class="inline-flex flex-wrap items-center gap-1 max-w-full"><button type="button" data-action="camp-delete-confirm" class="btn bg-rose-600 text-white border-rose-600 py-1 px-2.5 text-[11px] font-black whitespace-normal text-left">Endgültig löschen? (${campCharList.length} → Allgemein)</button><button type="button" data-action="camp-action-cancel" aria-label="Löschen abbrechen" class="btn py-1 px-2 text-[11px] shrink-0">✕</button></span>`
+                :`<button type="button" data-action="camp-archive-ask" aria-label="Kampagne archivieren" data-tip="Kampagne archivieren (aus Lobby entfernen, im Admin-Menü wiederherstellbar; Charaktere → Allgemein)" class="btn py-1.5 px-2.5 sm:px-3 text-xs border-amber-400/55 bg-amber-500/15 text-amber-200 shrink-0">📦<span class="hidden sm:inline"> Archivieren</span></button><button type="button" data-action="camp-delete-ask" aria-label="Kampagne löschen" data-tip="Kampagne dauerhaft löschen (enthaltene Charaktere werden automatisch in den allgemeinen Bereich verschoben)" class="btn btn-err py-1.5 px-2.5 sm:px-3 text-xs shrink-0">🗑️<span class="hidden sm:inline"> Löschen</span></button>`)}
+          </div>`:''}
         </div>
       </div>
 
@@ -1144,8 +1151,8 @@ export function tplLobbyScreen(){
             <!-- Unten: Kompakte Hauptaktion + ⋮-Kartenmenü -->
             <div class="flex items-center gap-2 pt-2 border-t bdr-line min-w-0">
               ${canEditThisChar
-                ?`<button type="button" data-action="cloud-edit-char" data-id="${esc(ch.id)}" aria-label="${esc(ch.name||'Charakter')} öffnen und bearbeiten" data-tip="Charakterbogen zum Bearbeiten öffnen" class="btn btn-pri min-h-[40px] py-2 px-3 text-xs font-black flex-1 min-w-0"><span class="truncate">✏️ <span class="hidden sm:inline">Bogen </span>öffnen</span></button>`
-                :`<button type="button" data-action="cloud-view-char" data-id="${esc(ch.id)}" aria-label="${esc(ch.name||'Charakter')} ansehen" data-tip="Charakterbogen im schreibgeschützten Ansichtsmodus öffnen" class="btn bdr-acc bg-acc-soft text-acc min-h-[40px] py-2 px-3 text-xs font-black flex-1 min-w-0"><span class="truncate">👁️ Ansehen</span></button>`}
+                ?`<a href="?char=${encodeURIComponent(ch.id)}" data-action="cloud-edit-char" data-id="${esc(ch.id)}" aria-label="${esc(ch.name||'Charakter')} öffnen und bearbeiten" data-tip="Charakterbogen zum Bearbeiten öffnen (Mittelklick / Rechtsklick = neuer Tab)" class="btn btn-pri min-h-[40px] py-2 px-3 text-xs font-black flex-1 min-w-0"><span class="truncate">✏️ <span class="hidden sm:inline">Bogen </span>öffnen</span></a>`
+                :`<a href="?char=${encodeURIComponent(ch.id)}&amp;view=1" data-action="cloud-view-char" data-id="${esc(ch.id)}" aria-label="${esc(ch.name||'Charakter')} ansehen" data-tip="Charakterbogen im schreibgeschützten Ansichtsmodus öffnen (Mittelklick / Rechtsklick = neuer Tab)" class="btn bdr-acc bg-acc-soft text-acc min-h-[40px] py-2 px-3 text-xs font-black flex-1 min-w-0"><span class="truncate">👁️ Ansehen</span></a>`}
               <button type="button" data-action="open-lobby-char-menu" data-id="${esc(ch.id)}" aria-haspopup="menu" aria-expanded="false" aria-label="Weitere Aktionen für ${esc(ch.name||'Charakter')}" data-tip="Weitere Aktionen (Ansicht, Direktlink, Kopie, Kampagne/Besitzer, Löschen)" class="btn min-h-[40px] min-w-[40px] py-2 px-2.5 text-base font-black shrink-0">⋮</button>
             </div>
           </div>`;
@@ -1171,7 +1178,7 @@ export function tplLobbyScreen(){
               <span class="pill cursor-default text-[10px] py-0.5 px-2 tabular shrink-0">${allPublicPages.filter(p=>p.hasContent).length}/${allPublicPages.length} ${allPublicPages.length===1?'Seite':'Seiten'}</span>
             </div>
             <div class="flex flex-wrap items-center gap-1.5 min-w-0 max-w-full">
-              ${myCampNoteChar?`<button type="button" data-action="lobby-focus-my-pubnote" data-id="${esc(myCampNoteChar.id)}" aria-label="Meine öffentliche Notizseite (${esc(myCampNoteChar.charName||myCampNoteChar.name||'Held')}) anzeigen" data-tip="Direkt zur ersten öffentlichen Notizseite deines Charakters hier im Lobby-Dokument springen" class="btn bdr-acc bg-acc-soft text-acc py-1 px-2 sm:px-2.5 text-xs font-extrabold max-w-full min-w-0"><span class="truncate">🎯 Meine Seite<span class="hidden sm:inline"> (${esc(myCampNoteChar.charName||myCampNoteChar.name||'Held')})</span></span></button><button type="button" data-action="lobby-open-char-pubnote" data-id="${esc(myCampNoteChar.id)}" aria-label="Öffentliche Notizen im Charakterbogen öffnen" data-tip="Eigenen Charakterbogen öffnen und direkt die öffentlichen Kampagnennotizen bearbeiten" class="btn btn-pri py-1 px-2 sm:px-2.5 text-xs font-extrabold shrink-0">📝 <span class="hidden sm:inline">Im Bogen öffnen</span><span class="sm:hidden">Im Bogen</span></button>`:''}
+              ${myCampNoteChar?`<button type="button" data-action="lobby-focus-my-pubnote" data-id="${esc(myCampNoteChar.id)}" aria-label="Meine öffentliche Notizseite (${esc(myCampNoteChar.charName||myCampNoteChar.name||'Held')}) anzeigen" data-tip="Direkt zur ersten öffentlichen Notizseite deines Charakters hier im Lobby-Dokument springen" class="btn bdr-acc bg-acc-soft text-acc py-1 px-2 sm:px-2.5 text-xs font-extrabold max-w-full min-w-0"><span class="truncate">🎯 Meine Seite<span class="hidden sm:inline"> (${esc(myCampNoteChar.charName||myCampNoteChar.name||'Held')})</span></span></button><a href="?char=${encodeURIComponent(myCampNoteChar.id)}&amp;notes=1" data-action="lobby-open-char-pubnote" data-id="${esc(myCampNoteChar.id)}" aria-label="Öffentliche Notizen im Charakterbogen öffnen" data-tip="Eigenen Charakterbogen öffnen und direkt die öffentlichen Kampagnennotizen bearbeiten (Mittelklick / Rechtsklick = neuer Tab)" class="btn btn-pri py-1 px-2 sm:px-2.5 text-xs font-extrabold shrink-0">📝 <span class="hidden sm:inline">Im Bogen öffnen</span><span class="sm:hidden">Im Bogen</span></a>`:''}
               <button type="button" data-action="toggle-lobby-pubnotes" aria-label="${CLOUD.publicNotesOpen?'Einklappen':'Ausklappen'}" data-tip="${CLOUD.publicNotesOpen?'Gesammeltes Dokument einklappen':'Gesammeltes Dokument ausklappen'}" class="btn py-1 px-2 sm:px-2.5 text-xs shrink-0">${CLOUD.publicNotesOpen?'▴':'▾'}<span class="hidden sm:inline"> ${CLOUD.publicNotesOpen?'Einklappen':'Ausklappen'}</span></button>
             </div>
           </div>
@@ -1260,7 +1267,7 @@ export function tplLobbyScreen(){
                     <span class="text-xs sm:text-sm font-black text-acc break-words min-w-0"><span class="hidden sm:inline">Von Charakterbogen: </span>${esc(activePubPage.charName)}</span>
                     ${activePubPage.owner?renderUserNamePill(activePubPage.owner,{cls:`px-2 py-0.5 rounded-md text-[10px] font-black max-w-full ${activePubPage.isMyChar?'bg-emerald-500/25 text-emerald-300 border border-emerald-400/50':'bg-indigo-500/20 text-indigo-300 border border-indigo-400/40'}`}):`<span class="px-2 py-0.5 rounded-md text-[10px] font-semibold bg-black/25 t-mut shrink-0">⚪ Frei</span>`}
                     <span class="px-2 py-0.5 rounded-md text-[10px] font-extrabold bg-acc-soft text-acc border bdr-acc break-words max-w-full">📄 ${esc(activePubPage.pageTitle)}</span>
-                    <button type="button" data-action="cloud-load-char" data-id="${esc(activePubPage.charId)}" aria-label="Charakterbogen öffnen" data-tip="Diesen Charakterbogen öffnen" class="btn py-1 px-2 sm:px-2.5 text-[11px] bdr-acc bg-acc-soft text-acc font-extrabold shrink-0">🔎 <span class="hidden sm:inline">Bogen </span>öffnen</button>
+                    <a href="?char=${encodeURIComponent(activePubPage.charId)}" data-action="cloud-load-char" data-id="${esc(activePubPage.charId)}" aria-label="Charakterbogen öffnen" data-tip="Diesen Charakterbogen öffnen (Mittelklick / Rechtsklick = neuer Tab)" class="btn py-1 px-2 sm:px-2.5 text-[11px] bdr-acc bg-acc-soft text-acc font-extrabold shrink-0">🔎 <span class="hidden sm:inline">Bogen </span>öffnen</a>
                   </div>
                   <div class="flex flex-wrap items-center gap-2 max-w-full min-w-0">
                     <div class="text-[11px] font-bold t-mut tabular break-words min-w-0">🕒 <span class="hidden sm:inline">Zuletzt bearbeitet: </span><span data-lobby-notets="1">${esc(activePubPage.updatedAt)}</span></div>

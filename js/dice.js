@@ -8,10 +8,10 @@ import {
   hooks
 } from './ui-hooks.js';
 import {
-  applyWinFrame, renderWinCtrlBtns, renderWinResizeHandles, getCampaigns, isUserInCampaign, canManageCampaign, getActiveLiveCampaignId, getCampaignFilteredDiceFeed, captureScrollState, restoreScrollState, save, getWeaponSubtype, isWeaponMassiv, isWeaponBlockable, isArmorShield, S, D, LD, DUEL, diceLogs, isMobileLayout, UI, LIVE_TAB_ID, CLOUD, getCharCampaignId, isEnemySheet, getEnemyMeta, isEnemyDiceVisibleInCampaign, canSeeEnemyInDice, shouldHideOpponentDetails
+  applyWinFrame, renderWinCtrlBtns, renderWinResizeHandles, getCampaigns, isUserInCampaign, canManageCampaign, getActiveLiveCampaignId, getCampaignFilteredDiceFeed, getInitiativeCampaignsForChar, isCharInCampaignInitiative, captureScrollState, restoreScrollState, save, getWeaponSubtype, isWeaponMassiv, isWeaponBlockable, isArmorShield, S, D, LD, DUEL, diceLogs, isMobileLayout, UI, LIVE_TAB_ID, CLOUD, getCharCampaignId, isEnemySheet, getEnemyMeta, isEnemyDiceVisibleInCampaign, canSeeEnemyInDice, shouldHideOpponentDetails
 } from './state.js';
 import {
-  calcActiveMods, getAdvDisForContext, getWeaponRollMeta, getShieldRollMeta, getSheetShields, getSheetBlockOptions, resolveCombatItemByRef, formatBlockModShort, formatBlockModLong, getWeaponDualWieldInfo, fmtAdvSrcLines, getAttrTot, getSkBonus
+  calcActiveMods, getAdvDisForContext, getWeaponRollMeta, getShieldRollMeta, getSheetShields, getSheetBlockOptions, resolveCombatItemByRef, formatBlockModShort, formatBlockModLong, getWeaponDualWieldInfo, fmtAdvSrcLines, getAttrTot, getSkBonus, getCharSizeInfo, getRelativeSizeHitMod
 } from './calc.js';
 import {
   renderLobbyLiveDiceHtml, publishLiveRoll, formatSecretRollSummary, isSecretRollActive, getCachedForeignSheet, getForeignSheetLoadedAt, isForeignSheetLoading, getForeignSheetError, fetchForeignCharacterSheet, fetchLobbyList
@@ -25,51 +25,79 @@ export const getDSkVal=()=>D.dSkill==='custom'?toInt(D.dCustom):toInt(D.dSkill);
 export const getEffC=()=>D.cMode==='direct'?toInt(D.cDirect):toInt(D.cAttr)+getCSkVal();
 export function getActiveDiceCampaignId(){
   if(isLobbyNeutralDice()) return getActiveLiveCampaignId();
+  const charId=String(S?.charId||'').trim();
   if(isEnemySheet(S)){
     const meta=getEnemyMeta(S);
-    if(CLOUD.activeCampaignId&&meta.campaignIds.includes(CLOUD.activeCampaignId)) return CLOUD.activeCampaignId;
+    const activeIniCamps=charId?getInitiativeCampaignsForChar(charId,{activeOnly:true,visibleOnly:false}):[];
+    const anyIniCamps=charId?getInitiativeCampaignsForChar(charId,{activeOnly:false,visibleOnly:false}):[];
+    if(CLOUD.activeCampaignId&&(activeIniCamps.includes(CLOUD.activeCampaignId)||meta.campaignIds.includes(CLOUD.activeCampaignId))){
+      return CLOUD.activeCampaignId;
+    }
+    if(activeIniCamps.length) return activeIniCamps[0];
+    if(CLOUD.activeCampaignId&&anyIniCamps.includes(CLOUD.activeCampaignId)) return CLOUD.activeCampaignId;
     if(meta.campaignIds.length) return meta.campaignIds[0];
+    if(anyIniCamps.length) return anyIniCamps[0];
     return getActiveLiveCampaignId();
   }
-  return getCharCampaignId(S.charId);
+  const ownCamp=getCharCampaignId(charId);
+  if(CLOUD.registry?.initiatives?.[ownCamp]?.active) return ownCamp;
+  if(charId){
+    const activeIniCamps=getInitiativeCampaignsForChar(charId,{activeOnly:true,visibleOnly:false});
+    if(activeIniCamps.length){
+      if(CLOUD.activeCampaignId&&activeIniCamps.includes(CLOUD.activeCampaignId)) return CLOUD.activeCampaignId;
+      return activeIniCamps[0];
+    }
+  }
+  return ownCamp;
 }
 export function getCampaignOpponents(){
   const activeCamp=getActiveDiceCampaignId();
+  const isGm=canManageCampaign(activeCamp);
   const seen=new Set();
   const list=[];
+  const pushItem=(id,name,isEnemy,diceVisible)=>{
+    const cid=String(id||'').trim();
+    if(!cid||seen.has(cid)) return;
+    seen.add(cid);
+    list.push({
+      id:cid,
+      name:String(name||(isEnemy?'Unbenannter Gegner':'Unbenannter Held')).trim()||(isEnemy?'Unbenannter Gegner':'Unbenannter Held'),
+      isSelf:Boolean(!UI.inLobby&&S?.charId&&cid===S.charId),
+      isEnemy:Boolean(isEnemy),
+      diceVisible:Boolean(diceVisible)
+    });
+  };
   (CLOUD.list||[]).forEach(c=>{
     if(!c||!c.id||seen.has(c.id)) return;
     if(isEnemySheet(c.id)){
       if(!canSeeEnemyInDice(c.id,activeCamp)) return;
-      seen.add(c.id);
-      list.push({
-        id:c.id,
-        name:String(c.name||'Unbenannter Gegner').trim()||'Unbenannter Gegner',
-        isSelf:Boolean(!UI.inLobby&&S?.charId&&c.id===S.charId),
-        isEnemy:true,
-        diceVisible:isEnemyDiceVisibleInCampaign(c.id,activeCamp)
-      });
+      const inIni=isCharInCampaignInitiative(c.id,activeCamp,{activeOnly:!isGm,visibleOnly:!isGm});
+      pushItem(c.id,c.name,true,isEnemyDiceVisibleInCampaign(c.id,activeCamp)||inIni);
       return;
     }
-    if(getCharCampaignId(c.id)!==activeCamp) return;
-    seen.add(c.id);
-    list.push({
-      id:c.id,
-      name:String(c.name||'Unbenannter Held').trim()||'Unbenannter Held',
-      isSelf:Boolean(!UI.inLobby&&S?.charId&&c.id===S.charId),
-      isEnemy:false,
-      diceVisible:true
-    });
+    const inCamp=getCharCampaignId(c.id)===activeCamp;
+    const inIni=isCharInCampaignInitiative(c.id,activeCamp,{activeOnly:!isGm,visibleOnly:!isGm});
+    if(!inCamp&&!inIni) return;
+    pushItem(c.id,c.name,false,true);
   });
+  // Falls ein Initiative-Teilnehmer noch nicht in CLOUD.list steht, direkt aus der Initiative übernehmen
+  const iniSt=CLOUD.registry?.initiatives?.[activeCamp];
+  if(iniSt&&Array.isArray(iniSt.entries)&&(isGm||iniSt.active)){
+    iniSt.entries.forEach(e=>{
+      if(!e||!e.charId||seen.has(e.charId)) return;
+      if(!isGm&&e.hidden) return;
+      const isEn=Boolean(e.isEnemy||isEnemySheet(e.charId));
+      pushItem(e.charId,e.name,isEn,true);
+    });
+  }
   if(!UI.inLobby&&S?.charId&&!seen.has(S.charId)){
     if(!isEnemySheet(S)||canSeeEnemyInDice(S.charId,activeCamp)){
-      list.push({
-        id:S.charId,
-        name:String(S.profile?.name||'').trim()||(isEnemySheet(S)?'Aktiver Gegner':'Aktiver Charakter'),
-        isSelf:true,
-        isEnemy:isEnemySheet(S),
-        diceVisible:isEnemySheet(S)?isEnemyDiceVisibleInCampaign(S.charId,activeCamp):true
-      });
+      pushItem(
+        S.charId,
+        String(S.profile?.name||'').trim()||(isEnemySheet(S)?'Aktiver Gegner':'Aktiver Charakter'),
+        isEnemySheet(S),
+        isEnemySheet(S)?isEnemyDiceVisibleInCampaign(S.charId,activeCamp):true
+      );
     }
   }
   return list.sort((a,b)=>{
@@ -402,6 +430,7 @@ export function formatSrcOriginLabel(s){
     return `${s.srcKind}: ${tg}`;
   }
   if(s.srcKind==='Inspiration') return '✨ Inspiration';
+  if(s.srcKind==='Größe') return `📏 ${s.srcName||'Größenunterschied'}`;
   if(s.srcKind==='Mehrhändig') return s.srcName||'Mehrhändiger Kampf';
   if(s.srcKind==='Waffenwurf') return `Waffenwurf: ${s.srcName||'Waffe'}`;
   if(s.tagLbl) return String(s.tagLbl).replace(/\(\s*(\d+)\s*\)/g,' $1').trim();
@@ -494,18 +523,53 @@ export function applyDiceAutoAdvDis(resetManual=false,M=isLobbyNeutralDice()?{te
   const r1=isLobbyNeutralDice()
     ?{autoAdv:0,autoDis:0,rawAutoAdv:0,rawAutoDis:0,src:[],autoCrit:0,critSrc:[],autoRollMod:0,rollModSrc:[],sitOptions:[]}
     :getAdvDisForContext({weaponId:effWeaponId,shieldId:effShieldId,wRollCat:effCat,skillId:D.skillId||null,attrKey:D.attrKey||null,sitActive:D.sitActive||{},dualWieldOvr:D.dualWieldOvr||'auto',includeInspiration:true,oppDefenseCat:oppDefCat},M);
-  const oppAutoAdv=(opp&&opp.ready)?(opp.ad.autoAdv||0):0;
-  const oppAutoDis=(opp&&opp.ready)?(opp.ad.autoDis||0):0;
+  let c1AutoAdv=r1.autoAdv||0;
+  let c1AutoDis=r1.autoDis||0;
+  let c1RawAutoAdv=r1.rawAutoAdv||0;
+  let c1RawAutoDis=r1.rawAutoDis||0;
+  const c1AdvSrc=[...(r1.src||[])];
+  let oppAutoAdv=(opp&&opp.ready)?(opp.ad.autoAdv||0):0;
+  let oppAutoDis=(opp&&opp.ready)?(opp.ad.autoDis||0):0;
+  let oppRawAutoAdv=(opp&&opp.ready)?(opp.ad.rawAutoAdv||opp.ad.autoAdv||0):0;
+  let oppRawAutoDis=(opp&&opp.ready)?(opp.ad.rawAutoDis||opp.ad.autoDis||0):0;
   const oppAdvSrc=(opp&&opp.ready)?(opp.ad.src||[]).map(s=>({...s,fromOpponent:true,oppName:opp.oppName,oppOrigKind:s.kind,kind:s.kind==='dis'?'adv':'dis'})):[];
-  const totalAutoAdv=r1.autoAdv+oppAutoDis;
-  const totalAutoDis=r1.autoDis+oppAutoAdv;
+  if(opp&&opp.ready&&opp.oppSheet){
+    const selfSheet=isLobbyNeutralDice()?null:S;
+    if(effCat==='Trefferwurf'){
+      const sz=getRelativeSizeHitMod(selfSheet,opp.oppSheet);
+      if(sz.diff>0){
+        c1AutoAdv+=sz.diff;
+        c1RawAutoAdv+=sz.diff;
+        c1AdvSrc.push({val:sz.diff,kind:'adv',scope:'hit',label:`${sz.atkInfo.formatted} vs. ${sz.targetInfo.formatted}`,srcName:`Größe (${sz.atkInfo.lvlStr} vs. ${sz.targetInfo.lvlStr})`,srcKind:'Größe'});
+      }else if(sz.diff<0){
+        const dAbs=Math.abs(sz.diff);
+        c1AutoDis+=dAbs;
+        c1RawAutoDis+=dAbs;
+        c1AdvSrc.push({val:dAbs,kind:'dis',scope:'hit',label:`${sz.atkInfo.formatted} vs. ${sz.targetInfo.formatted}`,srcName:`Größe (${sz.atkInfo.lvlStr} vs. ${sz.targetInfo.lvlStr})`,srcKind:'Größe'});
+      }
+    }else if(opp.oppRollCat==='Trefferwurf'){
+      const oppSz=getRelativeSizeHitMod(opp.oppSheet,selfSheet);
+      if(oppSz.diff>0){
+        oppAutoAdv+=oppSz.diff;
+        oppRawAutoAdv+=oppSz.diff;
+        oppAdvSrc.push({val:oppSz.diff,kind:'dis',oppOrigKind:'adv',fromOpponent:true,oppName:opp.oppName,scope:'hit',label:`${oppSz.atkInfo.formatted} vs. ${oppSz.targetInfo.formatted}`,srcName:`Größe (${oppSz.atkInfo.lvlStr} vs. ${oppSz.targetInfo.lvlStr})`,srcKind:'Größe'});
+      }else if(oppSz.diff<0){
+        const dAbs=Math.abs(oppSz.diff);
+        oppAutoDis+=dAbs;
+        oppRawAutoDis+=dAbs;
+        oppAdvSrc.push({val:dAbs,kind:'adv',oppOrigKind:'dis',fromOpponent:true,oppName:opp.oppName,scope:'hit',label:`${oppSz.atkInfo.formatted} vs. ${oppSz.targetInfo.formatted}`,srcName:`Größe (${oppSz.atkInfo.lvlStr} vs. ${oppSz.targetInfo.lvlStr})`,srcKind:'Größe'});
+      }
+    }
+  }
+  const totalAutoAdv=c1AutoAdv+oppAutoDis;
+  const totalAutoDis=c1AutoDis+oppAutoAdv;
   D.adv=Math.max(0,totalAutoAdv+toInt(D.advAdj,0));
   D.dis=Math.max(0,totalAutoDis+toInt(D.disAdj,0));
   return {
     ...r1,
-    c1AutoAdv:r1.autoAdv,
-    c1AutoDis:r1.autoDis,
-    c1AdvSrc:r1.src||[],
+    c1AutoAdv,
+    c1AutoDis,
+    c1AdvSrc,
     opp,
     oppAutoAdv,
     oppAutoDis,
@@ -513,9 +577,9 @@ export function applyDiceAutoAdvDis(resetManual=false,M=isLobbyNeutralDice()?{te
     oppSitOptions:(opp&&opp.ready)?(opp.ad.sitOptions||[]):[],
     autoAdv:totalAutoAdv,
     autoDis:totalAutoDis,
-    rawAutoAdv:r1.rawAutoAdv+oppAutoDis,
-    rawAutoDis:r1.rawAutoDis+oppAutoAdv,
-    src:[...(r1.src||[]),...oppAdvSrc]
+    rawAutoAdv:c1RawAutoAdv+oppRawAutoDis,
+    rawAutoDis:c1RawAutoDis+oppRawAutoAdv,
+    src:[...c1AdvSrc,...oppAdvSrc]
   };
 }
 export function calcRollAdvDis(M=isLobbyNeutralDice()?{testTh:0}:calcActiveMods()){
@@ -982,11 +1046,20 @@ export function renderDice(){
         detailHtml=`<div class="text-[11px] t-mut">Dieser Charakter hat keine Fertigkeiten eingetragen.</div>`;
       }
     }
+    const oppSizeInfo=getCharSizeInfo(oppSheet);
+    const selfSizeInfo=isLobbyNeutralDice()?{level:0,lvlStr:'0',formatted:'Normal (0)'}:getCharSizeInfo(S);
+    const hitSizeDiff=oppSizeInfo.level-selfSizeInfo.level;
+    const isHitRoll=D.wRollCat==='Trefferwurf';
+    const sizeBadgeCls=(isHitRoll&&hitSizeDiff!==0)
+      ?(hitSizeDiff>0?'border-emerald-400/55 bg-emerald-500/15 text-emerald-200':'border-rose-400/55 bg-rose-500/15 text-rose-200')
+      :(oppSizeInfo.level!==0?'border-amber-400/45 bg-amber-500/10 text-amber-200':'bdr-line bg-black/25 t-mut');
+    const sizeTip=`Ziel-Größe: ${oppSizeInfo.formatted} • Eigene Größe: ${selfSizeInfo.formatted}${hitSizeDiff!==0?`\nAuf Trefferwürfe: ${hitSizeDiff>0?`+${hitSizeDiff} Vorteil${hitSizeDiff===1?'':'e'}`:`+${Math.abs(hitSizeDiff)} Nachteil${Math.abs(hitSizeDiff)===1?'':'e'}`}`:'\nKein Größenunterschied (±0)'}`;
     return `<div class="subcard p-2.5 border border-indigo-400/45 bg-indigo-500/8 space-y-2 min-w-0">
       <div class="flex flex-wrap items-center justify-between gap-1.5 min-w-0">
-        <div class="flex items-center gap-1.5 min-w-0">
+        <div class="flex flex-wrap items-center gap-1.5 min-w-0">
           <span class="text-[10px] font-black text-indigo-300 uppercase tracking-wider shrink-0">⚔️ Ziel</span>
           ${kindBar}
+          <span data-tip="${esc(sizeTip)}" class="px-1.5 py-0.5 rounded-md border text-[10px] font-extrabold tabular cursor-help shrink-0 ${sizeBadgeCls}">📏 ${esc(oppSizeInfo.formatted)}${(isHitRoll&&hitSizeDiff!==0)?` (${hitSizeDiff>0?`+${hitSizeDiff}V`:`+${Math.abs(hitSizeDiff)}N`})`:''}</span>
         </div>
         ${duelRightHtml}
       </div>
@@ -1349,7 +1422,7 @@ export function renderLiveDice(){
   const hadContent=mount.childElementCount>0;
   const snap=hadContent?captureScrollState(mount):null;
   applyWinFrame('livedice', mount, bd, WIN_DEFAULTS.livedice.dockClass); if(!LD.open){mount.innerHTML='';mount.dataset.lastCampId='';return;}
-  const allCamps=getCampaigns();
+  const allCamps=getCampaigns().filter(c=>c&&(c.id==='default'||!c.archived));
   const visCamps=CLOUD.isAdmin?allCamps:(CLOUD.currentUser?allCamps.filter(c=>c.id==='default'||isUserInCampaign(c,CLOUD.currentUser)||canManageCampaign(c)):allCamps);
   const activeCampId=getActiveLiveCampaignId();
   const sameCamp=hadContent&&mount.dataset.lastCampId===activeCampId;
@@ -1403,7 +1476,7 @@ export function renderBlockFollowUpBox(){
         <span class="text-3xl font-black">${fr.r}</span>
         <span class="px-3 py-1 rounded-lg text-white font-extrabold text-xs sm:text-sm ${fr.ok?'bg-emerald-600':'bg-rose-600'}">${fr.ok?`EG: ${fr.eg}${frMult>1?` (${frBase} ×${frMult})`:''} (Grundschaden vs. Rüstung)`:`0 EG • ${fr.r===100?'Patzer (100)':'Misserfolg'} (MEG: ${fr.meg})`}</span>
       </div>
-      <div class="text-xs font-extrabold ${fr.crit?'text-amber-400':fr.ok?'text-emerald-400':'text-rose-400'}">${fr.ok?`${fr.crit?'★ Kritisch! ':''}Erzielte Erfolgsgrade für Grundschaden gegen Rüstung: ${fr.eg} EG${frMult>1?` (${frBase} ×${frMult})`:''}`:'Kein Durchkommen – 0 EG Grundschaden gegen die Rüstung'}</div>
+      <div class="text-xs font-extrabold ${fr.crit?'text-amber-400':fr.ok?'text-emerald-400':'text-rose-400'}">${fr.ok?`${fr.crit?'★ Kritisch (+2 Extraschaden)! ':''}Erzielte Erfolgsgrade für Grundschaden gegen Rüstung: ${fr.eg} EG${frMult>1?` (${frBase} ×${frMult})`:''}`:'Kein Durchkommen – 0 EG Grundschaden gegen die Rüstung'}</div>
     </div>`;
   }
   return `<div class="subcard mt-2 p-3 border-2 border-emerald-500/50 bg-emerald-500/10 space-y-2.5 text-left">

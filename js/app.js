@@ -8,13 +8,13 @@ import {
   registerHooks
 } from './ui-hooks.js';
 import {
-  syncPwUseCostsLegacy, makeDefaultStatusEffects, defaultState, setS, setD, clearDiceLogs, syncBodyScrollLock, positionFloatingMenu, openCtxMenu, closeCtxMenu, closePwDropdown, repositionOpenPwMenus, hydrateWinPrefs, saveWinPref, clearWinPref, applyWinFrame, setPwMode, normalizeCampaigns, normalizeEnemyMeta, getUserBgLocalKey, getCampaigns, setActiveCampaign, canManageCampaign, canClearLiveDice, getCreatableCampaigns, isEnemySheet, getEnemyMeta, canToggleEnemyStatus, canManageEnemySheet, canViewEnemySheet, ensureAllRegistryUsers, findUserKeyByName, findUserKeyById, getUserAvatar, canViewUserProfile, saveRegistryLocal, saveSecretRollsLocal, getActiveLiveCampaignId, captureScrollState, restoreScrollState, toast, triggerNiceEasterEgg, logChron, mergeLoaded, saveLastActiveTab, save, flushPendingSave, saveSoon, load, flushThemePrefsSync, cancelThemePrefsSync, applySessionTheme, persistCurrentThemeChange, syncPalDraftFromSlot, applyTheme, CUSTOM_ICONS, findMainArt, findActionSub, isReservedPwTerm, getWeaponSubtype, isWeaponMassiv, isArmorShield, isWeaponBlockable, makeWeapon, makeAmmo, makeArmor, makeInvItem, makeEqSecMeta, makeChrSecMeta, makeSection, makeSkSection, makeInvSection, makePower, makeAugment, syncEquipmentToInventory, S, D, CN, LD, INI, FBW, DUEL, COMBAT, isMobileLayout, CTX_MENU, getWinState, hasSavedWinPref, savedEffRanges, savedPwRanges, lastPwFieldById, pwQuickKey, UI, LIVE_TAB_ID, PATCHNOTES, FEEDBACK, CLOUD, CLOUD_SYNC, PWLIB, getCharOwner, getCharCampaignId, canManageChar, getEditStyleSlot
+  syncPwUseCostsLegacy, makeDefaultStatusEffects, defaultState, setS, setD, clearDiceLogs, syncBodyScrollLock, positionFloatingMenu, openCtxMenu, closeCtxMenu, closePwDropdown, repositionOpenPwMenus, hydrateWinPrefs, saveWinPref, clearWinPref, applyWinFrame, setPwMode, normalizeCampaigns, normalizeEnemyMeta, getUserBgLocalKey, getCampaigns, getActiveCampaigns, setActiveCampaign, canManageCampaign, canClearLiveDice, getCreatableCampaigns, isEnemySheet, getEnemyMeta, canToggleEnemyStatus, canManageEnemySheet, canViewEnemySheet, ensureAllRegistryUsers, findUserKeyByName, findUserKeyById, getUserAvatar, canViewUserProfile, saveRegistryLocal, saveSecretRollsLocal, getActiveLiveCampaignId, captureScrollState, restoreScrollState, toast, triggerNiceEasterEgg, logChron, mergeLoaded, saveLastActiveTab, save, flushPendingSave, saveSoon, load, flushThemePrefsSync, cancelThemePrefsSync, applySessionTheme, persistCurrentThemeChange, syncPalDraftFromSlot, applyTheme, CUSTOM_ICONS, findMainArt, findActionSub, isReservedPwTerm, getWeaponSubtype, isWeaponMassiv, isArmorShield, isWeaponBlockable, makeWeapon, makeAmmo, makeArmor, makeInvItem, makeEqSecMeta, makeChrSecMeta, makeSection, makeSkSection, makeInvSection, makePower, makeAugment, syncEquipmentToInventory, S, D, CN, LD, INI, FBW, DUEL, COMBAT, isMobileLayout, CTX_MENU, getWinState, hasSavedWinPref, savedEffRanges, savedPwRanges, lastPwFieldById, pwQuickKey, UI, LIVE_TAB_ID, PATCHNOTES, FEEDBACK, CLOUD, CLOUD_SYNC, PWLIB, getCharOwner, getCharCampaignId, canManageChar, getEditStyleSlot
 } from './state.js';
 import {
   getStatusEffValues, formatPwUseCosts, getReservablePwCosts, getEffectivePoolCap, getPwBuilderToken, parseStatusTokens, getAllParsedEffectChips, invalidateModsCache, calcActiveMods, buildAttrTip, buildSecTip, getMentalArmorSummary, syncCresRenameInTokens, syncSkillRenameInTokens, purgeExtraSecFromPowers, calcAutoSkCost, findDuplicatePwEntry, makeUniquePwName, updatePwNameDupHint, enforceUniquePwName, buildPowerExportPack, downloadPowerPackJson, resolveLibraryAugmentParentName, getSuggestedAugmentsForPower, importPowerPackIntoSheet, getTrCost, performSimpleRest, performFullRest, withPoolSync, linkAugToPower, unlinkAugFromPower, calcPwCost, calcSkCost, calcProg, getWeaponRollMeta, getShieldRollMeta, getSheetBlockOptions, getEquippedWeaponsForSkill, getEquippedShieldsForSkill, formatBlockModShort, getWeaponDualWieldInfo, getTagDesc, cresName, makeExtraSec, getExtraSecName, getResLabel, escReStr, getAttrCol, getSecCol, getAttrTot, getLpBase, getLpMax, getMlpBase, getMlpMax, getLpRegenAuto, getMlpRegenAuto, hasLpRegenOvr, hasMlpRegenOvr, getLpRegen, getMlpRegen, getIniBase, getIniTot, getApBase, getApMax, getMapBase, getMapMax, getCresBase, getCresMax, getExtraSecBase, getBstAuto, hasBstOvr, getBstBase, getEffBst, getSkAutoBonus, hasSkBonusOvr, getSkBonus, findPwItem, findEqItem, getLinkedAugs, getValidPwSecId
 } from './calc.js';
 import {
-  updateLobbyLiveDiceDOM, initLiveDiceChannel, publishLiveRoll, revealSecretRoll, publishLiveCampNote, clearLiveDiceFeed, syncCloudRegistry, renameUserAccount, addCampaignAllowedUser, removeCampaignAllowedUser, toggleGlobalGMTag, addCampaignMainGM, removeCampaignMainGM, kickCharFromCampaign, duplicateCharacterSheet, getCampaignSharedPages, extractPublicPages, upsertPublicNoteEntry, fetchLobbyList, fetchForeignCharacterSheet, canWriteCurrentSheetToCloud, resetCloudSyncState, updateCloudSyncStatusDOM, scheduleCloudSync, pushToCloud, flushCloudSyncNow, flushBeforeCharacterSwitch, loadCloudCharacter, createNewUserCharacter, updateCloudCharacterMeta, fetchTrashedCharacters, deleteCloudCharacter, restoreTrashedCharacter, permanentDeleteTrashedCharacter, emptyTrashedCharacters, updateEnemyMetaCloud, createNewEnemyOrTemplate, toggleEnemyActiveStatus, toggleEnemyCampaignAssignment, toggleEnemyDiceVisibility, hideAllEnemiesInCampaignDice, toggleEnemyArchived, cloneEnemyToCampaign, stripLibraryPackMeta, getAllLibraryPacks, fetchPowerLibrary, publishPackToCloudLibrary, deletePackFromCloudLibrary, parsePatchnoteTsMs, getNewestPatchnoteId, isPatchnoteCollapsed, normalizePatchnoteEntry, fetchPatchnotes, savePatchnotesToServer, fetchFeedback, saveFeedbackStore, loadCustomIconsCache, fetchCustomIcons, saveCustomIconsToServer, loadNotifSeen, saveNotifSeen, markNotifRead, markAllNotifsRead, updateNotifBadges, refreshUserNotificationsBg, fetchAndSyncBasisPowers, isSecretRollActive
+  updateLobbyLiveDiceDOM, initLiveDiceChannel, publishLiveRoll, revealSecretRoll, publishLiveCampNote, clearLiveDiceFeed, syncCloudRegistry, renameUserAccount, addCampaignAllowedUser, removeCampaignAllowedUser, archiveCampaignById, restoreCampaignById, deleteCampaignById, toggleGlobalGMTag, addCampaignMainGM, removeCampaignMainGM, kickCharFromCampaign, duplicateCharacterSheet, getCampaignSharedPages, extractPublicPages, upsertPublicNoteEntry, fetchLobbyList, fetchForeignCharacterSheet, canWriteCurrentSheetToCloud, resetCloudSyncState, updateCloudSyncStatusDOM, scheduleCloudSync, pushToCloud, flushCloudSyncNow, flushBeforeCharacterSwitch, loadCloudCharacter, createNewUserCharacter, updateCloudCharacterMeta, fetchTrashedCharacters, deleteCloudCharacter, restoreTrashedCharacter, permanentDeleteTrashedCharacter, emptyTrashedCharacters, updateEnemyMetaCloud, createNewEnemyOrTemplate, toggleEnemyActiveStatus, toggleEnemyCampaignAssignment, toggleEnemyDiceVisibility, hideAllEnemiesInCampaignDice, toggleEnemyArchived, cloneEnemyToCampaign, stripLibraryPackMeta, getAllLibraryPacks, fetchPowerLibrary, publishPackToCloudLibrary, deletePackFromCloudLibrary, parsePatchnoteTsMs, getNewestPatchnoteId, isPatchnoteCollapsed, normalizePatchnoteEntry, fetchPatchnotes, savePatchnotesToServer, fetchFeedback, saveFeedbackStore, loadCustomIconsCache, fetchCustomIcons, saveCustomIconsToServer, loadNotifSeen, saveNotifSeen, markNotifRead, markAllNotifsRead, updateNotifBadges, refreshUserNotificationsBg, fetchAndSyncBasisPowers, isSecretRollActive
 } from './cloud.js';
 import {
   resetDiceToLobbyNeutral, exitLobbyNeutralDice, ensureLobbyNeutralDiceOnOpen, applyDiceAutoAdvDis, calcThreshold, openWeaponRoll, openShieldRoll, selectDiceWeapon, syncDiceFromSheet, buildAdvDisInnerHtml, renderDice, renderLiveDice, rollW100, renderBlockFollowUpBox, executeBlockFollowUpRoll, executeDiceRoll, rollCustomDice, getCSkVal, getDSkVal, getEffC, getEffD, isLobbyNeutralDice, calcEgMultiplier, buildThresholdInnerHtml, activateVsCharMode, selectDiceOpponent, resolveOpponentComparison
@@ -23,7 +23,7 @@ import {
   sendDuelChallenge, cancelOutgoingDuel, clearOutgoingDuel, handleLiveDuelEvent, ignoreIncomingDuel, openDuelReplyModal, closeDuelReplyModal, submitDuelReply, renderDuelBanner, renderDuelReplyModal
 } from './duel.js';
 import {
-  initCombatFromRoll, resetCombatState, rollCombatHitZone, rollCombatSubHitZone, publishCombatDamageToFeed, renderCombatDamageBox, hasTagMatch, sendCombatDamageOffer, applyCombatDamageDirectly, spendCombatAmmo, handleCombatLiveEvent, acceptCombatDamageOffer, declineCombatDamageOffer
+  initCombatFromRoll, resetCombatState, mutateCombatHit, rollCombatHitZone, rollAllCombatHitZones, rollCombatSubHitZone, publishCombatDamageToFeed, publishAllCombatDamageToFeed, renderCombatDamageBox, hasTagMatch, sendCombatDamageOffer, sendCombinedCombatDamageOffer, applyCombatDamageDirectly, applyCombinedCombatDamageDirectly, spendCombatAmmo, handleCombatLiveEvent, acceptCombatDamageOffer, declineCombatDamageOffer
 } from './combat.js';
 import {
   ensureWeaponMagCfg, purgeDeletedAmmoFromMagazines, toggleWeaponMagazines, toggleWeaponMagAutoSync, setWeaponMagDefaultCap, setWeaponMagCount, addWeaponMagazine, deleteWeaponMagazine, selectWeaponActiveMag, reloadWeaponMagazine, fireWeaponMagazineShot, stepMagazineCount, fillMagazine, fillAllWeaponMagazines, emptyMagazine, syncWeaponAmmoExactFromMags, clearMagSlotOverrides, openMagDefaultAmmoPicker, openMagSlotAmmoPicker, syncAmmoTotalsFromMagazines
@@ -283,6 +283,12 @@ document.addEventListener('click',async e=>{
       const ctxItem=e.target.closest('.ctx-item');
       if(ctxItem){
         if(ctxItem.disabled) return;
+        const isHrefLink=ctxItem.tagName==='A'&&ctxItem.hasAttribute('href');
+        if(isHrefLink&&(e.metaKey||e.ctrlKey||e.shiftKey||e.altKey||e.button!==0)){
+          closeCtxMenu();
+          return;
+        }
+        if(isHrefLink) e.preventDefault();
         const curMenuId=CTX_MENU.id;
         const keepOpen=ctxItem.hasAttribute('data-ctx-keep-open');
         const cbIdx=ctxItem.dataset.ctxCb;
@@ -301,6 +307,10 @@ document.addEventListener('click',async e=>{
   }
   if(UI.openPwMenu&&!e.target.closest('.pw-dd-wrap')) closePwDropdown();
   const el=e.target.closest('[data-action]'); if(!el) return;
+  if(el.tagName==='A'&&el.hasAttribute('href')){
+    if(e.metaKey||e.ctrlKey||e.shiftKey||e.altKey||e.button!==0) return;
+    e.preventDefault();
+  }
   const btn=el, act=el.dataset.action; if(act==='close-modal-bg'&&e.target!==el) return;
   if(act==='fb-set-backlog-user'){if(!CLOUD.isAdmin)return;FEEDBACK.backlogUser=btn.dataset.user||'all';renderModal();return;}
   if(act==='win-float'){ const k=btn.dataset.win, st=getWinState(k); st.floating=!st.floating; if(st.floating){st.docked=false; st.z=Math.max(CN.z||50,D.z||50,LD.z||50,INI.z||50,FBW.z||50)+1;} saveWinPref(k); renderCampNotes(); renderLiveDice(); renderInitiativeWindow(); renderFbAdminWin(); renderDice(); return; }
@@ -371,6 +381,46 @@ document.addEventListener('click',async e=>{
         else UI.tab1.attrPairs={};
       }
       renderMain();
+      break;
+    }
+    case 'char-size-ovr-step': {
+      if(!S.charSize||typeof S.charSize!=='object') S.charSize={level:0,ovr:'',customLevels:[]};
+      const cur=String(S.charSize.ovr??'').trim()!==''?toInt(S.charSize.ovr,toInt(S.charSize.level,0)):toInt(S.charSize.level,0);
+      const next=cur+toInt(el.dataset.d,0);
+      S.charSize.ovr=(next===toInt(S.charSize.level,0))?'':String(next);
+      renderMain(); if(D.open){applyDiceAutoAdvDis(false);renderDice();} save();
+      break;
+    }
+    case 'char-size-ovr-reset': {
+      if(!S.charSize||typeof S.charSize!=='object') S.charSize={level:0,ovr:'',customLevels:[]};
+      S.charSize.ovr='';
+      renderMain(); if(D.open){applyDiceAutoAdvDis(false);renderDice();} save();
+      break;
+    }
+    case 'char-size-add-custom': {
+      if(!S.charSize||typeof S.charSize!=='object') S.charSize={level:0,ovr:'',customLevels:[]};
+      if(!Array.isArray(S.charSize.customLevels)) S.charSize.customLevels=[];
+      const lvlInp=$('inpCharSizeNewLvl'), lblInp=$('inpCharSizeNewLbl');
+      const rawLvl=String(lvlInp?.value||'').trim(), rawLbl=String(lblInp?.value||'').trim();
+      if(rawLvl===''||!Number.isFinite(Number(rawLvl))){toast('⚠️ Bitte eine gültige ganze Zahl als Größenstufe eingeben (z. B. +3 oder -3).');break;}
+      if(!rawLbl){toast('⚠️ Bitte eine Bezeichnung für die Größenstufe eingeben (z. B. Riesig).');break;}
+      const lv=toInt(rawLvl,0);
+      S.charSize.customLevels=S.charSize.customLevels.filter(x=>x&&toInt(x.level,NaN)!==lv);
+      S.charSize.customLevels.push({level:lv,label:rawLbl});
+      S.charSize.customLevels.sort((a,b)=>a.level-b.level);
+      S.charSize.level=lv;
+      S.charSize.ovr='';
+      renderMain(); if(D.open){applyDiceAutoAdvDis(false);renderDice();} save();
+      toast(`📏 Größenstufe „${rawLbl} (${lv>0?'+'+lv:lv})“ hinzugefügt & ausgewählt.`);
+      break;
+    }
+    case 'char-size-del-custom': {
+      if(!S.charSize||!Array.isArray(S.charSize.customLevels)) break;
+      const lv=toInt(el.dataset.level,NaN);
+      if(!Number.isFinite(lv)) break;
+      S.charSize.customLevels=S.charSize.customLevels.filter(x=>x&&toInt(x.level,NaN)!==lv);
+      renderMain(); if(D.open){applyDiceAutoAdvDis(false);renderDice();} save();
+      toast('🗑️ Eigene Größenstufe entfernt.');
       break;
     }
     case 'toggle-attr-pair': {
@@ -1747,6 +1797,16 @@ document.addEventListener('click',async e=>{
     case 'ini-mod-reset': resetInitiativeEntryMod(el.dataset.camp||getActiveInitiativeCampaignId(),el.dataset.id||''); break;
     case 'ini-toggle-hidden': toggleInitiativeEntryHidden(el.dataset.camp||getActiveInitiativeCampaignId(),el.dataset.id||''); break;
     case 'ini-remove': removeInitiativeEntry(el.dataset.camp||getActiveInitiativeCampaignId(),el.dataset.id||''); break;
+    case 'ini-target-dice': {
+      const tid=String(el.dataset.id||'').trim();
+      if(!tid) break;
+      if(UI.inLobby) ensureLobbyNeutralDiceOnOpen();
+      D.open=true;
+      D.dMode='character';
+      selectDiceOpponent(tid,{force:false,silent:true});
+      renderHeader();
+      break;
+    }
     case 'reset-dice': clearOutgoingDuel({notifyCancel:true,silent:true}); resetCombatState(); setD({...DICE_DEF,sitActive:{},oppSitActive:{},open:true,docked:D.docked,floating:D.floating,x:D.x,y:D.y,w:D.w,h:D.h,z:D.z}); if(isLobbyNeutralDice()) resetDiceToLobbyNeutral(); UI.lastRollHtml=''; UI.lastBlockBaseHtml=''; UI.lastBlockFollowRes=null; UI.lastSecretRollId=''; renderDice(); updateLobbyLiveDiceDOM(); break;
     case 'toggle-cnotes': CN.open=!CN.open; CN.confirmDelId=null; renderHeader(); renderCampNotes(); break;
     case 'close-cnotes': CN.open=false; CN.confirmDelId=null; renderHeader(); renderCampNotes(); break;
@@ -2233,40 +2293,96 @@ document.addEventListener('click',async e=>{
     }
     case 'combat-close': resetCombatState(); renderDice(); break;
     case 'combat-toggle-collapse': COMBAT.collapsed=!COMBAT.collapsed; renderDice(); break;
-    case 'combat-roll-hz': COMBAT.offerStatus=''; COMBAT.offerNote=''; COMBAT.directAppliedNote=''; rollCombatHitZone(); break;
-    case 'combat-roll-subhz': COMBAT.offerStatus=''; COMBAT.offerNote=''; COMBAT.directAppliedNote=''; rollCombatSubHitZone(); break;
-    case 'combat-set-zone': COMBAT.zoneName=el.dataset.zone||''; COMBAT.subZoneName=''; COMBAT.lastHzRoll=null; COMBAT.lastSubHzRoll=null; COMBAT.posted=false; COMBAT.offerStatus=''; COMBAT.offerNote=''; COMBAT.directAppliedNote=''; renderDice(); break;
-    case 'combat-set-subzone': COMBAT.subZoneName=el.dataset.subzone||''; COMBAT.lastSubHzRoll=null; COMBAT.posted=false; COMBAT.offerStatus=''; COMBAT.offerNote=''; COMBAT.directAppliedNote=''; renderDice(); break;
-    case 'combat-set-dmgtype': COMBAT.dmgType=el.dataset.dmgtype||'cut'; COMBAT.posted=false; COMBAT.offerStatus=''; COMBAT.offerNote=''; COMBAT.directAppliedNote=''; renderDice(); break;
-    case 'combat-set-pool': COMBAT.pool=el.dataset.pool==='mlp'?'mlp':'lp'; COMBAT.posted=false; COMBAT.offerStatus=''; COMBAT.offerNote=''; COMBAT.directAppliedNote=''; renderDice(); break;
+    case 'combat-hit-toggle-collapse': {
+      const hi=toInt(el.dataset.hitIdx,0);
+      mutateCombatHit(hi,h=>{h.collapsed=!h.collapsed;},{resetCombined:false});
+      renderDice();
+      break;
+    }
+    case 'combat-roll-all-hz': rollAllCombatHitZones(); break;
+    case 'combat-roll-hz': {
+      const hi=toInt(el.dataset.hitIdx,0);
+      mutateCombatHit(hi,h=>{h.offerStatus='';h.offerNote='';h.directAppliedNote='';});
+      rollCombatHitZone(hi);
+      break;
+    }
+    case 'combat-roll-subhz': {
+      const hi=toInt(el.dataset.hitIdx,0);
+      mutateCombatHit(hi,h=>{h.offerStatus='';h.offerNote='';h.directAppliedNote='';});
+      rollCombatSubHitZone(hi);
+      break;
+    }
+    case 'combat-set-zone': {
+      const hi=toInt(el.dataset.hitIdx,0);
+      mutateCombatHit(hi,h=>{h.zoneName=el.dataset.zone||'';h.subZoneName='';h.lastHzRoll=null;h.lastSubHzRoll=null;h.posted=false;h.offerStatus='';h.offerNote='';h.directAppliedNote='';});
+      renderDice();
+      break;
+    }
+    case 'combat-set-subzone': {
+      const hi=toInt(el.dataset.hitIdx,0);
+      mutateCombatHit(hi,h=>{h.subZoneName=el.dataset.subzone||'';h.lastSubHzRoll=null;h.posted=false;h.offerStatus='';h.offerNote='';h.directAppliedNote='';});
+      renderDice();
+      break;
+    }
+    case 'combat-set-dmgtype': {
+      const hi=toInt(el.dataset.hitIdx,0);
+      mutateCombatHit(hi,h=>{h.dmgType=el.dataset.dmgtype||'cut';h.posted=false;h.offerStatus='';h.offerNote='';h.directAppliedNote='';});
+      renderDice();
+      break;
+    }
+    case 'combat-set-pool': {
+      const hi=toInt(el.dataset.hitIdx,0);
+      mutateCombatHit(hi,h=>{h.pool=el.dataset.pool==='mlp'?'mlp':'lp';h.posted=false;h.offerStatus='';h.offerNote='';h.directAppliedNote='';});
+      renderDice();
+      break;
+    }
     case 'combat-toggle-block-red': {
-      const next=!COMBAT.blockItemRed||Boolean(COMBAT.blockShieldId);
-      COMBAT.blockItemRed=next;
-      if(next){COMBAT.blockShieldId='';COMBAT.blockShieldName='';}
-      COMBAT.posted=false; COMBAT.offerStatus=''; COMBAT.offerNote=''; COMBAT.directAppliedNote='';
+      const hi=toInt(el.dataset.hitIdx,0);
+      mutateCombatHit(hi,h=>{
+        const next=!h.blockItemRed||Boolean(h.blockShieldId);
+        h.blockItemRed=next;
+        if(next){h.blockShieldId='';h.blockShieldName='';}
+        h.posted=false; h.offerStatus=''; h.offerNote=''; h.directAppliedNote='';
+      });
       renderDice();
       break;
     }
     case 'combat-set-block-shield': {
+      const hi=toInt(el.dataset.hitIdx,0);
       const sid=String(el.dataset.id||'').trim();
-      if(COMBAT.blockShieldId===sid){
-        COMBAT.blockShieldId='';
-        COMBAT.blockShieldName='';
-      }else{
-        COMBAT.blockShieldId=sid;
-        COMBAT.blockShieldName='';
-        COMBAT.blockItemRed=false;
-      }
-      COMBAT.posted=false; COMBAT.offerStatus=''; COMBAT.offerNote=''; COMBAT.directAppliedNote='';
+      mutateCombatHit(hi,h=>{
+        if(h.blockShieldId===sid){
+          h.blockShieldId='';
+          h.blockShieldName='';
+        }else{
+          h.blockShieldId=sid;
+          h.blockShieldName='';
+          h.blockItemRed=false;
+        }
+        h.posted=false; h.offerStatus=''; h.offerNote=''; h.directAppliedNote='';
+      });
       renderDice();
       break;
     }
-    case 'combat-dmg-step': COMBAT.dmgMod=toInt(COMBAT.dmgMod,0)+Number(el.dataset.d); COMBAT.posted=false; COMBAT.offerStatus=''; COMBAT.offerNote=''; COMBAT.directAppliedNote=''; renderDice(); break;
-    case 'combat-armor-step': COMBAT.armorMod=toInt(COMBAT.armorMod,0)+Number(el.dataset.d); COMBAT.posted=false; COMBAT.offerStatus=''; COMBAT.offerNote=''; COMBAT.directAppliedNote=''; renderDice(); break;
-    case 'combat-post-feed': publishCombatDamageToFeed(); break;
-    case 'combat-send-offer': sendCombatDamageOffer(); break;
-    case 'combat-apply-direct': await applyCombatDamageDirectly(); break;
-    case 'combat-spend-ammo': spendCombatAmmo(); break;
+    case 'combat-dmg-step': {
+      const hi=toInt(el.dataset.hitIdx,0);
+      mutateCombatHit(hi,h=>{h.dmgMod=toInt(h.dmgMod,0)+Number(el.dataset.d);h.posted=false;h.offerStatus='';h.offerNote='';h.directAppliedNote='';});
+      renderDice();
+      break;
+    }
+    case 'combat-armor-step': {
+      const hi=toInt(el.dataset.hitIdx,0);
+      mutateCombatHit(hi,h=>{h.armorMod=toInt(h.armorMod,0)+Number(el.dataset.d);h.posted=false;h.offerStatus='';h.offerNote='';h.directAppliedNote='';});
+      renderDice();
+      break;
+    }
+    case 'combat-post-feed': publishCombatDamageToFeed(toInt(el.dataset.hitIdx,0)); break;
+    case 'combat-post-all-feed': publishAllCombatDamageToFeed(); break;
+    case 'combat-send-offer': sendCombatDamageOffer(toInt(el.dataset.hitIdx,0)); break;
+    case 'combat-send-combined-offer': sendCombinedCombatDamageOffer(); break;
+    case 'combat-apply-direct': await applyCombatDamageDirectly(toInt(el.dataset.hitIdx,0)); break;
+    case 'combat-apply-combined-direct': await applyCombinedCombatDamageDirectly(); break;
+    case 'combat-spend-ammo': spendCombatAmmo(toInt(el.dataset.hitIdx,0)); break;
     case 'combat-offer-accept': await acceptCombatDamageOffer(el.dataset.id); break;
     case 'combat-offer-decline': declineCombatDamageOffer(el.dataset.id); break;
     case 'combat-offer-toggle-edit': {
@@ -2362,7 +2478,7 @@ document.addEventListener('click',async e=>{
     case 'camp-new-open': {
       if(!CLOUD.isAdmin) break;
       CLOUD.campAction=CLOUD.campAction==='new'?'':'new';
-      renderModal();
+      renderMain(); renderModal();
       if(CLOUD.campAction==='new') setTimeout(()=>{const inp=$('inpCampaignName');if(inp)inp.focus();},30);
       break;
     }
@@ -2372,19 +2488,19 @@ document.addEventListener('click',async e=>{
       if(!nm){toast('⚠️ Bitte einen Namen für die neue Kampagne eingeben.');break;}
       const camps=getCampaigns();
       const newId='camp_'+uid();
-      camps.push({id:newId,name:nm,allowedUsers:[]});
+      camps.push({id:newId,name:nm,allowedUsers:[],gmUsers:[],img:'',archived:false,archivedAt:'',archivedAtMs:0});
       CLOUD.registry.campaigns=normalizeCampaigns(camps);
       setActiveCampaign(newId);
       CLOUD.campAction='';
       syncCloudRegistry(true);
-      renderModal();
+      renderMain(); renderModal();
       toast(`🗺️ Kampagne „${nm}“ erstellt!`);
       break;
     }
     case 'camp-rename-open': {
       if(!CLOUD.isAdmin) break;
       CLOUD.campAction=CLOUD.campAction==='rename'?'':'rename';
-      renderModal();
+      renderMain(); renderModal();
       if(CLOUD.campAction==='rename') setTimeout(()=>{const inp=$('inpCampaignName');if(inp){inp.focus();inp.select();}},30);
       break;
     }
@@ -2399,80 +2515,74 @@ document.addEventListener('click',async e=>{
         CLOUD.registry.campaigns=normalizeCampaigns(camps);
         CLOUD.campAction='';
         syncCloudRegistry(true);
-        renderModal();
+        renderMain(); renderModal();
         toast(`✏️ Kampagne in „${nm}“ umbenannt!`);
       }
+      break;
+    }
+    case 'camp-archive-ask': {
+      if(!CLOUD.isAdmin||CLOUD.activeCampaignId==='default') break;
+      CLOUD.campAction='archive';
+      renderMain();
+      break;
+    }
+    case 'camp-archive-confirm': {
+      if(!CLOUD.isAdmin||CLOUD.activeCampaignId==='default') break;
+      archiveCampaignById(CLOUD.activeCampaignId);
       break;
     }
     case 'camp-delete-ask': {
       if(!CLOUD.isAdmin||CLOUD.activeCampaignId==='default') break;
       CLOUD.campAction='delete';
-      renderModal();
+      renderMain();
       break;
     }
     case 'camp-delete-confirm': {
       if(!CLOUD.isAdmin||CLOUD.activeCampaignId==='default') break;
-      const delId=CLOUD.activeCampaignId;
-      const camps=getCampaigns();
-      const delCamp=camps.find(c=>c.id===delId);
-      const delName=delCamp?.name||'Kampagne';
-      const nextCamps=normalizeCampaigns(camps.filter(c=>c.id!==delId));
-      CLOUD.registry.campaigns=nextCamps;
-      if(!CLOUD.registry.charCampaigns||typeof CLOUD.registry.charCampaigns!=='object') CLOUD.registry.charCampaigns={};
-      const affectedIds=[];
-      CLOUD.list.forEach(ch=>{
-        if(getCharCampaignId(ch.id)===delId){
-          ch.campaignId='default';
-          CLOUD.registry.charCampaigns[ch.id]='default';
-          affectedIds.push(ch.id);
-        }
-      });
-      Object.keys(CLOUD.registry.charCampaigns).forEach(cid=>{
-        if(CLOUD.registry.charCampaigns[cid]===delId){
-          CLOUD.registry.charCampaigns[cid]='default';
-          if(!affectedIds.includes(cid)) affectedIds.push(cid);
-        }
-      });
-      // Auch Multi-Kampagnen-Zuordnungen von Gegnern bereinigen
-      const validIds=new Set(nextCamps.map(c=>c.id));
-      const affectedEnemyIds=[];
-      if(!CLOUD.registry.enemyMeta||typeof CLOUD.registry.enemyMeta!=='object') CLOUD.registry.enemyMeta={};
-      const allEnemyIds=new Set([
-        ...Object.keys(CLOUD.registry.enemyMeta),
-        ...(CLOUD.list||[]).filter(ch=>ch&&isEnemySheet(ch.id)).map(ch=>ch.id)
-      ]);
-      allEnemyIds.forEach(eid=>{
-        const m=getEnemyMeta(eid);
-        if(m.campaignIds.includes(delId)||m.diceVisibleByCamp?.[delId]){
-          const nextM=normalizeEnemyMeta({
-            ...m,
-            campaignIds:m.campaignIds.filter(x=>x!==delId),
-            diceVisibleByCamp:Object.fromEntries(Object.entries(m.diceVisibleByCamp||{}).filter(([k])=>k!==delId)),
-            updatedAtMs:Date.now()
-          },validIds);
-          CLOUD.registry.enemyMeta[eid]=clone(nextM);
-          const li=(CLOUD.list||[]).find(c=>c&&c.id===eid);
-          if(li) li.enemyMeta=clone(nextM);
-          if(S.charId===eid){S.enemyMeta=clone(nextM);save(false);}
-          affectedEnemyIds.push({id:eid,meta:nextM});
-        }
-      });
-      if(S.campaignId===delId){S.campaignId='default';save(false);}
-      setActiveCampaign('default');
-      CLOUD.campAction='';
-      syncCloudRegistry(true);
-      affectedIds.forEach(cid=>{
-        updateCloudCharacterMeta(cid,d=>{d.campaignId='default';if(d._summary)d._summary.campaignId='default';},'');
-      });
-      affectedEnemyIds.forEach(({id:eid,meta:nm})=>{
-        updateCloudCharacterMeta(eid,d=>{d.enemyMeta=clone(nm);if(d._summary)d._summary.enemyMeta=clone(nm);},'');
-      });
-      renderMain(); renderModal();
-      toast(`🗑️ Kampagne „${delName}“ gelöscht (Charaktere in Hauptkampagne verschoben).`);
+      deleteCampaignById(CLOUD.activeCampaignId);
       break;
     }
     case 'camp-action-cancel': {
       CLOUD.campAction='';
+      renderMain(); renderModal();
+      break;
+    }
+    case 'admin-camp-archive-ask': {
+      if(!CLOUD.isAdmin) break;
+      const cid=String(el.dataset.id||'').trim();
+      if(!cid||cid==='default') break;
+      CLOUD.confirmArchCampId=cid;
+      CLOUD.confirmDelCampId=null;
+      renderModal();
+      break;
+    }
+    case 'admin-camp-archive-confirm': {
+      if(!CLOUD.isAdmin) break;
+      archiveCampaignById(el.dataset.id||'');
+      break;
+    }
+    case 'admin-camp-restore': {
+      if(!CLOUD.isAdmin) break;
+      restoreCampaignById(el.dataset.id||'');
+      break;
+    }
+    case 'admin-camp-delete-ask': {
+      if(!CLOUD.isAdmin) break;
+      const cid=String(el.dataset.id||'').trim();
+      if(!cid||cid==='default') break;
+      CLOUD.confirmDelCampId=cid;
+      CLOUD.confirmArchCampId=null;
+      renderModal();
+      break;
+    }
+    case 'admin-camp-delete-confirm': {
+      if(!CLOUD.isAdmin) break;
+      deleteCampaignById(el.dataset.id||'');
+      break;
+    }
+    case 'admin-camp-action-cancel': {
+      CLOUD.confirmArchCampId=null;
+      CLOUD.confirmDelCampId=null;
       renderModal();
       break;
     }
@@ -4421,6 +4531,25 @@ document.addEventListener('change',e=>{
   if(el.dataset.exsec?.endsWith(':name')){const id=el.dataset.exsec.split(':')[0],ex=(S.extraSecList||[]).find(x=>x.id===id);if(ex){syncCresRenameInTokens(el.dataset.prevExName||'',getExtraSecName(ex));el.dataset.prevExName=getExtraSecName(ex);renderHeader();syncLiveCalculations();}return;}
   if(el.dataset.mv?.endsWith(':ovr')&&String(el.value).trim()===''){renderMain();save();return;}
   if(el.dataset.bstInp){if(String(el.value??'').trim()===''){S.bstOvr='';S.bst=getBstAuto();}renderMain();save();return;}
+  if(el.dataset.charSizeSel){
+    if(!S.charSize||typeof S.charSize!=='object') S.charSize={level:0,ovr:'',customLevels:[]};
+    S.charSize.level=toInt(el.value,0);
+    S.charSize.ovr='';
+    renderMain(); if(D.open){applyDiceAutoAdvDis(false);renderDice();} save();
+    return;
+  }
+  if(el.dataset.charSizeOvr){
+    if(!S.charSize||typeof S.charSize!=='object') S.charSize={level:0,ovr:'',customLevels:[]};
+    const raw=String(el.value??'').trim();
+    if(raw===''){
+      S.charSize.ovr='';
+    }else{
+      const num=toInt(raw,toInt(S.charSize.level,0));
+      S.charSize.ovr=(num===toInt(S.charSize.level,0))?'':String(num);
+    }
+    renderMain(); if(D.open){applyDiceAutoAdvDis(false);renderDice();} save();
+    return;
+  }
   if(t.dataset.cnFolderSel){
     ensureCampNotesStructure();
     const pg=S.campaignNotes.find(n=>n.id===t.dataset.cnFolderSel);
@@ -4585,7 +4714,7 @@ document.addEventListener('change',e=>{
     const cid=el.dataset.adminCampChar, newCampId=String(el.value||'default').trim()||'default';
     const owner=getCharOwner(cid), isMyChar=Boolean(owner&&CLOUD.currentUser&&owner.toLowerCase()===CLOUD.currentUser.toLowerCase());
     if(!CLOUD.isAdmin&&!isMyChar&&!canManageCampaign(getCharCampaignId(cid))) return;
-    const camps=CLOUD.isAdmin?getCampaigns():getCreatableCampaigns(CLOUD.currentUser);
+    const camps=CLOUD.isAdmin?getActiveCampaigns():getCreatableCampaigns(CLOUD.currentUser);
     const targetCamp=camps.find(c=>c.id===newCampId)||camps[0]||{id:'default',name:'Ohne Kampagne / Allgemein'};
     const effCampId=targetCamp.id;
     if(!CLOUD.registry.charCampaigns||typeof CLOUD.registry.charCampaigns!=='object') CLOUD.registry.charCampaigns={};
@@ -6296,13 +6425,23 @@ refreshUserNotificationsBg(false);
 fetchCustomIcons(false);
 const params=new URLSearchParams(window.location.search);
 const reqCharId=(params.get('char')||'').trim();
+const reqViewOnly=params.get('view')==='1';
+const reqNotes=params.get('notes')==='1';
 const forceSheet=params.get('sheet')==='1';
 const forceLobby=params.get('lobby')==='1';
 if(reqCharId){
   UI.inLobby=false; UI.sheetLoaded=true; UI.modal=null;
   exitLobbyNeutralDice();
   renderAll(false);
-  loadCloudCharacter(reqCharId,false,true);
+  loadCloudCharacter(reqCharId,reqViewOnly,!reqViewOnly).then(()=>{
+    if(reqNotes&&!UI.inLobby&&S.charId===reqCharId){
+      const pubPg=(S.campaignNotes||[]).find(n=>n&&n.isPublic);
+      if(pubPg) S.activeCampNoteId=pubPg.id;
+      else if(S.campaignNotes?.[0]) S.activeCampNoteId=S.campaignNotes[0].id;
+      CN.open=true;
+      renderHeader(); renderCampNotes();
+    }
+  });
   fetchLobbyList(true);
 }else if(forceSheet&&!forceLobby){
   UI.inLobby=false; UI.sheetLoaded=true; UI.modal=null;

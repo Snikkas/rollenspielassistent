@@ -8,7 +8,7 @@ import {
   renderSystemIconHtml, S, isMobileLayout, UI
 } from '../state.js';
 import {
-  getStatusEffValues, getReservedTotals, getEffectivePoolCap, getReservedSrcList, calcActiveMods, fmtSrcLines, buildAttrTip, buildSecTip, getMentalArmorSummary, getTrCost, getResLabel, getAttrCol, getSecCol, getTrBonus, getAttrTot, getLpBase, getLpMax, getMlpBase, getMlpMax, getLpRegenAuto, getMlpRegenAuto, hasLpRegenOvr, hasMlpRegenOvr, getLpRegen, getMlpRegen, getIniBase, getIniTot, getApMax, getMapMax, getCresBase, getCresMax, getExtraSecBase, getBstAuto, hasBstOvr, getBstBase, getEffBst
+  getStatusEffValues, getReservedTotals, getEffectivePoolCap, getReservedSrcList, calcActiveMods, fmtSrcLines, buildAttrTip, buildSecTip, getMentalArmorSummary, getTrCost, getResLabel, getAttrCol, getSecCol, getTrBonus, getAttrTot, getLpBase, getLpMax, getMlpBase, getMlpMax, getLpRegenAuto, getMlpRegenAuto, hasLpRegenOvr, hasMlpRegenOvr, getLpRegen, getMlpRegen, getIniBase, getIniTot, getApMax, getMapMax, getCresBase, getCresMax, getExtraSecBase, getBstAuto, hasBstOvr, getBstBase, getEffBst, getCharSizeList, getCharSizeInfo
 } from '../calc.js';
 import {
   renderRtfToolbarHtml
@@ -32,6 +32,7 @@ export const isTab1PhoneDefault=()=>window.innerWidth<768||isMobileLayout();
 export function isTab1SecCollapsed(key){
   const ov=UI.tab1?.[key];
   if(ov!==null&&ov!==undefined) return Boolean(ov);
+  if(key==='size') return true;
   if(key==='attrs') return isTab1PhoneDefault();
   if(key==='sec') return false;
   if(key==='status') return S.statusCollapsed?true:isTab1PhoneDefault();
@@ -217,7 +218,57 @@ export function tplAttributes(){
   const M=calcActiveMods(),iniBase=getIniBase(),ini=getIniTot(M),iniDiff=ini-iniBase,bst=getEffBst(M),crCol=getSecCol('cres'),iniCol=getSecCol('ini'),cresBase=getCresBase(),cresMax=getCresMax(M),lpRegAuto=getLpRegenAuto(M),lpReg=getLpRegen(M),lpRegOvr=hasLpRegenOvr(),lpRegTip=esc(buildSecTip('lpRegen',M)),mlpRegAuto=getMlpRegenAuto(M),mlpReg=getMlpRegen(M),mlpRegOvr=hasMlpRegenOvr(),mlpRegTip=esc(buildSecTip('mlpRegen',M));
   const lpMax=getLpMax(M), mlpMax=getMlpMax(M), apMax=getApMax(M), mapMax=getMapMax(M);
   const isMob=isMobileLayout();
-  const attrsCol=isTab1SecCollapsed('attrs'), secCol=isTab1SecCollapsed('sec'), thCol=isTab1SecCollapsed('thresholds'), mvCol=isTab1SecCollapsed('move'), hzCol=isTab1SecCollapsed('hz'), qkCol=isTab1SecCollapsed('quick');
+  const attrsCol=isTab1SecCollapsed('attrs'), sizeCol=isTab1SecCollapsed('size'), secCol=isTab1SecCollapsed('sec'), thCol=isTab1SecCollapsed('thresholds'), mvCol=isTab1SecCollapsed('move'), hzCol=isTab1SecCollapsed('hz'), qkCol=isTab1SecCollapsed('quick');
+  const sizeInfo=getCharSizeInfo(S), sizeList=getCharSizeList(S);
+  const customSizeEntries=Array.isArray(S.charSize?.customLevels)?S.charSize.customLevels:[];
+  const renderSizePanel=()=>{
+    if(sizeCol) return '';
+    const hasExactOpt=sizeList.some(x=>x.level===sizeInfo.baseLevel);
+    return `<div class="subcard p-3 mb-3 space-y-2.5 border border-amber-400/35 bg-amber-500/5 min-w-0">
+      <div class="flex flex-wrap items-center justify-between gap-2 min-w-0">
+        <div class="flex flex-wrap items-center gap-1.5 min-w-0">
+          <span class="text-xs font-black text-amber-300">📏 Charaktergröße</span>
+          <span class="px-2 py-0.5 rounded-md border text-[11px] font-black tabular ${sizeInfo.hasOvr?'border-amber-400 bg-amber-500/20 text-amber-200':'bdr-acc bg-acc-soft text-acc'}">${esc(sizeInfo.formatted)}${sizeInfo.hasOvr?' • Overwrite':''}</span>
+        </div>
+        <button type="button" data-action="toggle-t1-sec" data-sec="size" class="btn py-0.5 px-2 text-[11px] shrink-0">▴ Einklappen</button>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-12 gap-2.5 items-end min-w-0">
+        <div class="md:col-span-6 min-w-0">
+          <label class="block text-[10px] font-extrabold t-mut uppercase tracking-wider mb-1">Größenkategorie (Dropdown)</label>
+          <select data-char-size-sel="1" class="inp w-full font-bold py-1.5 px-2 text-xs">
+            ${!hasExactOpt?`<option value="${sizeInfo.baseLevel}" selected>Stufe ${sizeInfo.baseLevel>0?'+'+sizeInfo.baseLevel:sizeInfo.baseLevel}</option>`:''}
+            ${sizeList.map(opt=>`<option value="${opt.level}" ${opt.level===sizeInfo.baseLevel?'selected':''}>${esc(opt.label)} (${opt.level>0?'+'+opt.level:opt.level})${opt.isCustom?' ★':''}</option>`).join('')}
+          </select>
+        </div>
+        <div class="md:col-span-6 min-w-0">
+          <label class="block text-[10px] font-extrabold t-mut uppercase tracking-wider mb-1">Manueller Stufen-Overwrite (beliebige Zahl)</label>
+          <div class="flex flex-wrap items-center gap-1.5 tabular">
+            <button type="button" data-action="char-size-ovr-step" data-d="-1" class="btn w-9 h-9 md:w-7 md:h-7 p-0 text-xs font-black shrink-0">−</button>
+            <input id="inpCharSizeOvr" data-char-size-ovr="1" type="text" inputmode="numeric" value="${esc(sizeInfo.hasOvr?sizeInfo.lvlStr:sizeInfo.lvlStr)}" placeholder="${sizeInfo.baseLevel}" data-tip="Direkt eine beliebige Größenstufe eingeben (z. B. -3, 0, +3, +5). Leer lassen für Dropdown-Auswahl." class="inp w-20 md:w-16 text-center font-black py-1 px-1.5 text-xs ${sizeInfo.hasOvr?'!border-amber-400 text-amber-300':'text-acc'}"/>
+            <button type="button" data-action="char-size-ovr-step" data-d="1" class="btn w-9 h-9 md:w-7 md:h-7 p-0 text-xs font-black shrink-0">+</button>
+            ${sizeInfo.hasOvr?`<button type="button" data-action="char-size-ovr-reset" data-tip="Manuellen Overwrite zurücksetzen auf Dropdown-Stufe (${sizeInfo.baseLevel>0?'+'+sizeInfo.baseLevel:sizeInfo.baseLevel})" class="btn py-1 px-2 text-[10px] font-black border-amber-400/60 bg-amber-500/15 text-amber-200">↺ (${sizeInfo.baseLevel>0?'+'+sizeInfo.baseLevel:sizeInfo.baseLevel})</button>`:`<span class="text-[10px] t-mut">Dropdown aktiv</span>`}
+          </div>
+        </div>
+      </div>
+      <div class="pt-2 border-t border-white/10 space-y-2 min-w-0">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <span class="text-[10px] font-extrabold t-mut uppercase tracking-wider">➕ Weitere Größenstufe hinzufügen / Bezeichnung anpassen (z. B. −3, +3, +4 …)</span>
+        </div>
+        <div class="flex flex-wrap items-center gap-1.5 min-w-0">
+          <input id="inpCharSizeNewLvl" type="text" inputmode="numeric" placeholder="Stufe (+3 / -3)" class="inp w-28 sm:w-28 text-center font-bold py-1 px-2 text-xs tabular"/>
+          <input id="inpCharSizeNewLbl" type="text" placeholder="Bezeichnung (z. B. Riesig / Winzig)" class="inp flex-1 min-w-[150px] font-bold py-1 px-2 text-xs"/>
+          <button type="button" data-action="char-size-add-custom" class="btn btn-ok py-1 px-2.5 text-xs font-black shrink-0">+ Hinzufügen</button>
+        </div>
+        ${customSizeEntries.length?`<div class="flex flex-wrap items-center gap-1.5 pt-0.5">
+          <span class="text-[10px] font-bold t-mut">Eigene / angepasste Stufen:</span>
+          ${customSizeEntries.map(ce=>`<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md border border-amber-400/45 bg-amber-500/10 text-[11px] font-bold text-amber-200 tabular"><span>${esc(ce.label)} (${ce.level>0?'+'+ce.level:ce.level})</span><button type="button" data-action="char-size-del-custom" data-level="${ce.level}" data-tip="Eintrag entfernen / Standard wiederherstellen" class="text-rose-400 hover:text-rose-300 font-black ml-0.5">✕</button></span>`).join('')}
+        </div>`:''}
+      </div>
+      <div class="text-[11px] t-mut leading-relaxed">
+        💡 <strong class="text-acc">Trefferwurf-Effekt:</strong> Größenunterschiede geben relativ zueinander Vor- oder Nachteile <strong>ausschließlich auf Trefferwürfe</strong> (<span class="tabular font-bold">Ziel − Angreifer</span>). Beispiel: <em>Normal (0)</em> gegen <em>Sehr Groß (+2)</em> = <strong class="text-emerald-300">+2 Vorteile</strong>; gegen <em>Klein (−1)</em> = <strong class="text-rose-300">+1 Nachteil</strong>. Wird im Würfelassistenten automatisch verrechnet.
+      </div>
+    </div>`;
+  };
   const mkRow=(lbl,f,tip)=>`<tr><td class="text-left text-xs font-extrabold t-mut cursor-help" data-tip="${tip}">${lbl}</td>${ATTRS.map(a=>`<td class="ac-cell" style="--ac:${getAttrCol(a.k)}"><input data-at="${a.k}:${f}" type="text" inputmode="numeric" value="${esc(S.attributes[a.k][f])}" class="inp w-full text-center font-bold py-1 px-1"/></td>`).join('')}<td class="text-right text-xs font-extrabold t-mut">${lbl}</td></tr>`;
   const resBadge=(resKey)=>{const cap=getEffectivePoolCap(resKey,M);if(cap.reserved<=0)return '';const srcs=getReservedSrcList(resKey);const bTip=`Reserviert: −${cap.reserved} ${getResLabel(resKey)} (Frei max. ${cap.effMax} von ${cap.fullMax})${srcs.length?`\n• ${srcs.join('\n• ')}`:''}`;return `<span data-tip="${esc(bTip)}" class="px-1.5 py-0.5 rounded text-[10px] font-black border border-amber-400/60 bg-amber-500/20 text-amber-300 cursor-help tabular shrink-0 whitespace-nowrap">🔒 ${cap.reserved} res. (frei max. ${cap.effMax})</span>`;};
   const pool=(key,lbl,form,curF,modF,maxId,baseVal,maxVal)=>{const col=getSecCol(key),diff=maxVal-baseVal,tip=esc(buildSecTip(key,M));return `<div class="md:col-span-4 subcard sc-card flex flex-col justify-between gap-2.5 p-3 min-w-0" style="--sc:${esc(col)}"><div class="flex items-center justify-between gap-2 min-w-0"><div id="tip_${maxId}_hdr" data-tip="${tip}" class="min-w-0 cursor-help"><div class="text-xs font-extrabold flex flex-wrap items-center gap-1.5" style="color:${esc(col)}"><span class="truncate">${lbl}</span><span id="chip_${key}Max">${modChip(diff)}</span>${resBadge(key)}</div><div class="text-[11px] t-mut">${form}</div></div><div class="flex items-center gap-1.5 shrink-0"><label class="text-xs t-mut flex items-center gap-1">Mod <input id="inp_${modF}" data-sec="${modF}" type="text" inputmode="numeric" value="${esc(S.secondary[modF])}" class="inp w-14 sm:w-12 text-center font-bold py-1 px-1"/></label>${secGearBtn(key,col)}</div></div><div class="flex items-center justify-between gap-1.5 min-w-0"><button type="button" data-action="sec-step" data-field="${curF}" data-delta="-1" class="btn btn-err w-10 h-10 sm:w-8 sm:h-8 shrink-0 text-sm">−</button><div class="flex items-center justify-center flex-wrap gap-1.5 min-w-0 flex-1"><input id="inp_${curF}" data-sec="${curF}" type="text" inputmode="numeric" value="${esc(S.secondary[curF])}" class="inp w-[62px] sm:w-14 text-center text-base font-black"/><span class="t-mut font-bold">/</span><input id="${maxId}" data-sec-max="${key}" data-tip="${tip}" type="text" inputmode="numeric" value="${maxVal}" style="color:${esc(col)}" class="inp w-[62px] sm:w-14 text-center text-base font-black cursor-help"/><span id="val_${key}MaxEff" data-tip="${tip}" class="text-xs font-black cursor-help ${diff?'':'hidden'}" style="color:${esc(col)}">(${baseVal})</span></div><button type="button" data-action="sec-step" data-field="${curF}" data-delta="1" class="btn btn-ok w-10 h-10 sm:w-8 sm:h-8 shrink-0 text-sm">+</button></div></div>`;};
@@ -302,12 +353,13 @@ export function tplAttributes(){
 
   return `<section class="card t1-card">
     <div class="flex flex-wrap items-center justify-between gap-2 ${attrsCol?'mb-2.5':'mb-3'}">
-      <div class="flex items-center gap-2 min-w-0">
+      <div class="flex flex-wrap items-center gap-2 min-w-0">
         <button type="button" data-action="toggle-t1-sec" data-sec="attrs" aria-expanded="${!attrsCol}" data-tip="${attrsCol?'Attribut-Details (Vw, Pot, Tr, Mod) öffnen':'Auf kompakte 4×2-Schnellleiste einklappen'}" class="btn w-8 h-8 sm:w-7 sm:h-7 p-0 text-xs font-black shrink-0">${attrsCol?'▸':'▾'}</button>
         <button type="button" data-action="toggle-t1-sec" data-sec="attrs" class="t1-hdr-title">
           <h2 class="text-base sm:text-lg font-extrabold cursor-pointer" data-tip="4 gekoppelte Attributpaare:\n• ST & KO (Körper / LP)\n• PR & GW (Geschick)\n• WA & IN (Verstand / Ini)\n• AU & WK (Geist / mLP)">Attribute</h2>
         </button>
         <button type="button" data-action="open-attr-colors" data-tip="Farben der 4 Attributpaare anpassen" class="btn w-8 h-8 sm:w-7 sm:h-7 p-0 text-xs shrink-0">⚙️</button>
+        <button type="button" data-action="toggle-t1-sec" data-sec="size" aria-expanded="${!sizeCol}" data-tip="Charaktergröße ein-/ausklappen &amp; festlegen (wirkt automatisch bei Trefferwürfen im Würfelassistenten)" class="btn py-1 px-2 text-xs font-extrabold tabular shrink-0 ${sizeInfo.level!==0||sizeInfo.hasOvr?'border-amber-400/65 bg-amber-500/15 text-amber-200':'bdr-acc bg-acc-soft/50 text-acc'}">📏 <span class="hidden sm:inline">Größe: </span>${esc(sizeInfo.formatted)} ${sizeCol?'▸':'▾'}</button>
       </div>
       <div class="flex items-center gap-2 shrink-0">
         ${!attrsCol&&!isMob?`<span class="hidden lg:inline text-xs t-mut">Klicke auf ein Attribut oder den Gesamtwert, um den Test zu starten.</span>`:''}
@@ -315,6 +367,7 @@ export function tplAttributes(){
         <button type="button" data-action="toggle-t1-sec" data-sec="attrs" class="btn py-1 px-2.5 text-xs font-extrabold ${attrsCol?'bdr-acc bg-acc-soft text-acc':''}">${attrsCol?'✏️ Bearbeiten':'▴ Kompakt'}</button>
       </div>
     </div>
+  ${renderSizePanel()}
   ${attrsCol
     ?renderAttrCompact4x2()
     :(isMob
@@ -419,6 +472,7 @@ export function tplAttributes(){
           <button type="button" data-action="toggle-t1-sec" data-sec="hz" class="t1-hdr-title">
             <h3 class="text-sm sm:text-base font-extrabold cursor-pointer">Trefferzonen</h3>
           </button>
+          <button type="button" data-action="toggle-t1-sec" data-sec="size" data-tip="Charaktergröße: ${esc(sizeInfo.formatted)} (Klicken zum Bearbeiten im Attribut-Bereich)" class="tag cursor-pointer tabular ${sizeInfo.level!==0||sizeInfo.hasOvr?'!border-amber-400/65 !bg-amber-500/15 !text-amber-200':''}">📏 ${esc(sizeInfo.formatted)}</button>
           ${M.armor?`<span class="tag">${fmtSign(M.armor)} RS</span>`:''}
           <span id="t1Hz_mRs" data-tip="${esc(mRsInfo.tip)}" class="tag !border-indigo-400/55 !bg-indigo-500/15 !text-indigo-300 cursor-help ${mRsInfo.total?'':'hidden'}">🧠 ${mRsInfo.total} mRS</span>
           ${S.lastHzRoll!==null?`<span class="pill cursor-default text-amber-400 text-xs tabular">W100 = ${S.lastHzRoll}${hitHzObj?` • ${esc(hitHzObj.zone)}`:''}${S.lastSubHzRoll!==null&&S.lastSubHzZone?` → <strong class="text-cyan-300">${esc(S.lastSubHzZone)}</strong> (${S.lastSubHzRoll})`:''}</span>`:''}

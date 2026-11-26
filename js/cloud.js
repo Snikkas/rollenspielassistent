@@ -8,18 +8,18 @@ import {
   hooks
 } from './ui-hooks.js';
 import {
-  defaultState, setS, normalizeCampaigns, makeDefaultEnemyMeta, normalizeEnemyMeta, normalizeInitiativeState, mergeThemePrefs, migrateUserLocalBgMap, sanitizeThemePrefsForRegistry, getCampaigns, setActiveCampaign, isGlobalGM, canManageCampaign, getGmManageableCampaigns, isAnyGM, canToggleEnemyStatus, canClearLiveDice, getCreatableCampaigns, ensureUserRecord, ensureAllRegistryUsers, findUserKeyByName, findUserKeyById, renderUserNamePill, saveRegistryLocal, saveDiceFeedLocal, saveSecretRollsLocal, getActiveLiveCampaignId, getRollCampaignId, getCampaignFilteredDiceFeed, captureScrollState, restoreScrollState, toast, hasNiceRoll, triggerNiceEasterEgg, normalizeForeignSheet, mergeLoaded, saveLastActiveTab, getSavedTabForChar, save, flushPendingSave, applySessionTheme, syncPalDraftFromSlot, applyTheme, CUSTOM_ICONS, S, D, CN, LD, INI, FBW, isMobileLayout, UI, LIVE_TAB_ID, PATCHNOTES, FEEDBACK, CLOUD, CLOUD_SYNC, PWLIB, getCharOwner, getCharCampaignId, canManageChar, isEnemySheet, getEnemyMeta, canManageEnemySheet, canViewEnemySheet, canSeeEnemyInDice
+  defaultState, setS, normalizeCampaigns, makeDefaultEnemyMeta, normalizeEnemyMeta, normalizeInitiativeState, mergeThemePrefs, migrateUserLocalBgMap, sanitizeThemePrefsForRegistry, getCampaigns, getActiveCampaigns, setActiveCampaign, isGlobalGM, canManageCampaign, getGmManageableCampaigns, isAnyGM, canToggleEnemyStatus, canClearLiveDice, getCreatableCampaigns, ensureUserRecord, ensureAllRegistryUsers, findUserKeyByName, findUserKeyById, renderUserNamePill, saveRegistryLocal, saveDiceFeedLocal, saveSecretRollsLocal, getActiveLiveCampaignId, getRollCampaignId, getRollVisibleCampaignIds, getInitiativeCampaignsForChar, isCharInCampaignInitiative, getCampaignFilteredDiceFeed, captureScrollState, restoreScrollState, toast, hasNiceRoll, triggerNiceEasterEgg, normalizeForeignSheet, mergeLoaded, saveLastActiveTab, getSavedTabForChar, save, flushPendingSave, applySessionTheme, syncPalDraftFromSlot, applyTheme, CUSTOM_ICONS, S, D, CN, LD, INI, FBW, isMobileLayout, UI, LIVE_TAB_ID, PATCHNOTES, FEEDBACK, CLOUD, CLOUD_SYNC, PWLIB, getCharOwner, getCharCampaignId, canManageChar, isEnemySheet, getEnemyMeta, canManageEnemySheet, canViewEnemySheet, canSeeEnemyInDice
 } from './state.js';
 import {
   invalidateModsCache, calcActiveMods, importPowerPackIntoSheet, getLpMax, getMlpMax, getIniTot, getApMax, getMapMax
 } from './calc.js';
 
-let cloudSyncTimer=null, liveDiceES=null, liveDiceBC=null, liveDiceTopicCur='', liveDicePollTimer=null, registryPushInFlight=0, lastRegistryPushMs=0;
+let cloudSyncTimer=null, liveDiceES=null, liveDiceBC=null, liveDiceTopicCur='', liveDicePollTimer=null, liveFocusListenersBound=false, registryPushInFlight=0, registryPushQueued=false, lastRegistryPushMs=0;
 let pwLibFetchPromise=null;
 const LIVE_EVENT_TYPES=new Set([
   'campnote_live','clear_dice','duel_challenge','duel_response','duel_cancel',
-  'combat_damage_offer','combat_damage_applied','initiative_live','initiative_char_sync',
-  'enemy_meta_live','sheet_trash_live'
+  'combat_damage_offer','combat_damage_applied','initiative_live','initiative_live_ping','initiative_char_sync',
+  'enemy_meta_live','sheet_trash_live','campaigns_live'
 ]);
 const TRASH_OVERRIDE_TTL_MS=25000;
 const recentTrashOverrides=new Map();
@@ -40,12 +40,13 @@ function normalizeLobbySummaryItem(rawItem,validCampIds){
   const ch=clone(rawItem);
   const cid=String(ch.id).trim();
   if(!cid) return null;
+  const activeCampIds=new Set(getActiveCampaigns().map(c=>c.id));
   if(ch.owner&&CLOUD.registry.claims[cid]===undefined) CLOUD.registry.claims[cid]=ch.owner;
   if(CLOUD.registry.charCampaigns[cid]===undefined){
     CLOUD.registry.charCampaigns[cid]=String(ch.campaignId||ch._summary?.campaignId||'default').trim()||'default';
   }
   const rawCamp=String(CLOUD.registry.charCampaigns[cid]||ch.campaignId||'default').trim()||'default';
-  const effCamp=validCampIds.has(rawCamp)?rawCamp:'default';
+  const effCamp=activeCampIds.has(rawCamp)?rawCamp:'default';
   ch.campaignId=effCamp;
   CLOUD.registry.charCampaigns[cid]=effCamp;
   const isEnemy=Boolean(ch.sheetType==='enemy'||ch._summary?.sheetType==='enemy'||CLOUD.registry.enemyMeta?.[cid]);
@@ -106,9 +107,10 @@ export function mergeDiceFeeds(incArr,clearedAt=0,clearedByCamp=null,saveLocal=t
   [...(CLOUD.diceFeed||[]),...(Array.isArray(incArr)?incArr:[])].forEach(r=>{
     if(!r||!r.id) return;
     const ts=toInt(r.tsMs,0);
-    const rCamp=getRollCampaignId(r);
-    const campClr=toInt(CLOUD.registry?.diceClearedByCamp?.[rCamp],0);
-    if(ts>clr&&ts>campClr){
+    if(ts<=clr) return;
+    const visCamps=getRollVisibleCampaignIds(r);
+    const visibleInAny=visCamps.some(cid=>ts>toInt(CLOUD.registry?.diceClearedByCamp?.[cid],0));
+    if(visibleInAny){
       if(!map.has(r.id)) map.set(r.id,r);
     }
   });
@@ -144,7 +146,7 @@ export function renderLobbyLiveDiceHtml(inFloatingWin=false){
           <div class="flex flex-wrap items-center gap-2 min-w-0">
             <span class="px-2.5 py-1 rounded-xl bg-black/35 border ${fd>0?'border-rose-400/50 text-rose-300':'border-amber-400/40 text-amber-300'} text-lg sm:text-2xl font-black">💥 ${fd} ${poolLbl}</span>
             <div class="min-w-0">
-              <div class="text-xs font-extrabold break-words">${entry.hzZone?`🎯 ${esc(entry.hzZone)} • `:''}${esc(entry.dmgTypeLabel||'Schaden')}${entry.isBlocked?' • 🛡️ Geblockt':''}${entry.durchschlagApplied?' • ⚡ Durchschlag':''}</div>
+              <div class="text-xs font-extrabold break-words">${entry.hzZone?`🎯 ${esc(entry.hzZone)} • `:''}${esc(entry.dmgTypeLabel||'Schaden')}${entry.isCrit?' • ★ Krit (+2)':''}${entry.isBlocked?' • 🛡️ Geblockt':''}${entry.durchschlagApplied?' • ⚡ Durchschlag':''}</div>
               ${entry.formula?`<div class="text-[11px] t-mut break-words">${esc(entry.formula)}</div>`:''}
             </div>
           </div>
@@ -426,7 +428,7 @@ export function handleIncomingDicePayload(rawObj,isRealtimePush=false){
     hooks.handleCombatLiveEvent?.(rawObj,isRealtimePush);
     return;
   }
-  if(rawObj.type==='initiative_live'||rawObj.type==='initiative_char_sync'){
+  if(rawObj.type==='initiative_live'||rawObj.type==='initiative_live_ping'||rawObj.type==='initiative_char_sync'){
     hooks.handleInitiativeLiveEvent?.(rawObj,isRealtimePush);
     return;
   }
@@ -527,13 +529,49 @@ export function handleIncomingDicePayload(rawObj,isRealtimePush=false){
     }
     return;
   }
+  if(rawObj.type==='campaigns_live'){
+    if(rawObj.senderTabId&&rawObj.senderTabId===LIVE_TAB_ID) return;
+    if(Array.isArray(rawObj.campaigns)){
+      CLOUD.registry.campaigns=normalizeCampaigns(rawObj.campaigns);
+      const activeIds=new Set(getActiveCampaigns().map(c=>c.id));
+      if(!CLOUD.registry.charCampaigns||typeof CLOUD.registry.charCampaigns!=='object') CLOUD.registry.charCampaigns={};
+      Object.keys(CLOUD.registry.charCampaigns).forEach(cid=>{
+        if(!activeIds.has(CLOUD.registry.charCampaigns[cid])) CLOUD.registry.charCampaigns[cid]='default';
+      });
+      (CLOUD.list||[]).forEach(ch=>{
+        if(ch&&ch.id){
+          const cur=CLOUD.registry.charCampaigns[ch.id]||ch.campaignId||'default';
+          ch.campaignId=activeIds.has(cur)?cur:'default';
+          CLOUD.registry.charCampaigns[ch.id]=ch.campaignId;
+        }
+      });
+      if(S?.campaignId&&!activeIds.has(S.campaignId)){S.campaignId='default';save(false);}
+      if(!activeIds.has(CLOUD.activeCampaignId)) setActiveCampaign('default');
+      saveRegistryLocal();
+      if(UI.inLobby) hooks.renderMain?.();
+      hooks.renderHeader?.();
+      if(UI.modal==='adminPanel') hooks.renderModal?.();
+      if(LD.open) hooks.renderLiveDice?.();
+      if(INI.open) hooks.renderInitiativeWindow?.();
+      updateLobbyLiveDiceDOM();
+    }else{
+      syncCloudRegistry(false);
+    }
+    return;
+  }
   if(rawObj.type==='clear_dice'){
     const clr=toInt(rawObj.clearedAt,Date.now());
     if(rawObj.campaignId){
       if(!CLOUD.registry.diceClearedByCamp||typeof CLOUD.registry.diceClearedByCamp!=='object') CLOUD.registry.diceClearedByCamp={};
       CLOUD.registry.diceClearedByCamp[rawObj.campaignId]=Math.max(toInt(CLOUD.registry.diceClearedByCamp[rawObj.campaignId],0),clr);
-      CLOUD.diceFeed=(CLOUD.diceFeed||[]).filter(e=>getRollCampaignId(e)!==rawObj.campaignId||toInt(e.tsMs,0)>clr);
-      CLOUD.registry.diceFeed=(CLOUD.registry.diceFeed||[]).filter(e=>getRollCampaignId(e)!==rawObj.campaignId||toInt(e.tsMs,0)>clr);
+      const keepEntry=e=>{
+        const ts=toInt(e?.tsMs,0);
+        if(ts>clr) return true;
+        const vis=getRollVisibleCampaignIds(e);
+        return vis.some(cid=>cid!==rawObj.campaignId&&ts>toInt(CLOUD.registry?.diceClearedByCamp?.[cid],0));
+      };
+      CLOUD.diceFeed=(CLOUD.diceFeed||[]).filter(keepEntry);
+      CLOUD.registry.diceFeed=(CLOUD.registry.diceFeed||[]).filter(keepEntry);
     }else{
       CLOUD.registry.diceClearedAt=Math.max(toInt(CLOUD.registry.diceClearedAt,0),clr);
       CLOUD.diceFeed=[];
@@ -544,14 +582,19 @@ export function handleIncomingDicePayload(rawObj,isRealtimePush=false){
     return;
   }
   if(!rawObj.id||!Array.isArray(rawObj.res)) return;
-  const rollCampId=getRollCampaignId(rawObj);
-  const campClrAt=toInt(CLOUD.registry?.diceClearedByCamp?.[rollCampId],0);
-  if(toInt(rawObj.tsMs,0)<=Math.max(toInt(CLOUD.registry.diceClearedAt,0),campClrAt)) return;
+  const rollVisCamps=getRollVisibleCampaignIds(rawObj);
+  const globClr=toInt(CLOUD.registry.diceClearedAt,0);
+  const tsVal=toInt(rawObj.tsMs,0);
+  if(tsVal<=globClr) return;
+  const visibleInAnyCamp=rollVisCamps.some(cid=>tsVal>toInt(CLOUD.registry?.diceClearedByCamp?.[cid],0));
+  if(!visibleInAnyCamp) return;
   const already=(CLOUD.diceFeed||[]).some(x=>x.id===rawObj.id);
   if(already) return;
   mergeDiceFeeds([rawObj]);
   updateLobbyLiveDiceDOM();
-  if(isRealtimePush&&rawObj.senderTabId!==LIVE_TAB_ID&&CLOUD.diceToast&&getRollCampaignId(rawObj)===getActiveLiveCampaignId()){
+  const activeCampNow=getActiveLiveCampaignId();
+  const activeCampClr=toInt(CLOUD.registry?.diceClearedByCamp?.[activeCampNow],0);
+  if(isRealtimePush&&rawObj.senderTabId!==LIVE_TAB_ID&&CLOUD.diceToast&&tsVal>activeCampClr&&rollVisCamps.includes(activeCampNow)){
     const r0=rawObj.res[0];
     const r0Mult=r0?.egMult||rawObj.egMult||1;
     const sumTxt=rawObj.isDamage?`💥 ${toInt(rawObj.finalDmg,0)} ${rawObj.pool==='mlp'?'mLP':'LP'}${rawObj.hzZone?` (${rawObj.hzZone})`:''}${rawObj.thresholdLabel?` • ${rawObj.thresholdLabel}`:''}`:rawObj.isHz?`W100 = ${r0?.r} (${rawObj.hzZone||'Zone'})`:rawObj.isCustomDice?`${rawObj.customFormula} = ${rawObj.customTotal}`:rawObj.res.length===1
@@ -560,6 +603,18 @@ export function handleIncomingDicePayload(rawObj,isRealtimePush=false){
     toast(`${rawObj.wasSecret?'🕵️ Enthüllt – ':''}🎲 Live-Wurf (${rawObj.charName||'Spieler'}): ${rawObj.label||'Probe'} → ${sumTxt}`);
   }
 }
+function hasAnyRelevantActiveInitiative(){
+  const map=CLOUD.registry?.initiatives;
+  if(!map||typeof map!=='object') return false;
+  if(INI.open) return true;
+  if(!UI.inLobby&&S?.charId){
+    const ownCamp=getCharCampaignId(S.charId);
+    if(map[ownCamp]?.active) return true;
+    if(Object.values(map).some(st=>st&&st.active&&Array.isArray(st.entries)&&st.entries.some(e=>e&&e.charId===S.charId))) return true;
+  }
+  const activeLive=getActiveLiveCampaignId();
+  return Boolean(map[activeLive]?.active);
+}
 export function initLiveDiceChannel(){
   try{
     if(!liveDiceBC&&typeof BroadcastChannel!=='undefined'){
@@ -567,38 +622,61 @@ export function initLiveDiceChannel(){
       liveDiceBC.onmessage=ev=>{if(ev?.data) handleIncomingDicePayload(ev.data,true);};
     }
   }catch(e){}
-  try{
-    const topic=getLiveDiceTopic();
-    if(liveDiceES&&liveDiceTopicCur===topic) return;
-    if(liveDiceES){try{liveDiceES.close();}catch(e){} liveDiceES=null;}
-    liveDiceTopicCur=topic;
-    if(typeof EventSource!=='undefined'){
-      liveDiceES=new EventSource(`https://ntfy.sh/${encodeURIComponent(topic)}/sse`);
-      liveDiceES.onopen=()=>{CLOUD.diceConnected=true;updateLobbyLiveDiceDOM();};
-      liveDiceES.onerror=()=>{CLOUD.diceConnected=false;updateLobbyLiveDiceDOM();};
-      liveDiceES.onmessage=ev=>{
-        if(!ev?.data) return;
-        try{
-          const outer=JSON.parse(ev.data);
-          if(outer&&outer.event==='message'&&typeof outer.message==='string'){
-            handleIncomingDicePayload(JSON.parse(outer.message),true);
-          }else if(outer&&((outer.id&&Array.isArray(outer.res))||LIVE_EVENT_TYPES.has(outer.type))){
-            handleIncomingDicePayload(outer,true);
-          }
-        }catch(err){}
-      };
-    }
-  }catch(e){}
+  const connectSSE=(force=false)=>{
+    try{
+      const topic=getLiveDiceTopic();
+      const closed=liveDiceES&&liveDiceES.readyState===2;
+      if(!force&&liveDiceES&&!closed&&liveDiceTopicCur===topic) return;
+      if(liveDiceES){try{liveDiceES.close();}catch(e){} liveDiceES=null;}
+      liveDiceTopicCur=topic;
+      if(typeof EventSource!=='undefined'){
+        liveDiceES=new EventSource(`https://ntfy.sh/${encodeURIComponent(topic)}/sse`);
+        liveDiceES.onopen=()=>{CLOUD.diceConnected=true;updateLobbyLiveDiceDOM();};
+        liveDiceES.onerror=()=>{CLOUD.diceConnected=false;updateLobbyLiveDiceDOM();};
+        liveDiceES.onmessage=ev=>{
+          if(!ev?.data) return;
+          try{
+            const outer=JSON.parse(ev.data);
+            if(outer&&outer.event==='message'&&typeof outer.message==='string'){
+              handleIncomingDicePayload(JSON.parse(outer.message),true);
+            }else if(outer&&((outer.id&&Array.isArray(outer.res))||LIVE_EVENT_TYPES.has(outer.type))){
+              handleIncomingDicePayload(outer,true);
+            }
+          }catch(err){}
+        };
+      }
+    }catch(e){}
+  };
+  connectSSE(false);
+  if(!liveFocusListenersBound&&typeof document!=='undefined'){
+    liveFocusListenersBound=true;
+    document.addEventListener('visibilitychange',()=>{
+      if(!document.hidden){
+        connectSSE(false);
+        syncCloudRegistry(false);
+      }
+    });
+    window.addEventListener('online',()=>{
+      connectSSE(true);
+      syncCloudRegistry(false);
+    });
+  }
   if(!liveDicePollTimer){
     let lastLivePollMs=0;
     liveDicePollTimer=setInterval(()=>{
       if(document.hidden) return;
-      if(!(UI.inLobby || LD.open)) return;
-      const now=Date.now(), minGap=CLOUD.diceConnected?20000:5000;
+      if(liveDiceES&&liveDiceES.readyState===2) connectSSE(true);
+      const iniActive=hasAnyRelevantActiveInitiative();
+      const needsFast=Boolean(INI.open||iniActive);
+      const needsPoll=Boolean(UI.inLobby||LD.open||needsFast);
+      const now=Date.now();
+      const minGap=needsPoll
+        ?(CLOUD.diceConnected?(needsFast?8000:15000):4000)
+        :(CLOUD.diceConnected?30000:10000);
       if(now-lastLivePollMs<minGap-250) return;
       lastLivePollMs=now;
       syncCloudRegistry(false);
-    },5000);
+    },4000);
   }
 }
 export function sendLiveBroadcast(payload){
@@ -611,7 +689,38 @@ export function sendLiveBroadcast(payload){
 export function publishLiveRoll(entry, forcePublic = false){
   if(!entry) return;
   if(!forcePublic && hasNiceRoll(entry)) triggerNiceEasterEgg();
-  if(!entry.campaignId) entry.campaignId=UI.inLobby?getActiveLiveCampaignId():getCharCampaignId(entry.charId||S.charId);
+  if(!entry.campaignId){
+    if(UI.inLobby) entry.campaignId=getActiveLiveCampaignId();
+    else if(entry.charId&&isEnemySheet(entry.charId)){
+      const em=getEnemyMeta(entry.charId);
+      const iniCamps=getInitiativeCampaignsForChar(entry.charId,{activeOnly:true,visibleOnly:false});
+      if(CLOUD.activeCampaignId&&(em.campaignIds.includes(CLOUD.activeCampaignId)||iniCamps.includes(CLOUD.activeCampaignId))){
+        entry.campaignId=CLOUD.activeCampaignId;
+      }else if(iniCamps.length){
+        entry.campaignId=iniCamps[0];
+      }else if(em.campaignIds.length){
+        entry.campaignId=em.campaignIds[0];
+      }else{
+        entry.campaignId=getActiveLiveCampaignId();
+      }
+    }else{
+      entry.campaignId=getCharCampaignId(entry.charId||S.charId);
+    }
+  }
+  // Zusätzliche Kampagnen (z. B. Initiative einer anderen Kampagne oder Ziel-Kampagne) persistent am Wurf merken
+  const extraSet=new Set(Array.isArray(entry.extraCampaignIds)?entry.extraCampaignIds:[]);
+  if(entry.charId){
+    getInitiativeCampaignsForChar(entry.charId,{activeOnly:false,visibleOnly:false}).forEach(c=>extraSet.add(c));
+  }
+  if(entry.vsCharId){
+    if(!isEnemySheet(entry.vsCharId)){
+      const vc=getCharCampaignId(entry.vsCharId);
+      if(vc) extraSet.add(vc);
+    }
+    getInitiativeCampaignsForChar(entry.vsCharId,{activeOnly:false,visibleOnly:false}).forEach(c=>extraSet.add(c));
+  }
+  extraSet.delete(entry.campaignId);
+  if(extraSet.size) entry.extraCampaignIds=[...extraSet];
   if(!forcePublic && isSecretRollActive()){
     entry.isSecret=true;
     entry.wasSecret=true;
@@ -700,8 +809,14 @@ export function clearLiveDiceFeed(){
   const clr=Date.now();
   if(!CLOUD.registry.diceClearedByCamp||typeof CLOUD.registry.diceClearedByCamp!=='object') CLOUD.registry.diceClearedByCamp={};
   CLOUD.registry.diceClearedByCamp[campId]=clr;
-  CLOUD.diceFeed=(CLOUD.diceFeed||[]).filter(e=>getRollCampaignId(e)!==campId);
-  CLOUD.registry.diceFeed=(CLOUD.registry.diceFeed||[]).filter(e=>getRollCampaignId(e)!==campId);
+  const keepEntry=e=>{
+    const ts=toInt(e?.tsMs,0);
+    if(ts>clr) return true;
+    const vis=getRollVisibleCampaignIds(e);
+    return vis.some(cid=>cid!==campId&&ts>toInt(CLOUD.registry?.diceClearedByCamp?.[cid],0));
+  };
+  CLOUD.diceFeed=(CLOUD.diceFeed||[]).filter(keepEntry);
+  CLOUD.registry.diceFeed=(CLOUD.registry.diceFeed||[]).filter(keepEntry);
   CLOUD.confirmClearDice=false;
   saveDiceFeedLocal(); saveRegistryLocal();
   updateLobbyLiveDiceDOM();
@@ -714,6 +829,10 @@ export const getCloudEndpoint=()=>{const base=String(CLOUD.serverUrl||'').trim()
 export async function syncCloudRegistry(push=false){
   if(!push&&(registryPushInFlight>0||(Date.now()-lastRegistryPushMs<2500))) return;
   if(push){
+    if(registryPushInFlight>0){
+      registryPushQueued=true;
+      return;
+    }
     registryPushInFlight++;
     CLOUD.registryLoaded=true;
   }
@@ -795,8 +914,9 @@ export async function syncCloudRegistry(push=false){
           ?normalizeCampaigns(localSnap.campaigns)
           :(remHasCamps?normalizeCampaigns(rem.registry.campaigns):normalizeCampaigns(CLOUD.registry.campaigns));
         const validCampIds=new Set(mergedCampaigns.map(c=>c.id));
+        const activeCampIds=new Set(mergedCampaigns.filter(c=>c&&(c.id==='default'||!c.archived)).map(c=>c.id));
         Object.keys(mergedCharCampaigns).forEach(cid=>{
-          if(!validCampIds.has(mergedCharCampaigns[cid])) mergedCharCampaigns[cid]='default';
+          if(!activeCampIds.has(mergedCharCampaigns[cid])) mergedCharCampaigns[cid]='default';
         });
         const srcUsers=localSnap?localSnap.users:(CLOUD.registry.users||{});
         const srcDelIds=localSnap?(localSnap.deletedCharIds||[]):(Array.isArray(CLOUD.registry.deletedCharIds)?CLOUD.registry.deletedCharIds:[]);
@@ -856,8 +976,9 @@ export async function syncCloudRegistry(push=false){
           if(rIn&&!lIn) mergedInitiatives[cid]=normalizeInitiativeState(rIn);
           else if(lIn&&!rIn) mergedInitiatives[cid]=normalizeInitiativeState(lIn);
           else if(rIn&&lIn){
+            const rRev=toInt(rIn.rev,0), lRev=toInt(lIn.rev,0);
             const rTs=toInt(rIn.updatedAtMs,0), lTs=toInt(lIn.updatedAtMs,0);
-            const pickLoc=(lTs>rTs)||(lTs===rTs&&push);
+            const pickLoc=(lRev!==rRev)?(lRev>rRev):((lTs>rTs)||(lTs===rTs&&push));
             mergedInitiatives[cid]=normalizeInitiativeState(pickLoc?lIn:rIn);
           }
         });
@@ -883,7 +1004,7 @@ export async function syncCloudRegistry(push=false){
         CLOUD.list.forEach(ch=>{
           if(ch&&ch.id){
             const cid=mergedCharCampaigns[ch.id]||ch.campaignId||'default';
-            ch.campaignId=validCampIds.has(cid)?cid:'default';
+            ch.campaignId=activeCampIds.has(cid)?cid:'default';
             CLOUD.registry.charCampaigns[ch.id]=ch.campaignId;
             if(mergedEnemyMeta[ch.id]){
               ch.sheetType='enemy';
@@ -891,6 +1012,7 @@ export async function syncCloudRegistry(push=false){
             }
           }
         });
+        if(!activeCampIds.has(CLOUD.activeCampaignId)) setActiveCampaign('default');
         if(S?.charId&&mergedEnemyMeta[S.charId]){
           S.sheetType='enemy';
           S.enemyMeta=clone(mergedEnemyMeta[S.charId]);
@@ -907,6 +1029,7 @@ export async function syncCloudRegistry(push=false){
         }
         if(iniChanged){
           hooks.updateInitiativeUI?.();
+          if(D.open) hooks.renderDice?.();
         }
         if(enemyChanged){
           if(D.dMode==='character'&&D.oppCharId&&isEnemySheet(D.oppCharId)){
@@ -962,6 +1085,10 @@ export async function syncCloudRegistry(push=false){
     if(push){
       registryPushInFlight=Math.max(0,registryPushInFlight-1);
       lastRegistryPushMs=Date.now();
+      if(registryPushQueued&&registryPushInFlight===0){
+        registryPushQueued=false;
+        setTimeout(()=>{syncCloudRegistry(true);},60);
+      }
     }
   }
 }
@@ -1210,9 +1337,178 @@ export function removeCampaignAllowedUser(rawName){
   camp.allowedUsers=camp.allowedUsers.filter(u=>u.toLowerCase()!==clean.toLowerCase());
   CLOUD.registry.campaigns=normalizeCampaigns(camps);
   saveRegistryLocal();
+  hooks.renderMain?.();
   hooks.renderModal?.();
   syncCloudRegistry(true);
   toast(`👤 „${clean}“ aus „${camp.name}“ entfernt.`);
+}
+export function archiveCampaignById(campId){
+  if(!CLOUD.isAdmin) return false;
+  const targetId=String(campId||'').trim();
+  if(!targetId||targetId==='default') return false;
+  const camps=getCampaigns();
+  const camp=camps.find(c=>c.id===targetId);
+  if(!camp) return false;
+  if(camp.archived) return true;
+  const campName=camp.name||'Kampagne';
+  camp.archived=true;
+  camp.archivedAt=stamp();
+  camp.archivedAtMs=Date.now();
+  CLOUD.registry.campaigns=normalizeCampaigns(camps);
+  if(!CLOUD.registry.charCampaigns||typeof CLOUD.registry.charCampaigns!=='object') CLOUD.registry.charCampaigns={};
+  const affectedIds=[];
+  (CLOUD.list||[]).forEach(ch=>{
+    if(!ch||!ch.id||isEnemySheet(ch.id)) return;
+    const rawC=String(CLOUD.registry.charCampaigns[ch.id]||ch.campaignId||'default').trim();
+    if(rawC===targetId){
+      ch.campaignId='default';
+      CLOUD.registry.charCampaigns[ch.id]='default';
+      affectedIds.push(ch.id);
+    }
+  });
+  Object.keys(CLOUD.registry.charCampaigns).forEach(cid=>{
+    if(CLOUD.registry.charCampaigns[cid]===targetId){
+      CLOUD.registry.charCampaigns[cid]='default';
+      if(!affectedIds.includes(cid)) affectedIds.push(cid);
+    }
+  });
+  if(S?.campaignId===targetId&&!isEnemySheet(S)){S.campaignId='default';save(false);}
+  if(CLOUD.registry.enemyMeta&&typeof CLOUD.registry.enemyMeta==='object'){
+    Object.keys(CLOUD.registry.enemyMeta).forEach(eid=>{
+      const em=CLOUD.registry.enemyMeta[eid];
+      if(em&&em.diceVisibleByCamp&&em.diceVisibleByCamp[targetId]){
+        delete em.diceVisibleByCamp[targetId];
+        em.updatedAtMs=Date.now();
+        const li=(CLOUD.list||[]).find(c=>c&&c.id===eid);
+        if(li&&li.enemyMeta?.diceVisibleByCamp) delete li.enemyMeta.diceVisibleByCamp[targetId];
+      }
+    });
+  }
+  if(CLOUD.registry.initiatives?.[targetId]?.active){
+    CLOUD.registry.initiatives[targetId].active=false;
+    CLOUD.registry.initiatives[targetId].updatedAtMs=Date.now();
+    CLOUD.registry.initiatives[targetId].rev=toInt(CLOUD.registry.initiatives[targetId].rev,0)+1;
+  }
+  if(CLOUD.activeCampaignId===targetId) setActiveCampaign('default');
+  CLOUD.campAction='';
+  CLOUD.confirmArchCampId=null;
+  CLOUD.confirmDelCampId=null;
+  saveRegistryLocal();
+  syncCloudRegistry(true);
+  sendLiveBroadcast({type:'campaigns_live',action:'archive',campId:targetId,campaigns:CLOUD.registry.campaigns,senderTabId:LIVE_TAB_ID,tsMs:Date.now()});
+  affectedIds.forEach(cid=>{
+    updateCloudCharacterMeta(cid,d=>{d.campaignId='default';if(d._summary)d._summary.campaignId='default';},'');
+  });
+  hooks.renderMain?.();
+  hooks.renderHeader?.();
+  hooks.renderModal?.();
+  if(LD.open) hooks.renderLiveDice?.();
+  if(INI.open) hooks.renderInitiativeWindow?.();
+  updateLobbyLiveDiceDOM();
+  toast(`📦 Kampagne „${campName}“ archiviert${affectedIds.length?` (${affectedIds.length} ${affectedIds.length===1?'Charakter':'Charaktere'} → Allgemein verschoben)`:''}.`);
+  return true;
+}
+export function restoreCampaignById(campId){
+  if(!CLOUD.isAdmin) return false;
+  const targetId=String(campId||'').trim();
+  if(!targetId||targetId==='default') return false;
+  const camps=getCampaigns();
+  const camp=camps.find(c=>c.id===targetId);
+  if(!camp) return false;
+  const campName=camp.name||'Kampagne';
+  camp.archived=false;
+  camp.archivedAt='';
+  camp.archivedAtMs=0;
+  CLOUD.registry.campaigns=normalizeCampaigns(camps);
+  CLOUD.confirmArchCampId=null;
+  CLOUD.confirmDelCampId=null;
+  saveRegistryLocal();
+  syncCloudRegistry(true);
+  sendLiveBroadcast({type:'campaigns_live',action:'restore',campId:targetId,campaigns:CLOUD.registry.campaigns,senderTabId:LIVE_TAB_ID,tsMs:Date.now()});
+  hooks.renderMain?.();
+  hooks.renderHeader?.();
+  hooks.renderModal?.();
+  if(LD.open) hooks.renderLiveDice?.();
+  if(INI.open) hooks.renderInitiativeWindow?.();
+  updateLobbyLiveDiceDOM();
+  toast(`↩️ Kampagne „${campName}“ wiederhergestellt – wieder in der Lobby sichtbar!`);
+  return true;
+}
+export function deleteCampaignById(campId){
+  if(!CLOUD.isAdmin) return false;
+  const delId=String(campId||'').trim();
+  if(!delId||delId==='default') return false;
+  const camps=getCampaigns();
+  const delCamp=camps.find(c=>c.id===delId);
+  if(!delCamp) return false;
+  const delName=delCamp.name||'Kampagne';
+  const nextCamps=normalizeCampaigns(camps.filter(c=>c.id!==delId));
+  CLOUD.registry.campaigns=nextCamps;
+  if(!CLOUD.registry.charCampaigns||typeof CLOUD.registry.charCampaigns!=='object') CLOUD.registry.charCampaigns={};
+  const affectedIds=[];
+  (CLOUD.list||[]).forEach(ch=>{
+    if(!ch||!ch.id) return;
+    const rawC=String(CLOUD.registry.charCampaigns[ch.id]||ch.campaignId||'default').trim();
+    if(rawC===delId){
+      ch.campaignId='default';
+      CLOUD.registry.charCampaigns[ch.id]='default';
+      if(!isEnemySheet(ch.id)) affectedIds.push(ch.id);
+    }
+  });
+  Object.keys(CLOUD.registry.charCampaigns).forEach(cid=>{
+    if(CLOUD.registry.charCampaigns[cid]===delId){
+      CLOUD.registry.charCampaigns[cid]='default';
+      if(!isEnemySheet(cid)&&!affectedIds.includes(cid)) affectedIds.push(cid);
+    }
+  });
+  const validIds=new Set(nextCamps.map(c=>c.id));
+  const affectedEnemyIds=[];
+  if(!CLOUD.registry.enemyMeta||typeof CLOUD.registry.enemyMeta!=='object') CLOUD.registry.enemyMeta={};
+  const allEnemyIds=new Set([
+    ...Object.keys(CLOUD.registry.enemyMeta),
+    ...(CLOUD.list||[]).filter(ch=>ch&&isEnemySheet(ch.id)).map(ch=>ch.id)
+  ]);
+  allEnemyIds.forEach(eid=>{
+    const m=getEnemyMeta(eid);
+    if(m.campaignIds.includes(delId)||m.diceVisibleByCamp?.[delId]){
+      const nextM=normalizeEnemyMeta({
+        ...m,
+        campaignIds:m.campaignIds.filter(x=>x!==delId),
+        diceVisibleByCamp:Object.fromEntries(Object.entries(m.diceVisibleByCamp||{}).filter(([k])=>k!==delId)),
+        updatedAtMs:Date.now()
+      },validIds);
+      CLOUD.registry.enemyMeta[eid]=clone(nextM);
+      const li=(CLOUD.list||[]).find(c=>c&&c.id===eid);
+      if(li) li.enemyMeta=clone(nextM);
+      if(S.charId===eid){S.enemyMeta=clone(nextM);save(false);}
+      affectedEnemyIds.push({id:eid,meta:nextM});
+    }
+  });
+  if(CLOUD.registry.initiatives&&CLOUD.registry.initiatives[delId]) delete CLOUD.registry.initiatives[delId];
+  if(CLOUD.registry.campaignSharedNotes&&CLOUD.registry.campaignSharedNotes[delId]) delete CLOUD.registry.campaignSharedNotes[delId];
+  if(CLOUD.registry.diceClearedByCamp&&CLOUD.registry.diceClearedByCamp[delId]) delete CLOUD.registry.diceClearedByCamp[delId];
+  if(S?.campaignId===delId){S.campaignId='default';save(false);}
+  if(CLOUD.activeCampaignId===delId) setActiveCampaign('default');
+  CLOUD.campAction='';
+  CLOUD.confirmArchCampId=null;
+  CLOUD.confirmDelCampId=null;
+  saveRegistryLocal();
+  syncCloudRegistry(true);
+  sendLiveBroadcast({type:'campaigns_live',action:'delete',campId:delId,campaigns:CLOUD.registry.campaigns,senderTabId:LIVE_TAB_ID,tsMs:Date.now()});
+  affectedIds.forEach(cid=>{
+    updateCloudCharacterMeta(cid,d=>{d.campaignId='default';if(d._summary)d._summary.campaignId='default';},'');
+  });
+  affectedEnemyIds.forEach(({id:eid,meta:nm})=>{
+    updateCloudCharacterMeta(eid,d=>{d.enemyMeta=clone(nm);if(d._summary)d._summary.enemyMeta=clone(nm);},'');
+  });
+  hooks.renderMain?.();
+  hooks.renderHeader?.();
+  hooks.renderModal?.();
+  if(LD.open) hooks.renderLiveDice?.();
+  if(INI.open) hooks.renderInitiativeWindow?.();
+  updateLobbyLiveDiceDOM();
+  toast(`🗑️ Kampagne „${delName}“ gelöscht${affectedIds.length?` (${affectedIds.length} ${affectedIds.length===1?'Charakter':'Charaktere'} → Allgemein verschoben)`:''}.`);
+  return true;
 }
 export function toggleGlobalGMTag(rawName){
   if(!CLOUD.isAdmin) return;
@@ -1378,6 +1674,7 @@ export async function fetchLobbyList(silent=false){
     if(!res.ok) throw new Error(`HTTP ${res.status}`);
     const data=await res.json();
     const validCampIds=new Set(getCampaigns().map(c=>c.id));
+    const activeCampIds=new Set(getActiveCampaigns().map(c=>c.id));
     if(!CLOUD.registry.charCampaigns||typeof CLOUD.registry.charCampaigns!=='object') CLOUD.registry.charCampaigns={};
     if(!CLOUD.registry.enemyMeta||typeof CLOUD.registry.enemyMeta!=='object') CLOUD.registry.enemyMeta={};
     if(!Array.isArray(CLOUD.registry.deletedCharIds)) CLOUD.registry.deletedCharIds=[];
@@ -1403,7 +1700,7 @@ export async function fetchLobbyList(silent=false){
         CLOUD.registry.charCampaigns[ch.id]=String(ch.campaignId||ch._summary?.campaignId||'default').trim()||'default';
       }
       const rawCamp=String(CLOUD.registry.charCampaigns[ch.id]||'default').trim()||'default';
-      const effCamp=validCampIds.has(rawCamp)?rawCamp:'default';
+      const effCamp=activeCampIds.has(rawCamp)?rawCamp:'default';
       ch.campaignId=effCamp;
       CLOUD.registry.charCampaigns[ch.id]=effCamp;
       const isEnemy=Boolean(ch.sheetType==='enemy'||ch._summary?.sheetType==='enemy'||CLOUD.registry.enemyMeta[ch.id]);
@@ -1884,6 +2181,7 @@ export async function loadCloudCharacter(id,asViewOnly=true,autoFallbackView=fal
       CLOUD.viewingRemote=true; CLOUD.remoteCharId=id;
       mergeLoaded(data);
       resetCloudSyncState({clearMeta:true,status:'saved',lastSyncTs:data._summary?.updatedAt||''});
+      try{window.history.replaceState({},'',`${window.location.pathname}?char=${encodeURIComponent(id)}&view=1`);}catch(e){}
       UI.inLobby=false; UI.sheetLoaded=true; UI.modal=null; hooks.exitLobbyNeutralDice?.(); hooks.renderAll?.(false);
       toast(`👁️ 👄 👁️ Ansichtsmodus: „${S.profile.name||'Charakter'}“ geladen`);
     }else{
@@ -1897,6 +2195,7 @@ export async function loadCloudCharacter(id,asViewOnly=true,autoFallbackView=fal
       saveLastActiveTab(S.charId,S.activeTab);
       if(owner&&!S.owner) S.owner=owner;
       resetCloudSyncState({status:'saved',metaCharId:S.charId,metaSig:computeCharMetaSignature(S),lastSyncTs:data._summary?.updatedAt||stamp()});
+      try{window.history.replaceState({},'',`${window.location.pathname}?char=${encodeURIComponent(id)}`);}catch(e){}
       UI.inLobby=false; UI.sheetLoaded=true; UI.modal=null; hooks.exitLobbyNeutralDice?.(); hooks.renderAll?.(false);
       toast(`✏️ „${S.profile.name||(isEnemy?'Gegner':'Charakter')}“ zum Bearbeiten geladen!`);
     }
@@ -1936,9 +2235,20 @@ export async function fetchForeignCharacterSheet(charId,{force=false,silent=true
     if(D.open) hooks.renderDice?.();
     return S;
   }
+  const canFetchEnemyForContext=(targetId,sheetObj=null)=>{
+    if(canViewEnemySheet(sheetObj||targetId)) return true;
+    const activeCamps=new Set([getActiveLiveCampaignId()]);
+    if(!UI.inLobby&&S?.charId){
+      activeCamps.add(getCharCampaignId(S.charId));
+      getInitiativeCampaignsForChar(S.charId,{activeOnly:true,visibleOnly:false}).forEach(c=>activeCamps.add(c));
+    }
+    for(const cid of activeCamps){
+      if(cid&&canSeeEnemyInDice(targetId,cid)) return true;
+    }
+    return false;
+  };
   if(isEnemySheet(id)){
-    const activeCamp=UI.inLobby?getActiveLiveCampaignId():getCharCampaignId(S.charId);
-    if(!canViewEnemySheet(id)&&!canSeeEnemyInDice(id,activeCamp)){
+    if(!canFetchEnemyForContext(id)){
       foreignSheetErrors.set(id,'Dieser Gegner ist aktuell nicht für den Würfelassistenten freigeschaltet.');
       if(D.open) hooks.renderDice?.();
       return null;
@@ -1966,8 +2276,7 @@ export async function fetchForeignCharacterSheet(charId,{force=false,silent=true
       }
       const norm=normalizeForeignSheet(data);
       if(norm.sheetType==='enemy'){
-        const activeCamp=UI.inLobby?getActiveLiveCampaignId():getCharCampaignId(S.charId);
-        if(!canViewEnemySheet(norm)&&!canSeeEnemyInDice(id,activeCamp)){
+        if(!canFetchEnemyForContext(id,norm)){
           foreignSheetCache.delete(id);
           foreignSheetErrors.set(id,'Dieser Gegner ist aktuell nicht freigeschaltet.');
           return null;
@@ -2403,16 +2712,24 @@ export async function updateEnemyMetaCloud(charId,mutatorFn,successMsg=''){
   mutatorFn(nextDraft);
   nextDraft.updatedAtMs=Date.now();
   const norm=normalizeEnemyMeta(nextDraft,validCampIds);
+  const prevCamp=String(CLOUD.registry.charCampaigns?.[id]||'default').trim()||'default';
+  const effEnemyCamp=(norm.isEnemy&&norm.campaignIds.length)
+    ?(norm.campaignIds.includes(prevCamp)?prevCamp:norm.campaignIds[0])
+    :'default';
   if(!CLOUD.registry.enemyMeta||typeof CLOUD.registry.enemyMeta!=='object') CLOUD.registry.enemyMeta={};
   CLOUD.registry.enemyMeta[id]=clone(norm);
+  if(!CLOUD.registry.charCampaigns||typeof CLOUD.registry.charCampaigns!=='object') CLOUD.registry.charCampaigns={};
+  CLOUD.registry.charCampaigns[id]=effEnemyCamp;
   if(CLOUD.registry.publicNotes&&CLOUD.registry.publicNotes[id]) delete CLOUD.registry.publicNotes[id];
   const li=(CLOUD.list||[]).find(c=>c&&c.id===id);
   if(li){
     li.sheetType='enemy';
+    li.campaignId=effEnemyCamp;
     li.enemyMeta=clone(norm);
   }
   if(S?.charId===id){
     S.sheetType='enemy';
+    S.campaignId=effEnemyCamp;
     S.enemyMeta=clone(norm);
     save(false);
   }
@@ -2429,9 +2746,11 @@ export async function updateEnemyMetaCloud(charId,mutatorFn,successMsg=''){
       const data=await res.json().catch(()=>null);
       if(data&&!data.error){
         data.sheetType='enemy';
+        data.campaignId=effEnemyCamp;
         data.enemyMeta=clone(norm);
         if(!data._summary||typeof data._summary!=='object') data._summary={};
         data._summary.sheetType='enemy';
+        data._summary.campaignId=effEnemyCamp;
         data._summary.enemyMeta=clone(norm);
         if(CLOUD.isAdmin) data._AdminOverride=true;
         await fetch(getCloudEndpoint(),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});
@@ -2449,6 +2768,7 @@ export async function createNewEnemyOrTemplate(opts={}){
   }
   const asEnemyCampId=String(opts.asEnemyCampId||'').trim();
   const canMakeEnemy=Boolean(asEnemyCampId&&canManageCampaign(asEnemyCampId));
+  const effCampId=canMakeEnemy?asEnemyCampId:'default';
   await flushBeforeCharacterSwitch();
   CLOUD.viewingRemote=false; CLOUD.remoteCharId='';
   setS(defaultState());
@@ -2458,7 +2778,7 @@ export async function createNewEnemyOrTemplate(opts={}){
   S.profile.ancestry=String(opts.ancestry||'').trim();
   S.profile.concept=String(opts.concept||'').trim();
   S.owner=CLOUD.currentUser||(CLOUD.isAdmin?'Admin':'');
-  S.campaignId='default';
+  S.campaignId=effCampId;
   S.cloudAutoSync=true;
   const initMeta=normalizeEnemyMeta({
     isEnemy:canMakeEnemy,
@@ -2471,7 +2791,7 @@ export async function createNewEnemyOrTemplate(opts={}){
   S.enemyMeta=initMeta;
   if(S.owner) CLOUD.registry.claims[S.charId]=S.owner;
   if(!CLOUD.registry.charCampaigns||typeof CLOUD.registry.charCampaigns!=='object') CLOUD.registry.charCampaigns={};
-  CLOUD.registry.charCampaigns[S.charId]='default';
+  CLOUD.registry.charCampaigns[S.charId]=effCampId;
   if(!CLOUD.registry.enemyMeta||typeof CLOUD.registry.enemyMeta!=='object') CLOUD.registry.enemyMeta={};
   CLOUD.registry.enemyMeta[S.charId]=clone(initMeta);
   CLOUD.newTemplateOpen=false; CLOUD.newTemplateName=''; CLOUD.newTemplateAncestry=''; CLOUD.newTemplateConcept=''; CLOUD.newTemplateCategory=''; CLOUD.newTemplateAsEnemyCampId='';
@@ -2613,6 +2933,7 @@ export async function cloneEnemyToCampaign(srcCharId,campId=''){
       nextName=`${baseName} #${n}`;
     }
     const newId=uid(), newOwner=CLOUD.currentUser||srcData.owner||'';
+    const effCampId=asEnemy?cid:'default';
     const newMeta=normalizeEnemyMeta({
       isEnemy:asEnemy,
       campaignIds:asEnemy?[cid]:[],
@@ -2623,19 +2944,20 @@ export async function cloneEnemyToCampaign(srcCharId,campId=''){
     },new Set(getCampaigns().map(c=>c.id)));
     srcData.charId=newId;
     srcData.owner=newOwner;
-    srcData.campaignId='default';
+    srcData.campaignId=effCampId;
     srcData.sheetType='enemy';
     srcData.enemyMeta=clone(newMeta);
     if(!srcData.profile) srcData.profile={};
     srcData.profile.name=nextName;
     if(!srcData._summary||typeof srcData._summary!=='object') srcData._summary={};
     srcData._summary.owner=newOwner;
-    srcData._summary.campaignId='default';
+    srcData._summary.campaignId=effCampId;
     srcData._summary.sheetType='enemy';
     srcData._summary.enemyMeta=clone(newMeta);
     srcData._summary.updatedAt=stamp();
     if(newOwner) CLOUD.registry.claims[newId]=newOwner;
-    CLOUD.registry.charCampaigns[newId]='default';
+    if(!CLOUD.registry.charCampaigns||typeof CLOUD.registry.charCampaigns!=='object') CLOUD.registry.charCampaigns={};
+    CLOUD.registry.charCampaigns[newId]=effCampId;
     if(!CLOUD.registry.enemyMeta||typeof CLOUD.registry.enemyMeta!=='object') CLOUD.registry.enemyMeta={};
     CLOUD.registry.enemyMeta[newId]=clone(newMeta);
     await syncCloudRegistry(true);

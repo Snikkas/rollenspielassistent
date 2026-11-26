@@ -140,6 +140,7 @@ export function defaultState(){
     customRes:{name:'Benutzerdefiniert',current:3,max:3,color:'#c084fc'},extraSecList:[],
     statusCollapsed:false,statusEffects:makeDefaultStatusEffects(),inspiration:0,inspirationActive:false,
     thresholds:{woundLight:3,woundMedium:6,woundHeavy:9,traumaLight:3,traumaMedium:6,traumaHeavy:9},
+    charSize:{level:0,ovr:'',customLevels:[]},
     bst:1,bstOvr:'',movements:[{id:'mv1',type:'Laufen',base:5,ovr:''}],hitZones:clone(DEF_HZ),lastHzRoll:null,lastSubHzRoll:null,lastSubHzZone:'',
     combatNotes:{bestehen:'',schaden:'',ruestung:''},skillSections:[],skills:[],powerSections:[],powers:[],augments:[],
     progression:{level:1,ep:0,bonusSp:0,bonusMsp:0,bonusNote:''},
@@ -169,7 +170,7 @@ let toastTimer=null;
 export const isMobileLayout=()=>window.matchMedia('(max-width: 767px), ((max-height: 540px) and (pointer: coarse))').matches;
 export const CTX_MENU={open:false,id:0,key:'',anchorEl:null,opts:null,callbacks:[],cleanupSwipe:null};
 export const DUEL={outgoing:null,incoming:[],damageOffers:[],reply:null,swipeCleanup:null};
-export const COMBAT={active:false,collapsed:false,hitOk:false,blockPrompt:false,blockPromptReason:'',eg:0,egMult:1,baseEg:0,isBlocked:false,blockItemRed:false,blockShieldId:'',blockShieldName:'',weaponId:null,shieldId:null,ammoId:null,attackerName:'',targetCharId:'',targetName:'',dmgType:'cut',pool:'lp',zoneName:'',subZoneName:'',lastHzRoll:null,lastSubHzRoll:null,dmgMod:0,armorMod:0,posted:false,offerId:'',offerStatus:'',offerNote:'',directApplying:false,directAppliedNote:'',ammoSpent:false};
+export const COMBAT={active:false,collapsed:false,hitOk:false,blockPrompt:false,blockPromptReason:'',isCrit:false,eg:0,egMult:1,baseEg:0,isBlocked:false,blockItemRed:false,blockShieldId:'',blockShieldName:'',weaponId:null,shieldId:null,ammoId:null,attackerName:'',targetCharId:'',targetName:'',dmgType:'cut',pool:'lp',zoneName:'',subZoneName:'',lastHzRoll:null,lastSubHzRoll:null,dmgMod:0,armorMod:0,posted:false,offerId:'',offerStatus:'',offerNote:'',directApplying:false,directAppliedNote:'',ammoSpent:false,hits:[],combinedPosted:false,combinedOfferId:'',combinedOfferStatus:'',combinedOfferNote:'',combinedDirectApplying:false,combinedDirectAppliedNote:''};
 export function syncBodyScrollLock(){
   document.body.style.overflow=(isMobileLayout()&&Boolean(D.open||CN.open||LD.open||INI.open||FBW.open||UI.modal||CTX_MENU.open||DUEL.reply))?'hidden':'';
 }
@@ -236,6 +237,9 @@ export function renderCtxMenuItemsHtml(items){
     const subHtml=item.sub?`<span class="ctx-item-sub">${esc(item.sub)}</span>`:'';
     const badgeTxt=item.badge!==undefined&&item.badge!==''?String(item.badge):(item.active?'✓':'');
     const badgeHtml=badgeTxt?`<span class="ctx-item-badge">${esc(badgeTxt)}</span>`:'';
+    if(item.href&&!item.disabled){
+      return `<a href="${esc(item.href)}" role="menuitem" class="${cls}" ${attrs.join(' ')}><span class="ctx-item-main">${iconHtml}<span class="ctx-item-txt"><span class="ctx-item-lbl">${esc(item.label||'')}</span>${subHtml}</span></span>${badgeHtml}</a>`;
+    }
     return `<button type="button" role="menuitem" class="${cls}" ${attrs.join(' ')}><span class="ctx-item-main">${iconHtml}<span class="ctx-item-txt"><span class="ctx-item-lbl">${esc(item.label||'')}</span>${subHtml}</span></span>${badgeHtml}</button>`;
   }).join('');
 }
@@ -611,7 +615,7 @@ export function setModalSwipeCleanup(fn){ modalSwipeCleanup=fn; }
 export function cleanupModalSwipe(){if(typeof modalSwipeCleanup==='function'){try{modalSwipeCleanup();}catch(_){}}modalSwipeCleanup=null;}
 export const loadPwMode=()=>{try{return localStorage.getItem(PW_MODE_KEY)==='edit'?'edit':'view';}catch(e){return 'view';}};
 export const pwQuickKey=(kind,id)=>`${kind==='augment'?'augment':'power'}:${id}`;
-export let UI={inLobby:true,sheetLoaded:false,modal:null,profileUser:'',adminReturnModal:'',adminPinError:'',adminIconTargetKey:'',confirmResetAllIcons:false,mobileHdrOpen:false,mobileLobbyMenuOpen:false,infoTab:'dice',glossSearch:'',listType:'art',ammoModalWeaponId:'',arZoneDrafts:{},arSubZonesOpen:{},hzSubExp:{},skSort:{col:'',asc:true},editSkNameId:null,skMobExp:{},imgTargetKind:'',imgTargetId:'',imgZoomOpen:false,imgReturnModal:'',confirmNew:false,confirmLog:false,confirmDelId:null,confirmDelSecId:null,confirmSecPullId:null,confirmDelSkId:null,confirmDelSkSecId:null,confirmSkSecPullId:null,confirmDelInvSecId:null,confirmDelExSecId:null,confirmHzStep:1,openPwMenu:'',dupPwWarn:null,pwMode:loadPwMode(),pwQuickEditIds:new Set(),pwFilterOpen:false,pwFilterMode:'or',pwFilterTypes:[],pwFilterIncludeLinkedAugs:true,pwFilterArts:[],pwFilterActionSubs:[],pwFilterTags:[],pwFilterTiers:[],confirmDelEqKey:'',tab1:{attrs:null,attrPairs:{},sec:null,status:null,insp:null,res:null,thresholds:null,move:null,hz:null,quick:null},tab5:{equipNotes:null,bioSec:false,bioGallery:null,bioFields:{}},statusIniPromptKey:'',lastRollHtml:'',lastBlockBaseHtml:'',lastBlockFollowRes:null,lastSecretRollId:'',secretRollsCollapsed:false,colTarget:'cres',colMode:'text',colPwKind:'power',colPwId:'',colDraft:'#c084fc',attrGroupSel:'ST_KO',palBuilderOpen:false,palDraft:{name:'',isLt:false,bg:'#020617',acc:'#0ea5e9',acc2:'#6366f1',txt:'#f1f5f9',mut:'#94a3b8',btnTxt:'#ffffff'}};
+export let UI={inLobby:true,sheetLoaded:false,modal:null,profileUser:'',adminReturnModal:'',adminPinError:'',adminIconTargetKey:'',confirmResetAllIcons:false,mobileHdrOpen:false,mobileLobbyMenuOpen:false,infoTab:'dice',glossSearch:'',listType:'art',ammoModalWeaponId:'',arZoneDrafts:{},arSubZonesOpen:{},hzSubExp:{},skSort:{col:'',asc:true},editSkNameId:null,skMobExp:{},imgTargetKind:'',imgTargetId:'',imgZoomOpen:false,imgReturnModal:'',confirmNew:false,confirmLog:false,confirmDelId:null,confirmDelSecId:null,confirmSecPullId:null,confirmDelSkId:null,confirmDelSkSecId:null,confirmSkSecPullId:null,confirmDelInvSecId:null,confirmDelExSecId:null,confirmHzStep:1,openPwMenu:'',dupPwWarn:null,pwMode:loadPwMode(),pwQuickEditIds:new Set(),pwFilterOpen:false,pwFilterMode:'or',pwFilterTypes:[],pwFilterIncludeLinkedAugs:true,pwFilterArts:[],pwFilterActionSubs:[],pwFilterTags:[],pwFilterTiers:[],confirmDelEqKey:'',tab1:{attrs:null,size:true,attrPairs:{},sec:null,status:null,insp:null,res:null,thresholds:null,move:null,hz:null,quick:null},tab5:{equipNotes:null,bioSec:false,bioGallery:null,bioFields:{}},statusIniPromptKey:'',lastRollHtml:'',lastBlockBaseHtml:'',lastBlockFollowRes:null,lastSecretRollId:'',secretRollsCollapsed:false,colTarget:'cres',colMode:'text',colPwKind:'power',colPwId:'',colDraft:'#c084fc',attrGroupSel:'ST_KO',palBuilderOpen:false,palDraft:{name:'',isLt:false,bg:'#020617',acc:'#0ea5e9',acc2:'#6366f1',txt:'#f1f5f9',mut:'#94a3b8',btnTxt:'#ffffff'}};
 export function setPwMode(mode){
   const m=mode==='edit'?'edit':'view';
   UI.pwMode=m;
@@ -637,13 +641,16 @@ export function normalizeCampaigns(rawCamps){
       gmUsers: id==='default'?[]:(Array.isArray(c.gmUsers)?[...new Set(c.gmUsers.map(u=>String(u||'').trim()).filter(Boolean))]:[]),
       img: String(c.img||''),
       color: isHex(c.color)?c.color:'',
-      bgColor: isHex(c.bgColor)?c.bgColor:''
+      bgColor: isHex(c.bgColor)?c.bgColor:'',
+      archived: id==='default'?false:Boolean(c.archived),
+      archivedAt: id==='default'?'':String(c.archivedAt||''),
+      archivedAtMs: id==='default'?0:Math.max(0,toInt(c.archivedAtMs,0))
     };
   }):[];
   if(!list.length){
-    list.push({id:'default',name:'Ohne Kampagne / Allgemein',allowedUsers:[],gmUsers:[],img:''});
+    list.push({id:'default',name:'Ohne Kampagne / Allgemein',allowedUsers:[],gmUsers:[],img:'',color:'',bgColor:'',archived:false,archivedAt:'',archivedAtMs:0});
   }else if(!list.some(c=>c.id==='default')){
-    list.unshift({id:'default',name:'Ohne Kampagne / Allgemein',allowedUsers:[],gmUsers:[],img:''});
+    list.unshift({id:'default',name:'Ohne Kampagne / Allgemein',allowedUsers:[],gmUsers:[],img:'',color:'',bgColor:'',archived:false,archivedAt:'',archivedAtMs:0});
   }
   return list;
 }
@@ -913,16 +920,23 @@ export function normalizeInitiativeState(raw){
     active:Boolean(src.active),
     round:Math.max(1,toInt(src.round,1)),
     activeEntryId:entries.some(e=>e.id===activeEntryId)?activeEntryId:'',
+    rev:Math.max(0,toInt(src.rev,0)),
     updatedAtMs:Math.max(0,toInt(src.updatedAtMs,0)),
     entries
   };
 }
-export const CLOUD={serverUrl:'',list:[],trashedList:[],trashedLoading:false,trashedError:'',confirmPermDelTrashId:null,confirmEmptyTrash:false,loading:false,syncing:false,error:'',lastSyncTs:'',viewingRemote:false,remoteCharId:'',confirmDelCloudId:null,confirmDelCampPageId:null,filterMine:false,currentUser:'',isAdmin:false,showAdminBar:false,userMgmtOpen:false,activeCampaignId:'default',campAction:'',newCharOpen:false,newCharName:'',newCharAncestry:'',newCharConcept:'',newCharCampId:'default',gmEnemiesOpen:true,gmEnemyTab:'active',gmEnemySearch:'',templatesOpen:false,templateFilter:'all',templateSearch:'',newTemplateOpen:false,newTemplateName:'',newTemplateAncestry:'',newTemplateConcept:'',newTemplateCategory:'',newTemplateAsEnemyCampId:'',publicNotesOpen:true,activePublicPageKey:'',registryLoaded:false,diceFeed:[],secretRolls:[],diceConnected:false,diceToast:true,diceCollapsed:false,lobbyDiceH:340,galleryCollapsed:false,confirmClearDice:false,registry:{users:{},claims:{},charCampaigns:{},enemyMeta:{},initiatives:{},publicNotes:{},campaignSharedNotes:{},deletedCharIds:[],campaigns:[{id:'default',name:'Ohne Kampagne / Allgemein',allowedUsers:[],gmUsers:[],img:''}],gmUsers:[],lobbyLogo:'',adminHash:'',diceFeed:[],diceClearedAt:0,diceClearedByCamp:{}}};
+export const CLOUD={serverUrl:'',list:[],trashedList:[],trashedLoading:false,trashedError:'',confirmPermDelTrashId:null,confirmEmptyTrash:false,confirmArchCampId:null,confirmDelCampId:null,loading:false,syncing:false,error:'',lastSyncTs:'',viewingRemote:false,remoteCharId:'',confirmDelCloudId:null,confirmDelCampPageId:null,filterMine:false,currentUser:'',isAdmin:false,showAdminBar:false,userMgmtOpen:false,activeCampaignId:'default',campAction:'',newCharOpen:false,newCharName:'',newCharAncestry:'',newCharConcept:'',newCharCampId:'default',gmEnemiesOpen:true,gmEnemyTab:'active',gmEnemySearch:'',templatesOpen:false,templateFilter:'all',templateSearch:'',newTemplateOpen:false,newTemplateName:'',newTemplateAncestry:'',newTemplateConcept:'',newTemplateCategory:'',newTemplateAsEnemyCampId:'',publicNotesOpen:true,activePublicPageKey:'',registryLoaded:false,diceFeed:[],secretRolls:[],diceConnected:false,diceToast:true,diceCollapsed:false,lobbyDiceH:340,galleryCollapsed:false,confirmClearDice:false,registry:{users:{},claims:{},charCampaigns:{},enemyMeta:{},initiatives:{},publicNotes:{},campaignSharedNotes:{},deletedCharIds:[],campaigns:[{id:'default',name:'Ohne Kampagne / Allgemein',allowedUsers:[],gmUsers:[],img:'',archived:false,archivedAt:'',archivedAtMs:0}],gmUsers:[],lobbyLogo:'',adminHash:'',diceFeed:[],diceClearedAt:0,diceClearedByCamp:{}}};
 export const CLOUD_SYNC={inFlight:false,inFlightPromise:null,dirty:false,seq:0,syncedSeq:0,status:'saved',debounceTimer:null,retryTimer:null,retryStep:0,lastMetaSig:'',lastMetaCharId:'',pendingSilent:true,pendingForceRegistry:false,lastError:''};
 export const PWLIB={loaded:false,loading:false,saving:false,error:'',repoPacks:[],cloudPacks:[],tab:'server',search:'',filterCat:'',filterTier:'',selectedPackId:'',openCats:{},openPacks:{},openAugFolders:{},selSecIds:{},selPwIds:{},selAugIds:{},targetSecId:'',dedupeMode:'skipExisting',lastLoadedTs:'',adminSrc:'all',adminName:'',adminCat:'Allgemein',adminDesc:'',adminIsBasis:false,confirmDelPackId:''};
 export function getCampaigns(){
   CLOUD.registry.campaigns=normalizeCampaigns(CLOUD.registry?.campaigns);
   return CLOUD.registry.campaigns;
+}
+export function getActiveCampaigns(){
+  return getCampaigns().filter(c=>c&&(c.id==='default'||!c.archived));
+}
+export function getArchivedCampaigns(){
+  return getCampaigns().filter(c=>c&&c.id!=='default'&&Boolean(c.archived));
 }
 export function setActiveCampaign(campId){
   const id=String(campId||'default').trim()||'default';
@@ -940,7 +954,7 @@ export function isGlobalGM(username=CLOUD.currentUser){const u=String(username||
 export function isCampaignMainGM(campOrId,username=CLOUD.currentUser){const u=String(username||'').trim().toLowerCase();if(!u||!isGlobalGM(u))return false;const c=typeof campOrId==='string'?getCampaigns().find(x=>x.id===campOrId):campOrId;if(!c||c.id==='default')return false;return Array.isArray(c.gmUsers)&&c.gmUsers.some(x=>String(x||'').trim().toLowerCase()===u);}
 export function canManageCampaign(campOrId,username=CLOUD.currentUser){if(CLOUD.isAdmin) return true; return isCampaignMainGM(campOrId, username);}
 export function getGmManageableCampaigns(username=CLOUD.currentUser){
-  const all=getCampaigns().filter(c=>c&&c.id!=='default');
+  const all=getActiveCampaigns().filter(c=>c&&c.id!=='default');
   if(CLOUD.isAdmin) return all;
   return all.filter(c=>isCampaignMainGM(c,username));
 }
@@ -962,7 +976,7 @@ export function canClearLiveDice(campOrId=getActiveLiveCampaignId(),username=CLO
   return Boolean(inCampGmList||isGmInCamp);
 }
 export function getAccessibleCampaigns(username=CLOUD.currentUser){
-  const all=getCampaigns(); if(CLOUD.isAdmin) return all;
+  const all=getActiveCampaigns(); if(CLOUD.isAdmin) return all;
   return all.filter(c=>c.id==='default'||(username&&(isUserInCampaign(c,username)||isCampaignMainGM(c,username))));
 }
 export function getCreatableCampaigns(username=CLOUD.currentUser){
@@ -1119,17 +1133,90 @@ export function getActiveLiveCampaignId(){
   if(allowed.length) return allowed[0].id;
   return CLOUD.isAdmin?'default':(CLOUD.activeCampaignId||'default');
 }
+export function isCharInCampaignInitiative(charId,campId,{activeOnly=false,visibleOnly=false}={}){
+  const id=String(charId||'').trim();
+  const cid=String(campId||'').trim();
+  if(!id||!cid) return false;
+  const st=CLOUD.registry?.initiatives?.[cid];
+  if(!st||!Array.isArray(st.entries)||!st.entries.length) return false;
+  if(activeOnly&&!st.active) return false;
+  return st.entries.some(e=>e&&e.charId===id&&(!visibleOnly||!e.hidden));
+}
+export function getInitiativeCampaignsForChar(charId,{activeOnly=false,visibleOnly=false}={}){
+  const id=String(charId||'').trim();
+  if(!id) return [];
+  const initMap=CLOUD.registry?.initiatives;
+  if(!initMap||typeof initMap!=='object') return [];
+  const validIds=new Set(getCampaigns().filter(c=>c&&(c.id==='default'||!c.archived)).map(c=>c.id));
+  const out=[];
+  Object.entries(initMap).forEach(([cid,st])=>{
+    if(!cid||!validIds.has(cid)||!st||!Array.isArray(st.entries)||!st.entries.length) return;
+    if(activeOnly&&!st.active) return;
+    if(st.entries.some(e=>e&&e.charId===id&&(!visibleOnly||!e.hidden))){
+      out.push(cid);
+    }
+  });
+  return out;
+}
 export function getRollCampaignId(entry){
   if(!entry) return 'default';
-  if(entry.charId&&(CLOUD.registry?.charCampaigns?.[entry.charId]!==undefined||(CLOUD.list||[]).some(c=>c.id===entry.charId)||entry.charId===S.charId)){
-    return getCharCampaignId(entry.charId);
-  }
   const validIds=new Set(getCampaigns().map(c=>c.id));
-  const raw=String(entry.campaignId||'default').trim()||'default';
-  return validIds.has(raw)?raw:'default';
+  const raw=String(entry.campaignId||'').trim();
+  if(entry.charId){
+    if(isEnemySheet(entry.charId)){
+      if(raw&&validIds.has(raw)&&raw!=='default') return raw;
+      const meta=getEnemyMeta(entry.charId);
+      const firstCamp=meta.campaignIds.find(c=>validIds.has(c));
+      if(firstCamp) return firstCamp;
+      if(raw&&validIds.has(raw)) return raw;
+      return getCharCampaignId(entry.charId);
+    }
+    if(raw&&validIds.has(raw)&&raw!=='default') return raw;
+    if(CLOUD.registry?.charCampaigns?.[entry.charId]!==undefined||(CLOUD.list||[]).some(c=>c.id===entry.charId)||entry.charId===S.charId){
+      return getCharCampaignId(entry.charId);
+    }
+  }
+  return (raw&&validIds.has(raw))?raw:'default';
+}
+export function getRollVisibleCampaignIds(entry){
+  if(!entry) return ['default'];
+  const validIds=new Set(getCampaigns().map(c=>c.id));
+  const camps=new Set();
+  const primary=getRollCampaignId(entry);
+  if(primary&&validIds.has(primary)) camps.add(primary);
+  if(Array.isArray(entry.extraCampaignIds)){
+    entry.extraCampaignIds.forEach(c=>{
+      const clean=String(c||'').trim();
+      if(clean&&validIds.has(clean)) camps.add(clean);
+    });
+  }
+  if(entry.charId){
+    getInitiativeCampaignsForChar(entry.charId,{activeOnly:false,visibleOnly:false}).forEach(cid=>{
+      if(validIds.has(cid)) camps.add(cid);
+    });
+  }
+  if(entry.vsCharId){
+    if(!isEnemySheet(entry.vsCharId)){
+      const vsCamp=getCharCampaignId(entry.vsCharId);
+      if(vsCamp&&validIds.has(vsCamp)) camps.add(vsCamp);
+    }
+    getInitiativeCampaignsForChar(entry.vsCharId,{activeOnly:false,visibleOnly:false}).forEach(cid=>{
+      if(validIds.has(cid)) camps.add(cid);
+    });
+  }
+  if(!camps.size) camps.add('default');
+  return [...camps];
 }
 export function getCampaignFilteredDiceFeed(campId=getActiveLiveCampaignId()){
-  return (CLOUD.diceFeed||[]).filter(entry=>getRollCampaignId(entry)===campId);
+  const cid=String(campId||'default').trim()||'default';
+  const globClr=toInt(CLOUD.registry?.diceClearedAt,0);
+  const campClr=toInt(CLOUD.registry?.diceClearedByCamp?.[cid],0);
+  const cutoff=Math.max(globClr,campClr);
+  return (CLOUD.diceFeed||[]).filter(entry=>{
+    if(!entry) return false;
+    if(toInt(entry.tsMs,0)<=cutoff) return false;
+    return getRollVisibleCampaignIds(entry).includes(cid);
+  });
 }
 export function getScrollElementKey(el){
   if(!el) return '';
@@ -1347,6 +1434,20 @@ function normalizeSheetObject(raw, { isForeign = false } = {}){
   if(!isHex(sheet.customRes.color)) sheet.customRes.color='#c084fc';
   sheet.secondary.lpRegenOvr=sheet.secondary.lpRegenOvr!==undefined&&sheet.secondary.lpRegenOvr!==null&&String(sheet.secondary.lpRegenOvr).trim()!==''?String(Math.max(0,toInt(sheet.secondary.lpRegenOvr,5))):'';
   sheet.secondary.mlpRegenOvr=sheet.secondary.mlpRegenOvr!==undefined&&sheet.secondary.mlpRegenOvr!==null&&String(sheet.secondary.mlpRegenOvr).trim()!==''?String(Math.max(0,toInt(sheet.secondary.mlpRegenOvr,5))):'';
+  {
+    const rawSz=(raw.charSize&&typeof raw.charSize==='object')?raw.charSize:{};
+    const szLvl=toInt(rawSz.level,0);
+    const szOvr=rawSz.ovr!==undefined&&rawSz.ovr!==null&&String(rawSz.ovr).trim()!==''?String(toInt(rawSz.ovr,szLvl)):'';
+    const seenSz=new Map();
+    if(Array.isArray(rawSz.customLevels)){
+      rawSz.customLevels.forEach(x=>{
+        if(!x||typeof x!=='object') return;
+        const lv=toInt(x.level,NaN), lb=String(x.label||'').trim();
+        if(Number.isFinite(lv)&&lb) seenSz.set(lv,{level:lv,label:lb});
+      });
+    }
+    sheet.charSize={level:szLvl,ovr:szOvr,customLevels:[...seenSz.values()].sort((a,b)=>a.level-b.level)};
+  }
   sheet.extraSecList=Array.isArray(raw.extraSecList)?raw.extraSecList.filter(x=>x&&typeof x==='object').map((x,i)=>({id:x.id||uid(),name:String(x.name||`Ressource ${i+1}`),current:toInt(x.current,3),max:toInt(x.max,3),color:isHex(x.color)?x.color:(COL_PRESETS[(i+6)%COL_PRESETS.length]||'#34d399')})):[];
   sheet.attrColors={...DEF_ATTR_COLS}; if(raw.attrColors) Object.keys(DEF_ATTR_COLS).forEach(k=>{if(isHex(raw.attrColors[k]))sheet.attrColors[k]=raw.attrColors[k];});
   sheet.secColors={...DEF_SEC_COLS}; if(raw.secColors) Object.keys(DEF_SEC_COLS).forEach(k=>{if(isHex(raw.secColors[k]))sheet.secColors[k]=raw.secColors[k];});
@@ -1692,7 +1793,7 @@ export function mergeLoaded(raw){
 
 export const getCharOwner=id=>{const ch=CLOUD.list.find(x=>x.id===id);const cl=CLOUD.registry.claims?.[id];return String(cl!==undefined?cl:(ch?.owner||'')).trim();};
 export const getCharCampaignId=id=>{
-  const camps=getCampaigns();
+  const camps=getActiveCampaigns();
   const validIds=new Set(camps.map(c=>c.id));
   const ch=CLOUD.list.find(x=>x.id===id);
   const regC=CLOUD.registry.charCampaigns?.[id];
@@ -1767,10 +1868,12 @@ export function isEnemyDiceVisibleInCampaign(charId,campId){
 export function canSeeEnemyInDice(charId,campId,username=CLOUD.currentUser){
   const cid=String(campId||'').trim();
   if(!cid||!isEnemySheet(charId)) return false;
+  const isGm=canManageCampaign(cid,username);
+  if(isCharInCampaignInitiative(charId,cid,{activeOnly:!isGm,visibleOnly:!isGm})) return true;
   const meta=getEnemyMeta(charId);
   if(!meta.isEnemy||meta.archived) return false;
   if(!meta.campaignIds.includes(cid)) return false;
-  if(canManageCampaign(cid,username)) return true;
+  if(isGm) return true;
   return Boolean(meta.diceVisibleByCamp?.[cid]);
 }
 export function shouldHideOpponentDetails(charOrId,campId=''){
