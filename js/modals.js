@@ -516,7 +516,7 @@ export function openLobbyCtxMenu(anchorEl){
   const iniIsGm=canManageCampaign(iniCampId);
   const items=[
     {type:'label',label:'Werkzeuge'},
-    {icon:'🛠️',label:'Lokalen Bogen öffnen',sub:'Lokal gespeicherten Bogen direkt öffnen / testen',action:'open-local-sheet',tip:'Öffnet den lokal gespeicherten Charakterbogen (oder einen Test-Bogen) direkt ohne Cloud-Zwang'},
+    {icon:'🛠️',label:'Lokalen Bogen öffnen',sub:'Lokal gespeicherten Bogen direkt öffnen / testen',action:'open-local-sheet',href:'?sheet=1',tip:'Öffnet den lokal gespeicherten Charakterbogen (oder einen Test-Bogen) direkt ohne Cloud-Zwang (Mittelklick = neuer Tab)'},
     {icon:'📡',label:'Live-Würfel',sub:'Echtzeit-Würfelkanal im Extrafenster',action:'toggle-livedice',active:Boolean(LD.open),badge:String(liveDiceCnt),tip:'Eigenständiges Live-Würfel-Fenster öffnen/schließen'},
     ...(iniSt.active||iniIsGm?[{icon:'⚡',label:'Initiative-Reihenfolge',sub:iniSt.active?`Aktiv • Runde ${iniSt.round}`:'SL-Kampftracker öffnen',action:'toggle-ini',active:Boolean(INI.open),badge:iniSt.active?`R${iniSt.round}`:(INI.open?'Offen':''),tip:'Eigenständiges Initiative-Fenster öffnen/schließen'}]:[]),
     {type:'sep'},

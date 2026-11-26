@@ -236,6 +236,9 @@ export function renderCtxMenuItemsHtml(items){
     const subHtml=item.sub?`<span class="ctx-item-sub">${esc(item.sub)}</span>`:'';
     const badgeTxt=item.badge!==undefined&&item.badge!==''?String(item.badge):(item.active?'✓':'');
     const badgeHtml=badgeTxt?`<span class="ctx-item-badge">${esc(badgeTxt)}</span>`:'';
+    if(item.href&&!item.disabled){
+      return `<a href="${esc(item.href)}" role="menuitem" class="${cls}" ${attrs.join(' ')}><span class="ctx-item-main">${iconHtml}<span class="ctx-item-txt"><span class="ctx-item-lbl">${esc(item.label||'')}</span>${subHtml}</span></span>${badgeHtml}</a>`;
+    }
     return `<button type="button" role="menuitem" class="${cls}" ${attrs.join(' ')}><span class="ctx-item-main">${iconHtml}<span class="ctx-item-txt"><span class="ctx-item-lbl">${esc(item.label||'')}</span>${subHtml}</span></span>${badgeHtml}</button>`;
   }).join('');
 }

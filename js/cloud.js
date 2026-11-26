@@ -1978,6 +1978,7 @@ export async function loadCloudCharacter(id,asViewOnly=true,autoFallbackView=fal
       CLOUD.viewingRemote=true; CLOUD.remoteCharId=id;
       mergeLoaded(data);
       resetCloudSyncState({clearMeta:true,status:'saved',lastSyncTs:data._summary?.updatedAt||''});
+      try{window.history.replaceState({},'',`${window.location.pathname}?char=${encodeURIComponent(id)}&view=1`);}catch(e){}
       UI.inLobby=false; UI.sheetLoaded=true; UI.modal=null; hooks.exitLobbyNeutralDice?.(); hooks.renderAll?.(false);
       toast(`👁️ 👄 👁️ Ansichtsmodus: „${S.profile.name||'Charakter'}“ geladen`);
     }else{
@@ -1991,6 +1992,7 @@ export async function loadCloudCharacter(id,asViewOnly=true,autoFallbackView=fal
       saveLastActiveTab(S.charId,S.activeTab);
       if(owner&&!S.owner) S.owner=owner;
       resetCloudSyncState({status:'saved',metaCharId:S.charId,metaSig:computeCharMetaSignature(S),lastSyncTs:data._summary?.updatedAt||stamp()});
+      try{window.history.replaceState({},'',`${window.location.pathname}?char=${encodeURIComponent(id)}`);}catch(e){}
       UI.inLobby=false; UI.sheetLoaded=true; UI.modal=null; hooks.exitLobbyNeutralDice?.(); hooks.renderAll?.(false);
       toast(`✏️ „${S.profile.name||(isEnemy?'Gegner':'Charakter')}“ zum Bearbeiten geladen!`);
     }

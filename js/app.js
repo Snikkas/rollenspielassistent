@@ -283,6 +283,12 @@ document.addEventListener('click',async e=>{
       const ctxItem=e.target.closest('.ctx-item');
       if(ctxItem){
         if(ctxItem.disabled) return;
+        const isHrefLink=ctxItem.tagName==='A'&&ctxItem.hasAttribute('href');
+        if(isHrefLink&&(e.metaKey||e.ctrlKey||e.shiftKey||e.altKey||e.button!==0)){
+          closeCtxMenu();
+          return;
+        }
+        if(isHrefLink) e.preventDefault();
         const curMenuId=CTX_MENU.id;
         const keepOpen=ctxItem.hasAttribute('data-ctx-keep-open');
         const cbIdx=ctxItem.dataset.ctxCb;
@@ -301,6 +307,10 @@ document.addEventListener('click',async e=>{
   }
   if(UI.openPwMenu&&!e.target.closest('.pw-dd-wrap')) closePwDropdown();
   const el=e.target.closest('[data-action]'); if(!el) return;
+  if(el.tagName==='A'&&el.hasAttribute('href')){
+    if(e.metaKey||e.ctrlKey||e.shiftKey||e.altKey||e.button!==0) return;
+    e.preventDefault();
+  }
   const btn=el, act=el.dataset.action; if(act==='close-modal-bg'&&e.target!==el) return;
   if(act==='fb-set-backlog-user'){if(!CLOUD.isAdmin)return;FEEDBACK.backlogUser=btn.dataset.user||'all';renderModal();return;}
   if(act==='win-float'){ const k=btn.dataset.win, st=getWinState(k); st.floating=!st.floating; if(st.floating){st.docked=false; st.z=Math.max(CN.z||50,D.z||50,LD.z||50,INI.z||50,FBW.z||50)+1;} saveWinPref(k); renderCampNotes(); renderLiveDice(); renderInitiativeWindow(); renderFbAdminWin(); renderDice(); return; }
@@ -6362,13 +6372,23 @@ refreshUserNotificationsBg(false);
 fetchCustomIcons(false);
 const params=new URLSearchParams(window.location.search);
 const reqCharId=(params.get('char')||'').trim();
+const reqViewOnly=params.get('view')==='1';
+const reqNotes=params.get('notes')==='1';
 const forceSheet=params.get('sheet')==='1';
 const forceLobby=params.get('lobby')==='1';
 if(reqCharId){
   UI.inLobby=false; UI.sheetLoaded=true; UI.modal=null;
   exitLobbyNeutralDice();
   renderAll(false);
-  loadCloudCharacter(reqCharId,false,true);
+  loadCloudCharacter(reqCharId,reqViewOnly,!reqViewOnly).then(()=>{
+    if(reqNotes&&!UI.inLobby&&S.charId===reqCharId){
+      const pubPg=(S.campaignNotes||[]).find(n=>n&&n.isPublic);
+      if(pubPg) S.activeCampNoteId=pubPg.id;
+      else if(S.campaignNotes?.[0]) S.activeCampNoteId=S.campaignNotes[0].id;
+      CN.open=true;
+      renderHeader(); renderCampNotes();
+    }
+  });
   fetchLobbyList(true);
 }else if(forceSheet&&!forceLobby){
   UI.inLobby=false; UI.sheetLoaded=true; UI.modal=null;
