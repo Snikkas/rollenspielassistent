@@ -2248,6 +2248,37 @@ export function getWeaponDualWieldInfo(weapon,sheet=S){
   };
 }
 
+export function getWeaponHandCount(weapon){
+  if(!weapon) return 1;
+  return (weapon.hand==='both'||weapon.grip==='2h')?2:1;
+}
+
+export function getHandAllocationInfo(sheet=S){
+  const target=sheet||S;
+  const items=[];
+  (target?.weapons||[]).forEach(w=>{
+    if(!w||w.equipped===false) return;
+    const hands=getWeaponHandCount(w);
+    const name=String(w.name||'').trim()||getWeaponSubtype(w.wType).label;
+    items.push({id:w.id,name,kind:'weapon',hands});
+  });
+  (target?.armors||[]).forEach(ar=>{
+    if(!ar||!isArmorShield(ar)||ar.equipped===false) return;
+    const name=String(ar.name||'').trim()||'Schild';
+    items.push({id:ar.id,name,kind:'shield',hands:1});
+  });
+  const totalHands=items.reduce((sum,it)=>sum+it.hands,0);
+  const has2H=items.some(it=>it.hands>=2);
+  const hasShield=items.some(it=>it.kind==='shield');
+  const hasConflict=totalHands>2;
+  const itemsSummary=items.map(it=>`${it.name} (${it.hands}H)`).join(' + ');
+  const headline=has2H
+    ?`Ungewöhnliche Handverteilung: ${totalHands} Hände belegt (2H-Waffe + weitere Ausrüstung)`
+    :`Ungewöhnliche Handverteilung: ${totalHands} Hände gleichzeitig belegt`;
+  const hint='Als regulärer 2-händiger Charakter kannst du nicht alle angelegten Waffen/Schilde gleichzeitig führen. Das Anlegen bleibt erlaubt (z. B. für Charaktere mit mehr als 2 Armen).';
+  return {hasConflict,totalHands,has2H,hasShield,items,itemsSummary,headline,hint};
+}
+
 export function getWeaponRollMeta(w,M=null,sheet=S){
   const mods=M||calcActiveMods(sheet);
   const hasMassiv=isWeaponMassiv(w);

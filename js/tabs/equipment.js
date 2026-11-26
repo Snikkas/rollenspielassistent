@@ -11,7 +11,7 @@ import {
   openCtxMenu, toast, save, getWeaponSubtype, isArmorShield, getArmorSubtype, fmtCustomValSummarySuffix, renderLinkedAmmoCustomDmgHtml, isWeaponMassiv, normDmgType, getMeleeAttrDmgType, getDmgTypeLabel, syncEquipmentToInventory, S, D, isMobileLayout, UI
 } from '../state.js';
 import {
-  invalidateModsCache, calcActiveMods, getAdvDisForContext, getWeaponRollMeta, getShieldRollMeta, formatBlockModShort, formatBlockModLong, getWeaponDualWieldInfo, getEqModStatOptions, getEqModAdvDisOptions, formatEqModTargetLabel, formatEqModShort, getTagDesc, fmtAdvSrcLines, getAttrTot, getSkBonus, findEqItem, getMentalArmorSummary
+  invalidateModsCache, calcActiveMods, getAdvDisForContext, getWeaponRollMeta, getShieldRollMeta, formatBlockModShort, formatBlockModLong, getWeaponDualWieldInfo, getHandAllocationInfo, getEqModStatOptions, getEqModAdvDisOptions, formatEqModTargetLabel, formatEqModShort, getTagDesc, fmtAdvSrcLines, getAttrTot, getSkBonus, findEqItem, getMentalArmorSummary
 } from '../calc.js';
 import {
   applyDiceAutoAdvDis, syncDiceFromSheet, renderDice
@@ -1692,10 +1692,20 @@ export function renderEquipCategorySec(secKey,secIdx,totalSecs,hzNames,eqH){
     </div>
   </div>`;
 
+  const handInfo=getHandAllocationInfo(S);
+  const renderHandWarnBanner=(compact=false)=>handInfo.hasConflict?`<div class="p-2.5 rounded-lg border border-amber-400/60 bg-amber-500/12 text-xs space-y-1 min-w-0" role="status">
+    <div class="flex flex-wrap items-center justify-between gap-1.5">
+      <span class="font-extrabold text-amber-300">✋ ${esc(handInfo.headline)}</span>
+      <span class="px-1.5 py-0.5 rounded bg-amber-500/20 border border-amber-400/50 text-amber-200 text-[10px] font-black tabular shrink-0">${handInfo.totalHands} / 2 Hände</span>
+    </div>
+    <div class="text-[11px] font-semibold text-amber-100/90 break-words">${esc(handInfo.itemsSummary)}</div>
+    ${compact?'':`<div class="text-[11px] t-mut leading-snug">${esc(handInfo.hint)}</div>`}
+  </div>`:'';
+
   if(secKey==='weapons'){
     return `<section data-eqsec="weapons" class="card p-3 sm:p-4 space-y-3 min-w-0" ${winStyle}>
-      ${hdrCommon(`⚔️ Waffen (${S.weapons.length})`,renderAddWeaponDropdown('eq-add-weapon:sec','btn py-1 px-2.5 text-xs',true))}
-      ${!meta.collapsed?(!S.weapons.length?`<div class="py-4 text-center text-xs t-mut">Noch keine Waffen eingetragen.</div>`:`<div class="space-y-2.5">${S.weapons.map((w,i)=>renderWeaponCard(w,i,S.weapons.length)).join('')}</div>`):''}
+      ${hdrCommon(`⚔️ Waffen (${S.weapons.length})${handInfo.hasConflict?`<span class="ml-1.5 px-1.5 py-0.5 rounded-md border border-amber-400/60 bg-amber-500/15 text-amber-300 text-[10px] font-black tabular" data-tip="${esc(handInfo.itemsSummary+'\n'+handInfo.hint)}">✋ ${handInfo.totalHands}H</span>`:''}`,renderAddWeaponDropdown('eq-add-weapon:sec','btn py-1 px-2.5 text-xs',true))}
+      ${!meta.collapsed?`${renderHandWarnBanner(false)}${!S.weapons.length?`<div class="py-4 text-center text-xs t-mut">Noch keine Waffen eingetragen.</div>`:`<div class="space-y-2.5">${S.weapons.map((w,i)=>renderWeaponCard(w,i,S.weapons.length)).join('')}</div>`}`:''}
     </section>`;
   }
   if(secKey==='ammos'){
@@ -1711,7 +1721,7 @@ export function renderEquipCategorySec(secKey,secIdx,totalSecs,hzNames,eqH){
     const mRsBadge=mRs.total?`<span id="eqMentalArmorPill" data-tip="${esc(mRs.tip)}" class="ml-1.5 px-2 py-0.5 rounded-md border border-indigo-400/50 bg-indigo-500/15 text-indigo-300 text-[11px] font-black cursor-help tabular">🧠 mRS ${mRs.total}</span>`:`<span id="eqMentalArmorPill" class="hidden"></span>`;
     return `<section data-eqsec="armors" class="card p-3 sm:p-4 space-y-3 min-w-0" ${winStyle}>
       ${hdrCommon(`<span class="${meta.color?'':'text-emerald-400'}">🛡️ Rüstungen &amp; Schilde (${S.armors.length})</span>${shieldPill}${mRsBadge}`,renderAddArmorDropdown('eq-add-armor:sec','btn border-emerald-400/60 text-emerald-400 py-1 px-2.5 text-xs',true,'+ Rüstung ▾'))}
-      ${!meta.collapsed?(!S.armors.length?`<div class="py-3 text-center text-xs t-mut">Noch keine Rüstungen oder Schilde eingetragen.</div>`:`<div class="space-y-2.5">${S.armors.map((ar,i)=>renderArmorCard(ar,i,S.armors.length,hzNames)).join('')}</div>`):''}
+      ${!meta.collapsed?`${handInfo.hasShield?renderHandWarnBanner(true):''}${!S.armors.length?`<div class="py-3 text-center text-xs t-mut">Noch keine Rüstungen oder Schilde eingetragen.</div>`:`<div class="space-y-2.5">${S.armors.map((ar,i)=>renderArmorCard(ar,i,S.armors.length,hzNames)).join('')}</div>`}`:''}
     </section>`;
   }
   const invSecs=Array.isArray(S.invSections)?S.invSections:[];

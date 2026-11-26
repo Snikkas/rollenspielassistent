@@ -11,7 +11,7 @@ import {
   applyWinFrame, renderWinCtrlBtns, renderWinResizeHandles, getCampaigns, isUserInCampaign, canManageCampaign, getActiveLiveCampaignId, getCampaignFilteredDiceFeed, getInitiativeCampaignsForChar, isCharInCampaignInitiative, captureScrollState, restoreScrollState, save, getWeaponSubtype, isWeaponMassiv, isWeaponBlockable, isArmorShield, normDmgType, getMeleeAttrDmgType, getDmgTypeLabel, S, D, LD, diceLogs, isMobileLayout, UI, LIVE_TAB_ID, CLOUD, getCharCampaignId, isEnemySheet, getEnemyMeta, isEnemyDiceVisibleInCampaign, canSeeEnemyInDice, shouldHideOpponentDetails
 } from './state.js';
 import {
-  calcActiveMods, getAdvDisForContext, getWeaponRollMeta, getShieldRollMeta, getSheetShields, getSheetBlockOptions, resolveCombatItemByRef, formatBlockModShort, formatBlockModLong, getWeaponDualWieldInfo, fmtAdvSrcLines, getAttrTot, getSkBonus, getCharSizeInfo, getRelativeSizeHitMod, normHitZoneSize, getHitZoneSizeMeta
+  calcActiveMods, getAdvDisForContext, getWeaponRollMeta, getShieldRollMeta, getSheetShields, getSheetBlockOptions, resolveCombatItemByRef, formatBlockModShort, formatBlockModLong, getWeaponDualWieldInfo, getHandAllocationInfo, fmtAdvSrcLines, getAttrTot, getSkBonus, getCharSizeInfo, getRelativeSizeHitMod, normHitZoneSize, getHitZoneSizeMeta
 } from './calc.js';
 import {
   renderLobbyLiveDiceHtml, publishLiveRoll, formatSecretRollSummary, isSecretRollActive, getCachedForeignSheet, getForeignSheetLoadedAt, isForeignSheetLoading, getForeignSheetError, fetchForeignCharacterSheet, fetchLobbyList
@@ -1281,6 +1281,12 @@ export function renderDice(){
         }
       }
 
+      const handInfo=getHandAllocationInfo(S);
+      const handWarnHtml=handInfo.hasConflict?`<div class="px-2 py-1.5 rounded-lg border border-amber-400/55 bg-amber-500/12 text-[10px] space-y-0.5 min-w-0" data-tip="${esc(handInfo.hint)}">
+        <div class="font-extrabold text-amber-300">✋ ${esc(handInfo.headline)}</div>
+        <div class="text-amber-100/90 break-words">${esc(handInfo.itemsSummary)} <span class="t-mut">(erlaubt, z. B. bei &gt;2 Armen)</span></div>
+      </div>`:'';
+
       weaponRowHtml=`<div class="space-y-1.5 pt-1.5 border-t border-white/10 min-w-0">
         <div class="flex items-center gap-1.5 min-w-0">
           <select data-dice-weapon-sel="1" aria-label="Waffe oder Schild aus Charakterbogen wählen" class="inp flex-1 min-w-0 text-xs font-bold py-1 ${activeItem&&!wpApplies?'border-amber-400/60 text-amber-200':ash?'border-cyan-400/55':''}">
@@ -1290,6 +1296,7 @@ export function renderDice(){
         </div>
         ${blockInfoStripHtml}
         ${dmgTypePreviewHtml}
+        ${handWarnHtml}
         ${aw?renderDiceMagazineStripHtml(aw):''}
         ${mismatchHtml}
         ${dwBarHtml}
