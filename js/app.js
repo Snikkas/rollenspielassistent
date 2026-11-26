@@ -364,6 +364,79 @@ document.addEventListener('click',async e=>{
       toast('↺ Inspiration zurückgelegt (+1 Stapel).');
       break;
     }
+    case 'prep-set-kind':{
+      const k=String(el.dataset.kind||'attr');
+      UI.prepDraftKind=['attr','skill','action'].includes(k)?k:'attr';
+      renderMain();
+      break;
+    }
+    case 'prep-add':{
+      if(!Array.isArray(S.preparations)) S.preparations=[];
+      const kind=['attr','skill','action'].includes(UI.prepDraftKind)?UI.prepDraftKind:'attr';
+      if(kind==='attr'){
+        const sel=$('selPrepAttr');
+        const ak=sel?sel.value:UI.prepDraftAttr;
+        if(!ATTRS.some(a=>a.k===ak)){toast('⚠️ Bitte ein gültiges Attribut wählen.');break;}
+        UI.prepDraftAttr=ak;
+        if(S.preparations.some(p=>p&&p.kind==='attr'&&p.attrKey===ak)){
+          toast(`ℹ️ Attribut (${ak}) ist bereits vorbereitet.`);
+          break;
+        }
+        S.preparations.push({id:uid(),kind:'attr',attrKey:ak,skillId:'',skillName:'',actionText:''});
+        toast(`🎯 Vorbereitung aktiv: Attribut (${ak}) (+2 Vorteile)`);
+      }else if(kind==='skill'){
+        const sel=$('selPrepSkill');
+        const sid=sel?sel.value:UI.prepDraftSkillId;
+        const sk=(S.skills||[]).find(s=>s&&s.id===sid);
+        if(!sk){toast('⚠️ Bitte eine Fertigkeit wählen.');break;}
+        UI.prepDraftSkillId=sk.id;
+        if(S.preparations.some(p=>p&&p.kind==='skill'&&p.skillId===sk.id)){
+          toast(`ℹ️ Fertigkeit (${sk.name}) ist bereits vorbereitet.`);
+          break;
+        }
+        S.preparations.push({id:uid(),kind:'skill',attrKey:'',skillId:sk.id,skillName:String(sk.name||'').trim(),actionText:''});
+        toast(`🎯 Vorbereitung aktiv: Fertigkeit (${sk.name}) (+2 Vorteile)`);
+      }else{
+        const inp=$('inpPrepAction');
+        const txt=String(inp?inp.value:UI.prepDraftAction).trim().slice(0,120);
+        S.preparations.push({id:uid(),kind:'action',attrKey:'',skillId:'',skillName:'',actionText:txt});
+        UI.prepDraftAction='';
+        toast(`🎯 Vorbereitung aktiv: ${txt?`Aktion (${txt})`:'Aktion'} (+2 Vorteile)`);
+      }
+      D.prepPaused=false;
+      syncDiceFromSheet(); renderMain(); renderDice(); save();
+      break;
+    }
+    case 'prep-remove':{
+      const pid=String(el.dataset.id||'').trim();
+      if(!Array.isArray(S.preparations)||!pid) break;
+      S.preparations=S.preparations.filter(p=>p&&p.id!==pid);
+      syncDiceFromSheet(); renderMain(); renderDice(); save();
+      break;
+    }
+    case 'prep-clear-all':{
+      S.preparations=[];
+      D.prepPaused=false;
+      syncDiceFromSheet(); renderMain(); renderDice(); save();
+      toast('↺ Alle Vorbereitungen entfernt.');
+      break;
+    }
+    case 'dice-toggle-prep-pause':{
+      D.prepPaused=!D.prepPaused;
+      applyDiceAutoAdvDis(false);
+      renderDice();
+      break;
+    }
+    case 'dice-consume-prep':{
+      const pid=String(el.dataset.id||'').trim();
+      if(Array.isArray(S.preparations)&&pid){
+        S.preparations=S.preparations.filter(p=>p&&p.id!==pid);
+      }
+      D.prepPaused=false;
+      syncDiceFromSheet(); renderMain(); renderDice(); save();
+      toast('✓ Vorbereitung verbraucht.');
+      break;
+    }
     case 'toggle-status-sec': {
       const next=!isTab1SecCollapsed('status');
       UI.tab1.status=next;
@@ -3788,6 +3861,11 @@ document.addEventListener('input',e=>{
     save();
     return;
   }
+  if(e.target&&e.target.dataset?.prepDraft){
+    const dk=e.target.dataset.prepDraft;
+    if(dk==='action') UI.prepDraftAction=String(e.target.value||'');
+    return;
+  }
   if(e.target&&e.target.dataset?.inspInp){
     S.inspiration=Math.max(0,toInt(e.target.value,0));
     if($('inspBadgeCnt')) $('inspBadgeCnt').textContent=`${S.inspiration} Stapel`;
@@ -4490,6 +4568,13 @@ $('fileAdminIcon')?.addEventListener('change',e=>{
 });
 document.addEventListener('change',e=>{
   {const el=e.target;if(el&&el.matches&&el.matches('[data-fb-backlog-user]')){if(!CLOUD.isAdmin)return;FEEDBACK.backlogUser=el.value||'all';renderModal();return;}}
+  if(e.target&&e.target.dataset?.prepDraft){
+    const dk=e.target.dataset.prepDraft;
+    if(dk==='attr') UI.prepDraftAttr=String(e.target.value||'PR');
+    else if(dk==='skill') UI.prepDraftSkillId=String(e.target.value||'');
+    else if(dk==='action') UI.prepDraftAction=String(e.target.value||'');
+    return;
+  }
   if(e.target&&e.target.dataset?.inspInp){renderMain();save();return;}
   const stEl=e.target;
   if(stEl&&stEl.dataset&&(stEl.dataset.stStacks||stEl.dataset.stOvr)){

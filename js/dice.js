@@ -377,6 +377,8 @@ export function resolveOpponentComparison(c1Cat='Normaler Test'){
     attrKey,
     sitActive:hideDetails?{}:(D.oppSitActive||{}),
     includeInspiration:false,
+    includePreparation:true,
+    includeActionPreparation:true,
     oppDefenseCat:oppDefForOpp
   },oppM,oppSheet);
 
@@ -430,6 +432,7 @@ export function formatSrcOriginLabel(s){
     return `${s.srcKind}: ${tg}`;
   }
   if(s.srcKind==='Inspiration') return '✨ Inspiration';
+  if(s.srcKind==='Vorbereitung') return `🎯 ${s.srcName||'Vorbereitung'}`;
   if(s.srcKind==='Größe') return `📏 ${s.srcName||'Größenunterschied'}`;
   if(s.srcKind==='Mehrhändig') return s.srcName||'Mehrhändiger Kampf';
   if(s.srcKind==='Waffenwurf') return `Waffenwurf: ${s.srcName||'Waffe'}`;
@@ -439,6 +442,7 @@ export function formatSrcOriginLabel(s){
 }
 export function formatAdvSrcScope(s){
   if(!s) return '';
+  if(s.srcKind==='Vorbereitung') return '';
   if(s.scope==='attr'&&s.attrKey) return s.attrKey;
   if(s.scope==='skill') return s.skillName||s.label||'';
   if(s.scope==='dodge') return 'Ausweichen';
@@ -496,7 +500,7 @@ export function getEffectiveDiceShieldId(){
 export function resetDiceToLobbyNeutral(){
   hooks.clearOutgoingDuel?.({notifyCancel:true,silent:true});
   hooks.resetCombatState?.();
-  D.weaponId=null; D.shieldId=null; D.skillId=null; D.attrKey=null; D.wRollCat='Normaler Test'; D.atkPool='lp'; D.dualWieldOvr='auto'; D.wpEditOpen=false; D.sitActive={}; D.oppSitActive={}; D.critOff=0; D.advAdj=0; D.disAdj=0; D.adv=0; D.dis=0;
+  D.weaponId=null; D.shieldId=null; D.skillId=null; D.attrKey=null; D.wRollCat='Normaler Test'; D.atkPool='lp'; D.dualWieldOvr='auto'; D.wpEditOpen=false; D.sitActive={}; D.oppSitActive={}; D.prepPaused=false; D.critOff=0; D.advAdj=0; D.disAdj=0; D.adv=0; D.dis=0;
   D.label='Freie Probe (Lobby)';
   D.cMode='direct'; D.cDirect=50; D.cAttr=50; D.cSkill='0';
   D.dMode='direct'; D.dDirect=40; D.oppCharId='';
@@ -521,8 +525,8 @@ export function applyDiceAutoAdvDis(resetManual=false,M=isLobbyNeutralDice()?{te
   const opp=D.dMode==='character'?resolveOpponentComparison(effCat):null;
   const oppDefCat=(opp&&opp.ready)?opp.oppRollCat:'';
   const r1=isLobbyNeutralDice()
-    ?{autoAdv:0,autoDis:0,rawAutoAdv:0,rawAutoDis:0,src:[],autoCrit:0,critSrc:[],autoRollMod:0,rollModSrc:[],sitOptions:[]}
-    :getAdvDisForContext({weaponId:effWeaponId,shieldId:effShieldId,wRollCat:effCat,skillId:D.skillId||null,attrKey:D.attrKey||null,sitActive:D.sitActive||{},dualWieldOvr:D.dualWieldOvr||'auto',includeInspiration:true,oppDefenseCat:oppDefCat},M);
+    ?{autoAdv:0,autoDis:0,rawAutoAdv:0,rawAutoDis:0,src:[],autoCrit:0,critSrc:[],autoRollMod:0,rollModSrc:[],sitOptions:[],matchedPrep:null,pausedPrep:null}
+    :getAdvDisForContext({weaponId:effWeaponId,shieldId:effShieldId,wRollCat:effCat,skillId:D.skillId||null,attrKey:D.attrKey||null,sitActive:D.sitActive||{},dualWieldOvr:D.dualWieldOvr||'auto',includeInspiration:true,includePreparation:true,includeActionPreparation:true,prepPaused:Boolean(D.prepPaused),oppDefenseCat:oppDefCat},M);
   let c1AutoAdv=r1.autoAdv||0;
   let c1AutoDis=r1.autoDis||0;
   let c1RawAutoAdv=r1.rawAutoAdv||0;
@@ -593,7 +597,7 @@ export function calcThreshold(){
   const bonus=(net===0?0:Math.sign(net)*(10+(Math.abs(net)-1)*5))+(M.testTh||0), th=cv+50-dv+bonus;
   const effCritIdx=Math.max(0,Math.min(CRIT_SEQ.length-1,(ad.autoCrit||0)+toInt(D.critOff,0))), effCrit=CRIT_SEQ[effCritIdx];
   D.crit=effCrit;
-  return {cv,dv,effAdv:D.adv,effDis:D.dis,autoAdv:ad.autoAdv,autoDis:ad.autoDis,c1AutoAdv:ad.c1AutoAdv||0,c1AutoDis:ad.c1AutoDis||0,c1AdvSrc:ad.c1AdvSrc||[],opp:ad.opp||null,oppAutoAdv:ad.oppAutoAdv||0,oppAutoDis:ad.oppAutoDis||0,oppAdvSrc:ad.oppAdvSrc||[],oppSitOptions:ad.oppSitOptions||[],advAdj:toInt(D.advAdj,0),disAdj:toInt(D.disAdj,0),advSrc:ad.src,sitOptions:ad.sitOptions||[],autoCrit:ad.autoCrit||0,critSrc:ad.critSrc||[],rollMod:ad.autoRollMod||0,rollModSrc:ad.rollModSrc||[],effCrit,effCritIdx,rawNet,net,bonus,th,egMult:1,effTh:M.testTh||0,chance:Math.max(1,Math.min(99,th))};
+  return {cv,dv,effAdv:D.adv,effDis:D.dis,autoAdv:ad.autoAdv,autoDis:ad.autoDis,c1AutoAdv:ad.c1AutoAdv||0,c1AutoDis:ad.c1AutoDis||0,c1AdvSrc:ad.c1AdvSrc||[],opp:ad.opp||null,oppAutoAdv:ad.oppAutoAdv||0,oppAutoDis:ad.oppAutoDis||0,oppAdvSrc:ad.oppAdvSrc||[],oppSitOptions:ad.oppSitOptions||[],advAdj:toInt(D.advAdj,0),disAdj:toInt(D.disAdj,0),advSrc:ad.src,sitOptions:ad.sitOptions||[],matchedPrep:ad.matchedPrep||null,pausedPrep:ad.pausedPrep||null,autoCrit:ad.autoCrit||0,critSrc:ad.critSrc||[],rollMod:ad.autoRollMod||0,rollModSrc:ad.rollModSrc||[],effCrit,effCritIdx,rawNet,net,bonus,th,egMult:1,effTh:M.testTh||0,chance:Math.max(1,Math.min(99,th))};
 }
 export function selectDiceWeapon(itemRef){
   if(isLobbyNeutralDice()) return;
@@ -1336,6 +1340,8 @@ export function renderDice(){
     </div>
 
     <div data-dice-scroll-body="1" class="p-3 space-y-2.5 min-w-0 flex-1 min-h-0 overflow-y-auto overscroll-contain${mob?' safe-pb':''}">
+      ${(!isNeutral&&T.matchedPrep)?`<div class="subcard py-1.5 px-2.5 border border-cyan-400/75 bg-cyan-500/15 flex flex-wrap items-center justify-between gap-2 min-w-0"><span class="text-xs font-black text-cyan-200 min-w-0 break-words">🎯 Vorbereitung aktiv (+2V • ${esc(T.matchedPrep.label)})</span><div class="flex items-center gap-1 shrink-0"><button type="button" data-action="dice-toggle-prep-pause" data-tip="Vorbereitung nur für diesen Wurf pausieren (z. B. bei anderer Handlung)" class="btn py-0.5 px-2 text-[10px] border-cyan-400/50 text-cyan-200">⏸️ Pausieren</button><button type="button" data-action="dice-consume-prep" data-id="${esc(T.matchedPrep.prep.id)}" data-tip="Diese Vorbereitung vom Charakterbogen verbrauchen / entfernen" class="btn btn-ok py-0.5 px-2 text-[10px] font-black">✓ Verbrauchen</button></div></div>`:''}
+      ${(!isNeutral&&!T.matchedPrep&&T.pausedPrep)?`<div class="subcard py-1.5 px-2.5 border bdr-line bg-black/25 flex flex-wrap items-center justify-between gap-2 min-w-0"><span class="text-xs font-bold t-mut min-w-0 break-words">🎯 Vorbereitung pausiert (${esc(T.pausedPrep.label)})</span><button type="button" data-action="dice-toggle-prep-pause" class="btn py-0.5 px-2 text-[10px] border-cyan-400/60 bg-cyan-500/15 text-cyan-200 font-extrabold shrink-0">▶ Aktivieren (+2V)</button></div>`:''}
       ${(!isNeutral&&S.inspirationActive)?`<div class="subcard py-1.5 px-2.5 border border-amber-400 bg-amber-500/15 flex items-center justify-between gap-2"><span class="text-xs font-black text-amber-300">✨ Inspiration aktiv (+1 Vorteil für diesen Wurf)</span><button type="button" data-action="cancel-inspiration" class="btn py-0.5 px-2 text-[10px] border-amber-400/60 text-amber-200 shrink-0">↺ Zurück</button></div>`:''}
 
       ${renderContextCard()}

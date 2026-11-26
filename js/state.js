@@ -138,7 +138,7 @@ export function defaultState(){
     weaponTagList:clone(DEF_WEAPON_TAGS),armorTagList:clone(DEF_ARMOR_TAGS),ammoTagList:[],
     attributes,secondary:{lpCurrent:8,lpMod:0,lpRegenOvr:'',iniMod:0,mlpCurrent:8,mlpMod:0,mlpRegenOvr:'',apCurrent:3,apMax:3,mapCurrent:3,mapMax:3},
     customRes:{name:'Benutzerdefiniert',current:3,max:3,color:'#c084fc'},extraSecList:[],
-    statusCollapsed:false,statusEffects:makeDefaultStatusEffects(),inspiration:0,inspirationActive:false,
+    statusCollapsed:false,statusEffects:makeDefaultStatusEffects(),preparations:[],inspiration:0,inspirationActive:false,
     thresholds:{woundLight:4,woundMedium:7,woundHeavy:10,traumaLight:4,traumaMedium:7,traumaHeavy:10},thresholdsV2:true,
     charSize:{level:0,ovr:'',customLevels:[]},
     bst:1,bstOvr:'',movements:[{id:'mv1',type:'Laufen',base:5,ovr:''}],hitZones:clone(DEF_HZ),lastHzRoll:null,lastSubHzRoll:null,lastSubHzZone:'',
@@ -615,7 +615,7 @@ export function setModalSwipeCleanup(fn){ modalSwipeCleanup=fn; }
 export function cleanupModalSwipe(){if(typeof modalSwipeCleanup==='function'){try{modalSwipeCleanup();}catch(_){}}modalSwipeCleanup=null;}
 export const loadPwMode=()=>{try{return localStorage.getItem(PW_MODE_KEY)==='edit'?'edit':'view';}catch(e){return 'view';}};
 export const pwQuickKey=(kind,id)=>`${kind==='augment'?'augment':'power'}:${id}`;
-export let UI={inLobby:true,sheetLoaded:false,modal:null,profileUser:'',adminReturnModal:'',adminPinError:'',adminIconTargetKey:'',confirmResetAllIcons:false,mobileHdrOpen:false,mobileLobbyMenuOpen:false,infoTab:'dice',glossSearch:'',listType:'art',ammoModalWeaponId:'',arZoneDrafts:{},arSubZonesOpen:{},hzSubExp:{},skSort:{col:'',asc:true},editSkNameId:null,skMobExp:{},imgTargetKind:'',imgTargetId:'',imgZoomOpen:false,imgReturnModal:'',confirmNew:false,confirmLog:false,confirmDelId:null,confirmDelSecId:null,confirmSecPullId:null,confirmDelSkId:null,confirmDelSkSecId:null,confirmSkSecPullId:null,confirmDelInvSecId:null,confirmDelExSecId:null,confirmHzStep:1,openPwMenu:'',dupPwWarn:null,pwMode:loadPwMode(),pwQuickEditIds:new Set(),pwFilterOpen:false,pwFilterMode:'or',pwFilterTypes:[],pwFilterIncludeLinkedAugs:true,pwFilterArts:[],pwFilterActionSubs:[],pwFilterTags:[],pwFilterTiers:[],confirmDelEqKey:'',tab1:{attrs:null,size:true,attrPairs:{},sec:null,status:null,insp:null,res:null,thresholds:null,move:null,hz:null,quick:null},tab5:{equipNotes:null,bioSec:false,bioGallery:null,bioFields:{}},statusIniPromptKey:'',lastRollHtml:'',lastBlockBaseHtml:'',lastBlockFollowRes:null,lastSecretRollId:'',secretRollsCollapsed:false,colTarget:'cres',colMode:'text',colPwKind:'power',colPwId:'',colDraft:'#c084fc',attrGroupSel:'ST_KO',palBuilderOpen:false,palDraft:{name:'',isLt:false,bg:'#020617',acc:'#0ea5e9',acc2:'#6366f1',txt:'#f1f5f9',mut:'#94a3b8',btnTxt:'#ffffff'}};
+export let UI={inLobby:true,sheetLoaded:false,modal:null,profileUser:'',adminReturnModal:'',adminPinError:'',adminIconTargetKey:'',confirmResetAllIcons:false,mobileHdrOpen:false,mobileLobbyMenuOpen:false,infoTab:'dice',glossSearch:'',listType:'art',ammoModalWeaponId:'',arZoneDrafts:{},arSubZonesOpen:{},hzSubExp:{},skSort:{col:'',asc:true},editSkNameId:null,skMobExp:{},imgTargetKind:'',imgTargetId:'',imgZoomOpen:false,imgReturnModal:'',confirmNew:false,confirmLog:false,confirmDelId:null,confirmDelSecId:null,confirmSecPullId:null,confirmDelSkId:null,confirmDelSkSecId:null,confirmSkSecPullId:null,confirmDelInvSecId:null,confirmDelExSecId:null,confirmHzStep:1,openPwMenu:'',dupPwWarn:null,pwMode:loadPwMode(),pwQuickEditIds:new Set(),pwFilterOpen:false,pwFilterMode:'or',pwFilterTypes:[],pwFilterIncludeLinkedAugs:true,pwFilterArts:[],pwFilterActionSubs:[],pwFilterTags:[],pwFilterTiers:[],confirmDelEqKey:'',tab1:{attrs:null,size:true,attrPairs:{},sec:null,status:null,prep:null,insp:null,res:null,thresholds:null,move:null,hz:null,quick:null},prepDraftKind:'attr',prepDraftAttr:'PR',prepDraftSkillId:'',prepDraftAction:'',tab5:{equipNotes:null,bioSec:false,bioGallery:null,bioFields:{}},statusIniPromptKey:'',lastRollHtml:'',lastBlockBaseHtml:'',lastBlockFollowRes:null,lastSecretRollId:'',secretRollsCollapsed:false,colTarget:'cres',colMode:'text',colPwKind:'power',colPwId:'',colDraft:'#c084fc',attrGroupSel:'ST_KO',palBuilderOpen:false,palDraft:{name:'',isLt:false,bg:'#020617',acc:'#0ea5e9',acc2:'#6366f1',txt:'#f1f5f9',mut:'#94a3b8',btnTxt:'#ffffff'}};
 export function setPwMode(mode){
   const m=mode==='edit'?'edit':'view';
   UI.pwMode=m;
@@ -1439,6 +1439,16 @@ function normalizeSheetObject(raw, { isForeign = false } = {}){
     traumaLight:toInt(rawTh.traumaLight,3)+1,traumaMedium:toInt(rawTh.traumaMedium,6)+1,traumaHeavy:toInt(rawTh.traumaHeavy,9)+1
   }):{...def.thresholds};
   const sheet={...def,...raw,version:11,charId:cid,activeTab:restoredTab,phase:raw.phase==='flut'?'flut':'ebbe',owner:String(raw.owner||''),campaignId:rawCampId,sheetType:rawSheetType,enemyMeta:normalizeEnemyMeta(chosenEnemyMeta),cloudAutoSync:Boolean(raw.cloudAutoSync),profile:{...def.profile,...(raw.profile||{})},secondary:{...def.secondary,...(raw.secondary||{})},customRes:{...def.customRes,...(raw.customRes||{})},statusCollapsed:Boolean(raw.statusCollapsed),statusEffects:normStatusEffects(raw.statusEffects),inspiration:Math.max(0,toInt(raw.inspiration,0)),inspirationActive:Boolean(raw.inspirationActive),thresholds:normTh,thresholdsV2:true,combatNotes:{...def.combatNotes,...(raw.combatNotes||{})},progression:{...def.progression,...(raw.progression||{})},bio:{...def.bio,...(raw.bio||{})},equipNotes:raw.equipNotes??raw.equipFreeNotes??''};
+  sheet.preparations=Array.isArray(raw.preparations)
+    ?raw.preparations.filter(p=>p&&typeof p==='object').map(p=>{
+        const kind=['attr','skill','action'].includes(p.kind)?p.kind:'action';
+        const attrKey=(kind==='attr'&&ATTRS.some(a=>a.k===p.attrKey))?p.attrKey:'';
+        const skillId=kind==='skill'?String(p.skillId||'').trim():'';
+        const skillName=kind==='skill'?String(p.skillName||'').trim():'';
+        const actionText=kind==='action'?String(p.actionText||'').trim().slice(0,120):'';
+        return {id:String(p.id||'').trim()||uid(),kind,attrKey,skillId,skillName,actionText};
+      }).filter(p=>p.kind==='action'||(p.kind==='attr'&&p.attrKey)||(p.kind==='skill'&&(p.skillId||p.skillName)))
+    :[];
   if(!isHex(sheet.customRes.color)) sheet.customRes.color='#c084fc';
   sheet.secondary.lpRegenOvr=sheet.secondary.lpRegenOvr!==undefined&&sheet.secondary.lpRegenOvr!==null&&String(sheet.secondary.lpRegenOvr).trim()!==''?String(Math.max(0,toInt(sheet.secondary.lpRegenOvr,5))):'';
   sheet.secondary.mlpRegenOvr=sheet.secondary.mlpRegenOvr!==undefined&&sheet.secondary.mlpRegenOvr!==null&&String(sheet.secondary.mlpRegenOvr).trim()!==''?String(Math.max(0,toInt(sheet.secondary.mlpRegenOvr,5))):'';

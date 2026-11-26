@@ -8,7 +8,7 @@ import {
   renderSystemIconHtml, S, isMobileLayout, UI
 } from '../state.js';
 import {
-  getStatusEffValues, getReservedTotals, getEffectivePoolCap, getReservedSrcList, calcActiveMods, fmtSrcLines, buildAttrTip, buildSecTip, getMentalArmorSummary, getTrCost, getResLabel, getAttrCol, getSecCol, getTrBonus, getAttrTot, getLpBase, getLpMax, getMlpBase, getMlpMax, getLpRegenAuto, getMlpRegenAuto, hasLpRegenOvr, hasMlpRegenOvr, getLpRegen, getMlpRegen, getIniBase, getIniTot, getApMax, getMapMax, getCresBase, getCresMax, getExtraSecBase, getBstAuto, hasBstOvr, getBstBase, getEffBst, getCharSizeList, getCharSizeInfo
+  getStatusEffValues, getReservedTotals, getEffectivePoolCap, getReservedSrcList, calcActiveMods, fmtSrcLines, buildAttrTip, buildSecTip, getMentalArmorSummary, getTrCost, getResLabel, getAttrCol, getSecCol, getTrBonus, getAttrTot, getLpBase, getLpMax, getMlpBase, getMlpMax, getLpRegenAuto, getMlpRegenAuto, hasLpRegenOvr, hasMlpRegenOvr, getLpRegen, getMlpRegen, getIniBase, getIniTot, getApMax, getMapMax, getCresBase, getCresMax, getExtraSecBase, getBstAuto, hasBstOvr, getBstBase, getEffBst, getCharSizeList, getCharSizeInfo, formatPreparationLabel
 } from '../calc.js';
 import {
   renderRtfToolbarHtml
@@ -36,7 +36,7 @@ export function isTab1SecCollapsed(key){
   if(key==='attrs') return isTab1PhoneDefault();
   if(key==='sec') return false;
   if(key==='status') return S.statusCollapsed?true:isTab1PhoneDefault();
-  if(key==='insp'||key==='res'||key==='thresholds'||key==='move'||key==='hz'||key==='quick') return isTab1PhoneDefault();
+  if(key==='prep'||key==='insp'||key==='res'||key==='thresholds'||key==='move'||key==='hz'||key==='quick') return isTab1PhoneDefault();
   return false;
 }
 
@@ -98,6 +98,60 @@ export function renderStatusEffectCard(def){
       </div>
     </div>
   </div>`;
+}
+export function renderPreparationSection(){
+  const list=Array.isArray(S.preparations)?S.preparations:[];
+  const hasAct=list.length>0, isCol=isTab1SecCollapsed('prep');
+  const kind=['attr','skill','action'].includes(UI.prepDraftKind)?UI.prepDraftKind:'attr';
+  const sortedSkills=[...(S.skills||[])].filter(sk=>sk&&String(sk.name||'').trim()).sort((a,b)=>String(a.name).localeCompare(String(b.name),'de'));
+  const selAttr=ATTRS.some(a=>a.k===UI.prepDraftAttr)?UI.prepDraftAttr:'PR';
+  const selSkillId=sortedSkills.some(sk=>sk.id===UI.prepDraftSkillId)?UI.prepDraftSkillId:(sortedSkills[0]?.id||'');
+  const actVal=String(UI.prepDraftAction||'');
+  return `<section id="preparationSec" class="card t1-card space-y-3 border-2 ${hasAct?'border-cyan-400/80 bg-cyan-500/10 ring-1 ring-cyan-400/25':'bdr-acc'}">
+    <div class="flex flex-wrap items-center justify-between gap-2 ${isCol?'':'border-b bdr-line pb-2.5'}">
+      <div class="flex flex-wrap items-center gap-2 min-w-0">
+        <button type="button" data-action="toggle-t1-sec" data-sec="prep" aria-expanded="${!isCol}" data-tip="${isCol?'Vorbereiten ausklappen':'Vorbereiten einklappen'}" class="btn w-8 h-8 sm:w-7 sm:h-7 p-0 text-xs font-black shrink-0">${isCol?'▸':'▾'}</button>
+        <button type="button" data-action="toggle-t1-sec" data-sec="prep" class="t1-hdr-title">
+          <h3 class="text-sm sm:text-base font-extrabold text-cyan-300 cursor-pointer" data-tip="Vorbereiten: Gibt +2 Vorteile auf ein vorbereitetes Attribut, eine vorbereitete Fertigkeit oder eine angesagte Aktion. Pro Test zählt Vorbereitung maximal einmal (+2 Vorteile).">🎯 Vorbereiten</h3>
+        </button>
+        <span class="pill cursor-default text-[11px] py-0.5 px-2 tabular ${hasAct?'border-cyan-400/60 bg-cyan-500/15 text-cyan-200':''}">${list.length} aktiv</span>
+        ${isCol&&hasAct?list.slice(0,2).map(p=>`<span class="px-1.5 py-0.5 rounded-md border border-cyan-400/50 bg-cyan-500/15 text-cyan-200 text-[10px] font-extrabold truncate max-w-[140px]">+2V ${esc(formatPreparationLabel(p))}</span>`).join('')+(list.length>2?`<span class="text-[10px] font-bold text-cyan-300">+${list.length-2}</span>`:''):''}
+      </div>
+      ${!isCol&&list.length>1?`<button type="button" data-action="prep-clear-all" data-tip="Alle aktiven Vorbereitungen entfernen" class="btn btn-err py-0.5 px-2 text-[10px] font-extrabold shrink-0">↺ Alle</button>`:''}
+    </div>
+    ${!isCol?`<div class="space-y-2.5">
+      <div class="grid grid-cols-3 gap-1 p-0.5 rounded-xl bg-black/25 border bdr-line text-[11px]">
+        <button type="button" data-action="prep-set-kind" data-kind="attr" class="btn py-1 px-1 text-[11px] font-extrabold ${kind==='attr'?'btn-pri':'border-transparent bg-transparent'}">⚡ Attribut</button>
+        <button type="button" data-action="prep-set-kind" data-kind="skill" class="btn py-1 px-1 text-[11px] font-extrabold ${kind==='skill'?'btn-pri':'border-transparent bg-transparent'}">🎯 Fertigkeit</button>
+        <button type="button" data-action="prep-set-kind" data-kind="action" class="btn py-1 px-1 text-[11px] font-extrabold ${kind==='action'?'btn-pri':'border-transparent bg-transparent'}">🎬 Aktion</button>
+      </div>
+      <div class="flex items-center gap-1.5 min-w-0">
+        ${kind==='attr'
+          ?`<select id="selPrepAttr" data-prep-draft="attr" aria-label="Attribut zum Vorbereiten" class="inp flex-1 min-w-0 py-1.5 px-2 text-xs font-bold">${ATTRS.map(a=>`<option value="${a.k}" ${selAttr===a.k?'selected':''}>${a.k} – ${esc(a.n)}</option>`).join('')}</select>`
+          :kind==='skill'
+            ?(sortedSkills.length
+              ?`<select id="selPrepSkill" data-prep-draft="skill" aria-label="Fertigkeit zum Vorbereiten" class="inp flex-1 min-w-0 py-1.5 px-2 text-xs font-bold">${sortedSkills.map(sk=>`<option value="${esc(sk.id)}" ${selSkillId===sk.id?'selected':''}>${esc(sk.name)} (${sk.linkedAttr})</option>`).join('')}</select>`
+              :`<div class="flex-1 min-w-0 text-[11px] t-mut italic px-2 py-1">Keine Fertigkeiten im Tab 2 vorhanden.</div>`)
+            :`<input id="inpPrepAction" data-prep-draft="action" type="text" value="${esc(actVal)}" placeholder="Angesagte Aktion (optional)..." class="inp flex-1 min-w-0 py-1.5 px-2 text-xs font-bold"/>`}
+        <button type="button" data-action="prep-add" ${(kind==='skill'&&!sortedSkills.length)?'disabled':''} data-tip="Vorbereitung aktivieren (+2 Vorteile im Würfelassistenten)" class="btn btn-pri py-1.5 px-2.5 text-xs font-black shrink-0">+ +2V</button>
+      </div>
+      ${hasAct
+        ?`<div class="space-y-1.5">
+            ${list.map(p=>{
+              const lbl=formatPreparationLabel(p);
+              const icon=p.kind==='attr'?'⚡':p.kind==='skill'?'🎯':'🎬';
+              return `<div class="subcard p-2 flex items-center justify-between gap-2 border border-cyan-400/45 bg-cyan-500/10 min-w-0">
+                <div class="flex items-center gap-1.5 min-w-0 flex-1">
+                  <span class="px-1.5 py-0.5 rounded bg-cyan-500/25 border border-cyan-400/50 text-cyan-200 text-[10px] font-black tabular shrink-0">+2V</span>
+                  <span class="text-xs font-extrabold truncate min-w-0" data-tip="${esc(lbl)}">${icon} ${esc(lbl)}</span>
+                </div>
+                <button type="button" data-action="prep-remove" data-id="${esc(p.id)}" aria-label="Vorbereitung entfernen" data-tip="Vorbereitung verbrauchen / entfernen" class="btn btn-err w-7 h-7 p-0 text-xs font-black shrink-0">✕</button>
+              </div>`;
+            }).join('')}
+          </div>`
+        :`<div class="subcard p-2.5 text-[11px] t-mut leading-relaxed">Gibt <strong class="text-cyan-300">+2 Vorteile</strong> auf ein vorbereitetes Attribut, eine Fertigkeit oder eine angesagte <strong>Aktion</strong> (bei Aktion +2V im Würfelassistenten auf alle Tests zur freien Interpretation).</div>`}
+    </div>`:''}
+  </section>`;
 }
 export function renderInspirationSection(){
   const stacks=Math.max(0,toInt(S.inspiration,0)), isAct=Boolean(S.inspirationActive), isCol=isTab1SecCollapsed('insp');
@@ -431,7 +485,7 @@ export function tplAttributes(){
       <div class="md:col-span-12 flex justify-end -mt-1"><button type="button" data-action="add-extra-sec" class="btn py-1.5 sm:py-1 px-2.5 text-xs bdr-acc bg-acc-soft text-acc">+ Sekundärattribut hinzufügen</button></div>
     </div>`:''}
   </section>
-  <div class="grid grid-cols-1 xl:grid-cols-12 gap-4 items-start"><div class="xl:col-span-8 2xl:col-span-9">${renderStatusEffectsSection()}</div><div class="xl:col-span-4 2xl:col-span-3 space-y-4">${renderInspirationSection()}${renderReservationsSection()}</div></div>
+  <div class="grid grid-cols-1 xl:grid-cols-12 gap-4 items-start"><div class="xl:col-span-8 2xl:col-span-9">${renderStatusEffectsSection()}</div><div class="xl:col-span-4 2xl:col-span-3 space-y-4">${renderPreparationSection()}${renderReservationsSection()}${renderInspirationSection()}</div></div>
   <section class="card t1-card space-y-3 tabular">
     <div class="flex flex-wrap items-center justify-between gap-2 ${thCol?'':'border-b bdr-line pb-2.5'}">
       <div class="flex flex-wrap items-center gap-1.5 sm:gap-2 min-w-0">
