@@ -139,7 +139,7 @@ export function defaultState(){
     attributes,secondary:{lpCurrent:8,lpMod:0,lpRegenOvr:'',iniMod:0,mlpCurrent:8,mlpMod:0,mlpRegenOvr:'',apCurrent:3,apMax:3,mapCurrent:3,mapMax:3},
     customRes:{name:'Benutzerdefiniert',current:3,max:3,color:'#c084fc'},extraSecList:[],
     statusCollapsed:false,statusEffects:makeDefaultStatusEffects(),inspiration:0,inspirationActive:false,
-    thresholds:{woundLight:3,woundMedium:6,woundHeavy:9,traumaLight:3,traumaMedium:6,traumaHeavy:9},
+    thresholds:{woundLight:4,woundMedium:7,woundHeavy:10,traumaLight:4,traumaMedium:7,traumaHeavy:10},thresholdsV2:true,
     charSize:{level:0,ovr:'',customLevels:[]},
     bst:1,bstOvr:'',movements:[{id:'mv1',type:'Laufen',base:5,ovr:''}],hitZones:clone(DEF_HZ),lastHzRoll:null,lastSubHzRoll:null,lastSubHzZone:'',
     combatNotes:{bestehen:'',schaden:'',ruestung:''},skillSections:[],skills:[],powerSections:[],powers:[],augments:[],
@@ -1430,7 +1430,15 @@ function normalizeSheetObject(raw, { isForeign = false } = {}){
   const regEnemyMeta=CLOUD.registry?.enemyMeta?.[cid];
   const rawEnemyMeta=(raw.enemyMeta&&typeof raw.enemyMeta==='object')?raw.enemyMeta:(raw._summary?.enemyMeta&&typeof raw._summary.enemyMeta==='object'?raw._summary.enemyMeta:null);
   const chosenEnemyMeta=(regEnemyMeta&&(!rawEnemyMeta||toInt(regEnemyMeta.updatedAtMs,0)>=toInt(rawEnemyMeta.updatedAtMs,0)))?regEnemyMeta:(rawEnemyMeta||regEnemyMeta);
-  const sheet={...def,...raw,version:11,charId:cid,activeTab:restoredTab,phase:raw.phase==='flut'?'flut':'ebbe',owner:String(raw.owner||''),campaignId:rawCampId,sheetType:rawSheetType,enemyMeta:normalizeEnemyMeta(chosenEnemyMeta),cloudAutoSync:Boolean(raw.cloudAutoSync),profile:{...def.profile,...(raw.profile||{})},secondary:{...def.secondary,...(raw.secondary||{})},customRes:{...def.customRes,...(raw.customRes||{})},statusCollapsed:Boolean(raw.statusCollapsed),statusEffects:normStatusEffects(raw.statusEffects),inspiration:Math.max(0,toInt(raw.inspiration,0)),inspirationActive:Boolean(raw.inspirationActive),thresholds:{...def.thresholds,...(raw.thresholds||{})},combatNotes:{...def.combatNotes,...(raw.combatNotes||{})},progression:{...def.progression,...(raw.progression||{})},bio:{...def.bio,...(raw.bio||{})},equipNotes:raw.equipNotes??raw.equipFreeNotes??''};
+  const rawTh=(raw.thresholds&&typeof raw.thresholds==='object')?raw.thresholds:null;
+  const normTh=rawTh?(raw.thresholdsV2===true?{
+    woundLight:toInt(rawTh.woundLight,4),woundMedium:toInt(rawTh.woundMedium,7),woundHeavy:toInt(rawTh.woundHeavy,10),
+    traumaLight:toInt(rawTh.traumaLight,4),traumaMedium:toInt(rawTh.traumaMedium,7),traumaHeavy:toInt(rawTh.traumaHeavy,10)
+  }:{
+    woundLight:toInt(rawTh.woundLight,3)+1,woundMedium:toInt(rawTh.woundMedium,6)+1,woundHeavy:toInt(rawTh.woundHeavy,9)+1,
+    traumaLight:toInt(rawTh.traumaLight,3)+1,traumaMedium:toInt(rawTh.traumaMedium,6)+1,traumaHeavy:toInt(rawTh.traumaHeavy,9)+1
+  }):{...def.thresholds};
+  const sheet={...def,...raw,version:11,charId:cid,activeTab:restoredTab,phase:raw.phase==='flut'?'flut':'ebbe',owner:String(raw.owner||''),campaignId:rawCampId,sheetType:rawSheetType,enemyMeta:normalizeEnemyMeta(chosenEnemyMeta),cloudAutoSync:Boolean(raw.cloudAutoSync),profile:{...def.profile,...(raw.profile||{})},secondary:{...def.secondary,...(raw.secondary||{})},customRes:{...def.customRes,...(raw.customRes||{})},statusCollapsed:Boolean(raw.statusCollapsed),statusEffects:normStatusEffects(raw.statusEffects),inspiration:Math.max(0,toInt(raw.inspiration,0)),inspirationActive:Boolean(raw.inspirationActive),thresholds:normTh,thresholdsV2:true,combatNotes:{...def.combatNotes,...(raw.combatNotes||{})},progression:{...def.progression,...(raw.progression||{})},bio:{...def.bio,...(raw.bio||{})},equipNotes:raw.equipNotes??raw.equipFreeNotes??''};
   if(!isHex(sheet.customRes.color)) sheet.customRes.color='#c084fc';
   sheet.secondary.lpRegenOvr=sheet.secondary.lpRegenOvr!==undefined&&sheet.secondary.lpRegenOvr!==null&&String(sheet.secondary.lpRegenOvr).trim()!==''?String(Math.max(0,toInt(sheet.secondary.lpRegenOvr,5))):'';
   sheet.secondary.mlpRegenOvr=sheet.secondary.mlpRegenOvr!==undefined&&sheet.secondary.mlpRegenOvr!==null&&String(sheet.secondary.mlpRegenOvr).trim()!==''?String(Math.max(0,toInt(sheet.secondary.mlpRegenOvr,5))):'';

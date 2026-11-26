@@ -323,24 +323,24 @@ export function getTargetZoneArmor(targetSheet, targetM, zoneName, dmgOpt, pool 
 }
 
 export function evaluateThresholds(targetSheet, targetM, finalDmg, pool = 'lp'){
-  const thObj = targetSheet?.thresholds || { woundLight: 3, woundMedium: 6, woundHeavy: 9, traumaLight: 3, traumaMedium: 6, traumaHeavy: 9 };
+  const thObj = targetSheet?.thresholds || { woundLight: 4, woundMedium: 7, woundHeavy: 10, traumaLight: 4, traumaMedium: 7, traumaHeavy: 10 };
   const isMlp = pool === 'mlp';
-  const light = Math.max(1, toInt(isMlp ? thObj.traumaLight : thObj.woundLight, 3) + toInt(isMlp ? targetM?.traumaLight : targetM?.woundLight, 0));
-  const medium = Math.max(1, toInt(isMlp ? thObj.traumaMedium : thObj.woundMedium, 6) + toInt(isMlp ? targetM?.traumaMedium : targetM?.woundMedium, 0));
-  const heavy = Math.max(1, toInt(isMlp ? thObj.traumaHeavy : thObj.woundHeavy, 9) + toInt(isMlp ? targetM?.traumaHeavy : targetM?.woundHeavy, 0));
+  const light = Math.max(1, toInt(isMlp ? thObj.traumaLight : thObj.woundLight, 4) + toInt(isMlp ? targetM?.traumaLight : targetM?.woundLight, 0));
+  const medium = Math.max(1, toInt(isMlp ? thObj.traumaMedium : thObj.woundMedium, 7) + toInt(isMlp ? targetM?.traumaMedium : targetM?.woundMedium, 0));
+  const heavy = Math.max(1, toInt(isMlp ? thObj.traumaHeavy : thObj.woundHeavy, 10) + toInt(isMlp ? targetM?.traumaHeavy : targetM?.woundHeavy, 0));
   const kindWord = isMlp ? 'Trauma' : 'Verwundung';
   let level = 'none', label = '', thresholdVal = 0;
-  if(finalDmg > heavy){
+  if(finalDmg >= heavy){
     level = 'heavy';
-    label = isMlp ? `🔴 Schweres ${kindWord} (> ${heavy})` : `🔴 Schwere ${kindWord} (> ${heavy})`;
+    label = isMlp ? `🔴 Schweres ${kindWord} (≥ ${heavy})` : `🔴 Schwere ${kindWord} (≥ ${heavy})`;
     thresholdVal = heavy;
-  }else if(finalDmg > medium){
+  }else if(finalDmg >= medium){
     level = 'medium';
-    label = isMlp ? `🟠 Mittleres ${kindWord} (> ${medium})` : `🟠 Mittlere ${kindWord} (> ${medium})`;
+    label = isMlp ? `🟠 Mittleres ${kindWord} (≥ ${medium})` : `🟠 Mittlere ${kindWord} (≥ ${medium})`;
     thresholdVal = medium;
-  }else if(finalDmg > light){
+  }else if(finalDmg >= light){
     level = 'light';
-    label = isMlp ? `🟡 Leichtes ${kindWord} (> ${light})` : `🟡 Leichte ${kindWord} (> ${light})`;
+    label = isMlp ? `🟡 Leichtes ${kindWord} (≥ ${light})` : `🟡 Leichte ${kindWord} (≥ ${light})`;
     thresholdVal = light;
   }
   return { level, label, thresholdVal, light, medium, heavy, kindWord };
@@ -453,8 +453,11 @@ export function calculateCombatDamage(hitOrIdx = 0){
   const afterArmor = Math.max(0, afterBlock - armor.total);
 
   const durchschlagApplied = Boolean(hit.isBlocked && durchschlagX > 0 && afterArmor === 0);
-  const finalDmg = durchschlagApplied ? durchschlagX : afterArmor;
-  const threshold = evaluateThresholds(targetSheet, targetM, finalDmg, pool);
+  const uncappedDmg = durchschlagApplied ? durchschlagX : afterArmor;
+  const threshold = evaluateThresholds(targetSheet, targetM, uncappedDmg, pool);
+  const maxDmgCap = Math.max(1, toInt(threshold.heavy, 10));
+  const dmgCapped = uncappedDmg > maxDmgCap;
+  const finalDmg = dmgCapped ? maxDmgCap : uncappedDmg;
 
   const parts = [`${eg} EG`];
   if(critBonus) parts.push(`+ ${critBonus} Krit`);
@@ -477,7 +480,10 @@ export function calculateCombatDamage(hitOrIdx = 0){
   const poolLbl = pool === 'mlp' ? 'mLP' : 'LP';
   let formula = `${parts.join(' ')} = ${afterArmor} ${poolLbl}`;
   if(durchschlagApplied){
-    formula += ` → Durchschlag (${durchschlagX}) = ${finalDmg} ${poolLbl}`;
+    formula += ` → Durchschlag (${durchschlagX}) = ${uncappedDmg} ${poolLbl}`;
+  }
+  if(dmgCapped){
+    formula += ` → max. ${maxDmgCap} ${poolLbl} (Schwelle)`;
   }
 
   const weaponName = atkShield
@@ -530,6 +536,9 @@ export function calculateCombatDamage(hitOrIdx = 0){
     armor,
     afterArmor,
     durchschlagApplied,
+    uncappedDmg,
+    maxDmgCap,
+    dmgCapped,
     finalDmg,
     pool,
     poolLbl,
@@ -1668,9 +1677,9 @@ function renderSingleCombatHitBodyHtml(hitEntry, hitIdx, isMulti){
   const thresholdSectionHtml = hideTarget
     ? `<div class="inline-flex flex-wrap items-center justify-center gap-1 px-2.5 py-1 rounded-lg border bdr-line bg-black/20 t-mut text-[10px] font-bold max-w-full">🔒 Verwundungsschwellen des Gegners verborgen (SL sieht Details im Schadensangebot)</div>`
     : `<div class="inline-flex flex-wrap items-center justify-center gap-1 px-2.5 py-1 rounded-lg border text-[11px] font-extrabold max-w-full ${thCls}">
-        ${th.label ? `<span>${esc(th.label)}</span>` : `<span>✓ Keine ${th.kindWord}sschwelle überschritten</span>`}
-        <span class="opacity-75 text-[10px]">(Schwelle: &gt; ${th.light} / &gt; ${th.medium} / &gt; ${th.heavy})</span>
-      </div>`;
+        ${th.label ? `<span>${esc(th.label)}</span>` : `<span>✓ Keine ${th.kindWord}sschwelle erreicht</span>`}
+        <span class="opacity-75 text-[10px]">(Schwelle: ≥ ${th.light} / ≥ ${th.medium} / ≥ ${th.heavy})</span>
+      </div>${calc.dmgCapped ? `<div class="text-[10px] font-extrabold text-amber-300 tabular">🛡️ Max. ${calc.poolLbl}-Verlust gedeckelt: ${calc.uncappedDmg} → <strong>${calc.maxDmgCap} ${calc.poolLbl}</strong> (${calc.pool === 'mlp' ? 'Schwere Traumaschwelle' : 'Schwere Verwundungsschwelle'})</div>` : ''}`;
 
   const canDirect = canDirectApplyCombatDamage(COMBAT.targetCharId);
   const magInfo = (calc.weapon && hasActiveMagazines(calc.weapon)) ? getWeaponNextShotInfo(calc.weapon, S) : null;
