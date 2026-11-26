@@ -8,7 +8,7 @@ import {
   hooks
 } from './ui-hooks.js';
 import {
-  applyWinFrame, renderWinCtrlBtns, renderWinResizeHandles, getCampaigns, isUserInCampaign, canManageCampaign, getActiveLiveCampaignId, getCampaignFilteredDiceFeed, getInitiativeCampaignsForChar, isCharInCampaignInitiative, captureScrollState, restoreScrollState, save, getWeaponSubtype, isWeaponMassiv, isWeaponBlockable, isArmorShield, S, D, LD, diceLogs, isMobileLayout, UI, LIVE_TAB_ID, CLOUD, getCharCampaignId, isEnemySheet, getEnemyMeta, isEnemyDiceVisibleInCampaign, canSeeEnemyInDice, shouldHideOpponentDetails
+  applyWinFrame, renderWinCtrlBtns, renderWinResizeHandles, getCampaigns, isUserInCampaign, canManageCampaign, getActiveLiveCampaignId, getCampaignFilteredDiceFeed, getInitiativeCampaignsForChar, isCharInCampaignInitiative, captureScrollState, restoreScrollState, save, getWeaponSubtype, isWeaponMassiv, isWeaponBlockable, isArmorShield, normDmgType, getMeleeAttrDmgType, getDmgTypeLabel, S, D, LD, diceLogs, isMobileLayout, UI, LIVE_TAB_ID, CLOUD, getCharCampaignId, isEnemySheet, getEnemyMeta, isEnemyDiceVisibleInCampaign, canSeeEnemyInDice, shouldHideOpponentDetails
 } from './state.js';
 import {
   calcActiveMods, getAdvDisForContext, getWeaponRollMeta, getShieldRollMeta, getSheetShields, getSheetBlockOptions, resolveCombatItemByRef, formatBlockModShort, formatBlockModLong, getWeaponDualWieldInfo, fmtAdvSrcLines, getAttrTot, getSkBonus, getCharSizeInfo, getRelativeSizeHitMod, normHitZoneSize, getHitZoneSizeMeta
@@ -17,7 +17,7 @@ import {
   renderLobbyLiveDiceHtml, publishLiveRoll, formatSecretRollSummary, isSecretRollActive, getCachedForeignSheet, getForeignSheetLoadedAt, isForeignSheetLoading, getForeignSheetError, fetchForeignCharacterSheet, fetchLobbyList
 } from './cloud.js';
 import {
-  renderDiceMagazineStripHtml
+  renderDiceMagazineStripHtml, getEffectiveWeaponAmmo
 } from './magazines.js';
 
 export const getCSkVal=()=>D.cSkill==='custom'?toInt(D.cCustom):toInt(D.cSkill);
@@ -1184,9 +1184,24 @@ export function renderDice(){
               </div>
             </div>
           </div>
-          ${isRng?`<div class="min-w-0">
-            <label class="block text-[9px] font-bold text-amber-400 uppercase mb-0.5">🎯 Munition</label>
-            <select data-dice-wp-edit="ammoId" data-wid="${esc(aw.id)}" class="inp w-full text-xs font-bold py-1"><option value="" ${!aw.ammoId?'selected':''}>— Keine Munition —</option>${(S.ammos||[]).map(am=>`<option value="${esc(am.id)}" ${aw.ammoId===am.id?'selected':''}>${esc(am.name||'Munition')} (${am.qty} Stk.)</option>`).join('')}</select>
+          ${isRng?`<div class="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+            <div class="min-w-0">
+              <label class="block text-[9px] font-bold text-amber-400 uppercase mb-0.5">🎯 Munition</label>
+              <select data-dice-wp-edit="ammoId" data-wid="${esc(aw.id)}" class="inp w-full text-xs font-bold py-1"><option value="" ${!aw.ammoId?'selected':''}>— Keine Munition —</option>${(S.ammos||[]).map(am=>`<option value="${esc(am.id)}" ${aw.ammoId===am.id?'selected':''}>${esc(am.name||'Munition')} (${am.qty} Stk.)</option>`).join('')}</select>
+            </div>
+            <div class="min-w-0">
+              <label class="block text-[9px] font-bold text-amber-400 uppercase mb-0.5">💥 Schadenstyp (Waffe)</label>
+              <select data-dice-wp-edit="dmgType" data-wid="${esc(aw.id)}" class="inp w-full text-xs font-bold py-1">
+                <option value="" ${!normDmgType(aw.dmgType)?'selected':''}>Auto (nach Werten)</option>
+                <option value="cut" ${normDmgType(aw.dmgType)==='cut'?'selected':''}>Schnitt</option>
+                <option value="pierce" ${normDmgType(aw.dmgType)==='pierce'?'selected':''}>Durchstoß</option>
+                <option value="impact" ${normDmgType(aw.dmgType)==='impact'?'selected':''}>Einschlag</option>
+                ${(Array.isArray(aw.customDmg)?aw.customDmg:[]).filter(c=>c&&String(c.label||'').trim()).map(c=>{
+                  const ck=`custom:${String(c.label).trim().toLowerCase()}`;
+                  return `<option value="${esc(ck)}" ${normDmgType(aw.dmgType)===ck?'selected':''}>${esc(String(c.label).trim())}</option>`;
+                }).join('')}
+              </select>
+            </div>
           </div>`:''}
           <div class="grid grid-cols-3 gap-1.5 tabular">
             <div><label class="block text-[9px] font-bold t-mut text-center mb-0.5">Schnitt</label><input data-dice-wp-inp="${esc(aw.id)}:dmgCut" type="text" value="${esc(aw.dmgCut)}" class="inp w-full text-center font-black py-1 text-xs"/></div>
@@ -1236,6 +1251,36 @@ export function renderDice(){
         </div>`;
       }
 
+      let dmgTypePreviewHtml='';
+      if(isHitMode&&activeItem&&wpApplies){
+        if(aw&&aw.wType==='ranged'){
+          const effAm=getEffectiveWeaponAmmo(aw,S);
+          const customAll=[...(Array.isArray(aw.customDmg)?aw.customDmg:[]),...(Array.isArray(effAm?.customDmg)?effAm.customDmg:[])];
+          const amDt=normDmgType(effAm?.dmgType);
+          const wpDt=normDmgType(aw?.dmgType);
+          if(amDt){
+            dmgTypePreviewHtml=`<div class="px-2 py-1 rounded-lg border border-amber-400/45 bg-amber-500/10 text-[10px] font-bold text-amber-200 flex flex-wrap items-center justify-between gap-1"><span>💥 Schadenstyp: <strong>${esc(getDmgTypeLabel(amDt,customAll))}</strong></span><span class="t-mut">via Munition (${esc(effAm?.name||'Munition')})</span></div>`;
+          }else if(wpDt){
+            dmgTypePreviewHtml=`<div class="px-2 py-1 rounded-lg border border-amber-400/45 bg-amber-500/10 text-[10px] font-bold text-amber-200 flex flex-wrap items-center justify-between gap-1"><span>💥 Schadenstyp: <strong>${esc(getDmgTypeLabel(wpDt,customAll))}</strong></span><span class="t-mut">via Fernkampfwaffe</span></div>`;
+          }else{
+            dmgTypePreviewHtml=`<div class="px-2 py-1 rounded-lg border bdr-line bg-black/20 text-[10px] t-mut flex flex-wrap items-center justify-between gap-1"><span>💥 Schadenstyp: <strong>Auto</strong></span><span>in ⚙️ Anpassen oder Munition wählbar</span></div>`;
+          }
+        }else{
+          const effAttr=aw?(isWeaponMassiv(aw)?'ST':(D.attrKey||aw.wAttr||'ST')):(D.attrKey||ash?.wAttr||'ST');
+          const tags=Array.isArray(activeItem.tags)?activeItem.tags:[];
+          const hasWk=tags.some(t=>/^wuchtklinge\b/i.test(String(t?.name||'').trim()));
+          const hasWp=tags.some(t=>/^wuchtpieke\b/i.test(String(t?.name||'').trim()));
+          const mappedDt=getMeleeAttrDmgType(effAttr);
+          if(hasWk){
+            dmgTypePreviewHtml=`<div class="px-2 py-1 rounded-lg border border-amber-400/45 bg-amber-500/10 text-[10px] font-bold text-amber-200 flex flex-wrap items-center justify-between gap-1"><span>💥 Schadenstyp: <strong>Einschlag-Schnitt</strong></span><span class="t-mut">Tag Wuchtklinge (${esc(effAttr)})</span></div>`;
+          }else if(hasWp){
+            dmgTypePreviewHtml=`<div class="px-2 py-1 rounded-lg border border-amber-400/45 bg-amber-500/10 text-[10px] font-bold text-amber-200 flex flex-wrap items-center justify-between gap-1"><span>💥 Schadenstyp: <strong>Einschlag-Durchstoß</strong></span><span class="t-mut">Tag Wuchtpieke (${esc(effAttr)})</span></div>`;
+          }else if(mappedDt){
+            dmgTypePreviewHtml=`<div class="px-2 py-1 rounded-lg border border-amber-400/45 bg-amber-500/10 text-[10px] font-bold text-amber-200 flex flex-wrap items-center justify-between gap-1"><span>💥 Schadenstyp: <strong>${esc(getDmgTypeLabel(mappedDt))}</strong></span><span class="t-mut">Attribut ${esc(effAttr)} (ST=Einschlag • PR=Durchstoß • GW=Schnitt)</span></div>`;
+          }
+        }
+      }
+
       weaponRowHtml=`<div class="space-y-1.5 pt-1.5 border-t border-white/10 min-w-0">
         <div class="flex items-center gap-1.5 min-w-0">
           <select data-dice-weapon-sel="1" aria-label="Waffe oder Schild aus Charakterbogen wählen" class="inp flex-1 min-w-0 text-xs font-bold py-1 ${activeItem&&!wpApplies?'border-amber-400/60 text-amber-200':ash?'border-cyan-400/55':''}">
@@ -1244,6 +1289,7 @@ export function renderDice(){
           ${activeItem?`<button type="button" data-action="toggle-dice-wp-edit" data-tip="${ash?'Schild direkt im Würfelassistenten anpassen':'Waffe direkt im Würfelassistenten anpassen (LP/mLP, Attribut, Fertigkeit, Munition, Schaden)'}" class="btn py-1 px-2 text-xs font-extrabold shrink-0 ${D.wpEditOpen?'btn-pri':''}">⚙️ <span class="hidden sm:inline">Anpassen</span></button>`:''}
         </div>
         ${blockInfoStripHtml}
+        ${dmgTypePreviewHtml}
         ${aw?renderDiceMagazineStripHtml(aw):''}
         ${mismatchHtml}
         ${dwBarHtml}

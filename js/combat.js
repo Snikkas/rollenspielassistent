@@ -8,10 +8,10 @@ import {
   hooks
 } from './ui-hooks.js';
 import {
-  S, D, UI, CLOUD, DUEL, COMBAT, LIVE_TAB_ID, diceLogs, getWeaponSubtype, isArmorShield, isWeaponBlockable, getCharCampaignId, getCharOwner, getActiveLiveCampaignId, canManageCampaign, isGlobalGM, isEnemySheet, getEnemyMeta, shouldHideOpponentDetails, toast, triggerNiceEasterEgg, logChron, save
+  S, D, UI, CLOUD, DUEL, COMBAT, LIVE_TAB_ID, diceLogs, getWeaponSubtype, isArmorShield, isWeaponBlockable, normDmgType, getMeleeAttrDmgType, getDmgTypeLabel, getCharCampaignId, getCharOwner, getActiveLiveCampaignId, canManageCampaign, isGlobalGM, isEnemySheet, getEnemyMeta, shouldHideOpponentDetails, toast, triggerNiceEasterEgg, logChron, save
 } from './state.js';
 import {
-  calcActiveMods, getSheetShields
+  calcActiveMods, getSheetShields, getWeaponRollMeta, getShieldRollMeta
 } from './calc.js';
 import {
   getCachedForeignSheet, publishLiveRoll, sendLiveBroadcast, applyCloudResourceDelta, isSecretRollActive
@@ -124,6 +124,40 @@ export function pickDefaultDamageType(opts, tags){
   const custPos = opts.find(o => o.isCustom && o.val > 0);
   if(custPos) return custPos.key;
   return 'cut';
+}
+
+export function resolveDefaultDamageType({ weapon = null, atkShield = null, ammo = null, attrKey = '', opts = [], tags = [] } = {}){
+  const isRanged = Boolean(weapon && weapon.wType === 'ranged');
+  if(isRanged){
+    const ammoType = normDmgType(ammo?.dmgType);
+    if(ammoType && opts.some(o => o.key === ammoType)){
+      const amNm = String(ammo?.name || '').trim() || 'Munition';
+      return { key: ammoType, reason: `🎯 ${amNm} → ${getDmgTypeLabel(ammoType, ammo?.customDmg)}` };
+    }
+    const wpType = normDmgType(weapon?.dmgType);
+    if(wpType && opts.some(o => o.key === wpType)){
+      const wpNm = String(weapon?.name || '').trim() || 'Fernkampfwaffe';
+      return { key: wpType, reason: `🏹 ${wpNm} → ${getDmgTypeLabel(wpType, weapon?.customDmg)}` };
+    }
+    const fb = pickDefaultDamageType(opts, tags);
+    const fbLbl = opts.find(o => o.key === fb)?.shortLabel || opts.find(o => o.key === fb)?.label || getDmgTypeLabel(fb);
+    return { key: fb, reason: `🏹 Auto → ${fbLbl}` };
+  }
+  if(hasTagMatch(tags, /^wuchtklinge\b/i) && opts.some(o => o.key === 'impact_cut')){
+    return { key: 'impact_cut', reason: '⚔️ Wuchtklinge → Einschlag-Schnitt' };
+  }
+  if(hasTagMatch(tags, /^wuchtpieke\b/i) && opts.some(o => o.key === 'impact_pierce')){
+    return { key: 'impact_pierce', reason: '⚔️ Wuchtpieke → Einschlag-Durchstoß' };
+  }
+  const effAttr = String(attrKey || (atkShield ? getShieldRollMeta(atkShield).attrKey : (weapon ? getWeaponRollMeta(weapon).attrKey : '')) || '').trim().toUpperCase();
+  const attrDmg = getMeleeAttrDmgType(effAttr);
+  if(attrDmg && opts.some(o => o.key === attrDmg)){
+    const icon = atkShield ? '🛡️' : '⚔️';
+    return { key: attrDmg, reason: `${icon} Attribut ${effAttr} → ${getDmgTypeLabel(attrDmg)}` };
+  }
+  const fb = pickDefaultDamageType(opts, tags);
+  const fbLbl = opts.find(o => o.key === fb)?.shortLabel || opts.find(o => o.key === fb)?.label || getDmgTypeLabel(fb);
+  return { key: fb, reason: fbLbl };
 }
 
 export function resolveCombatTargetSheet(charId = COMBAT.targetCharId){
@@ -370,6 +404,7 @@ export function syncLegacyCombatFields(){
   COMBAT.blockShieldId = String(h0.blockShieldId || '');
   COMBAT.blockShieldName = String(h0.blockShieldName || '');
   COMBAT.dmgType = h0.dmgType || 'cut';
+  COMBAT.dmgTypeReason = h0.dmgTypeReason || '';
   COMBAT.pool = h0.pool === 'mlp' ? 'mlp' : 'lp';
   COMBAT.zoneName = h0.zoneName || '';
   COMBAT.subZoneName = h0.subZoneName || '';
@@ -564,10 +599,12 @@ export function resetCombatState(){
   COMBAT.weaponId = null;
   COMBAT.shieldId = null;
   COMBAT.ammoId = null;
+  COMBAT.attrKey = '';
   COMBAT.attackerName = '';
   COMBAT.targetCharId = '';
   COMBAT.targetName = '';
   COMBAT.dmgType = 'cut';
+  COMBAT.dmgTypeReason = '';
   COMBAT.pool = 'lp';
   COMBAT.zoneName = '';
   COMBAT.subZoneName = '';
@@ -608,6 +645,7 @@ export function initCombatFromRoll({ T, res, isManualBlocked = false, isAtkBlk20
   const ammo = (!isLob && weapon && weapon.wType === 'ranged')
     ? getEffectiveWeaponAmmo(weapon, S)
     : null;
+  const effAttrKey = String(D.attrKey || (atkShield ? getShieldRollMeta(atkShield).attrKey : (weapon ? getWeaponRollMeta(weapon).attrKey : '')) || '').trim().toUpperCase();
   const tags = getWeaponAllTags(atkItem, ammo);
   const nichtParierbar = hasTagMatch(tags, /^nicht\s+parierbar\b/i);
 
@@ -678,7 +716,9 @@ export function initCombatFromRoll({ T, res, isManualBlocked = false, isAtkBlk20
   }
 
   const opts = getWeaponDamageOptions(atkItem, ammo);
-  const defDmgType = pickDefaultDamageType(opts, tags);
+  const resolvedDmg = resolveDefaultDamageType({ weapon, atkShield, ammo, attrKey: effAttrKey, opts, tags });
+  const defDmgType = resolvedDmg.key;
+  const defDmgReason = resolvedDmg.reason;
   const targetSheet = resolveCombatTargetSheet(targetCharId);
   const hitZones = getTargetHitZones(targetSheet);
   const defZone = (hitZones[1]?.zone || hitZones[0]?.zone || 'Rumpf');
@@ -695,6 +735,8 @@ export function initCombatFromRoll({ T, res, isManualBlocked = false, isAtkBlk20
   COMBAT.weaponId = weapon?.id || null;
   COMBAT.shieldId = atkShield?.id || null;
   COMBAT.ammoId = ammo?.id || null;
+  COMBAT.attrKey = effAttrKey;
+  COMBAT.dmgTypeReason = defDmgReason;
   COMBAT.attackerName = attackerName;
   COMBAT.targetCharId = targetCharId;
   COMBAT.targetName = targetName;
@@ -719,6 +761,7 @@ export function initCombatFromRoll({ T, res, isManualBlocked = false, isAtkBlk20
     blockItemRed: Boolean(rh.blockItemRed),
     aimedZone: (!rh.isBlocked && aimedZoneMatch) ? aimedZoneMatch : '',
     dmgType: defDmgType,
+    dmgTypeReason: defDmgReason,
     pool: initPool,
     zoneName: (!rh.isBlocked && aimedZoneMatch) ? aimedZoneMatch : defZone,
     subZoneName: '',
@@ -1757,7 +1800,10 @@ function renderSingleCombatHitBodyHtml(hitEntry, hitIdx, isMulti){
 
     <div class="space-y-1.5 pt-1.5 border-t border-white/10 min-w-0">
       <div class="flex flex-wrap items-center justify-between gap-1.5">
-        <span class="text-[10px] font-extrabold t-mut uppercase tracking-wider">⚔️ Schadensart &amp; Waffenschaden</span>
+        <div class="flex flex-wrap items-center gap-1.5 min-w-0">
+          <span class="text-[10px] font-extrabold t-mut uppercase tracking-wider">⚔️ Schadensart &amp; Waffenschaden</span>
+          ${hitEntry.dmgTypeReason?`<span class="px-1.5 py-0.5 rounded bg-acc-soft border bdr-acc text-acc text-[10px] font-extrabold">${esc(hitEntry.dmgTypeReason)}</span>`:''}
+        </div>
         <div class="inline-flex rounded-lg p-0.5 bg-black/25 border bdr-line text-[10px]">
           <button type="button" data-action="combat-set-pool" ${hiAttr} data-pool="lp" class="px-2 py-0.5 rounded font-black ${calc.pool === 'lp' ? 'bg-rose-500/30 text-rose-200' : 't-mut'}">❤️ LP</button>
           <button type="button" data-action="combat-set-pool" ${hiAttr} data-pool="mlp" class="px-2 py-0.5 rounded font-black ${calc.pool === 'mlp' ? 'bg-purple-500/30 text-purple-200' : 't-mut'}">🧠 mLP</button>
