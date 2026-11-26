@@ -970,13 +970,13 @@ export function renderInitiativeWindow(){
   const isCollapsed = Boolean(isOverlay && INI.collapsed);
   const sorted = getSortedInitiativeEntries(st, isGm);
   const activeEntry = sorted.find(e => e.id === st.activeEntryId) || null;
-  const padCls = isCollapsed ? 'px-2.5 py-2' : (isCompact ? 'p-2.5 gap-2' : 'p-3 sm:p-4 gap-3');
+  const padCls = isCollapsed ? 'px-2.5 py-2' : (isCompact ? 'p-2.5 gap-2' : (mobFlow ? 'p-0' : 'p-3 sm:p-4 gap-3'));
   const bodyHtml = isCollapsed
     ? ''
     : (isCompact ? renderInitiativeCompactOverlayHtml(cid) : renderInitiativeBodyHtml(cid, { inWindow: true }));
 
-  mount.innerHTML = `<div class="card ${padCls} flex flex-col min-w-0 max-w-full ${mobFlow ? 'min-h-full' : (isCollapsed ? '' : 'h-full')} border-2 ${st.active ? 'border-amber-400/75' : 'bdr-acc'} shadow-2xl relative ${isOverlay ? 'ini-overlay-card' : ''}">
-    <div data-win-drag="ini" class="shrink-0 flex items-center justify-between gap-1.5 ${isCollapsed ? '' : 'border-b bdr-line pb-2'} ${INI.floating ? 'cursor-move select-none' : ''}">
+  mount.innerHTML = `<div class="card ${padCls} flex flex-col min-w-0 max-w-full ${mobFlow ? 'rounded-none border-0 flex-1 h-full overflow-hidden' : (isCollapsed ? '' : 'h-full overflow-hidden')} ${mobFlow ? '' : `border-2 ${st.active ? 'border-amber-400/75' : 'bdr-acc'}`} shadow-2xl relative ${isOverlay ? 'ini-overlay-card' : ''}">
+    <div data-win-drag="ini" class="shrink-0 flex items-center justify-between gap-1.5 ${mobFlow ? 'px-3 py-2.5 border-b bdr-line' : (isCollapsed ? '' : 'border-b bdr-line pb-2')} ${INI.floating ? 'cursor-move select-none' : ''}"${mobFlow ? ' style="background:var(--surf2)"' : ''}>
       <div class="flex items-center gap-1.5 min-w-0 flex-1">
         <h3 class="${isCompact || isCollapsed ? 'text-xs sm:text-sm' : 'text-sm sm:text-base'} font-black text-amber-300 truncate">⚡${isCompact || isCollapsed ? '' : ' Initiative'}</h3>
         ${st.active ? `<span class="px-1.5 py-0.5 rounded-full text-[10px] font-black bg-emerald-500/20 text-emerald-300 border border-emerald-400/50 shrink-0 tabular">R${st.round}</span>` : ''}
@@ -991,10 +991,10 @@ export function renderInitiativeWindow(){
         ${isOverlay ? `<button type="button" data-action="ini-toggle-collapsed" data-tip="${INI.collapsed ? 'Overlay aufklappen' : 'Auf schmale Runden-Leiste einklappen'}" aria-label="${INI.collapsed ? 'Aufklappen' : 'Einklappen'}" class="hidden md:inline-flex btn w-7 h-7 p-0 text-xs font-black">${INI.collapsed ? '▾' : '▴'}</button>` : ''}
         ${xl && !UI.inLobby && !INI.floating ? `<button type="button" data-action="toggle-ini-dock" data-tip="An rechte Seite andocken" class="btn py-1 px-2 text-xs ${INI.docked ? 'btn-pri' : ''}">${INI.docked ? '📌' : '📍'}</button>` : ''}
         ${!isOverlay ? renderWinCtrlBtns('ini') : `<button type="button" data-action="win-reset" data-win="ini" data-tip="Overlay-Position &amp; Größe zurücksetzen" class="hidden md:inline-flex btn py-1 px-1.5 text-xs">↺</button>`}
-        <button type="button" data-action="close-ini" aria-label="Initiative schließen" class="btn w-8 h-8 sm:w-7 sm:h-7 p-0 text-xs font-black">✕</button>
+        <button type="button" data-action="close-ini" aria-label="Initiative schließen" class="btn ${mobFlow ? 'w-9 h-9 text-sm btn-err' : 'w-8 h-8 sm:w-7 sm:h-7 text-xs'} p-0 font-black">✕</button>
       </div>
     </div>
-    ${bodyHtml}
+    ${mobFlow ? `<div data-scroll-key="iniMobileBody" class="flex-1 min-h-0 overflow-y-auto overscroll-contain p-3 flex flex-col gap-3 safe-pb">${bodyHtml}</div>` : bodyHtml}
     ${!mobFlow && !isCollapsed ? renderWinResizeHandles('ini') : ''}
   </div>`;
   if(snap) restoreScrollState(mount, snap, { preserveWindow: false });

@@ -6175,9 +6175,10 @@ document.addEventListener('pointermove',e=>{
   }else if(mode==='rw'){
     const dx=e.clientX-winAct.startClientX;
     if(Math.abs(dx)<1&&!winAct.dirty) return;
+    const minW=(k==='ini'&&st.compact)?260:320;
     if(st.floating){
       const rightEdge=winAct.startX+winAct.startW;
-      const newW=Math.max(320,Math.min(rightEdge-12,winAct.startW-dx));
+      const newW=Math.max(minW,Math.min(rightEdge-12,winAct.startW-dx));
       const newX=rightEdge-newW;
       st.w=Math.round(newW);
       st.x=Math.round(newX);
@@ -6199,11 +6200,13 @@ document.addEventListener('pointermove',e=>{
   }else{
     const dx=e.clientX-winAct.startClientX, dy=e.clientY-winAct.startClientY;
     if(Math.abs(dx)<1&&Math.abs(dy)<1&&!winAct.dirty) return;
+    const minW=(k==='ini'&&st.compact)?260:320;
+    const minH=(k==='ini'&&st.compact)?200:280;
     if(st.floating){
-      const maxW=Math.max(320,vw-winAct.startX-12);
-      const maxH=Math.max(280,vh-winAct.startY-12);
-      st.w=Math.max(320,Math.min(maxW,Math.round(winAct.startW+dx)));
-      st.h=Math.max(280,Math.min(maxH,Math.round(winAct.startH+dy)));
+      const maxW=Math.max(minW,vw-winAct.startX-12);
+      const maxH=Math.max(minH,vh-winAct.startY-12);
+      st.w=Math.max(minW,Math.min(maxW,Math.round(winAct.startW+dx)));
+      st.h=Math.max(minH,Math.min(maxH,Math.round(winAct.startH+dy)));
       if(st.x===null) st.x=Math.round(winAct.startX);
       if(st.y===null) st.y=Math.round(winAct.startY);
       mount.style.width=st.w+'px';
