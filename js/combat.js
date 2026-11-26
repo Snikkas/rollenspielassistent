@@ -294,10 +294,12 @@ export function calculateCombatDamage(){
   const weaponDmg = toInt(selOpt.val, 0);
   const verheerendX = findTagNumericVal(tags, /^verheerend\b/i);
   const verheerendBonus = (verheerendX > 0 && eg >= 5) ? verheerendX : 0;
+  const mehrfachschussX = findTagNumericVal(tags, /^mehrfachschuss\b/i);
+  const mehrfachschussBonus = (mehrfachschussX > 0 && eg >= mehrfachschussX) ? Math.floor(eg / mehrfachschussX) : 0;
   const durchschlagX = findTagNumericVal(tags, /^durchschlag\b/i);
   const nichtParierbar = hasTagMatch(tags, /^nicht\s+parierbar\b/i);
   const dmgMod = toInt(COMBAT.dmgMod, 0);
-  const rawDmg = Math.max(0, eg + weaponDmg + verheerendBonus + dmgMod);
+  const rawDmg = Math.max(0, eg + weaponDmg + verheerendBonus + mehrfachschussBonus + dmgMod);
 
   const blockRed = (COMBAT.isBlocked && COMBAT.blockItemRed) ? 2 : 0;
   const afterBlock = Math.max(0, rawDmg - blockRed);
@@ -312,6 +314,7 @@ export function calculateCombatDamage(){
   const parts = [`${eg} EG`];
   if(weaponDmg) parts.push(`+ ${weaponDmg} Waffe${ammo ? '/Mun.' : ''}`);
   if(verheerendBonus) parts.push(`+ ${verheerendBonus} Verheerend`);
+  if(mehrfachschussBonus) parts.push(`+ ${mehrfachschussBonus} Mehrfachschuss (${mehrfachschussX})`);
   if(dmgMod) parts.push(`${dmgMod > 0 ? '+' : '−'} ${Math.abs(dmgMod)} Mod`);
   if(blockRed) parts.push(`− ${blockRed} Block`);
   if(armor.total) parts.push(`− ${armor.total} ${pool === 'mlp' ? 'Ment. Rüstung' : 'Rüstung'}`);
@@ -347,6 +350,8 @@ export function calculateCombatDamage(){
     weaponDmg,
     verheerendX,
     verheerendBonus,
+    mehrfachschussX,
+    mehrfachschussBonus,
     durchschlagX,
     nichtParierbar,
     dmgMod,
@@ -530,6 +535,7 @@ function buildHiddenEnemyDmgFormula(calc){
   const parts = [`${calc.eg} EG`];
   if(calc.weaponDmg) parts.push(`+ ${calc.weaponDmg} Waffe${calc.ammo ? '/Mun.' : ''}`);
   if(calc.verheerendBonus) parts.push(`+ ${calc.verheerendBonus} Verheerend`);
+  if(calc.mehrfachschussBonus) parts.push(`+ ${calc.mehrfachschussBonus} Mehrfachschuss (${calc.mehrfachschussX})`);
   if(calc.dmgMod) parts.push(`${calc.dmgMod > 0 ? '+' : '−'} ${Math.abs(calc.dmgMod)} Mod`);
   if(calc.blockRed) parts.push(`− ${calc.blockRed} Block`);
   return `${parts.join(' ')} → ${calc.finalDmg} ${calc.poolLbl} (nach Gegner-Rüstung)`;
@@ -1027,6 +1033,10 @@ export function renderCombatDamageBox(){
     ? `<div class="text-[10px] font-extrabold px-2 py-1 rounded-lg border tabular ${calc.verheerendBonus ? 'border-orange-400/60 bg-orange-500/20 text-orange-200' : 'bdr-line bg-black/20 t-mut'}">🔥 Verheerend (${calc.verheerendX}): ${calc.verheerendBonus ? `+${calc.verheerendBonus} Schaden aktiv (${calc.eg} ≥ 5 EG)` : `inaktiv (${calc.eg} < 5 EG)`}</div>`
     : '';
 
+  const mehrfachschussHtml = calc.mehrfachschussX
+    ? `<div class="text-[10px] font-extrabold px-2 py-1 rounded-lg border tabular ${calc.mehrfachschussBonus ? 'border-amber-400/60 bg-amber-500/20 text-amber-200' : 'bdr-line bg-black/20 t-mut'}">🏹 Mehrfachschuss (${calc.mehrfachschussX}): ${calc.mehrfachschussBonus ? `+${calc.mehrfachschussBonus} Schaden aktiv (⌊${calc.eg} / ${calc.mehrfachschussX}⌋)` : `inaktiv (${calc.eg} < ${calc.mehrfachschussX} EG)`}</div>`
+    : '';
+
   const isMlpPool = calc.pool === 'mlp';
   const armorRowsHtml = calc.armor.pieces.length
     ? calc.armor.pieces.map(p => `<div class="flex items-center justify-between gap-2 text-[11px] tabular min-w-0"><span class="truncate font-bold">${esc(p.name)}</span><span class="t-mut shrink-0">${p.grp ? `gRP ${p.grp} + ` : ''}${esc(p.specDesc)} = <strong class="${isMlpPool ? 'text-indigo-300' : 'text-emerald-300'}">${p.total}</strong></span></div>`).join('')
@@ -1104,6 +1114,7 @@ export function renderCombatDamageBox(){
       </div>
       <div class="flex flex-wrap gap-1 min-w-0">${dmgTypeBtnsHtml}</div>
       ${verheerendHtml}
+      ${mehrfachschussHtml}
       ${blockToggleHtml}
     </div>
 

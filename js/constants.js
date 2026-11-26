@@ -10,6 +10,7 @@ export const DEF_WEAPON_TAGS=[
   {name:'Langsam (X)',desc:'Abwehrversuche gegen diese Waffe haben X Vorteile.'},
   {name:'Leise (X)',desc:'Tests, um dich zu entdecken, auf Grundlage des Geräusches des Angriffs, sind um X Nachteile erschwert.'},
   {name:'Massiv',desc:'Du benutzt [ST] für Trefferwürfe anstelle von [PR].'},
+  {name:'Mehrfachschuss (X)',desc:'Bei einem Treffer mit dieser Fernkampfwaffe wird alle X EG +1 zusätzlicher Schaden addiert (z. B. bei 4 EG mit Mehrfachschuss (2): +2 Bonusschaden, da 2×2 EG hineinpassen).'},
   {name:'Mobiler Schütze (X)',desc:'Würden Nachteile durch das Angreifen im Nahkampf oder beim Reiten anfallen, werden diese um X verringert.'},
   {name:'Nicht parierbar',desc:'Erfolgreiches Parieren gegen diese Waffe wird wie Blocken mit einem blockfähigen Gegenstand behandelt. (ggf. Rüstungsabzug kommt dann bei Trefferzonen)'},
   {name:'Reichweite (X)',desc:'Deine Nahkampfreichweite ist um X m erhöht.'},

@@ -1013,6 +1013,10 @@ export function formatTagW3Preview(tagList,name,x,sheet=S){
     else if(c.counterKey==='negate_throw_dis') parts.push(`Kein Nachteil beim Waffenwurf`);
     else if(c.counterKey==='thrust_grip') parts.push(`Situativ: Ignoriert Langsam (${c.val}) bei Stoßattacken`);
   });
+  if(/^mehrfachschuss\b/i.test(String(name||'').trim())){
+    const mx=Math.max(1,toInt(x,1));
+    parts.push(`Schadensrechner: +1 Schaden alle ${mx} EG (⌊EG / ${mx}⌋)`);
+  }
   return parts.length?`\n⚡ Würfelassistent: ${parts.join(' • ')}`:'';
 }
 export const RE_CNT_MOB_NM=/mobiler\s+sch[üu]tze/i;
