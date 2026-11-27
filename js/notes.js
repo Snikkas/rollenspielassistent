@@ -8,7 +8,7 @@ import {
   hooks
 } from './ui-hooks.js';
 import {
-  applyWinFrame, renderWinCtrlBtns, renderWinResizeHandles, getCampaigns, saveRegistryLocal, captureScrollState, restoreScrollState, toast, save, S, CN, isMobileLayout, savedEffRanges, savedPwRanges, lastPwFieldById, UI, CLOUD, getCharCampaignId, canManageChar
+  applyWinFrame, renderWinCtrlBtns, renderWinResizeHandles, getCampaigns, saveRegistryLocal, captureScrollState, restoreScrollState, toast, save, S, CN, isMobileLayout, savedEffRanges, savedPwRanges, lastPwFieldById, UI, CLOUD, PATCHNOTES, getCharCampaignId, canManageChar
 } from './state.js';
 import {
   withPoolSync, findPwItem
@@ -73,8 +73,40 @@ export function applyRtfCommand(cmd,val='',triggerEl=null){
   rtf.dispatchEvent(new Event('input',{bubbles:true}));
   save();
 }
+export function syncPatchnoteAutogrowBox(el,{fromInput=false}={}){
+  if(!el||!el.isConnected) return;
+  const key=String(el.dataset?.pnBoxh||'').trim();
+  if(!PATCHNOTES.boxState||typeof PATCHNOTES.boxState!=='object') PATCHNOTES.boxState={};
+  const st=key?PATCHNOTES.boxState[key]:null;
+  const minH=58;
+  const borderY=Math.max(0,el.offsetHeight-el.clientHeight);
+  if(st?.shrunk&&st.h>0){
+    if(!fromInput) el.style.height=st.h+'px';
+    return;
+  }
+  if(fromInput){
+    if(el.scrollHeight>el.clientHeight){
+      const targetH=Math.max(minH,Math.ceil(el.scrollHeight+borderY)+2);
+      el.style.height=targetH+'px';
+      if(key&&st&&targetH>st.h) st.h=targetH;
+    }
+    return;
+  }
+  const scrollParent=el.closest('.modal-body');
+  const prevTop=scrollParent?scrollParent.scrollTop:0;
+  el.style.height='auto';
+  const neededH=Math.max(minH,Math.ceil(el.scrollHeight+borderY)+2);
+  const manualH=(st&&!st.shrunk&&st.h>0)?st.h:0;
+  el.style.height=Math.max(neededH,manualH)+'px';
+  if(scrollParent&&scrollParent.scrollTop!==prevTop) scrollParent.scrollTop=prevTop;
+}
+export function autoSizePatchnoteBoxes(root=document){
+  if(!root||!root.querySelectorAll) return;
+  root.querySelectorAll('[data-pn-boxh]').forEach(el=>syncPatchnoteAutogrowBox(el,{fromInput:false}));
+}
 export function autoSizeAllTextareas(){
   document.querySelectorAll('.autogrow').forEach(ta=>{
+    if(ta.dataset?.pnBoxh){syncPatchnoteAutogrowBox(ta,{fromInput:false});return;}
     const parts=(ta.dataset.boxh||'').split(':');
     let saved=0;
     if(parts[0]==='bio') saved=toInt(S.bioBoxH?.[parts[1]],0);

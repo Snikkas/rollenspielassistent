@@ -32,7 +32,7 @@ import {
   getActiveInitiativeCampaignId, toggleCampaignInitiativeActive, loadCampaignHeroesIntoInitiative, addCharacterOrEnemyToInitiative, addAllCampaignEnemiesToInitiative, openInitiativePopout, addCustomInitiativeEntry, openInitiativeAddEnemyPicker, refreshAllInitiativeEntries, stepInitiativeTurn, setInitiativeActiveEntry, resetInitiativeRound, adjustInitiativeEntryMod, resetInitiativeEntryMod, toggleInitiativeEntryHidden, removeInitiativeEntry, clearInitiativeEntries, syncOwnCharToInitiative, handleInitiativeLiveEvent, renderInitiativeWindow, updateInitiativeUI
 } from './initiative.js';
 import {
-  applyRtfCommand, autoSizeAllTextareas, ensureCampNotesStructure, syncPublicNotesAfterChange, renderCampNotes, getCaretRangeAtPoint, syncPwFieldCursorState, saveEffRangeIfActive, insertTokenAtCursor, placeCaretAtStart, indentRtfLi, outdentRtfLi, RTF_STATE, getOrderedCampNoteFolders
+  applyRtfCommand, syncPatchnoteAutogrowBox, autoSizeAllTextareas, ensureCampNotesStructure, syncPublicNotesAfterChange, renderCampNotes, getCaretRangeAtPoint, syncPwFieldCursorState, saveEffRangeIfActive, insertTokenAtCursor, placeCaretAtStart, indentRtfLi, outdentRtfLi, RTF_STATE, getOrderedCampNoteFolders
 } from './notes.js';
 import {
   isTab1SecCollapsed, tplAttributes, modChip, isTab1PhoneDefault
@@ -3516,6 +3516,7 @@ document.addEventListener('click',async e=>{
       if(!CLOUD.isAdmin) return;
       PATCHNOTES.editingId='__new__';
       PATCHNOTES.draft={id:uid(),title:'',version:'',ts:stamp(),updatedAt:'',intro:'',items:[{id:uid(),heading:'',text:''}]};
+      PATCHNOTES.boxState={};
       PATCHNOTES.confirmDelId=null;
       renderModal(false,true);
       break;
@@ -3532,6 +3533,7 @@ document.addEventListener('click',async e=>{
       if(!Array.isArray(PATCHNOTES.draft.items)||!PATCHNOTES.draft.items.length){
         PATCHNOTES.draft.items=[{id:uid(),heading:'',text:''}];
       }
+      PATCHNOTES.boxState={};
       PATCHNOTES.confirmDelId=null;
       renderModal(false,true);
       break;
@@ -3540,6 +3542,7 @@ document.addEventListener('click',async e=>{
       if(!CLOUD.isAdmin) return;
       PATCHNOTES.editingId=null;
       PATCHNOTES.draft=null;
+      PATCHNOTES.boxState={};
       renderModal();
       break;
     }
@@ -3565,7 +3568,8 @@ document.addEventListener('click',async e=>{
       if(!PATCHNOTES.draft||!Array.isArray(PATCHNOTES.draft.items)) return;
       const idx=toInt(el.dataset.idx,-1);
       if(idx>=0&&idx<PATCHNOTES.draft.items.length){
-        PATCHNOTES.draft.items.splice(idx,1);
+        const [removed]=PATCHNOTES.draft.items.splice(idx,1);
+        if(removed?.id&&PATCHNOTES.boxState) delete PATCHNOTES.boxState['item:'+removed.id];
         if(!PATCHNOTES.draft.items.length) PATCHNOTES.draft.items.push({id:uid(),heading:'',text:''});
         renderModal();
       }
@@ -3585,11 +3589,26 @@ document.addEventListener('click',async e=>{
     case 'pn-save': {
       if(!CLOUD.isAdmin) return;
       if(!PATCHNOTES.draft||PATCHNOTES.saving) return;
+      const introDom=document.querySelector('[data-pn-field="intro"]');
+      if(introDom) PATCHNOTES.draft.intro=introDom.isContentEditable?cleanInlineStyles(introDom.innerHTML):introDom.value;
+      if(Array.isArray(PATCHNOTES.draft.items)){
+        document.querySelectorAll('[data-pn-item$=":text"]').forEach(box=>{
+          const [idxStr]=String(box.dataset.pnItem||'').split(':');
+          const idx=toInt(idxStr,-1);
+          if(idx>=0&&idx<PATCHNOTES.draft.items.length){
+            PATCHNOTES.draft.items[idx].text=box.isContentEditable?cleanInlineStyles(box.innerHTML):box.value;
+          }
+        });
+      }
+      const normRtfVal=raw=>{
+        const cleaned=cleanInlineStyles(String(raw??'')).trim();
+        return stripHtml(cleaned).trim()?cleaned:'';
+      };
       const cleanItems=(Array.isArray(PATCHNOTES.draft.items)?PATCHNOTES.draft.items:[]).map(it=>({
         id:String(it?.id||'').trim()||uid(),
         heading:String(it?.heading??'').trim(),
-        text:String(it?.text??'').trim()
-      })).filter(it=>it.heading||it.text);
+        text:normRtfVal(it?.text)
+      })).filter(it=>it.heading||stripHtml(it.text).trim());
       const cleanTitle=String(PATCHNOTES.draft.title??'').trim();
       if(!cleanTitle&&!cleanItems.length){
         toast('⚠️ Bitte mindestens einen Titel oder einen Punkt (Oberbegriff/Erklärung) ausfüllen.');
@@ -3605,7 +3624,7 @@ document.addEventListener('click',async e=>{
         ts:cleanTs,
         tsMs:parsePatchnoteTsMs(cleanTs,Date.now()),
         updatedAt:isNew?cleanTs:nowTs,
-        intro:String(PATCHNOTES.draft.intro??'').trim(),
+        intro:normRtfVal(PATCHNOTES.draft.intro),
         items:cleanItems
       });
       const nextEntries=clone(PATCHNOTES.entries||[]);
@@ -3621,6 +3640,7 @@ document.addEventListener('click',async e=>{
         if(ok){
           PATCHNOTES.editingId=null;
           PATCHNOTES.draft=null;
+          PATCHNOTES.boxState={};
           renderModal();
         }
       })();
@@ -3961,18 +3981,29 @@ document.addEventListener('input',e=>{
     updateInfoGlossaryGridDOM();
     return;
   }
-  if(e.target?.dataset?.pnField){
+  const pnEl=e.target?.closest?.('[data-pn-field],[data-pn-item]')||e.target;
+  if(pnEl?.dataset?.pnField){
     if(!CLOUD.isAdmin||!PATCHNOTES.draft) return;
-    const f=e.target.dataset.pnField;
-    if(f==='title'||f==='version'||f==='ts'||f==='intro') PATCHNOTES.draft[f]=e.target.value;
+    const f=pnEl.dataset.pnField;
+    if(f==='intro'){
+      PATCHNOTES.draft.intro=pnEl.isContentEditable?cleanInlineStyles(pnEl.innerHTML):pnEl.value;
+      if(pnEl.dataset.pnBoxh) syncPatchnoteAutogrowBox(pnEl,{fromInput:true});
+    }else if(f==='title'||f==='version'||f==='ts'){
+      PATCHNOTES.draft[f]=pnEl.value;
+    }
     return;
   }
-  if(e.target?.dataset?.pnItem){
+  if(pnEl?.dataset?.pnItem){
     if(!CLOUD.isAdmin||!PATCHNOTES.draft||!Array.isArray(PATCHNOTES.draft.items)) return;
-    const [idxStr,field]=e.target.dataset.pnItem.split(':');
+    const [idxStr,field]=pnEl.dataset.pnItem.split(':');
     const idx=toInt(idxStr,-1);
-    if(idx>=0&&idx<PATCHNOTES.draft.items.length&&(field==='heading'||field==='text')){
-      PATCHNOTES.draft.items[idx][field]=e.target.value;
+    if(idx>=0&&idx<PATCHNOTES.draft.items.length){
+      if(field==='heading'){
+        PATCHNOTES.draft.items[idx].heading=pnEl.value;
+      }else if(field==='text'){
+        PATCHNOTES.draft.items[idx].text=pnEl.isContentEditable?cleanInlineStyles(pnEl.innerHTML):pnEl.value;
+        if(pnEl.dataset.pnBoxh) syncPatchnoteAutogrowBox(pnEl,{fromInput:true});
+      }
     }
     return;
   }
@@ -4693,7 +4724,34 @@ document.addEventListener('input',e=>{
   }
 });
 
+let activePnResize=null;
+document.addEventListener('pointerdown',e=>{
+  const pnBox=e.target?.closest?.('[data-pn-boxh]');
+  if(pnBox){
+    activePnResize={el:pnBox,key:String(pnBox.dataset.pnBoxh||'').trim(),startH:pnBox.offsetHeight};
+  }
+});
+const finishPnResize=()=>{
+  if(!activePnResize) return;
+  const {el:pnBox,key:pnKey,startH}=activePnResize;
+  activePnResize=null;
+  if(!pnBox||!pnBox.isConnected||!pnKey) return;
+  const newH=pnBox.offsetHeight;
+  if(Math.abs(newH-startH)<3) return;
+  if(!PATCHNOTES.boxState||typeof PATCHNOTES.boxState!=='object') PATCHNOTES.boxState={};
+  const prev=PATCHNOTES.boxState[pnKey];
+  const hasOverflow=pnBox.scrollHeight>pnBox.clientHeight+2;
+  if(newH<startH&&hasOverflow){
+    PATCHNOTES.boxState[pnKey]={h:newH,shrunk:true};
+  }else if(hasOverflow&&prev?.shrunk){
+    PATCHNOTES.boxState[pnKey]={h:newH,shrunk:true};
+  }else{
+    PATCHNOTES.boxState[pnKey]={h:newH,shrunk:false};
+  }
+};
+document.addEventListener('pointercancel',finishPnResize);
 document.addEventListener('pointerup',e=>{
+  finishPnResize();
   const ta=e.target.closest?.('[data-boxh]'); if(!ta||ta.offsetHeight<=40) return;
   const parts=ta.dataset.boxh.split(':');
   if(parts[0]==='bio'){
@@ -6259,7 +6317,6 @@ document.addEventListener('paste',e=>{
   const htmlData=String(cd?.getData('text/html')||'');
   let clean='';
   if(htmlData){
-    const isGDocs=/docs-internal-guid/i.test(htmlData);
     const tmp=document.createElement('div');
     tmp.innerHTML=htmlData;
     tmp.querySelectorAll('script,style,meta,link,head,title').forEach(n=>n.remove());
@@ -6277,12 +6334,19 @@ document.addEventListener('paste',e=>{
       let inner='';
       node.childNodes.forEach(ch=>{inner+=walk(ch);});
       const fw=String(node.style?.fontWeight||'').trim().toLowerCase(), fwNum=parseInt(fw,10), fs=String(node.style?.fontStyle||'').trim().toLowerCase(), td=String(node.style?.textDecoration||node.style?.textDecorationLine||'').toLowerCase();
-      const isNormalFw=fw==='normal'||fw==='lighter'||(fwNum>0&&fwNum<700)||String(node.id||'').startsWith('docs-internal-guid');
+      const isGDocsRoot=String(node.id||'').startsWith('docs-internal-guid');
+      const isNormalFw=fw==='normal'||fw==='lighter'||(fwNum>0&&fwNum<600)||isGDocsRoot;
+      const hasBlockChild=/<(?:ul|ol|h1|h2|h3)\b/i.test(inner);
+      const canWrapInline=!hasBlockChild&&!['UL','OL','TABLE','TBODY','THEAD','TR','H1','H2','H3','H4','H5','H6'].includes(tag);
       const isBoldTag=(tag==='B'||tag==='STRONG')&&!isNormalFw;
-      const isBoldSpan=isGDocs&&tag==='SPAN'&&(fw==='bold'||fwNum>=700);
-      if(isBoldTag||isBoldSpan) inner=`<b>${inner}</b>`;
-      if((tag==='I'||tag==='EM'||(isGDocs&&tag==='SPAN'&&fs==='italic'))&&fs!=='normal') inner=`<i>${inner}</i>`;
-      if(tag==='U'||(isGDocs&&tag==='SPAN'&&td.includes('underline'))) inner=`<u>${inner}</u>`;
+      const isBoldStyle=canWrapInline&&!isNormalFw&&(fw==='bold'||fw==='bolder'||fwNum>=600);
+      const isItalicTag=(tag==='I'||tag==='EM')&&fs!=='normal';
+      const isItalicStyle=canWrapInline&&!isGDocsRoot&&(fs==='italic'||fs==='oblique');
+      const isUnderlineTag=tag==='U'&&!td.includes('none');
+      const isUnderlineStyle=canWrapInline&&!isGDocsRoot&&td.includes('underline');
+      if(isBoldTag||isBoldStyle) inner=`<b>${inner}</b>`;
+      if(isItalicTag||isItalicStyle) inner=`<i>${inner}</i>`;
+      if(isUnderlineTag||isUnderlineStyle) inner=`<u>${inner}</u>`;
       if(tag==='UL') return `<ul>${inner.replace(/^(?:<br\s*\/?>|\s)+|(?:<br\s*\/?>|\s)+$/gi,'')}</ul>`;
       if(tag==='OL') return `<ol>${inner.replace(/^(?:<br\s*\/?>|\s)+|(?:<br\s*\/?>|\s)+$/gi,'')}</ol>`;
       if(tag==='LI') return `<li>${inner.replace(/^(?:<br\s*\/?>|\s)+|(?:<br\s*\/?>|\s)+$/gi,'')}</li>`;
@@ -6290,15 +6354,21 @@ document.addEventListener('paste',e=>{
         const trimmed=inner.replace(/^(?:<br\s*\/?>|\s)+|(?:<br\s*\/?>|\s)+$/gi,'');
         return trimmed?`<${tag.toLowerCase()}>${trimmed}</${tag.toLowerCase()}>`:'';
       }
-      if(['P','DIV','H4','H5','H6','TR','BLOCKQUOTE'].includes(tag)){
+      if(['H4','H5','H6'].includes(tag)){
+        const trimmed=inner.replace(/^(?:<br\s*\/?>|\s)+|(?:<br\s*\/?>|\s)+$/gi,'');
+        return trimmed?`<b>${trimmed}</b><br>`:'';
+      }
+      if(['P','DIV','TR','BLOCKQUOTE'].includes(tag)){
         const trimmed=inner.replace(/^(?:<br\s*\/?>|\s)+/gi,'').replace(/(?:<br\s*\/?>|\s)+$/gi,'');
         if(!trimmed) return '<br>';
-        return trimmed+(trimmed.endsWith('</li>')||trimmed.endsWith('</ul>')||trimmed.endsWith('</ol>')?'':'<br>');
+        return trimmed+(trimmed.endsWith('</li>')||trimmed.endsWith('</ul>')||trimmed.endsWith('</ol>')||trimmed.endsWith('</h1>')||trimmed.endsWith('</h2>')||trimmed.endsWith('</h3>')?'':'<br>');
       }
       return inner;
     };
     clean=walk(tmp)
-      .replace(/(?:<br\s*\/?>\s*){2,}/gi,'<br>')
+      .replace(/<br\s*\/?>\s*(<(?:ul|ol|h1|h2|h3)\b)/gi,'$1')
+      .replace(/(<\/(?:ul|ol|h1|h2|h3)>)\s*<br\s*\/?>/gi,'$1')
+      .replace(/(?:<br\s*\/?>\s*){3,}/gi,'<br><br>')
       .replace(/^(?:<br\s*\/?>|\s)+/i,'')
       .replace(/(?:<br\s*\/?>|\s)+$/i,'');
   }
@@ -6312,8 +6382,9 @@ document.addEventListener('paste',e=>{
   if(!rtf.textContent.trim()&&!rtf.querySelector('ul,ol,li')) rtf.innerHTML='';
   if(!clean.includes('<b>')&&document.queryCommandState?.('bold')) document.execCommand('bold',false,null);
   document.execCommand('insertHTML',false,clean);
-  rtf.innerHTML=rtf.innerHTML.replace(/^(?:<br\s*\/?>|\s)+/i,'');
+  if(/^(?:<br\s*\/?>|\s)+/i.test(rtf.innerHTML)) rtf.innerHTML=rtf.innerHTML.replace(/^(?:<br\s*\/?>|\s)+/i,'');
   rtf.dispatchEvent(new Event('input',{bubbles:true}));
+  if(rtf.dataset?.pnBoxh) requestAnimationFrame(()=>syncPatchnoteAutogrowBox(rtf,{fromInput:true}));
 });
 
 document.addEventListener('keydown',e=>{
