@@ -738,7 +738,7 @@ export function setPwMode(mode){
   hooks.renderMain?.();
 }
 export const LIVE_TAB_ID=uid();
-export let PATCHNOTES = { loaded:false, loading:false, saving:false, error:'', entries:[], lastLoadedTs:'', editingId:null, draft:null, confirmDelId:null, sortOrder:'desc', collapsedIds:{} };
+export let PATCHNOTES = { loaded:false, loading:false, saving:false, error:'', entries:[], lastLoadedTs:'', editingId:null, draft:null, confirmDelId:null, sortOrder:'desc', collapsedIds:{}, boxState:{} };
 export let FEEDBACK = { loaded:false, loading:false, saving:false, error:'', lastLoadedTs:'', folders: clone(DEF_FB_FOLDERS), items:[], backlog:[], activeTab:'write', activeFolderId:'all', sortBy:'newest', selectedId:'', backlogUser:'all', draftTitle:'', draftHtml:'', replyDrafts:{}, confirmDelId:null, confirmDelFolderId:null, newFolderName:'' };
 export function normalizeCampaigns(rawCamps){
   const list=Array.isArray(rawCamps)?rawCamps.filter(c=>c&&typeof c==='object'&&String(c.id||'').trim()).map(c=>{

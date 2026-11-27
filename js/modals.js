@@ -20,7 +20,7 @@ import {
   renderDice
 } from './dice.js';
 import {
-  renderRtfToolbarHtml
+  renderRtfToolbarHtml, autoSizePatchnoteBoxes
 } from './notes.js';
 import {
   getActiveInitiativeCampaignId, getCampaignInitiative
@@ -1191,9 +1191,12 @@ export function renderPatchnotesTabHtml(){
           <button type="button" data-action="pn-set-now" data-tip="Aktuelles Datum &amp; Uhrzeit eintragen" class="btn py-1 px-2 text-xs shrink-0">🕒 Jetzt</button>
         </div>
       </div>
-      <div class="sm:col-span-12">
-        <label class="font-bold t-mut block mb-1">Kurze Einleitung (optional)</label>
-        <textarea data-pn-field="intro" rows="2" placeholder="Kurze Zusammenfassung oder Kontext zum Update..." class="inp w-full resize-y">${esc(d.intro||'')}</textarea>
+      <div class="sm:col-span-12 rtf-wrap">
+        <div class="flex flex-wrap items-center justify-between gap-1.5 mb-1">
+          <label class="font-bold t-mut">Kurze Einleitung (optional)</label>
+          ${renderRtfToolbarHtml(true)}
+        </div>
+        <div contenteditable="true" data-pn-field="intro" data-pn-boxh="intro" data-ph="Kurze Zusammenfassung oder Kontext zum Update..." class="inp w-full autogrow rtf-box text-xs leading-relaxed">${toRtfHtml(d.intro||'')}</div>
       </div>
     </div>
     <div class="space-y-2 pt-1">
@@ -1214,8 +1217,12 @@ export function renderPatchnotesTabHtml(){
               <button type="button" data-action="pn-item-del" data-idx="${idx}" data-tip="Punkt entfernen" class="btn btn-err w-6 h-6 p-0 text-[10px] font-black">✕</button>
             </div>
           </div>
-          <div>
-            <textarea data-pn-item="${idx}:text" rows="2" placeholder="Erklärung / Details zu diesem Oberbegriff..." class="inp w-full text-xs resize-y leading-relaxed">${esc(it.text||'')}</textarea>
+          <div class="rtf-wrap">
+            <div class="flex flex-wrap items-center justify-between gap-1.5 mb-1">
+              <label class="font-bold t-mut text-[11px]">Erklärung / Details</label>
+              ${renderRtfToolbarHtml(true)}
+            </div>
+            <div contenteditable="true" data-pn-item="${idx}:text" data-pn-boxh="item:${esc(it.id||idx)}" data-ph="Erklärung / Details zu diesem Oberbegriff..." class="inp w-full autogrow rtf-box text-xs leading-relaxed">${toRtfHtml(it.text||'')}</div>
           </div>
         </div>`).join('')}
       </div>
@@ -1234,7 +1241,7 @@ export function renderPatchnotesTabHtml(){
   const newestId=getNewestPatchnoteId(entries);
   const anyCollapsed=sortedEntries.some(e=>isPatchnoteCollapsed(e,newestId,edId));
   const cardsHtml=sortedEntries.length?`<div class="space-y-3">${sortedEntries.map(e=>{
-    const items=Array.isArray(e.items)?e.items.filter(it=>it&&(String(it.heading||'').trim()||String(it.text||'').trim())):[];
+    const items=Array.isArray(e.items)?e.items.filter(it=>it&&(String(it.heading||'').trim()||stripHtml(it.text||'').trim())):[];
     const showUpd=Boolean(e.updatedAt&&e.updatedAt!==e.ts);
     const isDelAsk=isAdm&&PATCHNOTES.confirmDelId===e.id;
     const isCollapsed=isPatchnoteCollapsed(e,newestId,edId);
@@ -1261,10 +1268,10 @@ export function renderPatchnotesTabHtml(){
             :`<button type="button" data-action="pn-ask-del" data-id="${esc(e.id)}" data-tip="Eintrag löschen (2-Stufen)" class="btn btn-err py-1 px-2 text-xs">🗑️</button>`}
         </div>`:''}
       </div>
-      ${!isCollapsed?`${String(e.intro||'').trim()?`<p class="text-xs t-mut whitespace-pre-line leading-relaxed">${esc(e.intro)}</p>`:''}
+      ${!isCollapsed?`${stripHtml(e.intro||'').trim()?`<div class="text-xs t-mut leading-relaxed rtf-box cursor-auto">${toRtfHtml(e.intro)}</div>`:''}
       ${items.length?`<div class="space-y-2 pt-0.5">${items.map(it=>`<div class="p-2.5 rounded-lg bg-black/20 border bdr-line space-y-1">
         ${String(it.heading||'').trim()?`<div class="font-extrabold text-xs sm:text-sm text-acc break-words">${esc(it.heading)}</div>`:''}
-        ${String(it.text||'').trim()?`<div class="text-xs leading-relaxed whitespace-pre-line break-words">${esc(it.text)}</div>`:''}
+        ${stripHtml(it.text||'').trim()?`<div class="text-xs leading-relaxed rtf-box cursor-auto">${toRtfHtml(it.text)}</div>`:''}
       </div>`).join('')}</div>`:''}`:''}
     </div>`;
   }).join('')}</div>`:`<div class="subcard border-dashed py-8 px-4 text-center text-xs t-mut">${PATCHNOTES.loading?'⏳ Patchnotes werden vom Server geladen...':'Noch keine Patchnotes hinterlegt.'}</div>`;
@@ -1619,6 +1626,8 @@ export function renderModal(fromRenderAll=false,resetScroll=false){
   const snap=sameModalCtx?captureScrollState(m):{winX:window.scrollX,winY:window.scrollY,rootTop:0,rootLeft:0,byKey:new Map(),yList:[],xList:[],anyScrolled:[]};
   renderModalBody(m,fromRenderAll);
   if(m){
+    const hasPnBoxes=Boolean(m.querySelector('[data-pn-boxh]'));
+    if(hasPnBoxes) autoSizePatchnoteBoxes(m);
     m.dataset.lastModalKey=UI.modal?getActiveModalScrollKey():'';
     if(sameModalCtx&&UI.modal){
       restoreScrollState(m,snap);
@@ -1629,6 +1638,7 @@ export function renderModal(fromRenderAll=false,resetScroll=false){
         window.scrollTo(snap.winX,snap.winY);
       }
     }
+    if(hasPnBoxes) requestAnimationFrame(()=>autoSizePatchnoteBoxes(m));
     if(UI.modal==='adminPanel'&&isMobileLayout()){
       const adminPanelEl=m.querySelector('#adminPanelModal');
       if(adminPanelEl){
@@ -1990,7 +2000,7 @@ export function renderModalBody(m,fromRenderAll=false){
       dmgTypes:['Schadenstypen (Standardliste)',getSheetDmgTypeList(S),'Neuer Schadenstyp (z.B. Kälte, Gift, Schall)…'],
       customStats:['Eigene Baukasten-Variablen',S.customStats,'Neue Variable (z.B. Tragkraft)...']
     }[normLt]||{pwTag:['Tags (Kräfte & Augmente)',S.pwTagList||DEF_PW_TAGS,'Neues Tag…']}.pwTag;
-    const quickPools=normLt==='useRes'?`<div class="space-y-1"><span class="text-[11px] font-bold t-mut">Charakterbogen-Pools schnell hinzufügen:</span><div class="flex flex-wrap gap-1.5">${['ap','map','lp','mlp','cres',...(S.extraSecList||[]).map(x=>'ex_'+x.id),'bst'].map(pk=>`<button type="button" data-action="quick-add-res" data-val="${pk}" ${S.useResList.includes(pk)?'disabled':''} class="btn py-1 px-2 text-xs">+ ${esc(getResLabel(pk))}</button>`).join('')}</div></div>`:'';
+    const quickPools=normLt==='useRes'?`<div class="space-y-1"><span class="text-[11px] font-bold t-mut">Charakterbogen-Pools schnell hinzufügen:</span><div class="flex flex-wrap gap-1.5">${['ap','map','lp','mlp','cres',...(S.extraSecList||[]).map(x=>'ex_'+x.id)].map(pk=>`<button type="button" data-action="quick-add-res" data-val="${pk}" ${S.useResList.includes(pk)?'disabled':''} class="btn py-1 px-2 text-xs">+ ${esc(getResLabel(pk))}</button>`).join('')}</div></div>`:'';
     const subNote=normLt==='pwTag'
       ?'Hauptaktionsarten &amp; Aktionsunterarten sind fest vorgegeben und können nicht als Tag angelegt werden.'
       :(normLt==='dmgTypes'

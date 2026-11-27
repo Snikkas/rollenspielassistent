@@ -41,7 +41,7 @@ export const makeExtraSec=(idx=1)=>({id:uid(),name:`Ressource ${idx}`,current:3,
 export const getExtraSecName=ex=>String(ex?.name||'').trim()||'Ressource';
 export const getResLabel=(k,sheet=S)=>{if(String(k||'').startsWith('ex_')){const ex=(sheet.extraSecList||[]).find(x=>'ex_'+x.id===k);return ex?getExtraSecName(ex):k;}return ({ap:'AP',map:'mAP',lp:'LP',mlp:'mLP',cres:cresName(sheet),bst:'BSt'})[k]||k;};
 export function getAvailableUseResources(sheet=S){
-  const base=['ap','map','lp','mlp','cres',...(sheet.extraSecList||[]).map(ex=>'ex_'+ex.id),'bst'];
+  const base=['ap','map','lp','mlp','cres',...(sheet.extraSecList||[]).map(ex=>'ex_'+ex.id)];
   const extra=(sheet.useResList||[]).map(r=>String(r||'').trim()).filter(Boolean);
   const keys=[...new Set([...base,...extra])];
   return keys.map(k=>({res:k,label:getResLabel(k,sheet),color:getSecCol(k,sheet)||'var(--acc)'}));
