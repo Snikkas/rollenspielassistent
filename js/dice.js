@@ -663,7 +663,7 @@ export function openWeaponRoll(weaponId,wRollCat='Trefferwurf'){
   const normCat=wRollCat==='Parade'?'Parieren':wRollCat;
   const cat=['Normaler Test','Trefferwurf','Parieren','Blocken','Ausweichen'].includes(normCat)?normCat:'Trefferwurf';
   const wm=getWeaponRollMeta(w);
-  D.weaponId=w.id; D.shieldId=null; D.wRollCat=cat; D.dualWieldOvr='auto'; D.critOff=0; D.sitActive={};
+  D.weaponId=w.id; D.shieldId=null; D.wRollCat=cat; D.dualWieldOvr='auto'; D.prepPaused=false; D.critOff=0; D.sitActive={};
   D.atkPool=(w.dmgPool==='mlp')?'mlp':'lp';
   D.attrKey=wm.attrKey; D.skillId=wm.sk?wm.sk.id:null;
   if(D.dMode==='character'){
@@ -689,7 +689,7 @@ export function openShieldRoll(armorId,wRollCat='Blocken'){
   const normCat=wRollCat==='Parade'?'Parieren':wRollCat;
   const cat=['Normaler Test','Trefferwurf','Parieren','Blocken','Ausweichen'].includes(normCat)?normCat:'Blocken';
   const sm=getShieldRollMeta(sh);
-  D.weaponId=null; D.shieldId=sh.id; D.wRollCat=cat; D.dualWieldOvr='auto'; D.critOff=0; D.sitActive={};
+  D.weaponId=null; D.shieldId=sh.id; D.wRollCat=cat; D.dualWieldOvr='auto'; D.prepPaused=false; D.critOff=0; D.sitActive={};
   D.atkPool=(sh.dmgPool==='mlp')?'mlp':'lp';
   D.attrKey=sm.attrKey; D.skillId=sm.sk?sm.sk.id:null;
   if(D.dMode==='character'){
@@ -722,8 +722,11 @@ export function syncDiceFromSheet(){
     if(w){
       const wm=getWeaponRollMeta(w), cat=D.wRollCat||'Trefferwurf';
       const applies=doesWeaponApplyToPool(w,D.atkPool,cat);
-      const ak=D.attrKey||wm.attrKey, av=getAttrTot(ak);
-      const sk=D.skillId?S.skills.find(s=>s.id===D.skillId):null, b=sk?getSkBonus(sk):0;
+      const ak=wm.hasMassiv?'ST':(D.attrKey||wm.attrKey), av=getAttrTot(ak);
+      const prevSkId=D.skillId||null;
+      const sk=wm.sk||null, b=sk?getSkBonus(sk):0;
+      D.skillId=sk?sk.id:null;
+      if(!sk&&prevSkId) D.cSkill='0';
       D.attrKey=ak; D.cAttr=av;
       if(sk){if(['0','10','15','20','30'].includes(String(b))){D.cSkill=String(b);}else{D.cSkill='custom';D.cCustom=b;}}
       const effSk=sk?b:(D.cMode==='breakdown'?getCSkVal():0);
@@ -740,7 +743,10 @@ export function syncDiceFromSheet(){
       const sm=getShieldRollMeta(sh), cat=D.wRollCat||'Blocken';
       const applies=doesWeaponApplyToPool(sh,D.atkPool,cat);
       const ak=D.attrKey||sm.attrKey, av=getAttrTot(ak);
-      const sk=D.skillId?S.skills.find(s=>s.id===D.skillId):null, b=sk?getSkBonus(sk):0;
+      const prevSkId=D.skillId||null;
+      const sk=sm.sk||null, b=sk?getSkBonus(sk):0;
+      D.skillId=sk?sk.id:null;
+      if(!sk&&prevSkId) D.cSkill='0';
       D.attrKey=ak; D.cAttr=av;
       if(sk){if(['0','10','15','20','30'].includes(String(b))){D.cSkill=String(b);}else{D.cSkill='custom';D.cCustom=b;}}
       const effSk=sk?b:(D.cMode==='breakdown'?getCSkVal():0);

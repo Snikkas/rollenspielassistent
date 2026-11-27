@@ -404,20 +404,20 @@ document.addEventListener('click',async e=>{
         toast(`🎯 Vorbereitung aktiv: ${txt?`Aktion (${txt})`:'Aktion'} (+2 Vorteile)`);
       }
       D.prepPaused=false;
-      syncDiceFromSheet(); renderMain(); renderDice(); save();
+      invalidateModsCache(); syncDiceFromSheet(); renderMain(); renderDice(); save();
       break;
     }
     case 'prep-remove':{
       const pid=String(el.dataset.id||'').trim();
       if(!Array.isArray(S.preparations)||!pid) break;
       S.preparations=S.preparations.filter(p=>p&&p.id!==pid);
-      syncDiceFromSheet(); renderMain(); renderDice(); save();
+      invalidateModsCache(); syncDiceFromSheet(); renderMain(); renderDice(); save();
       break;
     }
     case 'prep-clear-all':{
       S.preparations=[];
       D.prepPaused=false;
-      syncDiceFromSheet(); renderMain(); renderDice(); save();
+      invalidateModsCache(); syncDiceFromSheet(); renderMain(); renderDice(); save();
       toast('↺ Alle Vorbereitungen entfernt.');
       break;
     }
@@ -433,7 +433,7 @@ document.addEventListener('click',async e=>{
         S.preparations=S.preparations.filter(p=>p&&p.id!==pid);
       }
       D.prepPaused=false;
-      syncDiceFromSheet(); renderMain(); renderDice(); save();
+      invalidateModsCache(); syncDiceFromSheet(); renderMain(); renderDice(); save();
       toast('✓ Vorbereitung verbraucht.');
       break;
     }
@@ -840,7 +840,7 @@ document.addEventListener('click',async e=>{
       if(!isSecretRollActive()) toast(`🔍 Detailzone (${hzHit.zone}): W100 = ${r2} → ${S.lastSubHzZone}`);
       break;
     }
-    case 'roll-attr': {const k=el.dataset.attr,v=getAttrTot(k);D.weaponId=null;D.shieldId=null;D.wRollCat='Normaler Test';D.skillId=null;D.attrKey=k;D.critOff=0;D.sitActive={};D.cMode='breakdown';D.cAttr=v;D.cSkill='0';D.cDirect=v;D.label=`Normaler Test: ${k} (${v})`;applyDiceAutoAdvDis(true);D.open=true;renderHeader();renderDice();break;}
+    case 'roll-attr': {const k=el.dataset.attr,v=getAttrTot(k);D.weaponId=null;D.shieldId=null;D.wRollCat='Normaler Test';D.skillId=null;D.attrKey=k;D.prepPaused=false;D.critOff=0;D.sitActive={};D.cMode='breakdown';D.cAttr=v;D.cSkill='0';D.cDirect=v;D.label=`Normaler Test: ${k} (${v})`;applyDiceAutoAdvDis(true);D.open=true;renderHeader();renderDice();break;}
     case 'toggle-sk-edit': {
       const sid=el.dataset.id;
       if(UI.editSkNameId===sid){
@@ -864,7 +864,7 @@ document.addEventListener('click',async e=>{
       if(!sk) break;
       const startNormalSkillRoll=()=>{
         const ak=sk.linkedAttr||'PR',av=getAttrTot(ak),b=getSkBonus(sk);
-        D.weaponId=null;D.shieldId=null;D.wRollCat='Normaler Test';D.dualWieldOvr='auto';D.skillId=sk.id;D.attrKey=ak;D.critOff=0;D.sitActive={};
+        D.weaponId=null;D.shieldId=null;D.wRollCat='Normaler Test';D.dualWieldOvr='auto';D.skillId=sk.id;D.attrKey=ak;D.prepPaused=false;D.critOff=0;D.sitActive={};
         D.cMode='breakdown';D.cAttr=av;
         if(['0','10','15','20','30'].includes(String(b))){D.cSkill=String(b);}else{D.cSkill='custom';D.cCustom=b;}
         D.cDirect=av+b;
@@ -971,10 +971,13 @@ document.addEventListener('click',async e=>{
             const sm=getShieldRollMeta(pickSh);
             D.shieldId=pickSh.id;
             D.attrKey=sm.attrKey;
-            D.skillId=sm.sk?sm.sk.id:D.skillId;
+            D.skillId=sm.sk?sm.sk.id:null;
           }else if(pickWp){
+            const wm=getWeaponRollMeta(pickWp);
             D.weaponId=pickWp.id;
             D.shieldId=null;
+            D.attrKey=wm.attrKey;
+            D.skillId=wm.sk?wm.sk.id:null;
           }
         }
       }
@@ -1911,7 +1914,18 @@ document.addEventListener('click',async e=>{
     case 'toggle-mobile-lobby-menu':
     case 'open-lobby-ctx-menu': openLobbyCtxMenu(el); break;
     case 'open-sheet-ctx-menu': openSheetCtxMenu(el); break;
-    case 'toggle-dice': D.open=!D.open; if(D.open) ensureLobbyNeutralDiceOnOpen(); renderHeader(); renderDice(); renderLiveDice(); break;
+    case 'toggle-dice': {
+      D.open=!D.open;
+      if(D.open){
+        ensureLobbyNeutralDiceOnOpen();
+        if(!isLobbyNeutralDice()){
+          invalidateModsCache();
+          syncDiceFromSheet();
+        }
+      }
+      renderHeader(); renderDice(); renderLiveDice();
+      break;
+    }
     case 'close-dice': D.open=false; renderHeader(); renderDice(); renderLiveDice(); break;
     case 'dock-dice':
     case 'toggle-dock': D.docked=!D.docked; if(D.docked&&D.floating){D.floating=false;saveWinPref('dice');} renderDice(); renderLiveDice(); break;
@@ -2803,7 +2817,7 @@ document.addEventListener('click',async e=>{
     case 'open-enemy-camp-picker': openEnemyCampaignPicker(el,el.dataset.id); break;
     case 'open-gm-template-add-picker': openGmTemplateAddPicker(el,el.dataset.camp||CLOUD.activeCampaignId); break;
     case 'open-lobby-enemy-menu': openLobbyEnemyMenu(el,el.dataset.id,el.dataset.camp||''); break;
-    case 'lobby-open-dice': D.open=true; ensureLobbyNeutralDiceOnOpen(); renderHeader(); renderDice(); break;
+    case 'lobby-open-dice': D.open=true; ensureLobbyNeutralDiceOnOpen(); if(!isLobbyNeutralDice()){invalidateModsCache();syncDiceFromSheet();} renderHeader(); renderDice(); break;
     case 'lobby-quick-roll': ensureLobbyNeutralDiceOnOpen(); syncDiceFromSheet(); executeDiceRoll(); break;
     case 'toggle-dice-toast': CLOUD.diceToast=!CLOUD.diceToast; try{localStorage.setItem('scherbensturm_dice_toast',CLOUD.diceToast?'1':'0');}catch(e){} updateLobbyLiveDiceDOM(); toast(CLOUD.diceToast?'🔔 Live-Wurf-Popups aktiviert':'🔕 Live-Wurf-Popups stummgeschaltet'); break;
     case 'lobby-sync-dice': initLiveDiceChannel(); syncCloudRegistry(false); toast('🔄 Live-Würfelfenster synchronisiert'); break;

@@ -1108,7 +1108,8 @@ export function getAdvDisForContext(ctx={},M=null,sheet=S){
   const rawCat=ctx.wRollCat||(w?'Trefferwurf':sh?'Blocken':'Normaler Test');
   const cat=rawCat==='Parade'?'Parieren':rawCat;
   const oppDefCat=ctx.oppDefenseCat?(ctx.oppDefenseCat==='Parade'?'Parieren':ctx.oppDefenseCat):'';
-  const sk=ctx.skillId?(target.skills||[]).find(x=>x.id===ctx.skillId):null;
+  const effSkillId=ctx.skillId||(w?.skillId)||(sh?.skillId)||null;
+  const sk=effSkillId?(target.skills||[]).find(x=>x.id===effSkillId):null;
   const skNameLow=sk?String(sk.name||'').trim().toLowerCase():'';
   const skBaseLow=skNameLow.replace(/\s*\([^)]*\)\s*$/,'').trim();
   const ak=ctx.attrKey||(sk?sk.linkedAttr:null)||(w?getWeaponRollMeta(w,mods,target).attrKey:null)||(sh?getShieldRollMeta(sh,mods,target).attrKey:null);
@@ -1340,10 +1341,21 @@ export function findMatchingPreparation({attrKey='',sk=null,includeActionPrepara
   const ak=String(attrKey||'').trim();
   const skId=String(sk?.id||'').trim();
   const skNameLow=String(sk?.name||'').trim().toLowerCase();
+  const skBaseLow=skNameLow.replace(/\s*\([^)]*\)\s*$/,'').trim();
   if(sk&&(skId||skNameLow)){
-    const skHit=list.find(p=>p&&p.kind==='skill'&&((skId&&p.skillId===skId)||(skNameLow&&String(p.skillName||'').trim().toLowerCase()===skNameLow)));
+    const skHit=list.find(p=>{
+      if(!p||p.kind!=='skill') return false;
+      if(skId&&p.skillId===skId) return true;
+      const livePrepSk=p.skillId?(sheet?.skills||[]).find(s=>s&&s.id===p.skillId):null;
+      const pNameLow=String(livePrepSk?.name||p.skillName||'').trim().toLowerCase();
+      if(!pNameLow||!skNameLow) return false;
+      if(pNameLow===skNameLow) return true;
+      if(!pNameLow.includes('(')&&skBaseLow&&skBaseLow===pNameLow) return true;
+      return false;
+    });
     if(skHit){
-      const resolvedName=String(sk?.name||skHit.skillName||'Fertigkeit').trim()||'Fertigkeit';
+      const livePrepSk=skHit.skillId?(sheet?.skills||[]).find(s=>s&&s.id===skHit.skillId):null;
+      const resolvedName=String(sk?.name||livePrepSk?.name||skHit.skillName||'Fertigkeit').trim()||'Fertigkeit';
       return {prep:skHit,scope:'skill',skillName:resolvedName,label:`Fertigkeit (${resolvedName})`};
     }
   }
