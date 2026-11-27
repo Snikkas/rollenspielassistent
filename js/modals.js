@@ -1,5 +1,5 @@
 import {
-  DEF_WEAPON_TAGS, DEF_ARMOR_TAGS, ATTR_GROUPS, STATUS_DEFS, SYSTEM_ICON_DEFS, SEC_META, DEF_PW_TAGS, PW_TIERS, PW_TIER_BADGE_CLS, TABS, COL_PRESETS, PALETTES, GLOSSARY_CATS, GLOSSARY, WIN_DEFAULTS, DEF_FB_FOLDERS, THEME_BG_SYNC_LIMIT, DUAL_COL_TARGETS
+  DEF_WEAPON_TAGS, DEF_ARMOR_TAGS, ATTR_GROUPS, STATUS_DEFS, SYSTEM_ICON_DEFS, SEC_META, DEF_PW_TAGS, DEF_DMG_TYPES, PW_TIERS, PW_TIER_BADGE_CLS, TABS, COL_PRESETS, PALETTES, GLOSSARY_CATS, GLOSSARY, WIN_DEFAULTS, DEF_FB_FOLDERS, THEME_BG_SYNC_LIMIT, DUAL_COL_TARGETS
 } from './constants.js';
 import {
   $, uid, stamp, esc, clone, toInt, fmtSign, isHex, sortAlpha, stripHtml, toRtfHtml, simpleHash
@@ -8,7 +8,7 @@ import {
   hooks
 } from './ui-hooks.js';
 import {
-  renderSystemIconHtml, syncBodyScrollLock, bindSwipeDownClose, closeCtxMenu, openCtxMenu, applyWinFrame, renderWinCtrlBtns, renderWinResizeHandles, setModalSwipeCleanup, cleanupModalSwipe, isOversizedBgDataUrl, compressBgDataUrlForProfile, getCampaigns, getActiveCampaigns, getArchivedCampaigns, isGlobalGM, canManageCampaign, canToggleEnemyStatus, isEnemySheet, getEnemyMeta, canManageEnemySheet, isEnemyDiceVisibleInCampaign, ensureUserRecord, ensureAllRegistryUsers, findUserKeyByName, findUserKeyById, getUserAvatar, canViewUserProfile, renderUserNamePill, saveRegistryLocal, getCampaignFilteredDiceFeed, captureScrollState, restoreScrollState, toast, save, persistCurrentThemeChange, applyTheme, CUSTOM_ICONS, getPwTermTip, fmtCustomValSummarySuffix, syncEquipmentToInventory, S, D, CN, LD, INI, FBW, isMobileLayout, CTX_MENU, UI, PATCHNOTES, FEEDBACK, CLOUD, CLOUD_SYNC, PWLIB, getCharOwner, getCharCampaignId, getEditStyleSlot
+  renderSystemIconHtml, syncBodyScrollLock, bindSwipeDownClose, closeCtxMenu, openCtxMenu, applyWinFrame, renderWinCtrlBtns, renderWinResizeHandles, setModalSwipeCleanup, cleanupModalSwipe, isOversizedBgDataUrl, compressBgDataUrlForProfile, getCampaigns, getActiveCampaigns, getArchivedCampaigns, isGlobalGM, canManageCampaign, canToggleEnemyStatus, isEnemySheet, getEnemyMeta, canManageEnemySheet, isEnemyDiceVisibleInCampaign, ensureUserRecord, ensureAllRegistryUsers, findUserKeyByName, findUserKeyById, getUserAvatar, canViewUserProfile, renderUserNamePill, saveRegistryLocal, getCampaignFilteredDiceFeed, captureScrollState, restoreScrollState, toast, save, persistCurrentThemeChange, applyTheme, CUSTOM_ICONS, getPwTermTip, fmtCustomValSummarySuffix, getSheetDmgTypeList, syncEquipmentToInventory, S, D, CN, LD, INI, FBW, isMobileLayout, CTX_MENU, UI, PATCHNOTES, FEEDBACK, CLOUD, CLOUD_SYNC, PWLIB, getCharOwner, getCharCampaignId, getEditStyleSlot
 } from './state.js';
 import {
   formatPwUseCosts, getEffectivePoolCap, getReservedSrcList, calcActiveMods, buildPowerExportPack, getSuggestedAugmentsForPower, calcPwCost, calcProg, getPwSecOptionsFlat, cresName, getResLabel, getLpRegen, getMlpRegen, findPwItem, findEqItem
@@ -1984,9 +1984,18 @@ export function renderModalBody(m,fromRenderAll=false){
       return;
     }
     const normLt=(lt==='subcat'||lt==='pwTag')?'pwTag':lt;
-    const meta={pwTag:['Tags (Kräfte & Augmente)',S.pwTagList||DEF_PW_TAGS,'Neues Tag (z.B. Fernkampf, Ritual)…'],useRes:['Einsatzkosten-Ressourcen',S.useResList,'Eigene Ressource...'],customStats:['Eigene Baukasten-Variablen',S.customStats,'Neue Variable (z.B. Tragkraft)...']}[normLt]||{pwTag:['Tags (Kräfte & Augmente)',S.pwTagList||DEF_PW_TAGS,'Neues Tag…']}.pwTag;
+    const meta={
+      pwTag:['Tags (Kräfte & Augmente)',S.pwTagList||DEF_PW_TAGS,'Neues Tag (z.B. Fernkampf, Ritual)…'],
+      useRes:['Einsatzkosten-Ressourcen',S.useResList,'Eigene Ressource...'],
+      dmgTypes:['Schadenstypen (Standardliste)',getSheetDmgTypeList(S),'Neuer Schadenstyp (z.B. Kälte, Gift, Schall)…'],
+      customStats:['Eigene Baukasten-Variablen',S.customStats,'Neue Variable (z.B. Tragkraft)...']
+    }[normLt]||{pwTag:['Tags (Kräfte & Augmente)',S.pwTagList||DEF_PW_TAGS,'Neues Tag…']}.pwTag;
     const quickPools=normLt==='useRes'?`<div class="space-y-1"><span class="text-[11px] font-bold t-mut">Charakterbogen-Pools schnell hinzufügen:</span><div class="flex flex-wrap gap-1.5">${['ap','map','lp','mlp','cres',...(S.extraSecList||[]).map(x=>'ex_'+x.id),'bst'].map(pk=>`<button type="button" data-action="quick-add-res" data-val="${pk}" ${S.useResList.includes(pk)?'disabled':''} class="btn py-1 px-2 text-xs">+ ${esc(getResLabel(pk))}</button>`).join('')}</div></div>`:'';
-    const subNote=normLt==='pwTag'?'Hauptaktionsarten &amp; Aktionsunterarten sind fest vorgegeben und können nicht als Tag angelegt werden.':'Änderungen werden im Charakterbogen gespeichert und mit exportiert.';
+    const subNote=normLt==='pwTag'
+      ?'Hauptaktionsarten &amp; Aktionsunterarten sind fest vorgegeben und können nicht als Tag angelegt werden.'
+      :(normLt==='dmgTypes'
+        ?`Standardtypen (${DEF_DMG_TYPES.join(', ')}) sowie eigene Erweiterungen für Kräfte-Aktionswürfe &amp; Schadensverrechnung.`
+        :'Änderungen werden im Charakterbogen gespeichert und mit exportiert.');
     m.innerHTML=modalShell(`⚙️ ${meta[0]}`,subNote,
       `${quickPools}<form id="formAddListItem" class="flex gap-2"><input id="inpListItem" type="text" placeholder="${meta[2]}" class="inp flex-1"/><button type="submit" class="btn btn-ok">+ Hinzufügen</button></form>
       <div class="flex flex-wrap gap-1.5">${meta[1].length?meta[1].map(item=>{const iTip=normLt==='pwTag'?getPwTermTip(item):'';return `<span ${iTip?`data-tip="${esc(iTip)}"`:''} class="subcard py-1.5 px-2.5 inline-flex items-center gap-2 text-xs font-bold ${iTip?'cursor-help':''}"><span>${esc(normLt==='useRes'?getResLabel(item):item)}</span><button type="button" data-action="del-list-item" data-val="${esc(item)}" class="text-rose-400 font-black">✕</button></span>`;}).join(''):`<span class="text-xs t-mut">Liste ist leer.</span>`}</div>`,

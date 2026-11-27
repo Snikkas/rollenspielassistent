@@ -8,7 +8,7 @@ import {
   hooks
 } from './ui-hooks.js';
 import {
-  syncPwUseCostsLegacy, toast, logChron, normPwEntry, save, findMainArt, isReservedPwTerm, getWeaponSubtype, isWeaponMassiv, isWeaponBlockable, isArmorShield, S, D, UI
+  syncPwUseCostsLegacy, toast, logChron, normPwEntry, normActionRoll, dmgTypeLabelToOpt, save, findMainArt, isReservedPwTerm, getWeaponSubtype, isWeaponMassiv, isWeaponBlockable, isArmorShield, S, D, UI
 } from './state.js';
 import {
   getEffectiveWeaponAmmo
@@ -1296,6 +1296,38 @@ export function getAdvDisForContext(ctx={},M=null,sheet=S){
       src.push({val:absBm,kind:'dis',scope:'block',label:'Blocken',tagLbl:`Block-Mod ${fmtSign(bm)}`,srcName:`${shName} • Block-Mod`,srcKind:'Schild'});
     }
   }
+  let powerTargetMod=null;
+  if(ctx.powerId){
+    const isAugPw=ctx.powerKind==='augment';
+    const pwList=isAugPw?(target.augments||[]):(target.powers||[]);
+    const pwItem=pwList.find(x=>x&&x.id===ctx.powerId)||null;
+    const ar=pwItem?.actionRoll?.enabled?normActionRoll(pwItem.actionRoll):null;
+    if(ar){
+      const pwNm=String(pwItem.name||'').trim()||(isAugPw?'Unbenanntes Augment':'Unbenannte Kraft');
+      const pwKindLbl=isAugPw?'Augment':'Kraft';
+      if(ar.hasSelfMod&&ar.selfModVal>0){
+        if(ar.selfModKind==='dis') autoDis+=ar.selfModVal;
+        else autoAdv+=ar.selfModVal;
+        src.push({
+          val:ar.selfModVal,
+          kind:ar.selfModKind,
+          scope:'action',
+          label:'Aktion',
+          tagLbl:`✨ ${pwNm}`,
+          srcName:pwNm,
+          srcKind:pwKindLbl
+        });
+      }
+      if(ar.hasTargetMod&&ar.targetModVal>0){
+        powerTargetMod={
+          val:ar.targetModVal,
+          kind:ar.targetModKind,
+          srcName:pwNm,
+          srcKind:pwKindLbl
+        };
+      }
+    }
+  }
   if(ctx.includeInspiration&&target.inspirationActive){
     autoAdv+=1;
     src.push({val:1,kind:'adv',scope:'all',label:'Inspiration (Nächster Wurf)',tagLbl:'✨ Inspiration',srcName:'✨ Inspiration',srcKind:'Inspiration'});
@@ -1322,7 +1354,7 @@ export function getAdvDisForContext(ctx={},M=null,sheet=S){
       });
     }
   }
-  return {autoAdv:Math.max(0,autoAdv),autoDis:Math.max(0,autoDis),rawAutoAdv:autoAdv,rawAutoDis:autoDis,src,autoCrit,critSrc,autoRollMod,rollModSrc,sitOptions,matchedPrep,pausedPrep};
+  return {autoAdv:Math.max(0,autoAdv),autoDis:Math.max(0,autoDis),rawAutoAdv:autoAdv,rawAutoDis:autoDis,src,autoCrit,critSrc,autoRollMod,rollModSrc,sitOptions,matchedPrep,pausedPrep,powerTargetMod};
 }
 export function formatPreparationLabel(p,sheet=S){
   if(!p||typeof p!=='object') return 'Aktion';
@@ -1619,6 +1651,14 @@ export function cleanPwForPowerExport(rawIt,isAug=false){
     bldDynFactor:n.bldDynFactor!==undefined&&n.bldDynFactor!==null?String(n.bldDynFactor):'/2',
     bldDynRound:['floor','ceil','round'].includes(n.bldDynRound)?n.bldDynRound:'',
     bldDynTarget:['desc','effects','rules'].includes(n.bldDynTarget)?n.bldDynTarget:'desc',
+    actionRoll:(()=>{
+      const ar=normActionRoll(n.actionRoll);
+      if(ar.skillId&&!ar.skillName){
+        const sk=(S.skills||[]).find(s=>s&&s.id===ar.skillId);
+        if(sk&&String(sk.name||'').trim()) ar.skillName=String(sk.name).trim();
+      }
+      return ar;
+    })(),
     boxH:{desc:toInt(n.boxH?.desc,0),effects:toInt(n.boxH?.effects,0),rules:toInt(n.boxH?.rules,0)}
   };
   if(isAug) out.parentPowerId=String(n.parentPowerId||'');
@@ -2312,6 +2352,104 @@ export function getShieldRollMeta(ar,M=null,sheet=S){
   const pool=attrVal+skBonus;
   const blockMod=toInt(ar?.blockMod,0);
   return {attrKey,attrVal,sk,skBonus,pool,blockMod,hasBlock:true};
+}
+
+export function resolvePowerActionSkill(ar,sheet=S){
+  if(!ar) return null;
+  const skills=(sheet?.skills||[]).filter(Boolean);
+  if(ar.skillId){
+    const byId=skills.find(s=>s.id===ar.skillId);
+    if(byId) return byId;
+  }
+  const nm=String(ar.skillName||'').trim().toLowerCase();
+  if(nm){
+    const exact=skills.find(s=>String(s.name||'').trim().toLowerCase()===nm);
+    if(exact) return exact;
+  }
+  return null;
+}
+
+export function evalPowerDmgBonus(rawBonus,M=null,sheet=S){
+  const raw=String(rawBonus??'0').trim();
+  if(!raw||raw==='0'||raw==='+0'||raw==='-0'){
+    return {val:0,ok:true,isFormula:false,raw:'0',breakdown:''};
+  }
+  if(/^[+-]?\d+$/.test(raw)){
+    return {val:toInt(raw,0),ok:true,isFormula:false,raw,breakdown:''};
+  }
+  const inner=raw.startsWith('{{')&&raw.endsWith('}}')?raw.slice(2,-2).trim():raw;
+  const res=evalDynamicFormula(inner,M||calcActiveMods(sheet),sheet);
+  if(res.ok){
+    const rounded=Math.round(res.value);
+    return {val:rounded,ok:true,isFormula:true,raw,breakdown:res.breakdown};
+  }
+  return {val:0,ok:false,isFormula:true,raw,breakdown:res.error||'Ungültige Formel'};
+}
+
+export function getPowerActionRollMeta(it,M=null,sheet=S){
+  const mods=M||calcActiveMods(sheet);
+  const ar=normActionRoll(it?.actionRoll);
+  const sk=resolvePowerActionSkill(ar,sheet);
+  const skBonus=sk?getSkBonus(sk):0;
+  const attrKey=ATTRS.some(a=>a.k===ar.attrKey)?ar.attrKey:(sk&&ATTRS.some(a=>a.k===sk.linkedAttr)?sk.linkedAttr:'');
+  const attrVal=attrKey?getAttrTot(attrKey,mods,sheet):0;
+  const pool=attrVal+skBonus;
+  const rollCat=ar.rollCat||'Normaler Test';
+  const dmgPool=ar.dmgPool==='mlp'?'mlp':'lp';
+  const bonusEval=ar.dealsEgDmg?evalPowerDmgBonus(ar.dmgBonus,mods,sheet):{val:0,ok:true,isFormula:false,raw:'0',breakdown:''};
+  const dmgOpt=(ar.dealsEgDmg&&ar.replaceDmgType&&ar.dmgType)?dmgTypeLabelToOpt(ar.dmgType,bonusEval.val):null;
+  const missingSkillName=(!sk&&ar.skillName)?ar.skillName:'';
+  return {
+    enabled:Boolean(ar.enabled),
+    ar,
+    sk,
+    skBonus,
+    missingSkillName,
+    attrKey,
+    attrVal,
+    pool,
+    rollCat,
+    dealsEgDmg:Boolean(ar.dealsEgDmg),
+    dmgPool,
+    dmgBonusVal:bonusEval.val,
+    dmgBonusEval:bonusEval,
+    replaceDmgType:Boolean(ar.replaceDmgType&&ar.dealsEgDmg),
+    dmgType:ar.dmgType||'',
+    dmgOpt,
+    hasSelfMod:Boolean(ar.hasSelfMod&&ar.selfModVal>0),
+    selfModKind:ar.selfModKind,
+    selfModVal:ar.selfModVal,
+    hasTargetMod:Boolean(ar.hasTargetMod&&ar.targetModVal>0),
+    targetModKind:ar.targetModKind,
+    targetModVal:ar.targetModVal,
+    useWeapon:Boolean(ar.useWeapon)
+  };
+}
+
+export function getRollablePowersList(sheet=S){
+  const out=[];
+  (sheet?.powers||[]).forEach(p=>{
+    if(!p||!p.actionRoll?.enabled) return;
+    out.push({
+      kind:'power',
+      item:p,
+      ref:`power:${p.id}`,
+      name:String(p.name||'').trim()||'Unbenannte Kraft',
+      parentName:''
+    });
+  });
+  (sheet?.augments||[]).forEach(ag=>{
+    if(!ag||!ag.actionRoll?.enabled) return;
+    const par=ag.parentPowerId?(sheet?.powers||[]).find(p=>p&&p.id===ag.parentPowerId):null;
+    out.push({
+      kind:'augment',
+      item:ag,
+      ref:`augment:${ag.id}`,
+      name:String(ag.name||'').trim()||'Unbenanntes Augment',
+      parentName:par?(String(par.name||'').trim()||'Kraft'):''
+    });
+  });
+  return out;
 }
 
 export function getSheetShields(sheet=S,{onlyEquipped=false}={}){

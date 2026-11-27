@@ -1,5 +1,5 @@
 import {
-  STATUS_DEFS, DEF_MAIN_ARTS, DEF_ACTION_SUBS, DEF_PW_TAGS, PW_TIERS, PW_TIER_BADGE_CLS, DYN_FACTOR_PRESETS, DYN_ROUND_OPTS, DYN_TARGET_OPTS
+  ATTRS, STATUS_DEFS, DEF_MAIN_ARTS, DEF_ACTION_SUBS, DEF_PW_TAGS, PW_TIERS, PW_TIER_BADGE_CLS, DYN_FACTOR_PRESETS, DYN_ROUND_OPTS, DYN_TARGET_OPTS
 } from '../constants.js';
 import {
   findVisibleBtn, $, esc, toInt, fmtSign, sortAlpha, stripHtml, toRtfHtml, cardColorStyle, canSetSecParent, sanitizeSecHierarchy
@@ -8,10 +8,10 @@ import {
   hooks
 } from '../ui-hooks.js';
 import {
-  openCtxMenu, toast, logChron, save, getPwTermTip, isReservedPwTerm, getPwTierKey, S, isMobileLayout, pwQuickKey, UI
+  openCtxMenu, toast, logChron, save, getPwTermTip, isReservedPwTerm, getPwTierKey, getSheetDmgTypeList, normActionRoll, S, D, isMobileLayout, pwQuickKey, UI
 } from '../state.js';
 import {
-  getStatusEffValues, getAvailableUseResources, getActivePwUseCosts, formatPwUseCosts, getReservablePwCosts, getStatGroups, getDynVarGroups, buildDynFormulaSpec, getDynPresetSelectVal, getPwBuilderToken, evalDynamicFormula, extractDynamicFormulas, renderDynamicRtfHtml, parseStatusTokens, getAllParsedEffectChips, calcActiveMods, withPoolSync, linkAugToPower, unlinkAugFromPower, calcPwCost, getGroupMspInfo, calcProg, getPwSecOptionsFlat, getResLabel, getSecCol, getBstBase, getEffBst, findPwItem, getLinkedAugs, getUnlinkedAugs, getValidPwSecId, getUnlinkedAugsInSec, getRootUnlinkedAugs
+  getStatusEffValues, getAvailableUseResources, getActivePwUseCosts, formatPwUseCosts, getReservablePwCosts, getStatGroups, getDynVarGroups, buildDynFormulaSpec, getDynPresetSelectVal, getPwBuilderToken, evalDynamicFormula, extractDynamicFormulas, renderDynamicRtfHtml, parseStatusTokens, getAllParsedEffectChips, calcActiveMods, withPoolSync, linkAugToPower, unlinkAugFromPower, calcPwCost, getGroupMspInfo, calcProg, getPwSecOptionsFlat, getResLabel, getSecCol, getBstBase, getEffBst, findPwItem, getLinkedAugs, getUnlinkedAugs, getValidPwSecId, getUnlinkedAugsInSec, getRootUnlinkedAugs, getPowerActionRollMeta, getAttrTot, getSkBonus
 } from '../calc.js';
 import {
   syncDiceFromSheet, renderDice
@@ -341,6 +341,227 @@ export function openPwCardMenu(anchorEl,kind,id,forceOpen=false){
   });
 }
 
+export function buildPwActionRollTooltip(it,pm){
+  if(!pm||!pm.enabled) return 'Im Würfelassistenten einsetzen';
+  const lines=[];
+  const nm=String(it?.name||'').trim()||'Aktion';
+  const testBits=[];
+  if(pm.sk) testBits.push(`${pm.sk.name} (${fmtSign(pm.skBonus)})`);
+  if(pm.attrKey) testBits.push(`${pm.attrKey} (${pm.attrVal})`);
+  lines.push(`🎲 ${nm} im Würfelassistenten einsetzen`);
+  lines.push(`• ${pm.rollCat}${testBits.length?`: ${testBits.join(' + ')} = ${pm.pool}`:''}`);
+  if(pm.hasSelfMod) lines.push(`• Eigener Test: ${fmtSign(pm.selfModVal)} ${pm.selfModKind==='dis'?(pm.selfModVal===1?'Nachteil':'Nachteile'):(pm.selfModVal===1?'Vorteil':'Vorteile')}`);
+  if(pm.dealsEgDmg){
+    const dtTxt=pm.replaceDmgType&&pm.dmgType?`Schadenstyp: ${pm.dmgType}`:'EG-Grundschaden';
+    const bonTxt=pm.dmgBonusVal?` (${fmtSign(pm.dmgBonusVal)} Zusatz)`:'';
+    lines.push(`• Bei Erfolg: EG${bonTxt} • ${dtTxt} (${pm.dmgPool==='mlp'?'mLP':'LP'})`);
+  }
+  if(pm.hasTargetMod) lines.push(`• Ziel gegen Test: ${fmtSign(pm.targetModVal)} ${pm.targetModKind==='dis'?(pm.targetModVal===1?'Nachteil':'Nachteile'):(pm.targetModVal===1?'Vorteil':'Vorteile')}`);
+  if(pm.useWeapon) lines.push('• Kombiniert mit ausgerüsteter Waffe');
+  return lines.join('\n');
+}
+
+export function renderPwActionRollEditor(kind,it,opts={}){
+  const M=opts.M||calcActiveMods();
+  const pm=getPowerActionRollMeta(it,M,S);
+  const ar=pm.ar;
+  if(!ar.enabled){
+    return `<div class="subcard py-1.5 px-2.5 flex flex-wrap items-center justify-between gap-2 text-xs">
+      <div class="flex flex-wrap items-center gap-1.5 min-w-0">
+        <span class="font-extrabold t-mut">🎲 Würfel-Aktion</span>
+        <span class="text-[11px] t-mut hidden sm:inline">• Optionaler Aktions-Baukasten für Würfelassistent &amp; Schadensverrechnung</span>
+      </div>
+      <button type="button" data-action="toggle-pw-ar" data-kind="${kind}" data-id="${it.id}" data-tip="Aktiviert den Würfel-Aktions-Baukasten für diese Karte, damit sie direkt im Würfelassistenten eingesetzt werden kann" class="btn py-1 px-2.5 text-xs font-extrabold bdr-acc bg-acc-soft text-acc shrink-0">+ 🎲 Würfel-Aktion aktivieren</button>
+    </div>`;
+  }
+  const sortedSkills=Array.isArray(opts.sortedSkills)?opts.sortedSkills:[...(S.skills||[])].filter(s=>s&&String(s.name||'').trim()).sort((a,b)=>String(a.name).trim().localeCompare(String(b.name).trim(),'de'));
+  const dmgTypes=getSheetDmgTypeList(S);
+  const curDmgType=String(ar.dmgType||dmgTypes[0]||'Feuer').trim();
+  const hasCurDt=dmgTypes.some(t=>t.toLowerCase()===curDmgType.toLowerCase());
+  const allDmgTypes=hasCurDt?dmgTypes:[...dmgTypes,curDmgType];
+  const rollCats=[
+    {v:'Normaler Test',l:'📋 Normaler Test'},
+    {v:'Trefferwurf',l:'⚔️ Trefferwurf'},
+    {v:'Parieren',l:'🛡️ Parieren'},
+    {v:'Blocken',l:'🧱 Blocken'},
+    {v:'Ausweichen',l:'💨 Ausweichen'}
+  ];
+  const poolParts=[];
+  if(pm.sk) poolParts.push(`${pm.sk.name} (${fmtSign(pm.skBonus)})`);
+  if(pm.attrKey) poolParts.push(`${pm.attrKey} ${pm.attrVal}`);
+  const poolBadgeHtml=poolParts.length
+    ?`<span class="px-2 py-0.5 rounded-md border bdr-acc bg-acc-soft text-acc text-[11px] font-black tabular">${esc(poolParts.join(' + '))} = ${pm.pool}</span>`
+    :`<span class="text-[11px] text-amber-600 dark:text-amber-300 font-bold">Attribut oder Fertigkeit wählen</span>`;
+  const autoAttrLbl=pm.sk&&pm.sk.linkedAttr?`Auto (${pm.sk.linkedAttr} ${getAttrTot(pm.sk.linkedAttr,M)})`:'— Keins / Auto —';
+
+  const activeBlocks=[];
+  if(ar.hasSelfMod){
+    const isDis=ar.selfModKind==='dis';
+    activeBlocks.push(`<div class="p-2 rounded-lg border flex items-start justify-between gap-2 text-xs ${isDis?'border-rose-500/45 bg-rose-500/10':'border-emerald-500/45 bg-emerald-500/10'}">
+      <div class="flex flex-wrap items-center gap-1.5 min-w-0 flex-1">
+        <span class="font-extrabold ${isDis?'text-rose-700 dark:text-rose-300':'text-emerald-700 dark:text-emerald-300'}">⚡ Test-Mod:</span>
+        <div class="inline-flex items-center gap-1 tabular">
+          <button type="button" data-action="pw-ar-step" data-kind="${kind}" data-id="${it.id}" data-field="selfModVal" data-d="-1" ${ar.selfModVal<=1?'disabled':''} aria-label="Weniger" class="btn w-6 h-6 p-0 text-xs font-black">−</button>
+          <span class="min-w-[1.4rem] text-center font-black">${ar.selfModVal}</span>
+          <button type="button" data-action="pw-ar-step" data-kind="${kind}" data-id="${it.id}" data-field="selfModVal" data-d="1" ${ar.selfModVal>=10?'disabled':''} aria-label="Mehr" class="btn w-6 h-6 p-0 text-xs font-black">+</button>
+        </div>
+        <select data-pw-ar-sel="${kind}:${it.id}:selfModKind" class="inp py-0.5 px-2 text-xs font-bold">
+          <option value="adv" ${!isDis?'selected':''}>Vorteil(e) auf Test</option>
+          <option value="dis" ${isDis?'selected':''}>Nachteil(e) auf Test</option>
+        </select>
+      </div>
+      <button type="button" data-action="pw-ar-rm-block" data-kind="${kind}" data-id="${it.id}" data-block="selfMod" data-tip="Baustein entfernen" class="btn py-0.5 px-1.5 text-[11px] hover:text-rose-400 shrink-0">✕</button>
+    </div>`);
+  }
+  if(ar.dealsEgDmg){
+    const isMlp=ar.dmgPool==='mlp';
+    const bonEval=pm.dmgBonusEval;
+    const bonLiveHint=bonEval.isFormula
+      ?(bonEval.ok?`<span class="text-[10px] font-black text-acc tabular" data-tip="${esc(bonEval.breakdown)}">= ${fmtSign(bonEval.val)}</span>`:`<span class="text-[10px] font-bold text-rose-400" data-tip="${esc(bonEval.breakdown)}">⚠ Formel</span>`)
+      :'';
+    const repRowHtml=ar.replaceDmgType
+      ?`<div class="pt-1.5 mt-1.5 border-t border-white/10 flex items-start justify-between gap-2">
+        <div class="flex flex-wrap items-center gap-1.5 min-w-0 flex-1">
+          <span class="font-extrabold text-amber-700 dark:text-amber-300 shrink-0">🔥 Schadenstyp:</span>
+          <select data-pw-ar-sel="${kind}:${it.id}:dmgType" class="inp py-0.5 px-2 text-xs font-bold min-w-[125px]">
+            ${allDmgTypes.map(dt=>`<option value="${esc(dt)}" ${dt.toLowerCase()===curDmgType.toLowerCase()?'selected':''}>${esc(dt)}</option>`).join('')}
+          </select>
+          <div class="flex items-center gap-1 flex-1 min-w-[145px] max-w-xs">
+            <input data-pw-ar-newdt="${kind}:${it.id}" type="text" placeholder="Neuer Typ…" class="inp py-0.5 px-2 text-xs flex-1 min-w-0"/>
+            <button type="button" data-action="pw-ar-add-dmgtype" data-kind="${kind}" data-id="${it.id}" data-tip="Schadenstyp zur Standardliste hinzufügen &amp; auswählen" class="btn btn-ok py-0.5 px-2 text-xs shrink-0">+</button>
+            <button type="button" data-action="open-list" data-ltype="dmgTypes" data-tip="Standardliste der Schadenstypen verwalten" class="btn py-0.5 px-1.5 text-xs shrink-0">⚙️</button>
+          </div>
+        </div>
+        <button type="button" data-action="pw-ar-rm-block" data-kind="${kind}" data-id="${it.id}" data-block="replaceDmgType" data-tip="Schadenstyp-Ersetzung entfernen (Standard-Grundschaden)" class="btn py-0.5 px-1.5 text-[11px] hover:text-rose-400 shrink-0">✕</button>
+      </div>`
+      :'';
+    activeBlocks.push(`<div class="p-2 rounded-lg border border-amber-500/45 bg-amber-500/10 text-xs">
+      <div class="flex items-start justify-between gap-2">
+        <div class="flex flex-wrap items-center gap-2 min-w-0 flex-1">
+          <span class="font-extrabold text-amber-700 dark:text-amber-300">💥 EG-Grundschaden bei Erfolg</span>
+          <div class="inline-flex rounded-lg p-0.5 bg-black/25 border bdr-line text-[10px] shrink-0" role="group" aria-label="Schadens-Pool">
+            <button type="button" data-action="pw-ar-set-pool" data-kind="${kind}" data-id="${it.id}" data-pool="lp" class="px-2 py-0.5 rounded font-black ${!isMlp?'bg-rose-500/25 text-rose-700 dark:text-rose-200':'t-mut'}">❤️ LP</button>
+            <button type="button" data-action="pw-ar-set-pool" data-kind="${kind}" data-id="${it.id}" data-pool="mlp" class="px-2 py-0.5 rounded font-black ${isMlp?'bg-indigo-500/25 text-indigo-700 dark:text-indigo-200':'t-mut'}">🧠 mLP</button>
+          </div>
+          <label class="inline-flex items-center gap-1 min-w-0" data-tip="Optionaler Zusatzschaden auf den EG-Grundschaden – Zahl (z. B. +2) oder dynamische Formel (z. B. {{WA/2}})">
+            <span class="t-mut font-bold">Zusatz:</span>
+            <input data-pw-ar-inp="${kind}:${it.id}:dmgBonus" type="text" value="${esc(ar.dmgBonus||'0')}" placeholder="0" class="inp py-0.5 px-1.5 w-20 text-center font-black tabular text-xs"/>
+            ${bonLiveHint}
+          </label>
+        </div>
+        <button type="button" data-action="pw-ar-rm-block" data-kind="${kind}" data-id="${it.id}" data-block="egDmg" data-tip="Schadens-Baustein entfernen" class="btn py-0.5 px-1.5 text-[11px] hover:text-rose-400 shrink-0">✕</button>
+      </div>
+      ${repRowHtml}
+    </div>`);
+  }
+  if(ar.hasTargetMod){
+    const tIsDis=ar.targetModKind==='dis';
+    const effHint=tIsDis?`→ +${ar.targetModVal}V für dich`:`→ +${ar.targetModVal}N für dich`;
+    activeBlocks.push(`<div class="p-2 rounded-lg border border-indigo-400/50 bg-indigo-500/10 flex items-start justify-between gap-2 text-xs">
+      <div class="flex flex-wrap items-center gap-1.5 min-w-0 flex-1">
+        <span class="font-extrabold text-indigo-700 dark:text-indigo-300">🎯 Ziel gegen Test:</span>
+        <div class="inline-flex items-center gap-1 tabular">
+          <button type="button" data-action="pw-ar-step" data-kind="${kind}" data-id="${it.id}" data-field="targetModVal" data-d="-1" ${ar.targetModVal<=1?'disabled':''} aria-label="Weniger" class="btn w-6 h-6 p-0 text-xs font-black">−</button>
+          <span class="min-w-[1.4rem] text-center font-black">${ar.targetModVal}</span>
+          <button type="button" data-action="pw-ar-step" data-kind="${kind}" data-id="${it.id}" data-field="targetModVal" data-d="1" ${ar.targetModVal>=10?'disabled':''} aria-label="Mehr" class="btn w-6 h-6 p-0 text-xs font-black">+</button>
+        </div>
+        <select data-pw-ar-sel="${kind}:${it.id}:targetModKind" class="inp py-0.5 px-2 text-xs font-bold">
+          <option value="dis" ${tIsDis?'selected':''}>Nachteil(e) fürs Ziel</option>
+          <option value="adv" ${!tIsDis?'selected':''}>Vorteil(e) fürs Ziel</option>
+        </select>
+        <span class="text-[11px] font-bold t-mut tabular">(${effHint})</span>
+      </div>
+      <button type="button" data-action="pw-ar-rm-block" data-kind="${kind}" data-id="${it.id}" data-block="targetMod" data-tip="Ziel-Modifikator entfernen" class="btn py-0.5 px-1.5 text-[11px] hover:text-rose-400 shrink-0">✕</button>
+    </div>`);
+  }
+  if(ar.useWeapon){
+    activeBlocks.push(`<div class="p-2 rounded-lg border border-cyan-400/45 bg-cyan-500/10 flex items-start justify-between gap-2 text-xs">
+      <span class="font-bold text-cyan-700 dark:text-cyan-200 flex-1 min-w-0">⚔️ <strong>Mit Waffe kombinieren:</strong> Nutzt ausgerüstete Waffe, Waffenschaden &amp; Waffen-Tags zusätzlich im Würfelassistenten.</span>
+      <button type="button" data-action="pw-ar-rm-block" data-kind="${kind}" data-id="${it.id}" data-block="useWeapon" data-tip="Waffen-Kombination entfernen" class="btn py-0.5 px-1.5 text-[11px] hover:text-rose-400 shrink-0">✕</button>
+    </div>`);
+  }
+
+  const addChips=[];
+  if(!ar.hasSelfMod) addChips.push(`<button type="button" data-action="pw-ar-add-block" data-kind="${kind}" data-id="${it.id}" data-block="selfMod" data-tip="Fügt Vorteile oder Nachteile für diesen Aktions-Test hinzu" class="btn py-0.5 px-2 text-[11px] border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300">+ ± Test V/N</button>`);
+  if(!ar.dealsEgDmg) addChips.push(`<button type="button" data-action="pw-ar-add-block" data-kind="${kind}" data-id="${it.id}" data-block="egDmg" data-tip="Verursacht bei Würfelerfolg EG-Grundschaden und aktiviert den Schadensrechner" class="btn py-0.5 px-2 text-[11px] border-amber-500/45 bg-amber-500/10 text-amber-700 dark:text-amber-300">+ 💥 EG-Grundschaden</button>`);
+  if(!ar.replaceDmgType) addChips.push(`<button type="button" data-action="pw-ar-add-block" data-kind="${kind}" data-id="${it.id}" data-block="replaceDmgType" data-tip="Ersetzt den Grundschaden durch einen Schadenstyp (z. B. Feuer, Blitz, Schnitt, Säure, Explosion oder eigene)" class="btn py-0.5 px-2 text-[11px] border-orange-500/45 bg-orange-500/10 text-orange-700 dark:text-orange-300">+ 🔥 Schadenstyp ersetzen</button>`);
+  if(!ar.hasTargetMod) addChips.push(`<button type="button" data-action="pw-ar-add-block" data-kind="${kind}" data-id="${it.id}" data-block="targetMod" data-tip="Gewähltes Ziel erhält Vor- oder Nachteile gegen diesen Test" class="btn py-0.5 px-2 text-[11px] border-indigo-400/45 bg-indigo-500/10 text-indigo-700 dark:text-indigo-300">+ 🎯 Ziel V/N</button>`);
+  if(!ar.useWeapon) addChips.push(`<button type="button" data-action="pw-ar-add-block" data-kind="${kind}" data-id="${it.id}" data-block="useWeapon" data-tip="Kombiniert diese Aktion mit einer ausgerüsteten Waffe (inkl. Waffenschaden &amp; Waffen-Tags)" class="btn py-0.5 px-2 text-[11px] border-cyan-400/45 bg-cyan-500/10 text-cyan-700 dark:text-cyan-300">+ ⚔️ Mit Waffe</button>`);
+
+  return `<div class="subcard p-2.5 border bdr-acc bg-acc-soft/10 space-y-2.5 text-xs min-w-0">
+    <div class="flex flex-wrap items-center justify-between gap-2 border-b bdr-line pb-1.5">
+      <div class="flex flex-wrap items-center gap-2 min-w-0">
+        <span class="font-extrabold text-acc">🎲 Würfel-Aktion</span>
+        ${poolBadgeHtml}
+      </div>
+      <div class="flex items-center gap-1.5 shrink-0">
+        <button type="button" data-action="roll-power" data-kind="${kind}" data-id="${it.id}" data-tip="${esc(buildPwActionRollTooltip(it,pm))}" class="btn btn-pri py-0.5 px-2.5 text-[11px] font-black">🎲 Testen</button>
+        <button type="button" data-action="toggle-pw-ar" data-kind="${kind}" data-id="${it.id}" data-tip="Würfel-Aktion für diese Karte deaktivieren" class="btn btn-err py-0.5 px-2 text-[11px]">✕ Aus</button>
+      </div>
+    </div>
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+      <div class="min-w-0">
+        <label class="block text-[10px] font-bold t-mut uppercase mb-0.5">Testart</label>
+        <select data-pw-ar-sel="${kind}:${it.id}:rollCat" class="inp w-full py-1 px-2 text-xs font-bold">
+          ${rollCats.map(rc=>`<option value="${rc.v}" ${ar.rollCat===rc.v?'selected':''}>${rc.l}</option>`).join('')}
+        </select>
+      </div>
+      <div class="min-w-0">
+        <label class="block text-[10px] font-bold t-mut uppercase mb-0.5">Fertigkeit (Tab 2)</label>
+        <select data-pw-ar-sel="${kind}:${it.id}:skillId" class="inp w-full py-1 px-2 text-xs font-bold">
+          <option value="" ${!pm.sk?'selected':''}>— Keine Fertigkeit (+0) —</option>
+          ${sortedSkills.map(sk=>`<option value="${esc(sk.id)}" ${pm.sk?.id===sk.id?'selected':''}>${esc(String(sk.name).trim())} (${fmtSign(getSkBonus(sk))} • ${sk.linkedAttr})</option>`).join('')}
+          ${pm.missingSkillName?`<option value="__missing__" disabled selected>⚠ ${esc(pm.missingSkillName)} (nicht in Tab 2)</option>`:''}
+        </select>
+      </div>
+      <div class="min-w-0">
+        <label class="block text-[10px] font-bold t-mut uppercase mb-0.5">Attribut</label>
+        <select data-pw-ar-sel="${kind}:${it.id}:attrKey" class="inp w-full py-1 px-2 text-xs font-bold">
+          <option value="" ${!ar.attrKey?'selected':''}>${esc(autoAttrLbl)}</option>
+          ${ATTRS.map(a=>`<option value="${a.k}" ${ar.attrKey===a.k?'selected':''}>${a.k} – ${a.n} (${getAttrTot(a.k,M)})</option>`).join('')}
+        </select>
+      </div>
+    </div>
+    ${activeBlocks.length?`<div class="space-y-1.5">${activeBlocks.join('')}</div>`:''}
+    ${addChips.length?`<div class="flex flex-wrap items-center gap-1.5 pt-1 border-t border-white/10"><span class="text-[10px] font-extrabold t-mut uppercase mr-0.5">+ Baustein:</span>${addChips.join('')}</div>`:''}
+  </div>`;
+}
+
+export function renderPwActionRollViewStrip(kind,it,pm){
+  if(!pm||!pm.enabled) return '';
+  const rollIcon=pm.rollCat==='Trefferwurf'?'⚔️':pm.rollCat==='Parieren'?'🛡️':pm.rollCat==='Blocken'?'🧱':pm.rollCat==='Ausweichen'?'💨':'🎲';
+  const testBits=[];
+  if(pm.sk) testBits.push(pm.sk.name);
+  if(pm.attrKey) testBits.push(pm.attrKey);
+  const testTxt=testBits.length?testBits.join(' + '):pm.rollCat;
+  const chips=[];
+  if(pm.hasSelfMod){
+    const isDis=pm.selfModKind==='dis';
+    chips.push(`<span class="inline-flex items-center rounded-md px-1.5 py-0.5 text-[10px] font-black tabular border ${isDis?'border-rose-500/45 bg-rose-500/15 text-rose-700 dark:text-rose-300':'border-emerald-500/45 bg-emerald-500/15 text-emerald-700 dark:text-emerald-300'}">${fmtSign(pm.selfModVal)}${isDis?'N':'V'}</span>`);
+  }
+  if(pm.dealsEgDmg){
+    const bonTxt=pm.dmgBonusVal?` ${fmtSign(pm.dmgBonusVal)}`:'';
+    const dtTxt=pm.replaceDmgType&&pm.dmgType?` → ${pm.dmgType}`:'';
+    const poolTxt=pm.dmgPool==='mlp'?' (mLP)':'';
+    chips.push(`<span class="inline-flex items-center rounded-md px-1.5 py-0.5 text-[10px] font-black tabular border border-amber-500/50 bg-amber-500/15 text-amber-700 dark:text-amber-300">💥 EG${esc(bonTxt)}${esc(dtTxt)}${poolTxt}</span>`);
+  }
+  if(pm.hasTargetMod){
+    const tIsDis=pm.targetModKind==='dis';
+    chips.push(`<span class="inline-flex items-center rounded-md px-1.5 py-0.5 text-[10px] font-black tabular border border-indigo-400/50 bg-indigo-500/15 text-indigo-700 dark:text-indigo-200">🎯 Ziel ${fmtSign(pm.targetModVal)}${tIsDis?'N':'V'}</span>`);
+  }
+  if(pm.useWeapon){
+    chips.push(`<span class="inline-flex items-center rounded-md px-1.5 py-0.5 text-[10px] font-black border border-cyan-400/50 bg-cyan-500/15 text-cyan-700 dark:text-cyan-200">⚔️ +Waffe</span>`);
+  }
+  return `<div class="flex flex-wrap items-center gap-1.5 pt-1 border-t border-white/10">
+    <button type="button" data-action="roll-power" data-kind="${kind}" data-id="${it.id}" data-tip="${esc(buildPwActionRollTooltip(it,pm))}" class="inline-flex items-center gap-1.5 rounded-lg px-2 py-0.5 text-[11px] font-extrabold border bdr-acc bg-acc-soft text-acc hover:brightness-110 transition-all cursor-pointer tabular">
+      <span>${rollIcon}</span>
+      <span>${esc(testTxt)}</span>
+      ${testBits.length?`<strong class="px-1 rounded bg-black/20">${pm.pool}</strong>`:''}
+    </button>
+    ${chips.join('')}
+  </div>`;
+}
+
 export function renderPwCard(kind,it,idx,listLen,opts={}){
   const isAug=kind==='augment', c=calcPwCost(it), gi=getGroupMspInfo(kind,it), colStyle=it.color?`style="color:${esc(it.color)}"`:'', winStyle=cardColorStyle(it);
   const linkedParent=isAug&&it.parentPowerId?S.powers.find(p=>p.id===it.parentPowerId):null;
@@ -354,16 +575,19 @@ export function renderPwCard(kind,it,idx,listLen,opts={}){
     <input data-pwf="${kind}:${it.id}:name" type="text" value="${esc(it.name)}" ${colStyle} placeholder="Name ${isAug?'des Augments':'der Kraft'}..." class="inp-line flex-1 min-w-0 sm:min-w-[140px] ${it.collapsed?'text-sm':'text-base'} font-extrabold"/>
     ${parentBadgeHtml}${viaParentBadgeHtml}</div>`;
   const stToksInCard=parseStatusTokens(it.effects), uCosts=Array.isArray(it.useCosts)?it.useCosts:(it.useRes&&toInt(it.useAmt,0)>0?[{res:it.useRes,amt:toInt(it.useAmt,0)}]:[]), costSummary=formatPwUseCosts(it), hasUseCost=Boolean(costSummary), canSpendPw=hasUseCost||stToksInCard.length>0;
+  const cardM=opts.M||calcActiveMods();
+  const pwRollMeta=it.actionRoll?.enabled?getPowerActionRollMeta(it,cardM,S):null;
+  const rollBtnHtml=pwRollMeta?`<button type="button" data-action="roll-power" data-kind="${kind}" data-id="${it.id}" data-tip="${esc(buildPwActionRollTooltip(it,pwRollMeta))}" class="btn btn-pri py-1 sm:py-0.5 px-2 text-[11px] font-black tabular shrink-0">🎲${pwRollMeta.pool?` ${pwRollMeta.pool}`:''}</button>`:'';
   const reservableCosts=getReservablePwCosts(it), isReserved=Boolean(it.reserved), activeResCosts=(isReserved&&Array.isArray(it.reservedCosts)&&it.reservedCosts.length)?it.reservedCosts:reservableCosts, resTxt=activeResCosts.map(rc=>`${rc.amt} ${getResLabel(rc.res)}`).join(' + ');
   const resChipHtml=isReserved?`<button type="button" data-action="toggle-reserve-pw" data-kind="${kind}" data-id="${it.id}" data-tip="Reservierung aufheben (verbrauchte Kosten werden nicht wiederhergestellt)" class="btn py-1 sm:py-0.5 px-2 text-[11px] bg-amber-500/25 border-amber-400 text-amber-300 font-black tabular shrink-0">🔒 ${esc(resTxt)} ✕</button>`:(it.collapsed&&reservableCosts.length>0?`<button type="button" data-action="toggle-reserve-pw" data-kind="${kind}" data-id="${it.id}" data-tip="Zieht reservierbare Einsatzkosten sofort ab und sperrt den Betrag vom Maximum (${esc(resTxt)})" class="btn py-1 sm:py-0.5 px-2 text-[11px] shrink-0">🔒</button>`:'');
   const tKey=getPwTierKey(it,isAug), tMeta=PW_TIERS[tKey]||PW_TIERS.marginal, tBadgeCls=PW_TIER_BADGE_CLS[tKey]||PW_TIER_BADGE_CLS.marginal;
   const tierBadgeHtml=`<span class="inline-flex items-center rounded-md px-1.5 py-0.5 text-[10px] font-extrabold border shrink-0 ${tBadgeCls}" data-tip="${esc(tMeta.full)}">${esc(tMeta.l)}</span>`;
   const artBadgeHtml=it.art?`<span class="tag text-[10px] py-0.5 px-1.5 shrink-0 ${curArtTipHdr?'cursor-help':''}" ${curArtTipHdr?`data-tip="${esc(curArtTipHdr)}"`:''}>${esc(it.art)}</span>`:'';
   const costPillHtml=`<span class="pill cursor-default text-[11px] py-0.5 px-2 tabular shrink-0">${c.sp} SP${c.msp?` + ${c.msp} MsP`:''}</span>`;
-  const spendBtnHtml=canSpendPw?`<button type="button" data-action="spend-pw" data-kind="${kind}" data-id="${it.id}" data-tip="${hasUseCost?`Einsatzkosten (${esc(costSummary)}) abziehen`:'Effekte / Status aktivieren'}" class="btn btn-pri py-1 sm:py-0.5 px-2 text-[11px] shrink-0">⚡ ${hasUseCost?esc(costSummary):'Einsetzen'}</button>`:'';
+  const spendBtnHtml=canSpendPw?`<button type="button" data-action="spend-pw" data-kind="${kind}" data-id="${it.id}" data-tip="${hasUseCost?`Einsatzkosten (${esc(costSummary)}) abziehen`:'Effekte / Status aktivieren'}" class="btn ${pwRollMeta?'border-amber-400/60 bg-amber-500/15 text-amber-700 dark:text-amber-300':'btn-pri'} py-1 sm:py-0.5 px-2 text-[11px] shrink-0">⚡ ${hasUseCost?esc(costSummary):'Einsetzen'}</button>`:'';
   const quickDoneBtnHtml=opts.isQuickEdit?`<button type="button" data-action="close-pw-quick-edit" data-kind="${kind}" data-id="${it.id}" data-tip="Einzelbearbeitung beenden und zurück in die kompakte Ansicht klappen" class="btn btn-ok py-1 sm:py-0.5 px-2.5 text-[11px] font-extrabold shrink-0">✓ Fertig</button>`:'';
   const hdrRight=`<div class="flex flex-wrap items-center gap-1.5 shrink-0 max-w-full">
-    ${quickDoneBtnHtml}${tierBadgeHtml}${artBadgeHtml}${costPillHtml}${spendBtnHtml}${resChipHtml}
+    ${quickDoneBtnHtml}${tierBadgeHtml}${artBadgeHtml}${costPillHtml}${rollBtnHtml}${spendBtnHtml}${resChipHtml}
     ${listLen>1?`<button type="button" data-action="${isAug?'move-aug':'move-pw'}" data-id="${it.id}" data-dir="-1" ${idx===0?'disabled':''} data-tip="Nach oben" class="hidden md:inline-flex btn py-1 px-2 text-xs">▲</button><button type="button" data-action="${isAug?'move-aug':'move-pw'}" data-id="${it.id}" data-dir="1" ${idx===listLen-1?'disabled':''} data-tip="Nach unten" class="hidden md:inline-flex btn py-1 px-2 text-xs">▼</button>`:''}
     <button type="button" data-action="open-pw-card-menu" data-kind="${kind}" data-id="${it.id}" aria-haspopup="menu" aria-expanded="false" aria-label="Aktionen für ${esc(it.name||(isAug?'Augment':'Kraft'))}" data-tip="Farben, Zuordnung, Duplizieren, Export, Kosten &amp; Löschen" class="btn w-9 h-9 sm:w-8 sm:h-8 p-0 text-base font-black shrink-0">⋮</button>
   </div>`;
@@ -373,7 +597,6 @@ export function renderPwCard(kind,it,idx,listLen,opts={}){
   }
 
   const statGroups=Array.isArray(opts.statGroups)?opts.statGroups:getStatGroups();
-  const cardM=opts.M||calcActiveMods();
   const isSkBld=it.bldMode==='skill', isDynBld=it.bldMode==='dyn';
   const sortedSkills=Array.isArray(opts.sortedSkills)?opts.sortedSkills:[...(S.skills||[])].filter(s=>s&&String(s.name||'').trim()).sort((a,b)=>String(a.name).trim().localeCompare(String(b.name).trim(),'de'));
   const selSkId=(it.bldSkId&&sortedSkills.some(s=>s.id===it.bldSkId))?it.bldSkId:(sortedSkills[0]?.id||'');
@@ -509,6 +732,7 @@ export function renderPwCard(kind,it,idx,listLen,opts={}){
         <div id="tokBar_${it.id}" class="flex flex-wrap items-center justify-between gap-2 mt-1.5">${buildTokBarInnerHtml(kind,it)}</div>
         ${(()=>{const prDef=UI.statusIniPromptKey&&stToksInCard.some(t=>t.statusKey===UI.statusIniPromptKey)?STATUS_DEFS.find(d=>d.k===UI.statusIniPromptKey):null;if(!prDef)return '';const pv=getStatusEffValues(prDef.k);return `<div class="mt-2 p-2.5 rounded-lg border border-amber-400/70 bg-amber-500/15 flex flex-wrap items-center justify-between gap-2 text-xs"><span class="font-extrabold text-amber-300">⚡ ${esc(prDef.name)} aktiviert: Initiative +${10*pv.stacks} oder −${10*pv.stacks} wählen?</span><div class="flex items-center gap-1.5"><button type="button" data-action="confirm-status-inidir" data-key="${prDef.k}" data-dir="1" class="btn py-0.5 px-2.5 text-xs font-black ${pv.iniDir>0?'bg-amber-500 text-slate-950 border-amber-400':'border-amber-400/50 text-amber-200'}">⚡ +${10*pv.stacks} Initiative</button><button type="button" data-action="confirm-status-inidir" data-key="${prDef.k}" data-dir="-1" class="btn py-0.5 px-2.5 text-xs font-black ${pv.iniDir<0?'bg-amber-500 text-slate-950 border-amber-400':'border-amber-400/50 text-amber-200'}">⚡ −${10*pv.stacks} Initiative</button></div></div>`;})()}
       </div>
+      ${renderPwActionRollEditor(kind,it,{M:cardM,sortedSkills})}
       <div class="rtf-wrap"><div class="flex flex-wrap items-center justify-between gap-1.5 mb-1"><label class="font-bold t-mut">Zusätzliche Regeln &amp; Infos</label>${renderRtfToolbarHtml(true)}</div><div contenteditable="true" id="rules_${it.id}" data-pwf="${kind}:${it.id}:rules" data-boxh="${kind}:${it.id}:rules" ${hR} data-ph="Reichweite, Dauer, Spezialregeln..." class="inp w-full autogrow rtf-box">${toRtfHtml(it.rules)}</div></div>
       ${(()=>{const dynPrevInner=buildDynPreviewBarInnerHtml(it,cardM);return `<div id="dynPrev_${it.id}" data-dyn-prev="${kind}:${it.id}" class="dyn-prev-bar${dynPrevInner?'':' hidden'}">${dynPrevInner}</div>`;})()}
     </div>
@@ -530,9 +754,12 @@ export function renderPwViewCard(kind,it,idx,listLen,opts={}){
   const augSecObj=(isAug&&!linkedParent&&opts.showSecBadge&&it.sectionId)?S.powerSections.find(s=>s.id===it.sectionId):null;
   const parentBadgeHtml=showParentBadge?`<span data-tip="${esc(`Verknüpft mit Kraft „${linkedParent.name||'Unbenannte Kraft'}“ (Zuordnung bleibt beim Filtern unverändert)`)}" class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border border-amber-400/60 bg-amber-500/20 text-amber-300 text-[10px] font-extrabold shrink-0 max-w-full sm:max-w-[220px] truncate">↳ ${esc(linkedParent.name||'Unbenannte Kraft')}</span>`:(augSecObj?`<span data-tip="${esc(`Freies Augment in Sektion „${augSecObj.name||'Sektion'}“`)}" class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border bdr-acc bg-acc-soft text-acc text-[10px] font-extrabold shrink-0 max-w-full sm:max-w-[200px] truncate">📁 ${esc(augSecObj.name||'Sektion')}</span>`:'');
   const viaParentBadgeHtml=viaParentPower?`<span data-tip="Mitangezeigt, weil die übergeordnete Hauptkraft dem Filter entspricht (erfüllt den Filter selbst nicht direkt)" class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border border-amber-500/35 bg-amber-500/10 text-amber-300/85 text-[10px] font-bold shrink-0">↳ gebunden</span>`:'';
+  const M=opts.M||calcActiveMods();
+  const pwRollMeta=it.actionRoll?.enabled?getPowerActionRollMeta(it,M,S):null;
   const stToksInCard=parseStatusTokens(it.effects), costSummary=formatPwUseCosts(it), hasUseCost=Boolean(costSummary), canSpendPw=hasUseCost||stToksInCard.length>0;
   const reservableCosts=getReservablePwCosts(it), isReserved=Boolean(it.reserved), activeResCosts=(isReserved&&Array.isArray(it.reservedCosts)&&it.reservedCosts.length)?it.reservedCosts:reservableCosts, resTxt=activeResCosts.map(rc=>`${rc.amt} ${getResLabel(rc.res)}`).join(' + ');
-  const spendBtnHtml=canSpendPw?`<button type="button" data-action="spend-pw" data-kind="${kind}" data-id="${it.id}" data-tip="${hasUseCost?`Einsatzkosten (${esc(costSummary)}) abziehen`:'Effekte / Status aktivieren'}" aria-label="${hasUseCost?`Einsetzen (${esc(costSummary)})`:'Einsetzen'}" class="btn btn-pri h-7 px-2 text-[11px] font-extrabold shrink-0 tabular">⚡${hasUseCost?` <span class="hidden sm:inline">${esc(costSummary)}</span>`:''}</button>`:'';
+  const rollBtnHtml=pwRollMeta?`<button type="button" data-action="roll-power" data-kind="${kind}" data-id="${it.id}" data-tip="${esc(buildPwActionRollTooltip(it,pwRollMeta))}" aria-label="${esc(dispName||(isAug?'Augment':'Kraft'))} im Würfelassistenten einsetzen" class="btn btn-pri h-7 px-2 text-[11px] font-black shrink-0 tabular">🎲${pwRollMeta.pool?` <span class="hidden sm:inline">${pwRollMeta.pool}</span>`:''}</button>`:'';
+  const spendBtnHtml=canSpendPw?`<button type="button" data-action="spend-pw" data-kind="${kind}" data-id="${it.id}" data-tip="${hasUseCost?`Einsatzkosten (${esc(costSummary)}) abziehen`:'Effekte / Status aktivieren'}" aria-label="${hasUseCost?`Einsetzen (${esc(costSummary)})`:'Einsetzen'}" class="btn ${pwRollMeta?'border-amber-400/60 bg-amber-500/15 text-amber-700 dark:text-amber-300':'btn-pri'} h-7 px-2 text-[11px] font-extrabold shrink-0 tabular">⚡${hasUseCost?` <span class="hidden sm:inline">${esc(costSummary)}</span>`:''}</button>`:'';
   const reserveBtnHtml=isReserved
     ?`<button type="button" data-action="toggle-reserve-pw" data-kind="${kind}" data-id="${it.id}" data-tip="Reservierung aufheben (${esc(resTxt)} – verbrauchte Kosten werden nicht wiederhergestellt)" class="btn h-7 px-2 text-[11px] bg-amber-500/25 border-amber-400 text-amber-300 font-black tabular shrink-0">🔒 ${esc(resTxt)} ✕</button>`
     :(reservableCosts.length>0?`<button type="button" data-action="toggle-reserve-pw" data-kind="${kind}" data-id="${it.id}" data-tip="Reservieren: zieht ${esc(resTxt)} sofort ab und sperrt den Betrag vom Maximum" aria-label="Reservieren (${esc(resTxt)})" class="btn h-7 w-7 p-0 text-[11px] shrink-0">🔒</button>`:'');
@@ -545,7 +772,7 @@ export function renderPwViewCard(kind,it,idx,listLen,opts={}){
       <span class="font-extrabold text-sm sm:text-[15px] leading-tight truncate min-w-0 ${dispName?'':'t-mut italic font-semibold'}" ${dispName?colStyle:''}>${dispName?esc(dispName):(isAug?'Unbenanntes Augment':'Unbenannte Kraft')}</span>
       ${parentBadgeHtml}${viaParentBadgeHtml}
     </div>
-    <div class="flex items-center gap-1 shrink-0 ml-auto">${spendBtnHtml}${reserveBtnHtml}${editBtnHtml}${menuBtnHtml}</div>
+    <div class="flex items-center gap-1 shrink-0 ml-auto">${rollBtnHtml}${spendBtnHtml}${reserveBtnHtml}${editBtnHtml}${menuBtnHtml}</div>
   </div>`;
   if(it.collapsed){
     return `<div ${isAug?`data-aug-card="${it.id}"`:''} class="card py-1.5 px-2.5 sm:px-3 ${isAug?'border-amber-500/45':''}${viaParentPower?' opacity-75 hover:opacity-100 transition-opacity':''}" ${winStyle}>${headerRow}</div>`;
@@ -561,7 +788,7 @@ export function renderPwViewCard(kind,it,idx,listLen,opts={}){
   const costBadgeHtml=hasUseCost?`<span class="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-black border border-amber-400/60 bg-amber-500/15 text-amber-300 tabular shrink-0" data-tip="Einsatzkosten">⚡ ${esc(costSummary)}</span>`:'';
   const hasMeta=metaPills.length>0||Boolean(costBadgeHtml);
   const metaRow=hasMeta?`<div class="flex flex-wrap items-center justify-between gap-1.5 pt-1 border-t bdr-line"><div class="flex flex-wrap items-center gap-1 min-w-0">${metaPills.join('')}</div>${costBadgeHtml}</div>`:'';
-  const M=opts.M||calcActiveMods();
+  const actionRollViewStrip=pwRollMeta?renderPwActionRollViewStrip(kind,it,pwRollMeta):'';
   const hasDesc=Boolean(stripHtml(it.desc).trim());
   const hasEffects=Boolean(stripHtml(it.effects).trim());
   const hasRules=Boolean(stripHtml(it.rules).trim());
@@ -587,6 +814,7 @@ export function renderPwViewCard(kind,it,idx,listLen,opts={}){
   return `<div ${isAug?`data-aug-card="${it.id}"`:''} class="card py-2 px-2.5 sm:px-3 space-y-1.5 ${isAug?'border-amber-500/45':''}${viaParentPower?' opacity-75 hover:opacity-100 transition-opacity':''}" ${winStyle}>
     ${headerRow}
     ${metaRow}
+    ${actionRollViewStrip}
     ${hasBody?`<div class="space-y-1.5 pt-1 border-t border-white/10">${descRow}${effectsRow}${rulesRow}</div>`:''}
   </div>`;
 }
@@ -1043,4 +1271,29 @@ export function addCustomPwTagFromInput(kind,id){
   if(inp) inp.value='';
   save(); hooks.renderMain?.();
 }
+
+export function addCustomDmgTypeFromPwInput(kind,id){
+  const it=findPwItem(kind,id); if(!it) return;
+  const inp=document.querySelector(`[data-pw-ar-newdt="${kind}:${id}"]`);
+  const raw=String(inp?.value||'').trim();
+  if(!raw) return;
+  const list=getSheetDmgTypeList(S);
+  const existing=list.find(t=>t.toLowerCase()===raw.toLowerCase());
+  const canon=existing||raw;
+  if(!existing){
+    S.dmgTypeList=[...list,canon];
+  }
+  it.actionRoll=normActionRoll(it.actionRoll);
+  it.actionRoll.enabled=true;
+  it.actionRoll.dealsEgDmg=true;
+  it.actionRoll.replaceDmgType=true;
+  it.actionRoll.dmgType=canon;
+  if(inp) inp.value='';
+  syncDiceFromSheet();
+  hooks.renderMain?.();
+  if(D.open) renderDice();
+  save();
+  toast(existing?`Schadenstyp „${canon}“ ausgewählt`:`Schadenstyp „${canon}“ zur Standardliste hinzugefügt & ausgewählt`);
+}
+
 

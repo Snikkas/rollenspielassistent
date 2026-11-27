@@ -1,5 +1,5 @@
 import {
-  DEF_WEAPON_TAGS, DEF_ARMOR_TAGS, ATTRS, DEF_ATTR_COLS, ATTR_GROUPS, STATUS_DEFS, DEF_SEC_COLS, DEF_ACTION_SUBS, DEF_PW_TAGS, DEF_USERES, TR_DEFS, SK_CATS, SK_RANKS, PW_TIERS, DEF_HZ, TABS, BIO_FIELDS, CRIT_SEQ, WEAPON_SUBTYPES, DEF_EQ_SEC_ORDER, DEF_CHR_SEC_ORDER, DICE_DEF, WIN_DEFAULTS, DEF_FB_FOLDERS, POWER_PACK_SCHEMA, DUAL_COL_TARGETS
+  DEF_WEAPON_TAGS, DEF_ARMOR_TAGS, ATTRS, DEF_ATTR_COLS, ATTR_GROUPS, STATUS_DEFS, DEF_SEC_COLS, DEF_ACTION_SUBS, DEF_PW_TAGS, DEF_USERES, DEF_DMG_TYPES, TR_DEFS, SK_CATS, SK_RANKS, PW_TIERS, DEF_HZ, TABS, BIO_FIELDS, CRIT_SEQ, WEAPON_SUBTYPES, DEF_EQ_SEC_ORDER, DEF_CHR_SEC_ORDER, DICE_DEF, WIN_DEFAULTS, DEF_FB_FOLDERS, POWER_PACK_SCHEMA, DUAL_COL_TARGETS
 } from './constants.js';
 import {
   $, uid, stamp, esc, clone, toInt, toFlt, fmtN, fmtSign, isHex, sortAlpha, stripHtml, cleanInlineStyles, simpleHash, sortTagDefs, canSetSecParent, sanitizeSecHierarchy
@@ -8,16 +8,16 @@ import {
   registerHooks
 } from './ui-hooks.js';
 import {
-  syncPwUseCostsLegacy, makeDefaultStatusEffects, defaultState, setS, setD, clearDiceLogs, syncBodyScrollLock, positionFloatingMenu, openCtxMenu, closeCtxMenu, closePwDropdown, repositionOpenPwMenus, hydrateWinPrefs, saveWinPref, clearWinPref, applyWinFrame, setPwMode, normalizeCampaigns, normalizeEnemyMeta, getUserBgLocalKey, getCampaigns, getActiveCampaigns, setActiveCampaign, canManageCampaign, canClearLiveDice, getCreatableCampaigns, isEnemySheet, getEnemyMeta, canToggleEnemyStatus, canManageEnemySheet, canViewEnemySheet, ensureAllRegistryUsers, findUserKeyByName, findUserKeyById, getUserAvatar, canViewUserProfile, saveRegistryLocal, saveSecretRollsLocal, getActiveLiveCampaignId, captureScrollState, restoreScrollState, toast, triggerNiceEasterEgg, logChron, mergeLoaded, saveLastActiveTab, save, flushPendingSave, saveSoon, load, flushThemePrefsSync, cancelThemePrefsSync, applySessionTheme, persistCurrentThemeChange, syncPalDraftFromSlot, applyTheme, CUSTOM_ICONS, findMainArt, findActionSub, isReservedPwTerm, getWeaponSubtype, isWeaponMassiv, isArmorShield, isWeaponBlockable, normDmgType, makeWeapon, makeAmmo, makeArmor, makeInvItem, makeEqSecMeta, makeChrSecMeta, makeSection, makeSkSection, makeInvSection, makePower, makeAugment, syncEquipmentToInventory, S, D, CN, LD, INI, FBW, DUEL, COMBAT, isMobileLayout, CTX_MENU, getWinState, hasSavedWinPref, savedEffRanges, savedPwRanges, lastPwFieldById, pwQuickKey, UI, LIVE_TAB_ID, PATCHNOTES, FEEDBACK, CLOUD, CLOUD_SYNC, PWLIB, getCharOwner, getCharCampaignId, canManageChar, getEditStyleSlot
+  syncPwUseCostsLegacy, makeDefaultStatusEffects, defaultState, setS, setD, clearDiceLogs, syncBodyScrollLock, positionFloatingMenu, openCtxMenu, closeCtxMenu, closePwDropdown, repositionOpenPwMenus, hydrateWinPrefs, saveWinPref, clearWinPref, applyWinFrame, setPwMode, normalizeCampaigns, normalizeEnemyMeta, getUserBgLocalKey, getCampaigns, getActiveCampaigns, setActiveCampaign, canManageCampaign, canClearLiveDice, getCreatableCampaigns, isEnemySheet, getEnemyMeta, canToggleEnemyStatus, canManageEnemySheet, canViewEnemySheet, ensureAllRegistryUsers, findUserKeyByName, findUserKeyById, getUserAvatar, canViewUserProfile, saveRegistryLocal, saveSecretRollsLocal, getActiveLiveCampaignId, captureScrollState, restoreScrollState, toast, triggerNiceEasterEgg, logChron, mergeLoaded, saveLastActiveTab, save, flushPendingSave, saveSoon, load, flushThemePrefsSync, cancelThemePrefsSync, applySessionTheme, persistCurrentThemeChange, syncPalDraftFromSlot, applyTheme, CUSTOM_ICONS, findMainArt, findActionSub, isReservedPwTerm, getWeaponSubtype, isWeaponMassiv, isArmorShield, isWeaponBlockable, normDmgType, normActionRoll, getSheetDmgTypeList, makeWeapon, makeAmmo, makeArmor, makeInvItem, makeEqSecMeta, makeChrSecMeta, makeSection, makeSkSection, makeInvSection, makePower, makeAugment, syncEquipmentToInventory, S, D, CN, LD, INI, FBW, DUEL, COMBAT, isMobileLayout, CTX_MENU, getWinState, hasSavedWinPref, savedEffRanges, savedPwRanges, lastPwFieldById, pwQuickKey, UI, LIVE_TAB_ID, PATCHNOTES, FEEDBACK, CLOUD, CLOUD_SYNC, PWLIB, getCharOwner, getCharCampaignId, canManageChar, getEditStyleSlot
 } from './state.js';
 import {
-  getStatusEffValues, formatPwUseCosts, getReservablePwCosts, getEffectivePoolCap, getPwBuilderToken, parseStatusTokens, getAllParsedEffectChips, invalidateModsCache, calcActiveMods, buildAttrTip, buildSecTip, getMentalArmorSummary, syncCresRenameInTokens, syncSkillRenameInTokens, purgeExtraSecFromPowers, calcAutoSkCost, findDuplicatePwEntry, makeUniquePwName, updatePwNameDupHint, enforceUniquePwName, buildPowerExportPack, downloadPowerPackJson, resolveLibraryAugmentParentName, getSuggestedAugmentsForPower, importPowerPackIntoSheet, getTrCost, performSimpleRest, performFullRest, withPoolSync, linkAugToPower, unlinkAugFromPower, calcPwCost, calcSkCost, calcProg, getWeaponRollMeta, getShieldRollMeta, getSheetBlockOptions, getEquippedWeaponsForSkill, getEquippedShieldsForSkill, formatBlockModShort, getWeaponDualWieldInfo, getHandAllocationInfo, getTagDesc, cresName, makeExtraSec, getExtraSecName, getResLabel, escReStr, getAttrCol, getSecCol, getAttrTot, getLpBase, getLpMax, getMlpBase, getMlpMax, getLpRegenAuto, getMlpRegenAuto, hasLpRegenOvr, hasMlpRegenOvr, getLpRegen, getMlpRegen, getIniBase, getIniTot, getApBase, getApMax, getMapBase, getMapMax, getCresBase, getCresMax, getExtraSecBase, getBstAuto, hasBstOvr, getBstBase, getEffBst, getSkAutoBonus, hasSkBonusOvr, getSkBonus, findPwItem, findEqItem, getLinkedAugs, getValidPwSecId, getDefaultHitZoneSize
+  getStatusEffValues, formatPwUseCosts, getReservablePwCosts, getEffectivePoolCap, getPwBuilderToken, parseStatusTokens, getAllParsedEffectChips, invalidateModsCache, calcActiveMods, buildAttrTip, buildSecTip, getMentalArmorSummary, syncCresRenameInTokens, syncSkillRenameInTokens, purgeExtraSecFromPowers, calcAutoSkCost, findDuplicatePwEntry, makeUniquePwName, updatePwNameDupHint, enforceUniquePwName, buildPowerExportPack, downloadPowerPackJson, resolveLibraryAugmentParentName, getSuggestedAugmentsForPower, importPowerPackIntoSheet, getTrCost, performSimpleRest, performFullRest, withPoolSync, linkAugToPower, unlinkAugFromPower, calcPwCost, calcSkCost, calcProg, getWeaponRollMeta, getShieldRollMeta, getSheetBlockOptions, getEquippedWeaponsForSkill, getEquippedShieldsForSkill, formatBlockModShort, getWeaponDualWieldInfo, getHandAllocationInfo, getTagDesc, cresName, makeExtraSec, getExtraSecName, getResLabel, escReStr, getAttrCol, getSecCol, getAttrTot, getLpBase, getLpMax, getMlpBase, getMlpMax, getLpRegenAuto, getMlpRegenAuto, hasLpRegenOvr, hasMlpRegenOvr, getLpRegen, getMlpRegen, getIniBase, getIniTot, getApBase, getApMax, getMapBase, getMapMax, getCresBase, getCresMax, getExtraSecBase, getBstAuto, hasBstOvr, getBstBase, getEffBst, getSkAutoBonus, hasSkBonusOvr, getSkBonus, findPwItem, findEqItem, getLinkedAugs, getValidPwSecId, getDefaultHitZoneSize, resolvePowerActionSkill
 } from './calc.js';
 import {
   updateLobbyLiveDiceDOM, initLiveDiceChannel, publishLiveRoll, revealSecretRoll, publishLiveCampNote, clearLiveDiceFeed, syncCloudRegistry, renameUserAccount, addCampaignAllowedUser, removeCampaignAllowedUser, archiveCampaignById, restoreCampaignById, deleteCampaignById, toggleGlobalGMTag, addCampaignMainGM, removeCampaignMainGM, kickCharFromCampaign, duplicateCharacterSheet, getCampaignSharedPages, extractPublicPages, upsertPublicNoteEntry, fetchLobbyList, fetchForeignCharacterSheet, canWriteCurrentSheetToCloud, resetCloudSyncState, updateCloudSyncStatusDOM, scheduleCloudSync, pushToCloud, flushCloudSyncNow, flushBeforeCharacterSwitch, loadCloudCharacter, createNewUserCharacter, updateCloudCharacterMeta, fetchTrashedCharacters, deleteCloudCharacter, restoreTrashedCharacter, permanentDeleteTrashedCharacter, emptyTrashedCharacters, updateEnemyMetaCloud, createNewEnemyOrTemplate, toggleEnemyActiveStatus, toggleEnemyCampaignAssignment, toggleEnemyDiceVisibility, hideAllEnemiesInCampaignDice, toggleEnemyArchived, cloneEnemyToCampaign, stripLibraryPackMeta, getAllLibraryPacks, fetchPowerLibrary, publishPackToCloudLibrary, deletePackFromCloudLibrary, parsePatchnoteTsMs, getNewestPatchnoteId, isPatchnoteCollapsed, normalizePatchnoteEntry, fetchPatchnotes, savePatchnotesToServer, fetchFeedback, saveFeedbackStore, loadCustomIconsCache, fetchCustomIcons, saveCustomIconsToServer, loadNotifSeen, saveNotifSeen, markNotifRead, markAllNotifsRead, updateNotifBadges, refreshUserNotificationsBg, fetchAndSyncBasisPowers, isSecretRollActive
 } from './cloud.js';
 import {
-  resetDiceToLobbyNeutral, exitLobbyNeutralDice, ensureLobbyNeutralDiceOnOpen, applyDiceAutoAdvDis, calcThreshold, openWeaponRoll, openShieldRoll, selectDiceWeapon, syncDiceFromSheet, buildAdvDisInnerHtml, renderDice, renderLiveDice, rollW100, renderBlockFollowUpBox, executeBlockFollowUpRoll, executeDiceRoll, rollCustomDice, getCSkVal, getDSkVal, getEffC, getEffD, isLobbyNeutralDice, calcEgMultiplier, buildThresholdInnerHtml, activateVsCharMode, selectDiceOpponent, resolveOpponentComparison, resolveDiceAimInfo
+  resetDiceToLobbyNeutral, exitLobbyNeutralDice, ensureLobbyNeutralDiceOnOpen, applyDiceAutoAdvDis, calcThreshold, openWeaponRoll, openShieldRoll, openPowerRoll, selectDiceWeapon, selectDicePower, syncDiceFromSheet, buildAdvDisInnerHtml, renderDice, renderLiveDice, rollW100, renderBlockFollowUpBox, executeBlockFollowUpRoll, executeDiceRoll, rollCustomDice, getCSkVal, getDSkVal, getEffC, getEffD, isLobbyNeutralDice, calcEgMultiplier, buildThresholdInnerHtml, activateVsCharMode, selectDiceOpponent, resolveOpponentComparison, resolveDiceAimInfo
 } from './dice.js';
 import {
   renderDuelBanner
@@ -41,7 +41,7 @@ import {
   buildSkRollBtnMeta, moveSkillOrder, moveSkSecOrder, openSkMenu, openSkSecMenu, buildSkMobRankBtnMeta, buildSkMobCostPillMeta, openSkRankMenu, tplSkills, upsertSkill
 } from './tabs/skills.js';
 import {
-  buildTokBarInnerHtml, updatePwDynPreviewDOM, refreshTab3DynamicDOM, updatePwBuilderChipDOM, movePwSecOrder, movePwOrder, moveAugOrder, openPwCardMenu, openPwSecMenu, tplPowers, spendResource, addCustomPwTagFromInput
+  buildTokBarInnerHtml, updatePwDynPreviewDOM, refreshTab3DynamicDOM, updatePwBuilderChipDOM, movePwSecOrder, movePwOrder, moveAugOrder, openPwCardMenu, openPwSecMenu, tplPowers, spendResource, addCustomPwTagFromInput, addCustomDmgTypeFromPwInput
 } from './tabs/powers.js';
 import {
   buildPwCatPillsHtml, moveChrSecOrder, moveChrPwOrder, openChrSecMenu, openChrPwMenu, tplChronicle, applyEp
@@ -765,6 +765,10 @@ document.addEventListener('click',async e=>{
         syncDiceFromSheet();
       }else if(lt==='pwTag'||lt==='subcat'){
         S.pwTagList=(S.pwTagList||DEF_PW_TAGS).filter(x=>x!==v);
+      }else if(lt==='dmgTypes'){
+        const next=getSheetDmgTypeList(S).filter(x=>x!==v);
+        if(next.length){S.dmgTypeList=next;}
+        else{S.dmgTypeList=[...DEF_DMG_TYPES];toast('Standard-Schadenstypen wiederhergestellt (Liste darf nicht leer sein)');}
       }else{
         const k={useRes:'useResList',customStats:'customStats'}[lt];
         if(k) S[k]=S[k].filter(x=>x!==v);
@@ -773,6 +777,7 @@ document.addEventListener('click',async e=>{
     }
     case 'reset-list':
       if(UI.listType==='pwTag'||UI.listType==='subcat'){S.pwTagList=[...DEF_PW_TAGS];}
+      else if(UI.listType==='dmgTypes'){S.dmgTypeList=[...DEF_DMG_TYPES];}
       else if(UI.listType==='useRes')S.useResList=[...DEF_USERES];
       else if(UI.listType==='weaponTags'){S.weaponTagList=clone(DEF_WEAPON_TAGS);invalidateModsCache();syncDiceFromSheet();}
       else if(UI.listType==='armorTags'){S.armorTagList=clone(DEF_ARMOR_TAGS);invalidateModsCache();syncDiceFromSheet();}
@@ -840,7 +845,7 @@ document.addEventListener('click',async e=>{
       if(!isSecretRollActive()) toast(`🔍 Detailzone (${hzHit.zone}): W100 = ${r2} → ${S.lastSubHzZone}`);
       break;
     }
-    case 'roll-attr': {const k=el.dataset.attr,v=getAttrTot(k);D.weaponId=null;D.shieldId=null;D.wRollCat='Normaler Test';D.skillId=null;D.attrKey=k;D.prepPaused=false;D.critOff=0;D.sitActive={};D.cMode='breakdown';D.cAttr=v;D.cSkill='0';D.cDirect=v;D.label=`Normaler Test: ${k} (${v})`;applyDiceAutoAdvDis(true);D.open=true;renderHeader();renderDice();break;}
+    case 'roll-attr': {const k=el.dataset.attr,v=getAttrTot(k);D.weaponId=null;D.shieldId=null;D.powerKind=null;D.powerId=null;D.wRollCat='Normaler Test';D.skillId=null;D.attrKey=k;D.prepPaused=false;D.critOff=0;D.sitActive={};D.cMode='breakdown';D.cAttr=v;D.cSkill='0';D.cDirect=v;D.label=`Normaler Test: ${k} (${v})`;applyDiceAutoAdvDis(true);D.open=true;renderHeader();renderDice();break;}
     case 'toggle-sk-edit': {
       const sid=el.dataset.id;
       if(UI.editSkNameId===sid){
@@ -864,7 +869,7 @@ document.addEventListener('click',async e=>{
       if(!sk) break;
       const startNormalSkillRoll=()=>{
         const ak=sk.linkedAttr||'PR',av=getAttrTot(ak),b=getSkBonus(sk);
-        D.weaponId=null;D.shieldId=null;D.wRollCat='Normaler Test';D.dualWieldOvr='auto';D.skillId=sk.id;D.attrKey=ak;D.prepPaused=false;D.critOff=0;D.sitActive={};
+        D.weaponId=null;D.shieldId=null;D.powerKind=null;D.powerId=null;D.wRollCat='Normaler Test';D.dualWieldOvr='auto';D.skillId=sk.id;D.attrKey=ak;D.prepPaused=false;D.critOff=0;D.sitActive={};
         D.cMode='breakdown';D.cAttr=av;
         if(['0','10','15','20','30'].includes(String(b))){D.cSkill=String(b);}else{D.cSkill='custom';D.cCustom=b;}
         D.cDirect=av+b;
@@ -938,6 +943,8 @@ document.addEventListener('click',async e=>{
     }
     case 'roll-weapon': openWeaponRoll(el.dataset.id,el.dataset.wcat); break;
     case 'roll-shield': openShieldRoll(el.dataset.id,el.dataset.wcat); break;
+    case 'roll-power': openPowerRoll(el.dataset.kind,el.dataset.id); break;
+    case 'dice-clear-power': selectDicePower('__none__'); break;
     case 'set-dice-dw-ovr': {
       const ovr=['auto','off','main','offhand'].includes(el.dataset.ovr)?el.dataset.ovr:'auto';
       D.dualWieldOvr=ovr;
@@ -958,7 +965,7 @@ document.addEventListener('click',async e=>{
       }else if(wc==='Parieren'&&D.shieldId){
         D.shieldId=null;
         D.wpEditOpen=false;
-      }else if(wc==='Blocken'&&!isLobbyNeutralDice()){
+      }else if(wc==='Blocken'&&!isLobbyNeutralDice()&&!D.powerId){
         const curSh=D.shieldId?(S.armors||[]).find(a=>a.id===D.shieldId&&isArmorShield(a)):null;
         const curWp=D.weaponId?(S.weapons||[]).find(w=>w.id===D.weaponId):null;
         const curWpBlockable=Boolean(curWp&&isWeaponBlockable(curWp));
@@ -1026,8 +1033,8 @@ document.addEventListener('click',async e=>{
       break;
     }
     case 'toggle-dice-sit': {const sk=el.dataset.sit;if(sk){if(!D.sitActive)D.sitActive={};D.sitActive[sk]=!D.sitActive[sk];applyDiceAutoAdvDis(false);renderDice();}break;}
-    case 'dice-pick-lobby-attr': {const ak=el.dataset.attr||'ST';D.cAttr=50;D.cDirect=D.cMode==='breakdown'?50+getCSkVal():50;D.label='Freie Probe: '+ak+' (50)';D.attrKey=null;D.skillId=null;D.weaponId=null;D.shieldId=null;applyDiceAutoAdvDis(false);renderDice();break;}
-    case 'dice-pick-attr': {if(isLobbyNeutralDice()){const ak=el.dataset.attr||'ST';D.cAttr=50;D.cDirect=D.cMode==='breakdown'?50+getCSkVal():50;D.label='Freie Probe: '+ak+' (50)';D.attrKey=null;D.skillId=null;D.weaponId=null;D.shieldId=null;applyDiceAutoAdvDis(false);renderDice();break;}const k=el.dataset.attr,av=getAttrTot(k);D.attrKey=k;if(D.weaponId||D.shieldId){D.cMode='breakdown';syncDiceFromSheet();}else if(D.skillId){const sk=S.skills.find(x=>x.id===D.skillId);if(sk){const b=getSkBonus(sk);D.cMode='breakdown';D.cAttr=av;if(['0','10','15','20','30'].includes(String(b))){D.cSkill=String(b);}else{D.cSkill='custom';D.cCustom=b;}D.cDirect=av+b;D.label=`${sk.name} (${fmtSign(b)}) + ${k} (${av})`;applyDiceAutoAdvDis(false);}}else{D.cMode='breakdown';D.cAttr=av;D.cSkill='0';D.cDirect=av;D.label=`Attributsprobe: ${k} (${av})`;applyDiceAutoAdvDis(false);}renderDice();break;}
+    case 'dice-pick-lobby-attr': {const ak=el.dataset.attr||'ST';D.cAttr=50;D.cDirect=D.cMode==='breakdown'?50+getCSkVal():50;D.label='Freie Probe: '+ak+' (50)';D.attrKey=null;D.skillId=null;D.weaponId=null;D.shieldId=null;D.powerKind=null;D.powerId=null;applyDiceAutoAdvDis(false);renderDice();break;}
+    case 'dice-pick-attr': {if(isLobbyNeutralDice()){const ak=el.dataset.attr||'ST';D.cAttr=50;D.cDirect=D.cMode==='breakdown'?50+getCSkVal():50;D.label='Freie Probe: '+ak+' (50)';D.attrKey=null;D.skillId=null;D.weaponId=null;D.shieldId=null;D.powerKind=null;D.powerId=null;applyDiceAutoAdvDis(false);renderDice();break;}const k=el.dataset.attr,av=getAttrTot(k);D.attrKey=k;if(D.weaponId||D.shieldId||D.powerId){D.cMode='breakdown';syncDiceFromSheet();}else if(D.skillId){const sk=S.skills.find(x=>x.id===D.skillId);if(sk){const b=getSkBonus(sk);D.cMode='breakdown';D.cAttr=av;if(['0','10','15','20','30'].includes(String(b))){D.cSkill=String(b);}else{D.cSkill='custom';D.cCustom=b;}D.cDirect=av+b;D.label=`${sk.name} (${fmtSign(b)}) + ${k} (${av})`;applyDiceAutoAdvDis(false);}}else{D.cMode='breakdown';D.cAttr=av;D.cSkill='0';D.cDirect=av;D.label=`Attributsprobe: ${k} (${av})`;applyDiceAutoAdvDis(false);}renderDice();break;}
     case 'set-sk-rank': {const sk=S.skills.find(x=>x.id===el.dataset.id),rk=+el.dataset.rank;if(sk){sk.rank=sk.rank===rk?rk-1:rk;if(!sk.manualCost){const auto=calcAutoSkCost(sk.category,sk.rank);sk.customSp=auto.sp;sk.customMsp=auto.msp;}logChron(`Fertigkeit "${sk.name}" → ${SK_RANKS[sk.rank].n}.`);syncDiceFromSheet();renderAll();}break;}
     case 'open-sk-rank-menu': openSkRankMenu(el,el.dataset.id); break;
     case 'toggle-sk-mob-exp': {const sid=el.dataset.id;if(sid){if(!UI.skMobExp)UI.skMobExp={};UI.skMobExp[sid]=!UI.skMobExp[sid];renderMain();}break;}
@@ -1353,6 +1360,92 @@ document.addEventListener('click',async e=>{
     }
     case 'add-custom-pw-tag': {
       addCustomPwTagFromInput(el.dataset.kind,el.dataset.id);
+      break;
+    }
+    case 'toggle-pw-ar': {
+      const it=findPwItem(el.dataset.kind,el.dataset.id);
+      if(it){
+        it.actionRoll=normActionRoll(it.actionRoll);
+        it.actionRoll.enabled=!it.actionRoll.enabled;
+        if(!it.actionRoll.enabled&&D.powerId===it.id){
+          D.powerKind=null;D.powerId=null;
+        }
+        syncDiceFromSheet();
+        renderMain();
+        if(D.open) renderDice();
+        save();
+      }
+      break;
+    }
+    case 'pw-ar-add-block': {
+      const it=findPwItem(el.dataset.kind,el.dataset.id), blk=el.dataset.block;
+      if(it){
+        const ar=normActionRoll(it.actionRoll);
+        ar.enabled=true;
+        if(blk==='selfMod'){ar.hasSelfMod=true;if(!ar.selfModVal||ar.selfModVal<1)ar.selfModVal=1;}
+        else if(blk==='egDmg'){ar.dealsEgDmg=true;if(ar.rollCat==='Normaler Test')ar.rollCat='Trefferwurf';}
+        else if(blk==='replaceDmgType'){
+          ar.dealsEgDmg=true;ar.replaceDmgType=true;
+          if(ar.rollCat==='Normaler Test')ar.rollCat='Trefferwurf';
+          if(!ar.dmgType) ar.dmgType=getSheetDmgTypeList(S)[0]||'Feuer';
+        }
+        else if(blk==='targetMod'){ar.hasTargetMod=true;if(!ar.targetModVal||ar.targetModVal<1)ar.targetModVal=1;}
+        else if(blk==='useWeapon'){ar.useWeapon=true;}
+        it.actionRoll=ar;
+        if(D.powerId===it.id&&(blk==='egDmg'||blk==='replaceDmgType')) D.wRollCat=ar.rollCat;
+        syncDiceFromSheet();
+        renderMain();
+        if(D.open) renderDice();
+        save();
+      }
+      break;
+    }
+    case 'pw-ar-rm-block': {
+      const it=findPwItem(el.dataset.kind,el.dataset.id), blk=el.dataset.block;
+      if(it){
+        const ar=normActionRoll(it.actionRoll);
+        if(blk==='selfMod') ar.hasSelfMod=false;
+        else if(blk==='egDmg'){ar.dealsEgDmg=false;ar.replaceDmgType=false;}
+        else if(blk==='replaceDmgType') ar.replaceDmgType=false;
+        else if(blk==='targetMod') ar.hasTargetMod=false;
+        else if(blk==='useWeapon'){ar.useWeapon=false;if(D.powerId===it.id){D.weaponId=null;D.shieldId=null;}}
+        it.actionRoll=ar;
+        syncDiceFromSheet();
+        renderMain();
+        if(D.open) renderDice();
+        save();
+      }
+      break;
+    }
+    case 'pw-ar-step': {
+      const it=findPwItem(el.dataset.kind,el.dataset.id), f=el.dataset.field, d=toInt(el.dataset.d,0);
+      if(it&&(f==='selfModVal'||f==='targetModVal')){
+        const ar=normActionRoll(it.actionRoll);
+        ar[f]=Math.max(1,Math.min(10,toInt(ar[f],1)+d));
+        it.actionRoll=ar;
+        syncDiceFromSheet();
+        renderMain();
+        if(D.open) renderDice();
+        save();
+      }
+      break;
+    }
+    case 'pw-ar-set-pool': {
+      const it=findPwItem(el.dataset.kind,el.dataset.id), pl=el.dataset.pool==='mlp'?'mlp':'lp';
+      if(it){
+        const ar=normActionRoll(it.actionRoll);
+        ar.dmgPool=pl;
+        it.actionRoll=ar;
+        if(D.powerId===it.id) D.atkPool=pl;
+        syncDiceFromSheet();
+        renderMain();
+        if(D.open) renderDice();
+        save();
+      }
+      break;
+    }
+    case 'pw-ar-add-dmgtype': {
+      addCustomDmgTypeFromPwInput(el.dataset.kind,el.dataset.id);
       break;
     }
     case 'set-pw-bld-mode': {
@@ -4383,6 +4476,17 @@ document.addEventListener('input',e=>{
     }
     return;
   }
+  if(el.dataset.pwArInp){
+    const [kind,id,f]=el.dataset.pwArInp.split(':'), it=findPwItem(kind,id);
+    if(it&&f==='dmgBonus'){
+      it.actionRoll=normActionRoll(it.actionRoll);
+      it.actionRoll.dmgBonus=String(el.value??'');
+      syncDiceFromSheet();
+      if(D.open) renderDice();
+      saveSoon();
+    }
+    return;
+  }
   if(el.dataset.pwf){
     const [kind,id,f]=el.dataset.pwf.split(':'),it=findPwItem(kind,id);
     if(it){
@@ -4904,6 +5008,39 @@ document.addEventListener('change',e=>{
     updateCloudCharacterMeta(cid,d=>{d.campaignId=effCampId;if(d._summary)d._summary.campaignId=effCampId;},`🗺️ „${charName}“ in „${targetCamp.name}“ verschoben!`);
     return;
   }
+  if(el.dataset.dicePowerSel){selectDicePower(el.value);return;}
+  if(el.dataset.pwArInp){renderMain();if(D.open)renderDice();save();return;}
+  if(el.dataset.pwArSel){
+    const [kind,id,f]=el.dataset.pwArSel.split(':'), it=findPwItem(kind,id);
+    if(it){
+      const ar=normActionRoll(it.actionRoll);
+      const v=String(el.value??'');
+      if(f==='rollCat'){
+        ar.rollCat=['Normaler Test','Trefferwurf','Parieren','Blocken','Ausweichen'].includes(v)?v:'Normaler Test';
+        if(D.powerId===it.id) D.wRollCat=ar.rollCat;
+      }else if(f==='skillId'){
+        ar.skillId=v;
+        const sk=(S.skills||[]).find(s=>s.id===v);
+        ar.skillName=sk?String(sk.name||'').trim():'';
+        if(D.powerId===it.id) D.skillId=sk?sk.id:null;
+      }else if(f==='attrKey'){
+        ar.attrKey=ATTRS.some(a=>a.k===v)?v:'';
+        if(D.powerId===it.id) D.attrKey=ar.attrKey||(resolvePowerActionSkill(ar,S)?.linkedAttr||null);
+      }else if(f==='selfModKind'){
+        ar.selfModKind=v==='dis'?'dis':'adv';
+      }else if(f==='dmgType'){
+        ar.dmgType=v.trim();
+      }else if(f==='targetModKind'){
+        ar.targetModKind=v==='adv'?'adv':'dis';
+      }
+      it.actionRoll=ar;
+      syncDiceFromSheet();
+      renderMain();
+      if(D.open) renderDice();
+      save();
+    }
+    return;
+  }
   if(el.dataset.diceWeaponSel){selectDiceWeapon(el.value);return;}
   if(el.dataset.diceWpEdit){
     const f=el.dataset.diceWpEdit, wid=el.dataset.wid;
@@ -5168,6 +5305,13 @@ document.addEventListener('submit',e=>{
       const canon=DEF_PW_TAGS.find(t=>t.toLowerCase()===val.toLowerCase())||val;
       S.pwTagList=sortAlpha([...(S.pwTagList||DEF_PW_TAGS),canon].filter(t=>!isReservedPwTerm(t)));
       
+    }else if(UI.listType==='dmgTypes'){
+      const list=getSheetDmgTypeList(S);
+      if(!list.some(t=>t.toLowerCase()===val.toLowerCase())){
+        list.push(val);
+        S.dmgTypeList=list;
+      }
+      if(D.open) renderDice();
     }else if(UI.listType==='useRes'&&!S.useResList.includes(val)) S.useResList.push(val);
     else if(UI.listType==='customStats') S.customStats=sortAlpha([...S.customStats,val]);
     renderMain(); renderModal(); save();
@@ -6171,6 +6315,12 @@ document.addEventListener('keydown',e=>{
     e.preventDefault();
     const [kind,id]=e.target.dataset.newPwTagInp.split(':');
     addCustomPwTagFromInput(kind,id);
+    return;
+  }
+  if(e.key==='Enter'&&e.target?.dataset?.pwArNewdt){
+    e.preventDefault();
+    const [kind,id]=e.target.dataset.pwArNewdt.split(':');
+    addCustomDmgTypeFromPwInput(kind,id);
     return;
   }
   const rtf=e.target.closest?.('[contenteditable="true"]');

@@ -11,7 +11,7 @@ import {
   applyWinFrame, renderWinCtrlBtns, renderWinResizeHandles, getCampaigns, isUserInCampaign, canManageCampaign, getActiveLiveCampaignId, getCampaignFilteredDiceFeed, getInitiativeCampaignsForChar, isCharInCampaignInitiative, captureScrollState, restoreScrollState, save, getWeaponSubtype, isWeaponMassiv, isWeaponBlockable, isArmorShield, getEffectiveBlockZoneLabel, normDmgType, getMeleeAttrDmgType, getDmgTypeLabel, S, D, LD, diceLogs, isMobileLayout, UI, LIVE_TAB_ID, CLOUD, getCharCampaignId, isEnemySheet, getEnemyMeta, isEnemyDiceVisibleInCampaign, canSeeEnemyInDice, shouldHideOpponentDetails
 } from './state.js';
 import {
-  calcActiveMods, getAdvDisForContext, getWeaponRollMeta, getShieldRollMeta, getSheetShields, getSheetBlockOptions, resolveCombatItemByRef, formatBlockModShort, formatBlockModLong, getWeaponDualWieldInfo, getHandAllocationInfo, fmtAdvSrcLines, getAttrTot, getSkBonus, getCharSizeInfo, getRelativeSizeHitMod, normHitZoneSize, getHitZoneSizeMeta
+  calcActiveMods, getAdvDisForContext, getWeaponRollMeta, getShieldRollMeta, getPowerActionRollMeta, getRollablePowersList, findPwItem, formatPwUseCosts, parseStatusTokens, getSheetShields, getSheetBlockOptions, resolveCombatItemByRef, formatBlockModShort, formatBlockModLong, getWeaponDualWieldInfo, getHandAllocationInfo, fmtAdvSrcLines, getAttrTot, getSkBonus, getCharSizeInfo, getRelativeSizeHitMod, normHitZoneSize, getHitZoneSizeMeta
 } from './calc.js';
 import {
   renderLobbyLiveDiceHtml, publishLiveRoll, formatSecretRollSummary, isSecretRollActive, getCachedForeignSheet, getForeignSheetLoadedAt, isForeignSheetLoading, getForeignSheetError, fetchForeignCharacterSheet, fetchLobbyList
@@ -446,9 +446,17 @@ export function getEffectiveDiceShieldId(){
   if(!doesWeaponApplyToPool(sh, D.atkPool, D.wRollCat)) return null;
   return sh.id;
 }
+export function getEffectiveDicePower(M=null){
+  if(isLobbyNeutralDice() || !D.powerId) return null;
+  const kind = D.powerKind === 'augment' ? 'augment' : 'power';
+  const item = findPwItem(kind, D.powerId);
+  if(!item || !item.actionRoll?.enabled) return null;
+  const meta = getPowerActionRollMeta(item, M, S);
+  return { kind, item, meta };
+}
 export function resetDiceToLobbyNeutral(){
   hooks.resetCombatState?.();
-  D.weaponId=null; D.shieldId=null; D.skillId=null; D.attrKey=null; D.wRollCat='Normaler Test'; D.atkPool='lp'; D.dualWieldOvr='auto'; D.aimActive=false; D.aimZone=''; D.aimSizeOvr='auto'; D.wpEditOpen=false; D.sitActive={}; D.oppSitActive={}; D.prepPaused=false; D.critOff=0; D.advAdj=0; D.disAdj=0; D.adv=0; D.dis=0;
+  D.weaponId=null; D.shieldId=null; D.powerKind=null; D.powerId=null; D.skillId=null; D.attrKey=null; D.wRollCat='Normaler Test'; D.atkPool='lp'; D.dualWieldOvr='auto'; D.aimActive=false; D.aimZone=''; D.aimSizeOvr='auto'; D.wpEditOpen=false; D.sitActive={}; D.oppSitActive={}; D.prepPaused=false; D.critOff=0; D.advAdj=0; D.disAdj=0; D.adv=0; D.dis=0;
   D.label='Freie Probe (Lobby)';
   D.cMode='direct'; D.cDirect=50; D.cAttr=50; D.cSkill='0';
   D.dMode='direct'; D.dDirect=40; D.oppCharId='';
@@ -459,7 +467,7 @@ export function exitLobbyNeutralDice(){
   if(D.label==='Freie Probe (Lobby)') D.label='Freie Probe';
 }
 export function ensureLobbyNeutralDiceOnOpen(){
-  if(isLobbyNeutralDice()&&(!D._lobbyNeutral||D.weaponId||D.shieldId||D.skillId||D.attrKey)){
+  if(isLobbyNeutralDice()&&(!D._lobbyNeutral||D.weaponId||D.shieldId||D.powerId||D.skillId||D.attrKey)){
     resetDiceToLobbyNeutral();
   }
 }
@@ -492,20 +500,22 @@ export function applyDiceAutoAdvDis(resetManual=false,M=isLobbyNeutralDice()?{te
   const normCat=D.wRollCat==='Parade'?'Parieren':D.wRollCat;
   const effCat=['Normaler Test','Trefferwurf','Parieren','Blocken','Ausweichen'].includes(normCat)?normCat:(D.weaponId?'Trefferwurf':D.shieldId?'Blocken':'Normaler Test');
   D.wRollCat=effCat;
-  const effWeaponId=getEffectiveDiceWeaponId();
-  const effShieldId=getEffectiveDiceShieldId();
+  const effPw=getEffectiveDicePower(M);
+  const effWeaponId=(effPw&&!effPw.meta.useWeapon)?null:getEffectiveDiceWeaponId();
+  const effShieldId=(effPw&&!effPw.meta.useWeapon)?null:getEffectiveDiceShieldId();
   const opp=D.dMode==='character'?resolveOpponentComparison(effCat):null;
   const oppDefCat=(opp&&opp.ready)?opp.oppRollCat:'';
   const r1=isLobbyNeutralDice()
-    ?{autoAdv:0,autoDis:0,rawAutoAdv:0,rawAutoDis:0,src:[],autoCrit:0,critSrc:[],autoRollMod:0,rollModSrc:[],sitOptions:[],matchedPrep:null,pausedPrep:null}
-    :getAdvDisForContext({weaponId:effWeaponId,shieldId:effShieldId,wRollCat:effCat,skillId:D.skillId||null,attrKey:D.attrKey||null,sitActive:D.sitActive||{},dualWieldOvr:D.dualWieldOvr||'auto',includeInspiration:true,includePreparation:true,includeActionPreparation:true,prepPaused:Boolean(D.prepPaused),oppDefenseCat:oppDefCat},M);
+    ?{autoAdv:0,autoDis:0,rawAutoAdv:0,rawAutoDis:0,src:[],autoCrit:0,critSrc:[],autoRollMod:0,rollModSrc:[],sitOptions:[],matchedPrep:null,pausedPrep:null,powerTargetMod:null}
+    :getAdvDisForContext({weaponId:effWeaponId,shieldId:effShieldId,powerKind:effPw?effPw.kind:null,powerId:effPw?effPw.item.id:null,wRollCat:effCat,skillId:D.skillId||null,attrKey:D.attrKey||null,sitActive:D.sitActive||{},dualWieldOvr:D.dualWieldOvr||'auto',includeInspiration:true,includePreparation:true,includeActionPreparation:true,prepPaused:Boolean(D.prepPaused),oppDefenseCat:oppDefCat},M);
   let c1AutoAdv=r1.autoAdv||0;
   let c1AutoDis=r1.autoDis||0;
   let c1RawAutoAdv=r1.rawAutoAdv||0;
   let c1RawAutoDis=r1.rawAutoDis||0;
   const c1AdvSrc=[...(r1.src||[])];
-  const aimInfo=effCat==='Trefferwurf'?resolveDiceAimInfo(opp):null;
-  if(effCat==='Trefferwurf'&&aimInfo&&aimInfo.active){
+  const isAimCapable=effCat==='Trefferwurf'||Boolean(effPw?.meta?.dealsEgDmg);
+  const aimInfo=isAimCapable?resolveDiceAimInfo(opp):null;
+  if(isAimCapable&&aimInfo&&aimInfo.active){
     const ovrSfx=aimInfo.isOvr?' • Overwrite':'';
     if(aimInfo.mod>0){
       c1AutoAdv+=aimInfo.mod;
@@ -523,6 +533,30 @@ export function applyDiceAutoAdvDis(resetManual=false,M=isLobbyNeutralDice()?{te
   let oppRawAutoAdv=(opp&&opp.ready)?(opp.ad.rawAutoAdv||opp.ad.autoAdv||0):0;
   let oppRawAutoDis=(opp&&opp.ready)?(opp.ad.rawAutoDis||opp.ad.autoDis||0):0;
   const oppAdvSrc=(opp&&opp.ready)?(opp.ad.src||[]).map(s=>({...s,fromOpponent:true,oppName:opp.oppName,oppOrigKind:s.kind,kind:s.kind==='dis'?'adv':'dis'})):[];
+  if(r1.powerTargetMod&&r1.powerTargetMod.val>0){
+    const ptm=r1.powerTargetMod;
+    if(opp&&opp.ready){
+      if(ptm.kind==='dis'){
+        oppAutoDis+=ptm.val;
+        oppRawAutoDis+=ptm.val;
+        oppAdvSrc.push({val:ptm.val,kind:'adv',oppOrigKind:'dis',fromOpponent:true,oppName:opp.oppName,scope:'action',label:`gegen ${ptm.srcName}`,srcName:`${ptm.srcName} (Ziel)`,srcKind:ptm.srcKind});
+      }else{
+        oppAutoAdv+=ptm.val;
+        oppRawAutoAdv+=ptm.val;
+        oppAdvSrc.push({val:ptm.val,kind:'dis',oppOrigKind:'adv',fromOpponent:true,oppName:opp.oppName,scope:'action',label:`gegen ${ptm.srcName}`,srcName:`${ptm.srcName} (Ziel)`,srcKind:ptm.srcKind});
+      }
+    }else{
+      if(ptm.kind==='dis'){
+        c1AutoAdv+=ptm.val;
+        c1RawAutoAdv+=ptm.val;
+        c1AdvSrc.push({val:ptm.val,kind:'adv',scope:'action',label:`Ziel +${ptm.val}N`,srcName:ptm.srcName,srcKind:ptm.srcKind});
+      }else{
+        c1AutoDis+=ptm.val;
+        c1RawAutoDis+=ptm.val;
+        c1AdvSrc.push({val:ptm.val,kind:'dis',scope:'action',label:`Ziel +${ptm.val}V`,srcName:ptm.srcName,srcKind:ptm.srcKind});
+      }
+    }
+  }
   if(opp&&opp.ready&&opp.oppSheet){
     const selfSheet=isLobbyNeutralDice()?null:S;
     if(effCat==='Trefferwurf'){
@@ -589,6 +623,7 @@ export function calcThreshold(){
 export function selectDiceWeapon(itemRef){
   if(isLobbyNeutralDice()) return;
   const ref=String(itemRef||'').trim();
+  const curPw=getEffectiveDicePower();
   if(!ref||ref==='__none__'){
     D.weaponId=null;
     D.shieldId=null;
@@ -601,6 +636,10 @@ export function selectDiceWeapon(itemRef){
     renderDice();
     return;
   }
+  if(curPw&&!curPw.meta.useWeapon){
+    D.powerKind=null;
+    D.powerId=null;
+  }
   if(ref.startsWith('shield:')){
     const sid=ref.slice(7);
     const sh=(S.armors||[]).find(x=>x&&x.id===sid&&isArmorShield(x));
@@ -612,20 +651,22 @@ export function selectDiceWeapon(itemRef){
     D.dualWieldOvr='auto';
     D.critOff=0;
     D.sitActive={};
-    D.attrKey=sm.attrKey;
-    D.skillId=sm.sk?sm.sk.id:null;
-    if(D.wRollCat==='Trefferwurf'){
-      const shPool=['lp','mlp','both'].includes(sh.dmgPool)?sh.dmgPool:'lp';
-      if(shPool==='mlp') D.atkPool='mlp';
-      else if(shPool==='lp') D.atkPool='lp';
+    if(!curPw||!curPw.meta.useWeapon){
+      D.attrKey=sm.attrKey;
+      D.skillId=sm.sk?sm.sk.id:null;
+      if(D.wRollCat==='Trefferwurf'){
+        const shPool=['lp','mlp','both'].includes(sh.dmgPool)?sh.dmgPool:'lp';
+        if(shPool==='mlp') D.atkPool='mlp';
+        else if(shPool==='lp') D.atkPool='lp';
+      }
+      D.cMode='breakdown';
+      D.cAttr=sm.attrVal;
+      if(sm.sk){
+        if(['0','10','15','20','30'].includes(String(sm.skBonus))){D.cSkill=String(sm.skBonus);}
+        else{D.cSkill='custom';D.cCustom=sm.skBonus;}
+      }else{D.cSkill='0';}
+      D.cDirect=sm.pool;
     }
-    D.cMode='breakdown';
-    D.cAttr=sm.attrVal;
-    if(sm.sk){
-      if(['0','10','15','20','30'].includes(String(sm.skBonus))){D.cSkill=String(sm.skBonus);}
-      else{D.cSkill='custom';D.cCustom=sm.skBonus;}
-    }else{D.cSkill='0';}
-    D.cDirect=sm.pool;
     syncDiceFromSheet();
     applyDiceAutoAdvDis(false);
     renderDice();
@@ -640,20 +681,22 @@ export function selectDiceWeapon(itemRef){
   D.dualWieldOvr='auto';
   D.critOff=0;
   D.sitActive={};
-  D.attrKey=wm.attrKey;
-  D.skillId=wm.sk?wm.sk.id:null;
-  if(D.wRollCat==='Trefferwurf'){
-    const wpPool=['lp','mlp','both'].includes(w.dmgPool)?w.dmgPool:'lp';
-    if(wpPool==='mlp') D.atkPool='mlp';
-    else if(wpPool==='lp') D.atkPool='lp';
+  if(!curPw||!curPw.meta.useWeapon){
+    D.attrKey=wm.attrKey;
+    D.skillId=wm.sk?wm.sk.id:null;
+    if(D.wRollCat==='Trefferwurf'){
+      const wpPool=['lp','mlp','both'].includes(w.dmgPool)?w.dmgPool:'lp';
+      if(wpPool==='mlp') D.atkPool='mlp';
+      else if(wpPool==='lp') D.atkPool='lp';
+    }
+    D.cMode='breakdown';
+    D.cAttr=wm.attrVal;
+    if(wm.sk){
+      if(['0','10','15','20','30'].includes(String(wm.skBonus))){D.cSkill=String(wm.skBonus);}
+      else{D.cSkill='custom';D.cCustom=wm.skBonus;}
+    }else{D.cSkill='0';}
+    D.cDirect=wm.pool;
   }
-  D.cMode='breakdown';
-  D.cAttr=wm.attrVal;
-  if(wm.sk){
-    if(['0','10','15','20','30'].includes(String(wm.skBonus))){D.cSkill=String(wm.skBonus);}
-    else{D.cSkill='custom';D.cCustom=wm.skBonus;}
-  }else{D.cSkill='0';}
-  D.cDirect=wm.pool;
   syncDiceFromSheet();
   applyDiceAutoAdvDis(false);
   renderDice();
@@ -663,6 +706,7 @@ export function openWeaponRoll(weaponId,wRollCat='Trefferwurf'){
   const normCat=wRollCat==='Parade'?'Parieren':wRollCat;
   const cat=['Normaler Test','Trefferwurf','Parieren','Blocken','Ausweichen'].includes(normCat)?normCat:'Trefferwurf';
   const wm=getWeaponRollMeta(w);
+  D.powerKind=null; D.powerId=null;
   D.weaponId=w.id; D.shieldId=null; D.wRollCat=cat; D.dualWieldOvr='auto'; D.prepPaused=false; D.critOff=0; D.sitActive={};
   D.atkPool=(w.dmgPool==='mlp')?'mlp':'lp';
   D.attrKey=wm.attrKey; D.skillId=wm.sk?wm.sk.id:null;
@@ -689,6 +733,7 @@ export function openShieldRoll(armorId,wRollCat='Blocken'){
   const normCat=wRollCat==='Parade'?'Parieren':wRollCat;
   const cat=['Normaler Test','Trefferwurf','Parieren','Blocken','Ausweichen'].includes(normCat)?normCat:'Blocken';
   const sm=getShieldRollMeta(sh);
+  D.powerKind=null; D.powerId=null;
   D.weaponId=null; D.shieldId=sh.id; D.wRollCat=cat; D.dualWieldOvr='auto'; D.prepPaused=false; D.critOff=0; D.sitActive={};
   D.atkPool=(sh.dmgPool==='mlp')?'mlp':'lp';
   D.attrKey=sm.attrKey; D.skillId=sm.sk?sm.sk.id:null;
@@ -710,11 +755,121 @@ export function openShieldRoll(armorId,wRollCat='Blocken'){
   D.open=true;
   hooks.renderHeader?.(); renderDice();
 }
+export function openPowerRoll(kind,powerId){
+  if(isLobbyNeutralDice()) return;
+  const k=kind==='augment'?'augment':'power';
+  const it=findPwItem(k,powerId);
+  if(!it||!it.actionRoll?.enabled) return;
+  const pm=getPowerActionRollMeta(it);
+  D.powerKind=k;
+  D.powerId=it.id;
+  D.wRollCat=pm.rollCat||'Normaler Test';
+  D.atkPool=pm.dealsEgDmg?pm.dmgPool:'lp';
+  D.dualWieldOvr='auto';
+  D.prepPaused=false;
+  D.critOff=0;
+  D.sitActive={};
+  if(pm.useWeapon){
+    const curW=D.weaponId?(S.weapons||[]).find(x=>x.id===D.weaponId):null;
+    const curSh=D.shieldId?(S.armors||[]).find(a=>a&&a.id===D.shieldId&&isArmorShield(a)):null;
+    if(!curW&&!curSh){
+      const allW=S.weapons||[];
+      const skMatchW=pm.sk?(allW.find(x=>x&&x.equipped!==false&&x.skillId===pm.sk.id)||allW.find(x=>x&&x.skillId===pm.sk.id)):null;
+      const eqW=skMatchW||allW.find(x=>x&&x.equipped!==false)||allW[0]||null;
+      D.weaponId=eqW?eqW.id:null;
+      D.shieldId=null;
+    }
+  }else{
+    D.weaponId=null;
+    D.shieldId=null;
+    D.wpEditOpen=false;
+  }
+  const wp=pm.useWeapon&&D.weaponId?(S.weapons||[]).find(x=>x.id===D.weaponId):null;
+  const sh=pm.useWeapon&&!wp&&D.shieldId?(S.armors||[]).find(a=>a&&a.id===D.shieldId&&isArmorShield(a)):null;
+  const wpMeta=wp?getWeaponRollMeta(wp):(sh?getShieldRollMeta(sh):null);
+  const effSk=pm.sk||(pm.useWeapon&&!pm.ar.skillId&&!pm.ar.skillName?wpMeta?.sk||null:null);
+  const effAttr=pm.attrKey||(effSk?.linkedAttr)||(pm.useWeapon?wpMeta?.attrKey||'':'');
+  D.attrKey=effAttr||null;
+  D.skillId=effSk?effSk.id:null;
+  D.cMode='breakdown';
+  if(D.dMode==='character'){
+    if(D.wRollCat==='Trefferwurf'||pm.dealsEgDmg){
+      D.oppKind='preset';
+      if(!['dodge','parry','block'].includes(D.oppPreset)) D.oppPreset='dodge';
+    }else if(D.wRollCat==='Parieren'||D.wRollCat==='Blocken'||D.wRollCat==='Ausweichen'){
+      D.oppKind='preset';
+      D.oppPreset='attack';
+    }
+  }
+  D.advAdj=0; D.disAdj=0;
+  syncDiceFromSheet();
+  D.open=true;
+  hooks.renderHeader?.(); renderDice();
+}
+export function selectDicePower(ref){
+  if(isLobbyNeutralDice()) return;
+  const raw=String(ref||'').trim();
+  if(!raw||raw==='__none__'){
+    D.powerKind=null;
+    D.powerId=null;
+    D.sitActive={};
+    D.critOff=0;
+    syncDiceFromSheet();
+    applyDiceAutoAdvDis(false);
+    renderDice();
+    return;
+  }
+  const sep=raw.indexOf(':');
+  if(sep>0){
+    const kind=raw.slice(0,sep), id=raw.slice(sep+1);
+    openPowerRoll(kind,id);
+  }
+}
 export function syncDiceFromSheet(){
   if(isLobbyNeutralDice()){applyDiceAutoAdvDis(false);return;}
   if(D.wRollCat==='Parade') D.wRollCat='Parieren';
   if(!['Normaler Test','Trefferwurf','Parieren','Blocken','Ausweichen'].includes(D.wRollCat)){
     D.wRollCat=D.weaponId?'Trefferwurf':D.shieldId?'Blocken':'Normaler Test';
+  }
+  if(D.powerId){
+    const k=D.powerKind==='augment'?'augment':'power';
+    const pw=findPwItem(k,D.powerId);
+    if(pw&&pw.actionRoll?.enabled){
+      const pm=getPowerActionRollMeta(pw);
+      if(!pm.useWeapon){D.weaponId=null;D.shieldId=null;D.wpEditOpen=false;}
+      const wp=pm.useWeapon&&D.weaponId?(S.weapons||[]).find(x=>x.id===D.weaponId):null;
+      const sh=pm.useWeapon&&!wp&&D.shieldId?(S.armors||[]).find(a=>a&&a.id===D.shieldId&&isArmorShield(a)):null;
+      const wpMeta=wp?getWeaponRollMeta(wp):(sh?getShieldRollMeta(sh):null);
+      const sk=pm.sk||(pm.useWeapon&&!pm.ar.skillId&&!pm.ar.skillName?wpMeta?.sk||null:null);
+      const prevSkId=D.skillId||null;
+      D.skillId=sk?sk.id:null;
+      if(!sk&&prevSkId) D.cSkill='0';
+      const ak=D.attrKey||pm.attrKey||(sk?.linkedAttr)||(pm.useWeapon?wpMeta?.attrKey||'':'');
+      D.attrKey=ak||null;
+      const av=ak?getAttrTot(ak):0;
+      const b=sk?getSkBonus(sk):0;
+      D.cAttr=av;
+      if(sk){
+        if(['0','10','15','20','30'].includes(String(b))){D.cSkill=String(b);}
+        else{D.cSkill='custom';D.cCustom=b;}
+      }else{
+        D.cSkill='0';
+      }
+      const effSk=sk?b:(D.cMode==='breakdown'?getCSkVal():0);
+      D.cDirect=av+effSk;
+      const pwName=String(pw.name||'').trim()||(k==='augment'?'Augment':'Kraft');
+      const wpSfx=wp?` + ${String(wp.name||'').trim()||getWeaponSubtype(wp.wType).label}`:(sh?` + 🛡️ ${String(sh.name||'').trim()||'Schild'}`:'');
+      const poolSfx=((D.wRollCat==='Trefferwurf'||pm.dealsEgDmg)&&D.atkPool==='mlp')?' [mLP]':'';
+      const parts=[];
+      if(sk) parts.push(`${sk.name} (${fmtSign(b)})`);
+      if(ak) parts.push(`${ak} (${av})`);
+      D.label=`✨ ${pwName}${wpSfx}${poolSfx}${parts.length?` • ${parts.join(' + ')}`:''}`;
+      applyDiceAutoAdvDis(false);
+      return;
+    }else{
+      D.powerKind=null;
+      D.powerId=null;
+    }
   }
   const poolSfx=(D.wRollCat==='Trefferwurf'&&D.atkPool==='mlp')?' [mLP]':'';
   if(D.weaponId){
@@ -762,7 +917,7 @@ export function syncDiceFromSheet(){
   if(D.skillId){const sk=S.skills.find(x=>x.id===D.skillId);if(sk){const ak=D.attrKey||sk.linkedAttr,av=getAttrTot(ak),b=getSkBonus(sk);D.cAttr=av;if(['0','10','15','20','30'].includes(String(b))){D.cSkill=String(b);}else{D.cSkill='custom';D.cCustom=b;}D.cDirect=av+b;D.label=`${catPfx}${sk.name} (${fmtSign(b)}) + ${ak} (${av})`;}else{D.skillId=null;}}
   else if(D.attrKey){const av=getAttrTot(D.attrKey);D.cAttr=av;if(D.cMode==='direct')D.cDirect=av;D.label=isNorm?`Normaler Test: ${D.attrKey} (${av})`:`${catPfx}${D.attrKey} (${av})`;}
   else if(!isNorm&&D.wRollCat){D.label=D.wRollCat==='Trefferwurf'?`Trefferwurf${poolSfx} (Freie Probe)`:`Abwehrprobe: ${D.wRollCat}`;}
-  else if(/^(?:Abwehrprobe:|Trefferwurf)/.test(D.label)){D.label='Freie Probe';}
+  else if(/^(?:Abwehrprobe:|Trefferwurf|✨\s)/.test(D.label)){D.label='Freie Probe';}
   applyDiceAutoAdvDis(false);
 }
 
@@ -1062,14 +1217,77 @@ export function renderDice(){
       {c:'Blocken',l:'🧱 Block'},
       {c:'Ausweichen',l:'💨 Ausw.'}
     ];
-    const aw=(!isNeutral&&D.weaponId)?(S.weapons||[]).find(x=>x.id===D.weaponId):null;
-    const ash=(!isNeutral&&D.shieldId)?(S.armors||[]).find(x=>x&&x.id===D.shieldId&&isArmorShield(x)):null;
+    const activePw=isNeutral?null:getEffectiveDicePower();
+    const rollablePowers=isNeutral?[]:getRollablePowersList(S);
+    const aw=(!isNeutral&&D.weaponId&&(!activePw||activePw.meta.useWeapon))?(S.weapons||[]).find(x=>x.id===D.weaponId):null;
+    const ash=(!isNeutral&&D.shieldId&&(!activePw||activePw.meta.useWeapon))?(S.armors||[]).find(x=>x&&x.id===D.shieldId&&isArmorShield(x)):null;
     const activeItem=aw||ash;
     const wpApplies=activeItem?doesWeaponApplyToPool(activeItem,D.atkPool,curCat):true;
     const isHitMode=curCat==='Trefferwurf';
+    const isDmgCapable=isHitMode||Boolean(activePw?.meta?.dealsEgDmg);
     const isBlockMode=curCat==='Blocken';
     const atkPool=D.atkPool==='mlp'?'mlp':'lp';
-    const showWeaponBar=!isNeutral&&(isHitMode||curCat==='Parieren'||isBlockMode||Boolean(activeItem));
+    const showWeaponBar=!isNeutral&&(isHitMode||curCat==='Parieren'||isBlockMode||Boolean(activeItem))&&(!activePw||activePw.meta.useWeapon);
+
+    let powerRowHtml='';
+    if(!isNeutral&&rollablePowers.length){
+      const curPwRef=activePw?`${activePw.kind}:${activePw.item.id}`:'__none__';
+      const pwOpts=rollablePowers.filter(x=>x.kind==='power');
+      const augOpts=rollablePowers.filter(x=>x.kind==='augment');
+      const fmtPwOpt=entry=>{
+        const pm=getPowerActionRollMeta(entry.item);
+        const pBits=[];
+        if(pm.sk) pBits.push(pm.sk.name);
+        if(pm.attrKey) pBits.push(pm.attrKey);
+        const dmgSfx=pm.dealsEgDmg?(pm.replaceDmgType&&pm.dmgType?` • ${pm.dmgType}`:` • EG${pm.dmgPool==='mlp'?' mLP':''}`):'';
+        const parSfx=entry.parentName?` [↳ ${entry.parentName}]`:'';
+        return `<option value="${esc(entry.ref)}" ${curPwRef===entry.ref?'selected':''}>${entry.kind==='augment'?'🧩':'✨'} ${esc(entry.name)}${parSfx}${pBits.length?` (${pBits.join('+')} = ${pm.pool})`:''}${dmgSfx}</option>`;
+      };
+      const selPwOptsHtml=(pwOpts.length&&augOpts.length)
+        ?`<optgroup label="✨ Kräfte">${pwOpts.map(fmtPwOpt).join('')}</optgroup><optgroup label="🧩 Augmente">${augOpts.map(fmtPwOpt).join('')}</optgroup>`
+        :rollablePowers.map(fmtPwOpt).join('');
+      let activePwBannerHtml='';
+      if(activePw){
+        const pm=activePw.meta, it=activePw.item;
+        const pills=[];
+        if(pm.hasSelfMod){
+          const isDis=pm.selfModKind==='dis';
+          pills.push(`<span class="px-1.5 py-0.5 rounded border text-[10px] font-black tabular ${isDis?'border-rose-400/50 bg-rose-500/15 text-rose-200':'border-emerald-400/50 bg-emerald-500/15 text-emerald-200'}">${fmtSign(pm.selfModVal)}${isDis?'N':'V'}</span>`);
+        }
+        if(pm.dealsEgDmg){
+          const dtTxt=pm.replaceDmgType&&pm.dmgType?pm.dmgType:'Grundschaden';
+          const bonTxt=pm.dmgBonusVal?` ${fmtSign(pm.dmgBonusVal)}`:'';
+          pills.push(`<span class="px-1.5 py-0.5 rounded border border-amber-400/55 bg-amber-500/15 text-amber-200 text-[10px] font-black tabular">💥 EG${esc(bonTxt)} → ${esc(dtTxt)} (${atkPool==='mlp'?'mLP':'LP'})</span>`);
+        }
+        if(pm.hasTargetMod){
+          const tIsDis=pm.targetModKind==='dis';
+          pills.push(`<span class="px-1.5 py-0.5 rounded border border-indigo-400/55 bg-indigo-500/15 text-indigo-200 text-[10px] font-black tabular">🎯 Ziel ${fmtSign(pm.targetModVal)}${tIsDis?'N':'V'}</span>`);
+        }
+        if(pm.useWeapon){
+          pills.push(`<span class="px-1.5 py-0.5 rounded border border-cyan-400/50 bg-cyan-500/15 text-cyan-200 text-[10px] font-black">⚔️ +Waffe</span>`);
+        }
+        const stToks=parseStatusTokens(it.effects);
+        const costSum=formatPwUseCosts(it);
+        const canSpend=Boolean(costSum)||stToks.length>0;
+        const spendBtn=canSpend?`<button type="button" data-action="spend-pw" data-kind="${activePw.kind}" data-id="${esc(it.id)}" data-tip="${costSum?`Einsatzkosten (${esc(costSum)}) jetzt abziehen`:'Statuseffekt dieser Kraft aktivieren'}" class="btn btn-pri py-0.5 px-2 text-[10px] font-black shrink-0">⚡ ${costSum?esc(costSum):'Status aktivieren'}</button>`:'';
+        if(pills.length||spendBtn){
+          activePwBannerHtml=`<div class="px-2 py-1.5 rounded-lg border bdr-acc bg-acc-soft/20 flex flex-wrap items-center justify-between gap-1.5 min-w-0">
+            <div class="flex flex-wrap items-center gap-1 min-w-0">${pills.join('')}</div>
+            ${spendBtn}
+          </div>`;
+        }
+      }
+      powerRowHtml=`<div class="space-y-1.5 pt-1.5 border-t border-white/10 min-w-0">
+        <div class="flex items-center gap-1.5 min-w-0">
+          <select data-dice-power-sel="1" aria-label="Kraft oder Augment für Aktionswurf wählen" class="inp flex-1 min-w-0 text-xs font-bold py-1 ${activePw?'bdr-acc':''}">
+            <option value="__none__" ${!activePw?'selected':''}>✨ Keine Kraft / Aktion</option>
+            ${selPwOptsHtml}
+          </select>
+          ${activePw?`<button type="button" data-action="dice-clear-power" data-tip="Aktive Kraft aus Würfelassistent lösen" class="btn py-1 px-2 text-xs font-black shrink-0">✕</button>`:''}
+        </div>
+        ${activePwBannerHtml}
+      </div>`;
+    }
 
     let weaponRowHtml='';
     if(showWeaponBar){
@@ -1319,7 +1537,7 @@ export function renderDice(){
     }
 
     let aimBarHtml='';
-    if(isHitMode){
+    if(isDmgCapable){
       const aim=T.aimInfo||resolveDiceAimInfo(T.opp);
       const aimOn=Boolean(aim&&aim.active);
       const modBadge=aim.mod>0?'+1V':aim.mod<0?'+1N':'±0';
@@ -1358,11 +1576,12 @@ export function renderDice(){
         ?`<div class="flex items-center justify-between gap-2 text-[11px] font-extrabold text-acc"><span>🏰 Lobby-Modus (Neutral)</span><span class="t-mut font-semibold">${esc(CLOUD.currentUser||'Gast')}</span></div>`
         :`<div class="flex flex-wrap items-center justify-between gap-1.5 min-w-0">
           <div class="flex flex-wrap items-center gap-1 min-w-0">${modeBtns.map(m=>`<button type="button" data-action="set-dice-wcat" data-wcat="${m.c}" class="btn py-0.5 px-2 text-[11px] font-extrabold ${curCat===m.c?'btn-pri':'opacity-85 hover:opacity-100'}">${m.l}</button>`).join('')}</div>
-          ${isHitMode?`<div class="inline-flex rounded-lg p-0.5 bg-black/30 border bdr-line text-[11px] shrink-0" data-tip="Ziel-Pool für Trefferwurf & Schaden: Physische LP oder Mentale mLP (beeinflusst, welche Waffen greifen)">
+          ${isDmgCapable?`<div class="inline-flex rounded-lg p-0.5 bg-black/30 border bdr-line text-[11px] shrink-0" data-tip="Ziel-Pool für Trefferwurf & Schaden: Physische LP oder Mentale mLP (beeinflusst, welche Waffen greifen)">
             <button type="button" data-action="set-dice-atkpool" data-pool="lp" class="px-2 py-0.5 rounded font-black transition-colors ${atkPool==='lp'?'bg-rose-500/35 text-rose-200':'t-mut hover:text-white'}">❤️ LP</button>
             <button type="button" data-action="set-dice-atkpool" data-pool="mlp" class="px-2 py-0.5 rounded font-black transition-colors ${atkPool==='mlp'?'bg-indigo-500/40 text-indigo-200':'t-mut hover:text-white'}">🧠 mLP</button>
           </div>`:''}
         </div>`}
+      ${powerRowHtml}
       ${weaponRowHtml}
       ${aimBarHtml}
       ${attrStripHtml}
@@ -1370,6 +1589,7 @@ export function renderDice(){
   };
 
   const mob=isMobileLayout();
+  const activePwForBar=isNeutral?null:getEffectiveDicePower();
   const hdrOppSub=T.opp?.ready?(T.opp.hideDetails?` ⚔️ vs. 👹 ${esc(T.opp.oppName)}`:` ⚔️ vs. ${esc(T.opp.oppName)} (${esc(T.opp.oppShortLabel)})`):'';
   const adminSecretHdrBtn=CLOUD.isAdmin
     ?`<button type="button" data-action="toggle-dice-secret" data-tip="${secAct?'Geheimwurf aktiv – geht nicht in den Live-Feed (klicken für Öffentlich)':'Öffentlicher Live-Feed (klicken für geheimen Admin-Wurf)'}" class="btn py-1 px-2 text-xs font-black shrink-0 ${secAct?'bg-amber-500 text-slate-950 border-amber-300 shadow':'opacity-80'}">${secAct?'🕵️ Geheim':'👁️'}</button>`
@@ -1433,7 +1653,7 @@ export function renderDice(){
             ${D.crit!=='1'?`<button type="button" data-action="crit-mode" class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-400 cursor-pointer">${D.critMode==='range'?`1–${D.crit} ↻`:`nur ${D.crit} ↻`}</button>`:''}
           </div>
         </div>
-        ${(D.wRollCat==='Trefferwurf')?`<button type="button" data-action="combat-open-blocked-3eg" data-tip="Öffnet direkt den Schadensrechner für einen erfolgreich geblockten Treffer (statisch 3 EG, kein kritischer Treffer; Verteidiger bestimmt die Trefferzone)." class="btn w-full py-1 px-2.5 text-[11px] font-extrabold border-amber-400/50 bg-amber-500/10 text-amber-300 hover:bg-amber-500/20">🛡️ Geblockter Treffer (statisch 3 EG, kein Krit)</button>`:''}
+        ${(D.wRollCat==='Trefferwurf'||Boolean(activePwForBar?.meta?.dealsEgDmg))?`<button type="button" data-action="combat-open-blocked-3eg" data-tip="Öffnet direkt den Schadensrechner für einen erfolgreich geblockten Treffer (statisch 3 EG, kein kritischer Treffer; Verteidiger bestimmt die Trefferzone)." class="btn w-full py-1 px-2.5 text-[11px] font-extrabold border-amber-400/50 bg-amber-500/10 text-amber-300 hover:bg-amber-500/20">🛡️ Geblockter Treffer (statisch 3 EG, kein Krit)</button>`:''}
       </div>
 
       ${secretBannerHtml}
@@ -1550,8 +1770,9 @@ export function executeDiceRoll(opts={}){
     res.push({r,rawR,rollMod,ok,crit,baseEg:eg,eg,egMult:1,meg});
   }
   const isLobRoll=Boolean(UI.inLobby);
-  const effWeaponId=isLobRoll?null:getEffectiveDiceWeaponId();
-  const effShieldId=isLobRoll?null:getEffectiveDiceShieldId();
+  const effPw=isLobRoll?null:getEffectiveDicePower();
+  const effWeaponId=(isLobRoll||(effPw&&!effPw.meta.useWeapon))?null:getEffectiveDiceWeaponId();
+  const effShieldId=(isLobRoll||(effPw&&!effPw.meta.useWeapon))?null:getEffectiveDiceShieldId();
   const rollerIsEnemy=Boolean(!isLobRoll&&isEnemySheet(S));
   const c1Name=isLobRoll?(CLOUD.currentUser?CLOUD.currentUser:'Gast'):(String(S.profile.name||'').trim()||(rollerIsEnemy?'Gegner':'Unbenannter Held'));
   const combatHits=hooks.initCombatFromRoll?.({T,res,attackerName:c1Name})||[];
@@ -1569,15 +1790,18 @@ export function executeDiceRoll(opts={}){
   const c1WpObj=effWeaponId?(S.weapons||[]).find(x=>x.id===effWeaponId):null;
   const c1ShObj=effShieldId?(S.armors||[]).find(x=>x&&x.id===effShieldId&&isArmorShield(x)):null;
   const c1HasNichtParierbar=Boolean((c1WpObj?.tags||[]).some(tg=>/^nicht\s+parierbar\b/i.test(String(tg?.name||'').trim())));
-  const isHitVsBlock=Boolean(D.wRollCat==='Trefferwurf'&&isVsOpp&&(T.opp.oppRollCat==='Blocken'||(T.opp.oppRollCat==='Parieren'&&c1HasNichtParierbar)));
+  const isDmgRoll=D.wRollCat==='Trefferwurf'||Boolean(effPw?.meta?.dealsEgDmg);
+  const isHitVsBlock=Boolean(isDmgRoll&&isVsOpp&&(T.opp.oppRollCat==='Blocken'||(T.opp.oppRollCat==='Parieren'&&c1HasNichtParierbar)));
   let vsSummary='', vsSummaryFeed='';
   if(isVsOpp){
     const c1Sk=(!isLobRoll&&D.skillId)?(S.skills||[]).find(x=>x.id===D.skillId):null;
     const c1Wp=c1WpObj;
     const c1Sh=c1ShObj;
+    const c1PwName=effPw?`✨ ${String(effPw.item.name||'').trim()||(effPw.kind==='augment'?'Augment':'Kraft')}`:'';
     const c1WpName=c1Sh?`🛡️ ${String(c1Sh.name||'').trim()||'Schild'}`:(c1Wp?(String(c1Wp.name||'').trim()||getWeaponSubtype(c1Wp.wType).label):'');
     let c1Short=`Wert ${T.cv}`;
-    if(c1Sk) c1Short=`${c1Sk.name} ${T.cv}`;
+    if(c1PwName) c1Short=`${c1PwName} ${T.cv}`;
+    else if(c1Sk) c1Short=`${c1Sk.name} ${T.cv}`;
     else if(c1WpName) c1Short=`${c1WpName} ${T.cv}`;
     else if(!isLobRoll&&D.attrKey) c1Short=`${D.attrKey} ${T.cv}`;
     else if(D.wRollCat&&D.wRollCat!=='Normaler Test') c1Short=`${D.wRollCat} ${T.cv}`;
@@ -1589,7 +1813,7 @@ export function executeDiceRoll(opts={}){
       ?`${c1Name} (${c1FeedShort}) vs. ${T.opp.oppName}`
       :`${c1Name} (${c1FeedShort}) vs. ${T.opp.oppName} (${T.opp.oppShortLabel})`;
   }
-  const aimTitleSfx=(D.wRollCat==='Trefferwurf'&&T.aimInfo&&T.aimInfo.active)?` • 🎯 ${T.aimInfo.zoneName}`:'';
+  const aimTitleSfx=(isDmgRoll&&T.aimInfo&&T.aimInfo.active)?` • 🎯 ${T.aimInfo.zoneName}`:'';
   const rollTitle=(isVsOpp?vsSummary:D.label)+aimTitleSfx;
   const feedTitle=(isVsOpp?vsSummaryFeed:(rollerIsEnemy?(D.wRollCat&&D.wRollCat!=='Normaler Test'?`${D.wRollCat}`:'Probe'):D.label))+aimTitleSfx;
   const rawAdvSrcParts=buildAdvSrcShortList(T);

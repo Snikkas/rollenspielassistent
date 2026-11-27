@@ -8,16 +8,16 @@ import {
   hooks
 } from './ui-hooks.js';
 import {
-  S, D, UI, CLOUD, DUEL, COMBAT, LIVE_TAB_ID, diceLogs, getWeaponSubtype, isArmorShield, isWeaponBlockable, normDmgType, getMeleeAttrDmgType, getDmgTypeLabel, getCharCampaignId, getCharOwner, getActiveLiveCampaignId, canManageCampaign, isGlobalGM, isEnemySheet, getEnemyMeta, shouldHideOpponentDetails, toast, triggerNiceEasterEgg, logChron, save
+  S, D, UI, CLOUD, DUEL, COMBAT, LIVE_TAB_ID, diceLogs, getWeaponSubtype, isArmorShield, isWeaponBlockable, normDmgType, getMeleeAttrDmgType, getDmgTypeLabel, dmgTypeLabelToOpt, getCharCampaignId, getCharOwner, getActiveLiveCampaignId, canManageCampaign, isGlobalGM, isEnemySheet, getEnemyMeta, shouldHideOpponentDetails, toast, triggerNiceEasterEgg, logChron, save
 } from './state.js';
 import {
-  calcActiveMods, getSheetShields, getWeaponRollMeta, getShieldRollMeta
+  calcActiveMods, getSheetShields, getWeaponRollMeta, getShieldRollMeta, findPwItem, getPowerActionRollMeta
 } from './calc.js';
 import {
   getCachedForeignSheet, publishLiveRoll, sendLiveBroadcast, applyCloudResourceDelta, isSecretRollActive
 } from './cloud.js';
 import {
-  getActiveDiceCampaignId, isLobbyNeutralDice, rollW100, renderDice, getEffectiveDiceWeaponId, getEffectiveDiceShieldId, doesWeaponApplyToPool
+  getActiveDiceCampaignId, isLobbyNeutralDice, rollW100, renderDice, getEffectiveDiceWeaponId, getEffectiveDiceShieldId, getEffectiveDicePower, doesWeaponApplyToPool
 } from './dice.js';
 import {
   hasActiveMagazines, getEffectiveWeaponAmmo, getWeaponNextShotInfo, fireWeaponMagazineShot
@@ -502,12 +502,45 @@ export function mutateCombatHit(hitIdx, mutatorFn, { resetCombined = true } = {}
   syncLegacyCombatFields();
 }
 
+export function getCombatDamageOptions({ powerMeta = null, weapon = null, atkShield = null, ammo = null, attrKey = '', tags = [], extraSelectedKey = '' } = {}){
+  const atkItem = weapon || atkShield;
+  const opts = getWeaponDamageOptions(atkItem, ammo);
+  if(powerMeta && powerMeta.dealsEgDmg && powerMeta.replaceDmgType && powerMeta.dmgType){
+    const repOpt = dmgTypeLabelToOpt(powerMeta.dmgType, 0);
+    const existingIdx = opts.findIndex(o => o.key === repOpt.key);
+    if(existingIdx >= 0){
+      opts[existingIdx] = { ...opts[existingIdx], fromPower: true };
+    }else{
+      let carryVal = 0;
+      if(atkItem){
+        const baseRes = resolveDefaultDamageType({ weapon, atkShield, ammo, attrKey, opts, tags });
+        const baseOpt = opts.find(o => o.key === baseRes.key);
+        carryVal = baseOpt ? toInt(baseOpt.val, 0) : 0;
+      }
+      opts.unshift({ ...repOpt, val: carryVal, fromPower: true });
+    }
+  }
+  const cleanExtra = String(extraSelectedKey || '').trim();
+  if(cleanExtra && !opts.some(o => o.key === cleanExtra)){
+    const dynOpt = dmgTypeLabelToOpt(cleanExtra, 0);
+    if(dynOpt && dynOpt.key === cleanExtra){
+      opts.push(dynOpt);
+    }
+  }
+  return opts;
+}
+
 export function calculateCombatDamage(hitOrIdx = 0){
   const hit = (hitOrIdx && typeof hitOrIdx === 'object') ? hitOrIdx : getCombatHit(hitOrIdx);
   const isLob = isLobbyNeutralDice();
   const pool = hit.pool === 'mlp' ? 'mlp' : 'lp';
-  const rawWeapon = (!isLob && COMBAT.weaponId) ? (S.weapons || []).find(w => w.id === COMBAT.weaponId) : null;
-  const rawShield = (!isLob && !rawWeapon && COMBAT.shieldId) ? (S.armors || []).find(a => a.id === COMBAT.shieldId && isArmorShield(a)) : null;
+  const activePower = (!isLob && COMBAT.powerId) ? findPwItem(COMBAT.powerKind || 'power', COMBAT.powerId) : null;
+  const powerMeta = (activePower && activePower.actionRoll?.enabled && activePower.actionRoll?.dealsEgDmg)
+    ? getPowerActionRollMeta(activePower, null, S)
+    : null;
+  const allowWeapon = !powerMeta || powerMeta.useWeapon;
+  const rawWeapon = (!isLob && allowWeapon && COMBAT.weaponId) ? (S.weapons || []).find(w => w.id === COMBAT.weaponId) : null;
+  const rawShield = (!isLob && allowWeapon && !rawWeapon && COMBAT.shieldId) ? (S.armors || []).find(a => a.id === COMBAT.shieldId && isArmorShield(a)) : null;
   const rawAtkItem = rawWeapon || rawShield;
   const weaponApplies = rawAtkItem ? doesWeaponApplyToPool(rawAtkItem, pool, 'Trefferwurf') : false;
   const weapon = (rawWeapon && weaponApplies) ? rawWeapon : null;
@@ -517,7 +550,7 @@ export function calculateCombatDamage(hitOrIdx = 0){
     ? (COMBAT.ammoId ? (S.ammos || []).find(a => a.id === COMBAT.ammoId) : getEffectiveWeaponAmmo(weapon, S))
     : null;
   const tags = getWeaponAllTags(atkItem, ammo);
-  const opts = getWeaponDamageOptions(atkItem, ammo);
+  const opts = getCombatDamageOptions({ powerMeta, weapon, atkShield, ammo, attrKey: COMBAT.attrKey, tags, extraSelectedKey: hit.dmgType });
   const selOpt = opts.find(o => o.key === hit.dmgType) || opts[0] || { key: 'cut', label: 'Schnitt', val: 0 };
 
   const targetSheet = resolveCombatTargetSheet(COMBAT.targetCharId);
@@ -544,6 +577,7 @@ export function calculateCombatDamage(hitOrIdx = 0){
   const isCrit = Boolean(hit.isCrit);
   const critBonus = isCrit ? 2 : 0;
   const weaponDmg = toInt(selOpt.val, 0);
+  const powerDmgBonus = powerMeta ? toInt(powerMeta.dmgBonusVal, 0) : 0;
   const verheerendX = findTagNumericVal(tags, /^verheerend\b/i);
   const verheerendBonus = (verheerendX > 0 && eg >= 5) ? verheerendX : 0;
   const mehrfachschussX = findTagNumericVal(tags, /^mehrfachschuss\b/i);
@@ -551,7 +585,7 @@ export function calculateCombatDamage(hitOrIdx = 0){
   const durchschlagX = findTagNumericVal(tags, /^durchschlag\b/i);
   const nichtParierbar = hasTagMatch(tags, /^nicht\s+parierbar\b/i);
   const dmgMod = toInt(hit.dmgMod, 0);
-  const rawDmg = Math.max(0, eg + critBonus + weaponDmg + verheerendBonus + mehrfachschussBonus + dmgMod);
+  const rawDmg = Math.max(0, eg + critBonus + weaponDmg + powerDmgBonus + verheerendBonus + mehrfachschussBonus + dmgMod);
 
   const blockRed = (hit.isBlocked && !blockShield && hit.blockItemRed) ? 2 : 0;
   const afterBlock = Math.max(0, rawDmg - blockRed);
@@ -569,6 +603,7 @@ export function calculateCombatDamage(hitOrIdx = 0){
   const parts = [`${eg} EG`];
   if(critBonus) parts.push(`+ ${critBonus} Krit`);
   if(weaponDmg) parts.push(`+ ${weaponDmg} ${atkShield ? 'Schild' : `Waffe${ammo ? '/Mun.' : ''}`}`);
+  if(powerDmgBonus) parts.push(`${powerDmgBonus > 0 ? '+' : '−'} ${Math.abs(powerDmgBonus)} ${COMBAT.powerKind === 'augment' ? 'Augment' : 'Kraft'}`);
   if(verheerendBonus) parts.push(`+ ${verheerendBonus} Verheerend`);
   if(mehrfachschussBonus) parts.push(`+ ${mehrfachschussBonus} Mehrfachschuss (${mehrfachschussX})`);
   if(dmgMod) parts.push(`${dmgMod > 0 ? '+' : '−'} ${Math.abs(dmgMod)} Mod`);
@@ -593,16 +628,25 @@ export function calculateCombatDamage(hitOrIdx = 0){
     formula += ` → max. ${maxDmgCap} ${poolLbl} (Schwelle)`;
   }
 
-  const weaponName = atkShield
+  const baseWeaponName = atkShield
     ? `🛡️ ${String(atkShield.name || '').trim() || 'Schild'}`
     : (weapon
       ? (String(weapon.name || '').trim() || getWeaponSubtype(weapon.wType).label)
-      : (pool === 'mlp' ? 'Mentaler Angriff / ohne Waffe' : 'Waffenlos / Angriff'));
+      : '');
+  const powerDisplayName = activePower
+    ? `✨ ${String(activePower.name || '').trim() || (COMBAT.powerKind === 'augment' ? 'Augment' : 'Kraft')}`
+    : '';
+  const weaponName = powerDisplayName
+    ? (baseWeaponName ? `${powerDisplayName} + ${baseWeaponName}` : powerDisplayName)
+    : (baseWeaponName || (pool === 'mlp' ? 'Mentaler Angriff / ohne Waffe' : 'Waffenlos / Angriff'));
   const ammoName = ammo ? (String(ammo.name || '').trim() || 'Munition') : '';
   const targetName = targetSheet ? (String(targetSheet.profile?.name || '').trim() || COMBAT.targetName || 'Ziel') : (COMBAT.targetName || '');
 
   return {
     hit,
+    activePower,
+    powerMeta,
+    powerDmgBonus,
     rawWeapon,
     rawShield,
     weaponApplies,
@@ -671,6 +715,8 @@ export function resetCombatState(){
   COMBAT.weaponId = null;
   COMBAT.shieldId = null;
   COMBAT.ammoId = null;
+  COMBAT.powerKind = null;
+  COMBAT.powerId = null;
   COMBAT.attrKey = '';
   COMBAT.attackerName = '';
   COMBAT.targetCharId = '';
@@ -702,22 +748,25 @@ export function resetCombatState(){
 
 export function initCombatFromRoll({ T, res, isManualBlocked = false, isAtkBlk20 = false, attackerName = '' }){
   const manualBlk = Boolean(isManualBlocked || isAtkBlk20);
-  const isWeaponHit = Boolean(manualBlk || D.wRollCat === 'Trefferwurf');
+  const isLob = isLobbyNeutralDice();
+  const effPw = isLob ? null : getEffectiveDicePower();
+  const powerDealsDmg = Boolean(effPw?.meta?.dealsEgDmg);
+  const isWeaponHit = Boolean(manualBlk || D.wRollCat === 'Trefferwurf' || powerDealsDmg);
   if(!isWeaponHit){
     resetCombatState();
     return [];
   }
-  const isLob = isLobbyNeutralDice();
   const initPool = D.atkPool === 'mlp' ? 'mlp' : 'lp';
-  const effWpId = isLob ? null : getEffectiveDiceWeaponId();
-  const effShId = isLob ? null : getEffectiveDiceShieldId();
+  const allowWeapon = !effPw || effPw.meta.useWeapon;
+  const effWpId = (isLob || !allowWeapon) ? null : getEffectiveDiceWeaponId();
+  const effShId = (isLob || !allowWeapon) ? null : getEffectiveDiceShieldId();
   const weapon = effWpId ? (S.weapons || []).find(w => w.id === effWpId) : null;
   const atkShield = (!weapon && effShId) ? (S.armors || []).find(a => a.id === effShId && isArmorShield(a)) : null;
   const atkItem = weapon || atkShield;
   const ammo = (!isLob && weapon && weapon.wType === 'ranged')
     ? getEffectiveWeaponAmmo(weapon, S)
     : null;
-  const effAttrKey = String(D.attrKey || (atkShield ? getShieldRollMeta(atkShield).attrKey : (weapon ? getWeaponRollMeta(weapon).attrKey : '')) || '').trim().toUpperCase();
+  const effAttrKey = String(D.attrKey || (effPw?.meta?.attrKey) || (atkShield ? getShieldRollMeta(atkShield).attrKey : (weapon ? getWeaponRollMeta(weapon).attrKey : '')) || '').trim().toUpperCase();
   const tags = getWeaponAllTags(atkItem, ammo);
   const nichtParierbar = hasTagMatch(tags, /^nicht\s+parierbar\b/i);
 
@@ -791,10 +840,25 @@ export function initCombatFromRoll({ T, res, isManualBlocked = false, isAtkBlk20
     return [];
   }
 
-  const opts = getWeaponDamageOptions(atkItem, ammo);
-  const resolvedDmg = resolveDefaultDamageType({ weapon, atkShield, ammo, attrKey: effAttrKey, opts, tags });
-  const defDmgType = resolvedDmg.key;
-  const defDmgReason = resolvedDmg.reason;
+  const powerMeta = powerDealsDmg ? effPw.meta : null;
+  const opts = getCombatDamageOptions({ powerMeta, weapon, atkShield, ammo, attrKey: effAttrKey, tags });
+  let defDmgType = 'cut';
+  let defDmgReason = '';
+  if(powerMeta && powerMeta.replaceDmgType && powerMeta.dmgType){
+    const repOpt = dmgTypeLabelToOpt(powerMeta.dmgType, 0);
+    const pwNm = String(effPw.item.name || '').trim() || (effPw.kind === 'augment' ? 'Augment' : 'Kraft');
+    defDmgType = repOpt.key;
+    defDmgReason = `✨ ${pwNm} → ${repOpt.label}`;
+  }else if(powerMeta && !atkItem){
+    const pwNm = String(effPw.item.name || '').trim() || (effPw.kind === 'augment' ? 'Augment' : 'Kraft');
+    const attrDmg = getMeleeAttrDmgType(effAttrKey);
+    defDmgType = attrDmg || 'impact';
+    defDmgReason = `✨ ${pwNm} (EG-Grundschaden → ${getDmgTypeLabel(defDmgType) || 'Einschlag'})`;
+  }else{
+    const resolvedDmg = resolveDefaultDamageType({ weapon, atkShield, ammo, attrKey: effAttrKey, opts, tags });
+    defDmgType = resolvedDmg.key;
+    defDmgReason = resolvedDmg.reason;
+  }
   const targetSheet = resolveCombatTargetSheet(targetCharId);
   const hitZones = getTargetHitZones(targetSheet);
   const rawAimZone = (D.aimActive && T?.aimInfo?.zoneName) ? String(T.aimInfo.zoneName).trim() : '';
@@ -810,6 +874,8 @@ export function initCombatFromRoll({ T, res, isManualBlocked = false, isAtkBlk20
   COMBAT.weaponId = weapon?.id || null;
   COMBAT.shieldId = atkShield?.id || null;
   COMBAT.ammoId = ammo?.id || null;
+  COMBAT.powerKind = powerDealsDmg ? effPw.kind : null;
+  COMBAT.powerId = powerDealsDmg ? effPw.item.id : null;
   COMBAT.attrKey = effAttrKey;
   COMBAT.dmgTypeReason = defDmgReason;
   COMBAT.attackerName = attackerName;
@@ -1036,6 +1102,7 @@ function buildHiddenEnemyDmgFormula(calc){
   const parts = [`${calc.eg} EG`];
   if(calc.critBonus) parts.push(`+ ${calc.critBonus} Krit`);
   if(calc.weaponDmg) parts.push(`+ ${calc.weaponDmg} ${calc.atkShield ? 'Schild' : `Waffe${calc.ammo ? '/Mun.' : ''}`}`);
+  if(calc.powerDmgBonus) parts.push(`${calc.powerDmgBonus > 0 ? '+' : '−'} ${Math.abs(calc.powerDmgBonus)} ${COMBAT.powerKind === 'augment' ? 'Augment' : 'Kraft'}`);
   if(calc.verheerendBonus) parts.push(`+ ${calc.verheerendBonus} Verheerend`);
   if(calc.mehrfachschussBonus) parts.push(`+ ${calc.mehrfachschussBonus} Mehrfachschuss (${calc.mehrfachschussX})`);
   if(calc.dmgMod) parts.push(`${calc.dmgMod > 0 ? '+' : '−'} ${Math.abs(calc.dmgMod)} Mod`);
@@ -1761,9 +1828,11 @@ function renderSingleCombatHitBodyHtml(hitEntry, hitIdx, isMulti){
     return `<button type="button" data-action="combat-set-zone" ${hiAttr} data-zone="${esc(zn)}" data-tip="Trefferzone ${esc(zn)} (${esc(z.range || '')}${z.size ? ', ' + esc(z.size) : ''})" class="btn py-1 px-2 text-[11px] font-extrabold ${act ? 'btn-pri' : 'opacity-85 hover:opacity-100'}">${esc(zn)}${z.range ? ` <span class="text-[9px] opacity-75 tabular">(${esc(z.range)})</span>` : ''}</button>`;
   }).join('');
 
+  const showOptVal = Boolean(calc.weapon || calc.atkShield);
   const dmgTypeBtnsHtml = calc.opts.map(o => {
     const act = o.key === calc.selOpt.key;
-    return `<button type="button" data-action="combat-set-dmgtype" ${hiAttr} data-dmgtype="${esc(o.key)}" class="btn py-1 px-2 text-[11px] font-extrabold tabular ${act ? 'btn-pri' : 'opacity-85 hover:opacity-100'}">${esc(o.shortLabel || o.label)} <span class="opacity-80">+${o.val}</span></button>`;
+    const valSpan = (showOptVal || o.val) ? ` <span class="opacity-80">+${o.val}</span>` : '';
+    return `<button type="button" data-action="combat-set-dmgtype" ${hiAttr} data-dmgtype="${esc(o.key)}" class="btn py-1 px-2 text-[11px] font-extrabold tabular ${act ? 'btn-pri' : 'opacity-85 hover:opacity-100'}">${o.fromPower ? '✨ ' : ''}${esc(o.shortLabel || o.label)}${valSpan}</button>`;
   }).join('');
 
   const shieldBlockBtnsHtml = (!hideTarget && calc.targetShields && calc.targetShields.length)
@@ -1896,9 +1965,9 @@ function renderSingleCombatHitBodyHtml(hitEntry, hitIdx, isMulti){
 
   const bodyInner = `
     <div class="text-[11px] t-mut flex flex-wrap items-center gap-x-2 gap-y-0.5 tabular">
-      <span>${isMlpPool ? '🧠' : (calc.atkShield ? '🛡️' : '🗡️')} <strong>${esc(calc.weaponName)}</strong>${calc.ammoName ? ` + 🎯 ${esc(calc.ammoName)}` : ''}</span>
+      <span>${calc.activePower ? '' : (isMlpPool ? '🧠 ' : (calc.atkShield ? '🛡️ ' : '🗡️ '))}<strong>${esc(calc.weaponName)}</strong>${calc.ammoName ? ` + 🎯 ${esc(calc.ammoName)}` : ''}</span>
       <span>•</span>
-      <span>Grundschaden: <strong class="text-emerald-300">${calc.eg} EG</strong>${calc.isCrit ? ' <strong class="text-amber-300">+ 2 Krit</strong>' : ''}${hitEntry.isBlocked ? ' <span class="text-amber-300">(Geblockt • kein Krit)</span>' : ''}</span>
+      <span>Grundschaden: <strong class="text-emerald-300">${calc.eg} EG</strong>${calc.powerDmgBonus ? ` <strong class="text-acc">${calc.powerDmgBonus > 0 ? `+ ${calc.powerDmgBonus}` : `− ${Math.abs(calc.powerDmgBonus)}`} ${COMBAT.powerKind === 'augment' ? 'Augment' : 'Kraft'}</strong>` : ''}${calc.isCrit ? ' <strong class="text-amber-300">+ 2 Krit</strong>' : ''}${hitEntry.isBlocked ? ' <span class="text-amber-300">(Geblockt • kein Krit)</span>' : ''}</span>
     </div>
     ${critBannerHtml}
     ${blockedBannerHtml}
@@ -1916,7 +1985,7 @@ function renderSingleCombatHitBodyHtml(hitEntry, hitIdx, isMulti){
     <div class="space-y-1.5 pt-1.5 border-t border-white/10 min-w-0">
       <div class="flex flex-wrap items-center justify-between gap-1.5">
         <div class="flex flex-wrap items-center gap-1.5 min-w-0">
-          <span class="text-[10px] font-extrabold t-mut uppercase tracking-wider">⚔️ Schadensart &amp; Waffenschaden</span>
+          <span class="text-[10px] font-extrabold t-mut uppercase tracking-wider">${calc.activePower && !calc.weapon && !calc.atkShield ? '✨ Schadenstyp' : '⚔️ Schadensart &amp; Waffenschaden'}</span>
           ${hitEntry.dmgTypeReason?`<span class="px-1.5 py-0.5 rounded bg-acc-soft border bdr-acc text-acc text-[10px] font-extrabold">${esc(hitEntry.dmgTypeReason)}</span>`:''}
         </div>
         <div class="inline-flex rounded-lg p-0.5 bg-black/25 border bdr-line text-[10px]">
