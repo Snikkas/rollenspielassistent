@@ -1,5 +1,5 @@
 import {
-  STORE_KEY, OLD_KEYS, DEF_WEAPON_TAGS, DEF_ARMOR_TAGS, ATTRS, DEF_ATTR_COLS, STATUS_DEFS, DEFAULT_SYSTEM_ICON_SVGS, DEF_SEC_COLS, DEF_MAIN_ARTS, DEF_ACTION_SUBS, DEF_PW_TAGS, PW_ACTION_TIPS, DEF_USERES, SK_CATS, PW_TIERS, DEF_HZ, TABS, COL_PRESETS, PALETTES, WEAPON_SUBTYPES, ARMOR_SUBTYPES, DEF_EQ_SEC_ORDER, DEF_CHR_SEC_ORDER, DICE_DEF, CNOTES_DEF, LIVEDICE_DEF, INI_DEF, FBW_DEF, WIN_PREFS_KEY, WIN_KEYS, WIN_DEFAULTS, PW_MODE_KEY, DEF_FB_FOLDERS, GUEST_THEME_KEY, USER_BG_LOCAL_PREFIX, THEME_BG_SYNC_LIMIT, THEME_SYNC_DEBOUNCE_MS, SCROLL_KEY_SEL, SCROLL_Y_SEL, SCROLL_X_SEL
+  STORE_KEY, OLD_KEYS, DEF_WEAPON_TAGS, DEF_ARMOR_TAGS, ATTRS, DEF_ATTR_COLS, STATUS_DEFS, DEFAULT_SYSTEM_ICON_SVGS, DEF_SEC_COLS, DEF_MAIN_ARTS, DEF_ACTION_SUBS, DEF_PW_TAGS, PW_ACTION_TIPS, DEF_USERES, DEF_DMG_TYPES, SK_CATS, PW_TIERS, DEF_HZ, TABS, COL_PRESETS, PALETTES, WEAPON_SUBTYPES, ARMOR_SUBTYPES, DEF_EQ_SEC_ORDER, DEF_CHR_SEC_ORDER, DICE_DEF, CNOTES_DEF, LIVEDICE_DEF, INI_DEF, FBW_DEF, WIN_PREFS_KEY, WIN_KEYS, WIN_DEFAULTS, PW_MODE_KEY, DEF_FB_FOLDERS, GUEST_THEME_KEY, USER_BG_LOCAL_PREFIX, THEME_BG_SYNC_LIMIT, THEME_SYNC_DEBOUNCE_MS, SCROLL_KEY_SEL, SCROLL_Y_SEL, SCROLL_X_SEL
 } from './constants.js';
 import {
   $, uid, stamp, esc, clone, toInt, toFlt, isHex, sortAlpha, simpleHash, sortTagDefs, sanitizeSecHierarchy
@@ -74,6 +74,94 @@ export const getDmgTypeLabel=(key,customArr=[])=>{
   }
   return '';
 };
+export const resolveDmgTypeKeyFromLabel=label=>{
+  const clean=String(label||'').trim();
+  if(!clean) return '';
+  const low=clean.toLowerCase();
+  if(low==='cut'||low==='schnitt'||low==='schnittschaden') return 'cut';
+  if(low==='pierce'||low==='durchstoß'||low==='durchstoss'||low==='stich'||low==='stichschaden') return 'pierce';
+  if(low==='impact'||low==='einschlag'||low==='einschlagschaden'||low==='wucht') return 'impact';
+  if(low==='impact_cut'||low==='einschlag-schnitt'||low==='einschlag/schnitt') return 'impact_cut';
+  if(low==='impact_pierce'||low==='einschlag-durchstoß'||low==='einschlag-durchstoss'||low==='einschlag-stich') return 'impact_pierce';
+  if(low.startsWith('custom:')&&low.slice(7).trim()) return `custom:${low.slice(7).trim()}`;
+  return `custom:${low}`;
+};
+export const dmgTypeLabelToOpt=(label,val=0)=>{
+  const clean=String(label||'').trim();
+  const key=resolveDmgTypeKeyFromLabel(clean);
+  if(key==='cut') return {key:'cut',label:'Schnitt',shortLabel:'Schnitt',val:toInt(val,0),isCombo:false,isCustom:false};
+  if(key==='pierce') return {key:'pierce',label:'Durchstoß',shortLabel:'Durchstoß',val:toInt(val,0),isCombo:false,isCustom:false};
+  if(key==='impact') return {key:'impact',label:'Einschlag',shortLabel:'Einschlag',val:toInt(val,0),isCombo:false,isCustom:false};
+  if(key==='impact_cut') return {key:'impact_cut',label:'Einschlag-Schnitt',shortLabel:'Einschlag-Schnitt',val:toInt(val,0),isCombo:true,comboKeys:['impact','cut'],isCustom:false};
+  if(key==='impact_pierce') return {key:'impact_pierce',label:'Einschlag-Durchstoß',shortLabel:'Einschlag-Durchstoß',val:toInt(val,0),isCombo:true,comboKeys:['impact','pierce'],isCustom:false};
+  if(key.startsWith('custom:')){
+    const disp=clean.replace(/^custom:/i,'').trim()||key.slice(7);
+    return {key,label:disp,shortLabel:disp,val:toInt(val,0),isCombo:false,isCustom:true,customLabel:disp};
+  }
+  return {key:'impact',label:'Einschlag',shortLabel:'Einschlag',val:toInt(val,0),isCombo:false,isCustom:false};
+};
+export const getSheetDmgTypeList=(sheet=S)=>{
+  const src=Array.isArray(sheet?.dmgTypeList)&&sheet.dmgTypeList.length?sheet.dmgTypeList:DEF_DMG_TYPES;
+  const out=[], seen=new Set();
+  src.forEach(item=>{
+    const clean=String(item||'').trim();
+    if(!clean) return;
+    const low=clean.toLowerCase();
+    if(seen.has(low)) return;
+    seen.add(low);
+    out.push(clean);
+  });
+  return out.length?out:[...DEF_DMG_TYPES];
+};
+export const makeDefaultActionRoll=()=>({
+  enabled:false,
+  rollCat:'Normaler Test',
+  skillId:'',
+  skillName:'',
+  attrKey:'',
+  hasSelfMod:false,
+  selfModKind:'adv',
+  selfModVal:1,
+  dealsEgDmg:false,
+  dmgPool:'lp',
+  dmgBonus:'0',
+  replaceDmgType:false,
+  dmgType:'Feuer',
+  hasTargetMod:false,
+  targetModKind:'dis',
+  targetModVal:1,
+  useWeapon:false
+});
+export const normActionRoll=raw=>{
+  const def=makeDefaultActionRoll();
+  if(!raw||typeof raw!=='object') return def;
+  const validCats=['Normaler Test','Trefferwurf','Parieren','Blocken','Ausweichen'];
+  const rawCat=raw.rollCat==='Parade'?'Parieren':String(raw.rollCat||'').trim();
+  const rollCat=validCats.includes(rawCat)?rawCat:def.rollCat;
+  const attrKey=ATTRS.some(a=>a.k===raw.attrKey)?raw.attrKey:'';
+  const dmgPool=raw.dmgPool==='mlp'?'mlp':'lp';
+  const rawBonus=raw.dmgBonus!==undefined&&raw.dmgBonus!==null?String(raw.dmgBonus).trim():'0';
+  const dmgType=String(raw.dmgType||'').trim()||def.dmgType;
+  return {
+    enabled:Boolean(raw.enabled),
+    rollCat,
+    skillId:String(raw.skillId||'').trim(),
+    skillName:String(raw.skillName||'').trim(),
+    attrKey,
+    hasSelfMod:Boolean(raw.hasSelfMod),
+    selfModKind:raw.selfModKind==='dis'?'dis':'adv',
+    selfModVal:Math.max(1,Math.min(10,Math.abs(toInt(raw.selfModVal,1))||1)),
+    dealsEgDmg:Boolean(raw.dealsEgDmg),
+    dmgPool,
+    dmgBonus:rawBonus===''?'0':rawBonus,
+    replaceDmgType:Boolean(raw.replaceDmgType),
+    dmgType,
+    hasTargetMod:Boolean(raw.hasTargetMod),
+    targetModKind:raw.targetModKind==='adv'?'adv':'dis',
+    targetModVal:Math.max(1,Math.min(10,Math.abs(toInt(raw.targetModVal,1))||1)),
+    useWeapon:Boolean(raw.useWeapon)
+  };
+};
 export const isWeaponMassiv=w=>Array.isArray(w?.tags)&&w.tags.some(t=>String(t?.name??t??'').trim().toLowerCase()==='massiv');
 export const isWeaponBlockable=w=>Array.isArray(w?.tags)&&w.tags.some(t=>/^blockf[äa]hig\b/i.test(String(t?.name??t??'').trim()));
 export const getEffectiveBlockZoneLabel=item=>String(item?.blockZone||'').trim()||'Arm / Hand';
@@ -87,8 +175,8 @@ export const makeBaseSection=(parentSectionId='',extra={})=>({id:uid(),name:'Neu
 export const makeSection=(parentSectionId='')=>makeBaseSection(parentSectionId,{filterArt:''});
 export const makeSkSection=(parentSectionId='')=>makeBaseSection(parentSectionId,{filterAttr:''});
 export const makeInvSection=(parentSectionId='')=>makeBaseSection(parentSectionId,{name:'Neuer Beutel'});
-export const makePower=(secId='')=>({id:uid(),templateId:'',name:'',color:'',bgColor:'',sectionId:secId,collapsed:false,req:'',tier:'marginal',manualCost:false,sp:1,msp:0,showManual:false,art:'Grundaktion',artManual:false,actionSubs:[],tags:[],useCosts:[],useAmt:0,useRes:'',reserved:false,reservedCosts:[],desc:'',effects:'',rules:'',applyMods:true,bldAmt:'+1',bldStat:'LP-Max',bldMode:'stat',bldSkCnt:'1',bldSkKind:'adv',bldSkId:'',bldDynVar:'WA',bldDynFactor:'/2',bldDynRound:'',bldDynTarget:'desc',boxH:{desc:0,effects:0,rules:0}});
-export const makeAugment=(pid='',secId='')=>({...makePower(pid?'':String(secId||'')),id:uid(),parentPowerId:String(pid||''),art:'',actionSubs:[],tags:['Eigenschaft'],useCosts:[],useAmt:0,useRes:''});
+export const makePower=(secId='')=>({id:uid(),templateId:'',name:'',color:'',bgColor:'',sectionId:secId,collapsed:false,req:'',tier:'marginal',manualCost:false,sp:1,msp:0,showManual:false,art:'Grundaktion',artManual:false,actionSubs:[],tags:[],useCosts:[],useAmt:0,useRes:'',reserved:false,reservedCosts:[],desc:'',effects:'',rules:'',applyMods:true,bldAmt:'+1',bldStat:'LP-Max',bldMode:'stat',bldSkCnt:'1',bldSkKind:'adv',bldSkId:'',bldDynVar:'WA',bldDynFactor:'/2',bldDynRound:'',bldDynTarget:'desc',actionRoll:makeDefaultActionRoll(),boxH:{desc:0,effects:0,rules:0}});
+export const makeAugment=(pid='',secId='')=>({...makePower(pid?'':String(secId||'')),id:uid(),parentPowerId:String(pid||''),art:'',actionSubs:[],tags:['Eigenschaft'],useCosts:[],useAmt:0,useRes:'',actionRoll:makeDefaultActionRoll()});
 export function syncPwUseCostsLegacy(it){
   if(!it) return;
   if(!Array.isArray(it.useCosts)) it.useCosts=[];
@@ -157,7 +245,7 @@ export function defaultState(){
     profile:{name:'',ancestry:'',concept:'',avatar:''},
     appearance:{dark:true,lobbyDark:true,mode:'global',editScope:'attributes',global:makeStyleSlot(),lobby:makeStyleSlot(),tabs:tabStyles},
     attrColors:{...DEF_ATTR_COLS},secColors:{...DEF_SEC_COLS},
-    artList:[...DEF_MAIN_ARTS],actionSubList:[...DEF_ACTION_SUBS],pwTagList:[...DEF_PW_TAGS],useResList:[...DEF_USERES],customStats:[],
+    artList:[...DEF_MAIN_ARTS],actionSubList:[...DEF_ACTION_SUBS],pwTagList:[...DEF_PW_TAGS],useResList:[...DEF_USERES],dmgTypeList:[...DEF_DMG_TYPES],customStats:[],
     weaponTagList:clone(DEF_WEAPON_TAGS),armorTagList:clone(DEF_ARMOR_TAGS),ammoTagList:[],
     attributes,secondary:{lpCurrent:8,lpMod:0,lpRegenOvr:'',iniMod:0,mlpCurrent:8,mlpMod:0,mlpRegenOvr:'',apCurrent:3,apMax:3,mapCurrent:3,mapMax:3},
     customRes:{name:'Benutzerdefiniert',current:3,max:3,color:'#c084fc'},extraSecList:[],
@@ -193,7 +281,7 @@ let toastTimer=null;
 export const isMobileLayout=()=>window.matchMedia('(max-width: 767px), ((max-height: 540px) and (pointer: coarse))').matches;
 export const CTX_MENU={open:false,id:0,key:'',anchorEl:null,opts:null,callbacks:[],cleanupSwipe:null};
 export const DUEL={damageOffers:[]};
-export const COMBAT={active:false,collapsed:false,hitOk:false,blockPrompt:false,blockPromptReason:'',isCrit:false,eg:0,egMult:1,baseEg:0,isBlocked:false,blockItemRed:false,blockShieldId:'',blockShieldName:'',weaponId:null,shieldId:null,ammoId:null,attrKey:'',attackerName:'',targetCharId:'',targetName:'',dmgType:'cut',dmgTypeReason:'',pool:'lp',zoneName:'',subZoneName:'',lastHzRoll:null,lastSubHzRoll:null,dmgMod:0,armorMod:0,posted:false,offerId:'',offerStatus:'',offerNote:'',directApplying:false,directAppliedNote:'',ammoSpent:false,hits:[],combinedPosted:false,combinedOfferId:'',combinedOfferStatus:'',combinedOfferNote:'',combinedDirectApplying:false,combinedDirectAppliedNote:''};
+export const COMBAT={active:false,collapsed:false,hitOk:false,blockPrompt:false,blockPromptReason:'',isCrit:false,eg:0,egMult:1,baseEg:0,isBlocked:false,blockItemRed:false,blockShieldId:'',blockShieldName:'',weaponId:null,shieldId:null,ammoId:null,powerKind:null,powerId:null,attrKey:'',attackerName:'',targetCharId:'',targetName:'',dmgType:'cut',dmgTypeReason:'',pool:'lp',zoneName:'',subZoneName:'',lastHzRoll:null,lastSubHzRoll:null,dmgMod:0,armorMod:0,posted:false,offerId:'',offerStatus:'',offerNote:'',directApplying:false,directAppliedNote:'',ammoSpent:false,hits:[],combinedPosted:false,combinedOfferId:'',combinedOfferStatus:'',combinedOfferNote:'',combinedDirectApplying:false,combinedDirectAppliedNote:''};
 export function syncBodyScrollLock(){
   document.body.style.overflow=(isMobileLayout()&&Boolean(D.open||CN.open||LD.open||INI.open||FBW.open||UI.modal||CTX_MENU.open))?'hidden':'';
 }
@@ -1440,7 +1528,8 @@ export function normPwEntry(raw,isAug){
   const reservedCosts=Array.isArray(raw?.reservedCosts)?raw.reservedCosts.filter(c=>c&&String(c.res||'').trim()&&toInt(c.amt,0)>0).map(c=>({res:String(c.res).trim(),amt:Math.max(0,toInt(c.amt,0))})):[];
   const normParentId=isAug?String(raw?.parentPowerId||''):'';
   const normSecId=(isAug&&normParentId)?'':String(raw?.sectionId||'');
-  return {...base,...(raw||{}),id:raw?.id||uid(),templateId:String(raw?.templateId||''),color:col,bgColor:bgCol,sectionId:normSecId,...(isAug?{parentPowerId:normParentId}:{}),collapsed:Boolean(raw?.collapsed),tier,manualCost:manual,sp:manual?toInt(raw.sp,def.sp):def.sp,msp:manual?toInt(raw.msp,def.msp):def.msp,showManual:Boolean(raw?.showManual),art,artManual:Boolean(raw?.artManual),actionSubs,tags,useCosts,useAmt,useRes,reserved,reservedCosts,desc:String(raw?.desc||''),effects:String(raw?.effects??raw?.extraEffects??''),rules:String(raw?.rules||''),applyMods,bldAmt:String(raw?.bldAmt||'+1'),bldStat:String(raw?.bldStat||'LP-Max'),bldMode,bldSkCnt,bldSkKind,bldSkId,bldDynVar,bldDynFactor,bldDynRound,bldDynTarget,boxH:bh};
+  const actionRoll=normActionRoll(raw?.actionRoll);
+  return {...base,...(raw||{}),id:raw?.id||uid(),templateId:String(raw?.templateId||''),color:col,bgColor:bgCol,sectionId:normSecId,...(isAug?{parentPowerId:normParentId}:{}),collapsed:Boolean(raw?.collapsed),tier,manualCost:manual,sp:manual?toInt(raw.sp,def.sp):def.sp,msp:manual?toInt(raw.msp,def.msp):def.msp,showManual:Boolean(raw?.showManual),art,artManual:Boolean(raw?.artManual),actionSubs,tags,useCosts,useAmt,useRes,reserved,reservedCosts,desc:String(raw?.desc||''),effects:String(raw?.effects??raw?.extraEffects??''),rules:String(raw?.rules||''),applyMods,bldAmt:String(raw?.bldAmt||'+1'),bldStat:String(raw?.bldStat||'LP-Max'),bldMode,bldSkCnt,bldSkKind,bldSkId,bldDynVar,bldDynFactor,bldDynRound,bldDynTarget,actionRoll,boxH:bh};
 }
 
 function normalizeSheetObject(raw, { isForeign = false } = {}){
@@ -1497,6 +1586,12 @@ function normalizeSheetObject(raw, { isForeign = false } = {}){
   const rawTagSrc=Array.isArray(raw.pwTagList)?raw.pwTagList:(Array.isArray(raw.subcatList)?raw.subcatList:[]);
   sheet.pwTagList=sortAlpha([...DEF_PW_TAGS,...rawTagSrc].filter(t=>!isReservedPwTerm(t)));
   sheet.useResList=Array.isArray(raw.useResList)&&raw.useResList.length?[...new Set(raw.useResList.map(x=>String(x).trim()).filter(Boolean))]:[...DEF_USERES];
+  {
+    const rawDt=Array.isArray(raw.dmgTypeList)&&raw.dmgTypeList.length?raw.dmgTypeList:DEF_DMG_TYPES;
+    const seenDt=new Set(), mergedDt=[];
+    rawDt.forEach(t=>{const c=String(t||'').trim();if(!c)return;const l=c.toLowerCase();if(!seenDt.has(l)){seenDt.add(l);mergedDt.push(c);}});
+    sheet.dmgTypeList=mergedDt.length?mergedDt:[...DEF_DMG_TYPES];
+  }
   sheet.customStats=Array.isArray(raw.customStats)?sortAlpha(raw.customStats):[];
   const mergeDefTags=(rawArr,defArr)=>{const b=Array.isArray(rawArr)?rawArr.filter(t=>t&&String(t.name||'').trim()):[];(defArr||[]).forEach(d=>{if(!b.some(t=>String(t.name).trim().toLowerCase()===d.name.toLowerCase()))b.push({...d});});return sortTagDefs(b);};
   sheet.weaponTagList=mergeDefTags(raw.weaponTagList,DEF_WEAPON_TAGS);
@@ -1551,6 +1646,11 @@ function normalizeSheetObject(raw, { isForeign = false } = {}){
   sheet.augments.forEach(a=>{if(raw.version<11&&parseChips(a.effects).length)a.applyMods=true;});
   const usedPwTags=[...sheet.powers,...sheet.augments].flatMap(it=>Array.isArray(it.tags)?it.tags:[]).filter(t=>!isReservedPwTerm(t));
   if(usedPwTags.length){sheet.pwTagList=sortAlpha([...sheet.pwTagList,...usedPwTags]);}
+  const usedPwDmgTypes=[...sheet.powers,...sheet.augments].map(it=>it?.actionRoll?.replaceDmgType?String(it.actionRoll.dmgType||'').trim():'').filter(Boolean);
+  if(usedPwDmgTypes.length){
+    const seenDt2=new Set(sheet.dmgTypeList.map(x=>x.toLowerCase()));
+    usedPwDmgTypes.forEach(dt=>{if(!seenDt2.has(dt.toLowerCase())){seenDt2.add(dt.toLowerCase());sheet.dmgTypeList.push(dt);}});
+  }
   const slotCnt={};
   sheet.augments.forEach(ag=>{
     if(!ag.parentPowerId&&ag.parentPower){const m=sheet.powers.find(p=>p.name&&p.name.toLowerCase()===String(ag.parentPower).toLowerCase());if(m)ag.parentPowerId=m.id;}

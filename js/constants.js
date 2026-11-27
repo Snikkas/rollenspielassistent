@@ -81,6 +81,7 @@ export const PW_ACTION_TIPS={
   'Sofortaktion':'Du kannst diese Aktion jederzeit - auch als Reaktion auf eine beliebige Aktion - einsetzen, solange du nicht handlungsunfähig bist.'
 };
 export const DEF_USERES=['ap','map'];
+export const DEF_DMG_TYPES=['Schnitt','Durchstoß','Einschlag','Blitz','Feuer','Energie','Säure','Explosion'];
 export const TR_DEFS=[{i:0,b:5,sp:2,msp:0},{i:1,b:5,sp:2,msp:0},{i:2,b:5,sp:3,msp:0},{i:3,b:5,sp:3,msp:0},{i:4,b:10,sp:5,msp:1}];
 export const SK_CATS={marginal:{l:'Marginal',s:[0,1,1,2,2]},fundamental:{l:'Fundamental',s:[0,2,2,3,3]},grandios:{l:'Grandios',s:[0,3,2,3,4]}};
 export const SK_RANKS=[{r:0,n:'Ungelernt',b:0},{r:1,n:'Novize',b:10},{r:2,n:'Geselle',b:15},{r:3,n:'Experte',b:20},{r:4,n:'Meister',b:30}];
@@ -168,7 +169,7 @@ export const ARMOR_SUBTYPES = [
 ];
 export const DEF_EQ_SEC_ORDER=['weapons','ammos','armors','inventory'];
 export const DEF_CHR_SEC_ORDER=['training','skills','powers'];
-export const DICE_DEF={open:false,docked:false,floating:false,x:null,y:null,w:0,h:0,z:50,label:'Freie Probe',skillId:null,attrKey:null,weaponId:null,shieldId:null,wRollCat:'Normaler Test',atkPool:'lp',dualWieldOvr:'auto',aimActive:false,aimZone:'',aimSizeOvr:'auto',wpEditOpen:false,advSrcOpen:false,logOpen:false,cMode:'direct',cDirect:0,cAttr:0,cSkill:'0',cCustom:25,dMode:'direct',dDirect:40,dAttr:30,dSkill:'10',dCustom:25,oppCharId:'',oppKind:'preset',oppPreset:'dodge',oppAttrKey:'GW',oppSkillId:'',oppWeaponId:'',oppSitActive:{},adv:0,dis:0,advAdj:0,disAdj:0,cnt:1,crit:'1',critOff:0,critMode:'range',sitActive:{},prepPaused:false,blockFollowAtk:40,customCnt:1,customSides:20,customMod:0,customOpen:false,_lobbyNeutral:false,secretMode:false};
+export const DICE_DEF={open:false,docked:false,floating:false,x:null,y:null,w:0,h:0,z:50,label:'Freie Probe',skillId:null,attrKey:null,weaponId:null,shieldId:null,powerKind:null,powerId:null,wRollCat:'Normaler Test',atkPool:'lp',dualWieldOvr:'auto',aimActive:false,aimZone:'',aimSizeOvr:'auto',wpEditOpen:false,advSrcOpen:false,logOpen:false,cMode:'direct',cDirect:0,cAttr:0,cSkill:'0',cCustom:25,dMode:'direct',dDirect:40,dAttr:30,dSkill:'10',dCustom:25,oppCharId:'',oppKind:'preset',oppPreset:'dodge',oppAttrKey:'GW',oppSkillId:'',oppWeaponId:'',oppSitActive:{},adv:0,dis:0,advAdj:0,disAdj:0,cnt:1,crit:'1',critOff:0,critMode:'range',sitActive:{},prepPaused:false,blockFollowAtk:40,customCnt:1,customSides:20,customMod:0,customOpen:false,_lobbyNeutral:false,secretMode:false};
 export const CNOTES_DEF={open:false,docked:false,floating:false,x:null,y:null,w:0,h:0,z:50,tocOpen:true,confirmDelId:null,confirmDelFolderId:null,newFolderOpen:false,newFolderName:'',newFolderPublic:false};
 export const LIVEDICE_DEF={open:false,docked:false,floating:false,x:null,y:null,w:0,h:0,z:50};
 export const INI_DEF={open:false,docked:false,floating:false,compact:false,collapsed:false,pickerHidden:false,x:null,y:null,w:0,h:0,z:50,addCustomOpen:false,customName:'',customIni:'0',customIsEnemy:true,customHidden:false};
