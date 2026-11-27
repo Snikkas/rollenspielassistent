@@ -886,27 +886,27 @@ export function tplLobbyScreen(){
             <button type="button" data-action="open-admin-panel" data-tip="Admin-Fenster (PIN &amp; Verwaltung) öffnen" class="btn py-1.5 px-3 text-xs ${CLOUD.isAdmin?'!border-amber-400 !bg-amber-500/20 text-amber-300':'opacity-85'}">👑 ${CLOUD.isAdmin?'Admin aktiv':'Spielleiter / Admin'}</button>
           </div>
         </div>
-        <div class="lg:col-span-7 subcard p-4 sm:p-5 space-y-3 border-indigo-500/40 bg-indigo-500/10">
+        <form id="formLobbyAuth" class="lg:col-span-7 subcard p-4 sm:p-5 space-y-3 border-indigo-500/40 bg-indigo-500/10">
           <div class="text-xs font-extrabold text-indigo-300 uppercase tracking-wider">🔑 Spieler-Login &amp; Neuregistrierung</div>
           <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
             <div>
-              <label class="block text-[10px] font-bold t-mut mb-1">SPIELERNAME (ACCOUNT)</label>
-              <input id="inpLobbyUser" type="text" placeholder="Dein Spielername..." class="inp w-full py-2 px-3 text-xs sm:text-sm font-bold"/>
+              <label for="inpLobbyUser" class="block text-[10px] font-bold t-mut mb-1">SPIELERNAME (ACCOUNT)</label>
+              <input id="inpLobbyUser" type="text" autocomplete="username" enterkeyhint="next" placeholder="Dein Spielername..." class="inp w-full py-2 px-3 text-xs sm:text-sm font-bold"/>
             </div>
             <div>
-              <label class="block text-[10px] font-bold t-mut mb-1">PASSWORT</label>
-              <input id="inpLobbyPass" type="password" placeholder="Passwort..." class="inp w-full py-2 px-3 text-xs sm:text-sm font-bold"/>
+              <label for="inpLobbyPass" class="block text-[10px] font-bold t-mut mb-1">PASSWORT</label>
+              <input id="inpLobbyPass" type="password" autocomplete="current-password" enterkeyhint="go" placeholder="Passwort..." class="inp w-full py-2 px-3 text-xs sm:text-sm font-bold"/>
             </div>
             <div>
-              <label class="block text-[10px] font-bold t-mut mb-1">PASSWORT WIEDERHOLEN</label>
-              <input id="inpLobbyPass2" type="password" placeholder="Nur bei Registrierung..." class="inp w-full py-2 px-3 text-xs sm:text-sm font-bold"/>
+              <label for="inpLobbyPass2" class="block text-[10px] font-bold t-mut mb-1">PASSWORT WIEDERHOLEN</label>
+              <input id="inpLobbyPass2" type="password" autocomplete="new-password" enterkeyhint="done" placeholder="Nur bei Registrierung..." class="inp w-full py-2 px-3 text-xs sm:text-sm font-bold"/>
             </div>
           </div>
           <div class="flex flex-wrap items-center justify-end gap-2 pt-1">
-            <button type="button" data-action="user-login" class="btn btn-pri py-2 px-4 text-xs sm:text-sm font-black">🔑 Anmelden</button>
+            <button type="submit" class="btn btn-pri py-2 px-4 text-xs sm:text-sm font-black">🔑 Anmelden</button>
             <button type="button" data-action="user-register" data-tip="Neuen Spieler-Account (Name + Passwort) im Backend registrieren" class="btn btn-ok py-2 px-4 text-xs sm:text-sm font-black">✨ Neuen Account registrieren</button>
           </div>
-        </div>
+        </form>
       </div>
       `:`
       <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">

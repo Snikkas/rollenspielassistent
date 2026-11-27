@@ -2940,45 +2940,8 @@ document.addEventListener('click',async e=>{
       createNewUserCharacter({name:nm,ancestry:anc,concept:con,campaignId:cmp});
       break;
     }
-    case 'user-register': {
-      const u=($('inpLobbyUser')?.value||'').trim(), p=($('inpLobbyPass')?.value||'').trim(), p2=($('inpLobbyPass2')?.value||'').trim();
-      if(!u||!p){toast('⚠️ Bitte Spielername und Passwort eingeben.');break;}
-      if(p!==p2){toast('⚠️ Die beiden Passwörter stimmen nicht überein!');break;}
-      const exKey=findUserKeyByName(u);
-      if(exKey){toast(`⚠️ Account „${exKey}“ existiert bereits – bitte auf „Anmelden“ klicken.`);break;}
-      cancelThemePrefsSync();
-      CLOUD.registry.users[u]={userId:'usr_'+uid(),passHash:simpleHash(p),createdAt:stamp(),avatar:'',nameHistory:[]};
-      ensureAllRegistryUsers();
-      CLOUD.currentUser=u;
-      try{localStorage.setItem('scherbensturm_cloud_user',u);}catch(e){}
-      applySessionTheme({allowSheetFallback:false});
-      applyTheme();
-      renderHeader(); renderMain(); renderModal(true);
-      refreshUserNotificationsBg(false);
-      syncCloudRegistry(true);
-      toast(`✨ Account „${u}“ registriert & angemeldet!`);
-      break;
-    }
-    case 'user-login': {
-      const u=($('inpLobbyUser')?.value||'').trim(), p=($('inpLobbyPass')?.value||'').trim();
-      if(!u||!p){toast('⚠️ Bitte Spielername und Passwort eingeben.');break;}
-      ensureAllRegistryUsers();
-      const exKey=findUserKeyByName(u);
-      if(!exKey){toast(`⚠️ Account „${u}“ noch nicht gefunden – klicke auf „Registrieren“, um ihn neu anzulegen.`);break;}
-      if(CLOUD.registry.users[exKey].passHash!==simpleHash(p)&&!(CLOUD.registry.adminHash&&simpleHash(p)===CLOUD.registry.adminHash)){
-        toast('🔒 Passwort stimmt nicht.');break;
-      }
-      cancelThemePrefsSync();
-      CLOUD.currentUser=exKey;
-      try{localStorage.setItem('scherbensturm_cloud_user',exKey);}catch(e){}
-      applySessionTheme({allowSheetFallback:false});
-      applyTheme();
-      renderHeader(); renderMain(); renderModal(true);
-      refreshUserNotificationsBg(false);
-      syncCloudRegistry(false);
-      toast(`🔑 Willkommen zurück, ${exKey}!`);
-      break;
-    }
+    case 'user-register': performUserRegister(); break;
+    case 'user-login': performUserLogin(); break;
     case 'user-logout': {
       flushThemePrefsSync();
       CLOUD.currentUser=''; CLOUD.filterMine=false; CLOUD.newTemplateOpen=false; CLOUD.newTemplateAsEnemyCampId='';
@@ -5264,8 +5227,57 @@ document.addEventListener('change',e=>{
   if(el.id==='fileImport'&&el.files[0]){const r=new FileReader();r.onload=ev=>{try{mergeLoaded(JSON.parse(ev.target.result)); CLOUD.viewingRemote=false; CLOUD.remoteCharId=''; resetCloudSyncState({clearMeta:true,status:'saved',lastSyncTs:''}); UI.inLobby=false; UI.sheetLoaded=true; UI.modal=null; exitLobbyNeutralDice(); renderAll(true);toast('Charakterbogen importiert!');}catch(err){toast('Ungültige JSON-Datei.');}};r.readAsText(el.files[0]);el.value='';}
 });
 
+function performUserRegister(){
+  const u=($('inpLobbyUser')?.value||'').trim(), p=($('inpLobbyPass')?.value||'').trim(), p2=($('inpLobbyPass2')?.value||'').trim();
+  if(!u||!p){toast('⚠️ Bitte Spielername und Passwort eingeben.');return;}
+  if(p!==p2){toast('⚠️ Die beiden Passwörter stimmen nicht überein!');return;}
+  const exKey=findUserKeyByName(u);
+  if(exKey){toast(`⚠️ Account „${exKey}“ existiert bereits – bitte auf „Anmelden“ klicken.`);return;}
+  cancelThemePrefsSync();
+  CLOUD.registry.users[u]={userId:'usr_'+uid(),passHash:simpleHash(p),createdAt:stamp(),avatar:'',nameHistory:[]};
+  ensureAllRegistryUsers();
+  CLOUD.currentUser=u;
+  try{localStorage.setItem('scherbensturm_cloud_user',u);}catch(e){}
+  applySessionTheme({allowSheetFallback:false});
+  applyTheme();
+  renderHeader(); renderMain(); renderModal(true);
+  refreshUserNotificationsBg(false);
+  syncCloudRegistry(true);
+  toast(`✨ Account „${u}“ registriert & angemeldet!`);
+}
+function performUserLogin(){
+  const u=($('inpLobbyUser')?.value||'').trim(), p=($('inpLobbyPass')?.value||'').trim();
+  if(!u||!p){
+    toast('⚠️ Bitte Spielername und Passwort eingeben.');
+    if(u&&!p) $('inpLobbyPass')?.focus();
+    else if(!u) $('inpLobbyUser')?.focus();
+    return;
+  }
+  ensureAllRegistryUsers();
+  const exKey=findUserKeyByName(u);
+  if(!exKey){toast(`⚠️ Account „${u}“ noch nicht gefunden – klicke auf „Registrieren“, um ihn neu anzulegen.`);return;}
+  if(CLOUD.registry.users[exKey].passHash!==simpleHash(p)&&!(CLOUD.registry.adminHash&&simpleHash(p)===CLOUD.registry.adminHash)){
+    toast('🔒 Passwort stimmt nicht.');return;
+  }
+  cancelThemePrefsSync();
+  CLOUD.currentUser=exKey;
+  try{localStorage.setItem('scherbensturm_cloud_user',exKey);}catch(e){}
+  applySessionTheme({allowSheetFallback:false});
+  applyTheme();
+  renderHeader(); renderMain(); renderModal(true);
+  refreshUserNotificationsBg(false);
+  syncCloudRegistry(false);
+  toast(`🔑 Willkommen zurück, ${exKey}!`);
+}
+
 document.addEventListener('submit',e=>{
   e.preventDefault(); const id=e.target.id;
+  if(id==='formLobbyAuth'){
+    const p2El=$('inpLobbyPass2');
+    if(document.activeElement===p2El&&(p2El?.value||'').trim()) performUserRegister();
+    else performUserLogin();
+    return;
+  }
   if(id==='formAdminUnlock'){performAdminUnlock();return;}
   if(id==='formAdminChangePin'){performAdminChangePin();return;}
   if(id==='formAddSkill2') upsertSkill($('skName2').value,$('skAttr2').value,$('skCat2').value,$('skRank2').value,'Fertigkeiten',$('skBonOvr2')?$('skBonOvr2').value:'',$('skSec2')?$('skSec2').value:'');
