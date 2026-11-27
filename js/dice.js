@@ -773,7 +773,9 @@ export function openPowerRoll(kind,powerId){
     const curW=D.weaponId?(S.weapons||[]).find(x=>x.id===D.weaponId):null;
     const curSh=D.shieldId?(S.armors||[]).find(a=>a&&a.id===D.shieldId&&isArmorShield(a)):null;
     if(!curW&&!curSh){
-      const eqW=(S.weapons||[]).find(x=>x&&x.equipped!==false)||(S.weapons||[])[0]||null;
+      const allW=S.weapons||[];
+      const skMatchW=pm.sk?(allW.find(x=>x&&x.equipped!==false&&x.skillId===pm.sk.id)||allW.find(x=>x&&x.skillId===pm.sk.id)):null;
+      const eqW=skMatchW||allW.find(x=>x&&x.equipped!==false)||allW[0]||null;
       D.weaponId=eqW?eqW.id:null;
       D.shieldId=null;
     }

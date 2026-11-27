@@ -397,8 +397,8 @@ export function renderPwActionRollEditor(kind,it,opts={}){
   const activeBlocks=[];
   if(ar.hasSelfMod){
     const isDis=ar.selfModKind==='dis';
-    activeBlocks.push(`<div class="p-2 rounded-lg border flex flex-wrap items-center justify-between gap-2 text-xs ${isDis?'border-rose-500/45 bg-rose-500/10':'border-emerald-500/45 bg-emerald-500/10'}">
-      <div class="flex flex-wrap items-center gap-1.5 min-w-0">
+    activeBlocks.push(`<div class="p-2 rounded-lg border flex items-start justify-between gap-2 text-xs ${isDis?'border-rose-500/45 bg-rose-500/10':'border-emerald-500/45 bg-emerald-500/10'}">
+      <div class="flex flex-wrap items-center gap-1.5 min-w-0 flex-1">
         <span class="font-extrabold ${isDis?'text-rose-700 dark:text-rose-300':'text-emerald-700 dark:text-emerald-300'}">⚡ Test-Mod:</span>
         <div class="inline-flex items-center gap-1 tabular">
           <button type="button" data-action="pw-ar-step" data-kind="${kind}" data-id="${it.id}" data-field="selfModVal" data-d="-1" ${ar.selfModVal<=1?'disabled':''} aria-label="Weniger" class="btn w-6 h-6 p-0 text-xs font-black">−</button>
@@ -420,22 +420,24 @@ export function renderPwActionRollEditor(kind,it,opts={}){
       ?(bonEval.ok?`<span class="text-[10px] font-black text-acc tabular" data-tip="${esc(bonEval.breakdown)}">= ${fmtSign(bonEval.val)}</span>`:`<span class="text-[10px] font-bold text-rose-400" data-tip="${esc(bonEval.breakdown)}">⚠ Formel</span>`)
       :'';
     const repRowHtml=ar.replaceDmgType
-      ?`<div class="pt-1.5 mt-1.5 border-t border-white/10 flex flex-wrap items-center gap-1.5">
-        <span class="font-extrabold text-amber-700 dark:text-amber-300 shrink-0">🔥 Schadenstyp:</span>
-        <select data-pw-ar-sel="${kind}:${it.id}:dmgType" class="inp py-0.5 px-2 text-xs font-bold min-w-[125px]">
-          ${allDmgTypes.map(dt=>`<option value="${esc(dt)}" ${dt.toLowerCase()===curDmgType.toLowerCase()?'selected':''}>${esc(dt)}</option>`).join('')}
-        </select>
-        <div class="flex items-center gap-1 flex-1 min-w-[145px] max-w-xs">
-          <input data-pw-ar-newdt="${kind}:${it.id}" type="text" placeholder="Neuer Typ…" class="inp py-0.5 px-2 text-xs flex-1 min-w-0"/>
-          <button type="button" data-action="pw-ar-add-dmgtype" data-kind="${kind}" data-id="${it.id}" data-tip="Schadenstyp zur Standardliste hinzufügen &amp; auswählen" class="btn btn-ok py-0.5 px-2 text-xs shrink-0">+</button>
-          <button type="button" data-action="open-list" data-ltype="dmgTypes" data-tip="Standardliste der Schadenstypen verwalten" class="btn py-0.5 px-1.5 text-xs shrink-0">⚙️</button>
+      ?`<div class="pt-1.5 mt-1.5 border-t border-white/10 flex items-start justify-between gap-2">
+        <div class="flex flex-wrap items-center gap-1.5 min-w-0 flex-1">
+          <span class="font-extrabold text-amber-700 dark:text-amber-300 shrink-0">🔥 Schadenstyp:</span>
+          <select data-pw-ar-sel="${kind}:${it.id}:dmgType" class="inp py-0.5 px-2 text-xs font-bold min-w-[125px]">
+            ${allDmgTypes.map(dt=>`<option value="${esc(dt)}" ${dt.toLowerCase()===curDmgType.toLowerCase()?'selected':''}>${esc(dt)}</option>`).join('')}
+          </select>
+          <div class="flex items-center gap-1 flex-1 min-w-[145px] max-w-xs">
+            <input data-pw-ar-newdt="${kind}:${it.id}" type="text" placeholder="Neuer Typ…" class="inp py-0.5 px-2 text-xs flex-1 min-w-0"/>
+            <button type="button" data-action="pw-ar-add-dmgtype" data-kind="${kind}" data-id="${it.id}" data-tip="Schadenstyp zur Standardliste hinzufügen &amp; auswählen" class="btn btn-ok py-0.5 px-2 text-xs shrink-0">+</button>
+            <button type="button" data-action="open-list" data-ltype="dmgTypes" data-tip="Standardliste der Schadenstypen verwalten" class="btn py-0.5 px-1.5 text-xs shrink-0">⚙️</button>
+          </div>
         </div>
-        <button type="button" data-action="pw-ar-rm-block" data-kind="${kind}" data-id="${it.id}" data-block="replaceDmgType" data-tip="Schadenstyp-Ersetzung entfernen (Standard-Grundschaden)" class="btn py-0.5 px-1.5 text-[11px] hover:text-rose-400 shrink-0 ml-auto">✕</button>
+        <button type="button" data-action="pw-ar-rm-block" data-kind="${kind}" data-id="${it.id}" data-block="replaceDmgType" data-tip="Schadenstyp-Ersetzung entfernen (Standard-Grundschaden)" class="btn py-0.5 px-1.5 text-[11px] hover:text-rose-400 shrink-0">✕</button>
       </div>`
       :'';
     activeBlocks.push(`<div class="p-2 rounded-lg border border-amber-500/45 bg-amber-500/10 text-xs">
-      <div class="flex flex-wrap items-center justify-between gap-2">
-        <div class="flex flex-wrap items-center gap-2 min-w-0">
+      <div class="flex items-start justify-between gap-2">
+        <div class="flex flex-wrap items-center gap-2 min-w-0 flex-1">
           <span class="font-extrabold text-amber-700 dark:text-amber-300">💥 EG-Grundschaden bei Erfolg</span>
           <div class="inline-flex rounded-lg p-0.5 bg-black/25 border bdr-line text-[10px] shrink-0" role="group" aria-label="Schadens-Pool">
             <button type="button" data-action="pw-ar-set-pool" data-kind="${kind}" data-id="${it.id}" data-pool="lp" class="px-2 py-0.5 rounded font-black ${!isMlp?'bg-rose-500/25 text-rose-700 dark:text-rose-200':'t-mut'}">❤️ LP</button>
@@ -455,8 +457,8 @@ export function renderPwActionRollEditor(kind,it,opts={}){
   if(ar.hasTargetMod){
     const tIsDis=ar.targetModKind==='dis';
     const effHint=tIsDis?`→ +${ar.targetModVal}V für dich`:`→ +${ar.targetModVal}N für dich`;
-    activeBlocks.push(`<div class="p-2 rounded-lg border border-indigo-400/50 bg-indigo-500/10 flex flex-wrap items-center justify-between gap-2 text-xs">
-      <div class="flex flex-wrap items-center gap-1.5 min-w-0">
+    activeBlocks.push(`<div class="p-2 rounded-lg border border-indigo-400/50 bg-indigo-500/10 flex items-start justify-between gap-2 text-xs">
+      <div class="flex flex-wrap items-center gap-1.5 min-w-0 flex-1">
         <span class="font-extrabold text-indigo-700 dark:text-indigo-300">🎯 Ziel gegen Test:</span>
         <div class="inline-flex items-center gap-1 tabular">
           <button type="button" data-action="pw-ar-step" data-kind="${kind}" data-id="${it.id}" data-field="targetModVal" data-d="-1" ${ar.targetModVal<=1?'disabled':''} aria-label="Weniger" class="btn w-6 h-6 p-0 text-xs font-black">−</button>
@@ -473,8 +475,8 @@ export function renderPwActionRollEditor(kind,it,opts={}){
     </div>`);
   }
   if(ar.useWeapon){
-    activeBlocks.push(`<div class="p-2 rounded-lg border border-cyan-400/45 bg-cyan-500/10 flex flex-wrap items-center justify-between gap-2 text-xs">
-      <span class="font-bold text-cyan-700 dark:text-cyan-200">⚔️ <strong>Mit Waffe kombinieren:</strong> Nutzt ausgerüstete Waffe, Waffenschaden &amp; Waffen-Tags zusätzlich im Würfelassistenten.</span>
+    activeBlocks.push(`<div class="p-2 rounded-lg border border-cyan-400/45 bg-cyan-500/10 flex items-start justify-between gap-2 text-xs">
+      <span class="font-bold text-cyan-700 dark:text-cyan-200 flex-1 min-w-0">⚔️ <strong>Mit Waffe kombinieren:</strong> Nutzt ausgerüstete Waffe, Waffenschaden &amp; Waffen-Tags zusätzlich im Würfelassistenten.</span>
       <button type="button" data-action="pw-ar-rm-block" data-kind="${kind}" data-id="${it.id}" data-block="useWeapon" data-tip="Waffen-Kombination entfernen" class="btn py-0.5 px-1.5 text-[11px] hover:text-rose-400 shrink-0">✕</button>
     </div>`);
   }
