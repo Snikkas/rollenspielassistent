@@ -8,16 +8,16 @@ import {
   hooks
 } from './ui-hooks.js';
 import {
-  applyWinFrame, renderWinCtrlBtns, renderWinResizeHandles, getCampaigns, isUserInCampaign, canManageCampaign, getActiveLiveCampaignId, getCampaignFilteredDiceFeed, getInitiativeCampaignsForChar, isCharInCampaignInitiative, captureScrollState, restoreScrollState, save, getWeaponSubtype, isWeaponMassiv, isWeaponBlockable, isArmorShield, S, D, LD, DUEL, diceLogs, isMobileLayout, UI, LIVE_TAB_ID, CLOUD, getCharCampaignId, isEnemySheet, getEnemyMeta, isEnemyDiceVisibleInCampaign, canSeeEnemyInDice, shouldHideOpponentDetails
+  applyWinFrame, renderWinCtrlBtns, renderWinResizeHandles, getCampaigns, isUserInCampaign, canManageCampaign, getActiveLiveCampaignId, getCampaignFilteredDiceFeed, getInitiativeCampaignsForChar, isCharInCampaignInitiative, captureScrollState, restoreScrollState, save, getWeaponSubtype, isWeaponMassiv, isWeaponBlockable, isArmorShield, getEffectiveBlockZoneLabel, normDmgType, getMeleeAttrDmgType, getDmgTypeLabel, S, D, LD, diceLogs, isMobileLayout, UI, LIVE_TAB_ID, CLOUD, getCharCampaignId, isEnemySheet, getEnemyMeta, isEnemyDiceVisibleInCampaign, canSeeEnemyInDice, shouldHideOpponentDetails
 } from './state.js';
 import {
-  calcActiveMods, getAdvDisForContext, getWeaponRollMeta, getShieldRollMeta, getSheetShields, getSheetBlockOptions, resolveCombatItemByRef, formatBlockModShort, formatBlockModLong, getWeaponDualWieldInfo, fmtAdvSrcLines, getAttrTot, getSkBonus, getCharSizeInfo, getRelativeSizeHitMod, normHitZoneSize, getHitZoneSizeMeta
+  calcActiveMods, getAdvDisForContext, getWeaponRollMeta, getShieldRollMeta, getSheetShields, getSheetBlockOptions, resolveCombatItemByRef, formatBlockModShort, formatBlockModLong, getWeaponDualWieldInfo, getHandAllocationInfo, fmtAdvSrcLines, getAttrTot, getSkBonus, getCharSizeInfo, getRelativeSizeHitMod, normHitZoneSize, getHitZoneSizeMeta
 } from './calc.js';
 import {
   renderLobbyLiveDiceHtml, publishLiveRoll, formatSecretRollSummary, isSecretRollActive, getCachedForeignSheet, getForeignSheetLoadedAt, isForeignSheetLoading, getForeignSheetError, fetchForeignCharacterSheet, fetchLobbyList
 } from './cloud.js';
 import {
-  renderDiceMagazineStripHtml
+  renderDiceMagazineStripHtml, getEffectiveWeaponAmmo
 } from './magazines.js';
 
 export const getCSkVal=()=>D.cSkill==='custom'?toInt(D.cCustom):toInt(D.cSkill);
@@ -151,7 +151,6 @@ export function selectDiceOpponent(charId,{force=false,silent=true}={}){
   const changed=D.oppCharId!==id;
   D.oppCharId=id;
   if(changed){
-    hooks.clearOutgoingDuel?.({notifyCancel:true,silent:true});
     D.oppWeaponId='';
     D.oppSkillId='';
     D.oppSitActive={};
@@ -209,71 +208,19 @@ export function resolveOpponentComparison(c1Cat='Normaler Test'){
     return {ready:false,charId,oppName:fallbackName||'Gegner',isEnemy:true,hideDetails:true,loading:false,error:'Dieser Gegner ist aktuell nicht für den Würfelassistenten freigeschaltet.'};
   }
   const hideDetails=shouldHideOpponentDetails(charId,activeCamp);
-  const liveResp=(DUEL.outgoing&&DUEL.outgoing.status==='responded'&&DUEL.outgoing.targetCharId===charId&&DUEL.outgoing.response?.snapshot)?DUEL.outgoing.response:null;
   const oppSheet=getCachedForeignSheet(charId);
   const loading=isForeignSheetLoading(charId);
   const error=getForeignSheetError(charId);
-  if(!oppSheet&&!liveResp){
+  if(!oppSheet){
     return {ready:false,charId,oppName:fallbackName||'Gegner',isEnemy,hideDetails,loading,error};
   }
-  const oppM=oppSheet?calcActiveMods(oppSheet):null;
-  const oppName=String(liveResp?.targetCharName||oppSheet?.profile?.name||'').trim()||fallbackName||'Unbenannter Gegner';
+  const oppM=calcActiveMods(oppSheet);
+  const oppName=String(oppSheet?.profile?.name||'').trim()||fallbackName||'Unbenannter Gegner';
   const rawKind=['preset','attr','skill'].includes(D.oppKind)?D.oppKind:'preset';
   const oppKind=(hideDetails&&rawKind==='skill')?'preset':rawKind;
   const oppPreset=['dodge','parry','block','attack'].includes(D.oppPreset)?D.oppPreset:'dodge';
   const oppSkills=(oppSheet?.skills||[]).filter(Boolean);
   const oppWeapons=(oppSheet?.weapons||[]).filter(Boolean);
-
-  if(liveResp){
-    const snap=liveResp.snapshot;
-    const sk=liveResp.oppSkillId&&liveResp.oppSkillId!=='__none__'?oppSkills.find(s=>s.id===liveResp.oppSkillId)||null:null;
-    const resolvedItem=resolveCombatItemByRef(liveResp.oppWeaponId,oppSheet);
-    const oppWeapon=resolvedItem?.kind==='weapon'?resolvedItem.item:null;
-    const oppShield=resolvedItem?.kind==='shield'?resolvedItem.item:(snap.oppShieldId?(oppSheet?.armors||[]).find(a=>a&&a.id===snap.oppShieldId&&isArmorShield(a))||null:null);
-    const oppCombatRef=oppShield?`shield:${oppShield.id}`:(oppWeapon?oppWeapon.id:'');
-    const oppRollCat=snap.oppRollCat||'Normaler Test';
-    const liveAd={
-      autoAdv:toInt(snap.autoAdv,0),
-      autoDis:toInt(snap.autoDis,0),
-      rawAutoAdv:toInt(snap.autoAdv,0),
-      rawAutoDis:toInt(snap.autoDis,0),
-      src:Array.isArray(snap.src)?snap.src:[],
-      sitOptions:[]
-    };
-    return {
-      ready:true,
-      charId,
-      oppName,
-      isEnemy,
-      hideDetails,
-      oppSheet:oppSheet||{skills:[],weapons:[],armors:[],attributes:{},profile:{name:oppName}},
-      oppM:oppM||{},
-      oppKind:liveResp.oppKind||oppKind,
-      oppPreset:liveResp.oppPreset||oppPreset,
-      attrKey:snap.attrKey||'GW',
-      attrVal:toInt(snap.attrVal,0),
-      sk,
-      skBonus:toInt(snap.skBonus,0),
-      oppWeapon,
-      oppShield,
-      oppCombatRef,
-      oppShieldId:oppShield?.id||snap.oppShieldId||'',
-      oppShieldName:oppShield?(String(oppShield.name||'').trim()||'Schild'):(snap.oppShieldName||''),
-      oppBlockKind:snap.oppBlockKind||(oppShield?'shield':(oppWeapon&&isWeaponBlockable(oppWeapon)?'item':'none')),
-      oppVal:toInt(snap.oppVal,0),
-      oppRollCat,
-      oppShortLabel:snap.oppShortLabel||`${oppRollCat} ${toInt(snap.oppVal,0)}`,
-      oppBreak:snap.oppBreak||`${oppName} • ${snap.oppShortLabel||oppRollCat} = ${toInt(snap.oppVal,0)}`,
-      ad:liveAd,
-      fromLiveResponse:true,
-      liveUseInspiration:Boolean(liveResp.useInspiration),
-      liveResponderName:String(liveResp.responderName||''),
-      loading,
-      error,
-      loadedAt:getForeignSheetLoadedAt(charId),
-      isSelf:Boolean(!UI.inLobby&&S?.charId&&charId===S.charId)
-    };
-  }
 
   let attrKey='GW', attrVal=0, sk=null, skBonus=0, oppWeapon=null, oppShield=null, oppVal=0, oppRollCat='Normaler Test', oppShortLabel='', oppBreak='';
   const effOppWeaponId=hideDetails?'':D.oppWeaponId;
@@ -500,7 +447,6 @@ export function getEffectiveDiceShieldId(){
   return sh.id;
 }
 export function resetDiceToLobbyNeutral(){
-  hooks.clearOutgoingDuel?.({notifyCancel:true,silent:true});
   hooks.resetCombatState?.();
   D.weaponId=null; D.shieldId=null; D.skillId=null; D.attrKey=null; D.wRollCat='Normaler Test'; D.atkPool='lp'; D.dualWieldOvr='auto'; D.aimActive=false; D.aimZone=''; D.aimSizeOvr='auto'; D.wpEditOpen=false; D.sitActive={}; D.oppSitActive={}; D.prepPaused=false; D.critOff=0; D.advAdj=0; D.disAdj=0; D.adv=0; D.dis=0;
   D.label='Freie Probe (Lobby)';
@@ -717,7 +663,7 @@ export function openWeaponRoll(weaponId,wRollCat='Trefferwurf'){
   const normCat=wRollCat==='Parade'?'Parieren':wRollCat;
   const cat=['Normaler Test','Trefferwurf','Parieren','Blocken','Ausweichen'].includes(normCat)?normCat:'Trefferwurf';
   const wm=getWeaponRollMeta(w);
-  D.weaponId=w.id; D.shieldId=null; D.wRollCat=cat; D.dualWieldOvr='auto'; D.critOff=0; D.sitActive={};
+  D.weaponId=w.id; D.shieldId=null; D.wRollCat=cat; D.dualWieldOvr='auto'; D.prepPaused=false; D.critOff=0; D.sitActive={};
   D.atkPool=(w.dmgPool==='mlp')?'mlp':'lp';
   D.attrKey=wm.attrKey; D.skillId=wm.sk?wm.sk.id:null;
   if(D.dMode==='character'){
@@ -743,7 +689,7 @@ export function openShieldRoll(armorId,wRollCat='Blocken'){
   const normCat=wRollCat==='Parade'?'Parieren':wRollCat;
   const cat=['Normaler Test','Trefferwurf','Parieren','Blocken','Ausweichen'].includes(normCat)?normCat:'Blocken';
   const sm=getShieldRollMeta(sh);
-  D.weaponId=null; D.shieldId=sh.id; D.wRollCat=cat; D.dualWieldOvr='auto'; D.critOff=0; D.sitActive={};
+  D.weaponId=null; D.shieldId=sh.id; D.wRollCat=cat; D.dualWieldOvr='auto'; D.prepPaused=false; D.critOff=0; D.sitActive={};
   D.atkPool=(sh.dmgPool==='mlp')?'mlp':'lp';
   D.attrKey=sm.attrKey; D.skillId=sm.sk?sm.sk.id:null;
   if(D.dMode==='character'){
@@ -776,8 +722,11 @@ export function syncDiceFromSheet(){
     if(w){
       const wm=getWeaponRollMeta(w), cat=D.wRollCat||'Trefferwurf';
       const applies=doesWeaponApplyToPool(w,D.atkPool,cat);
-      const ak=D.attrKey||wm.attrKey, av=getAttrTot(ak);
-      const sk=D.skillId?S.skills.find(s=>s.id===D.skillId):null, b=sk?getSkBonus(sk):0;
+      const ak=wm.hasMassiv?'ST':(D.attrKey||wm.attrKey), av=getAttrTot(ak);
+      const prevSkId=D.skillId||null;
+      const sk=wm.sk||null, b=sk?getSkBonus(sk):0;
+      D.skillId=sk?sk.id:null;
+      if(!sk&&prevSkId) D.cSkill='0';
       D.attrKey=ak; D.cAttr=av;
       if(sk){if(['0','10','15','20','30'].includes(String(b))){D.cSkill=String(b);}else{D.cSkill='custom';D.cCustom=b;}}
       const effSk=sk?b:(D.cMode==='breakdown'?getCSkVal():0);
@@ -794,7 +743,10 @@ export function syncDiceFromSheet(){
       const sm=getShieldRollMeta(sh), cat=D.wRollCat||'Blocken';
       const applies=doesWeaponApplyToPool(sh,D.atkPool,cat);
       const ak=D.attrKey||sm.attrKey, av=getAttrTot(ak);
-      const sk=D.skillId?S.skills.find(s=>s.id===D.skillId):null, b=sk?getSkBonus(sk):0;
+      const prevSkId=D.skillId||null;
+      const sk=sm.sk||null, b=sk?getSkBonus(sk):0;
+      D.skillId=sk?sk.id:null;
+      if(!sk&&prevSkId) D.cSkill='0';
       D.attrKey=ak; D.cAttr=av;
       if(sk){if(['0','10','15','20','30'].includes(String(b))){D.cSkill=String(b);}else{D.cSkill='custom';D.cCustom=b;}}
       const effSk=sk?b:(D.cMode==='breakdown'?getCSkVal():0);
@@ -1005,34 +957,6 @@ export function renderDice(){
           <button type="button" data-action="dice-opp-kind" data-kind="skill" class="px-2 py-0.5 rounded font-extrabold ${opp.oppKind==='skill'?'bg-indigo-500/35 text-indigo-100':'t-mut'}">🎯 Fert.</button>
         </div>`;
 
-    const outDuel=(DUEL.outgoing&&DUEL.outgoing.targetCharId===D.oppCharId)?DUEL.outgoing:null;
-    let duelRightHtml='', duelStatusBanner='';
-    if(outDuel&&outDuel.status==='waiting'){
-      const remSec=Math.max(0,Math.ceil((toInt(outDuel.expiresAt,Date.now())-Date.now())/1000));
-      duelStatusBanner=`<div class="p-1.5 px-2 rounded-lg border border-indigo-400/55 bg-indigo-500/15 flex flex-wrap items-center justify-between gap-1.5 text-[11px]">
-        <span class="font-extrabold text-indigo-200 truncate">⏳ Warte auf Konter (<span id="duelWaitCountdown" class="tabular">${remSec} s</span>)</span>
-        <div class="flex items-center gap-1 shrink-0">
-          <button type="button" data-action="duel-roll-now" class="btn btn-pri py-0.5 px-2 text-[10px] font-extrabold">🎲 Direkt würfeln</button>
-          <button type="button" data-action="duel-cancel" class="btn py-0.5 px-1.5 text-[10px]">✕</button>
-        </div>
-      </div>`;
-    }else if(outDuel&&outDuel.status==='responded'&&outDuel.response?.snapshot){
-      const sp=outDuel.response.snapshot;
-      const modTxt=(sp.autoAdv||sp.autoDis)?` (${sp.autoAdv?`+${sp.autoAdv}V`:''}${sp.autoAdv&&sp.autoDis?'/':''}${sp.autoDis?`+${sp.autoDis}N`:''})`:'';
-      duelStatusBanner=`<div class="p-1.5 px-2 rounded-lg border border-emerald-400/60 bg-emerald-500/15 flex items-center justify-between gap-2 text-[11px]">
-        <span class="font-extrabold text-emerald-200 truncate">${hideOpp?`✅ ${esc(opp.oppName)} hat gekontert (verborgen)`:`✅ Konter: ${esc(sp.oppShortLabel)}${esc(modTxt)}${outDuel.response.useInspiration?' • ✨':''}`}</span>
-        <button type="button" data-action="duel-clear-status" data-tip="Live-Antwort lösen" class="btn w-5 h-5 p-0 text-[10px] shrink-0">✕</button>
-      </div>`;
-    }else if(outDuel&&(outDuel.status==='timeout'||outDuel.status==='declined')){
-      const reason=outDuel.status==='declined'?'Ignoriert':'Timeout';
-      duelStatusBanner=`<div class="p-1.5 px-2 rounded-lg border border-amber-400/50 bg-amber-500/10 flex items-center justify-between gap-1.5 text-[10px]">
-        <span class="font-bold text-amber-200">⏱️ ${reason} – lokaler Stand aktiv</span>
-        <div class="flex items-center gap-1"><button type="button" data-action="duel-send" class="btn py-0.5 px-1.5 text-[10px]">🔄 Erneut</button><button type="button" data-action="duel-clear-status" class="btn w-5 h-5 p-0 text-[10px]">✕</button></div>
-      </div>`;
-    }else if(opp.charId){
-      duelRightHtml=`<button type="button" data-action="duel-send" data-tip="Schickt ${opp.isEnemy?'der Spielleitung':'dem Spieler von '+esc(opp.oppName)} eine Live-Konter-Anfrage" class="btn py-0.5 px-2 text-[11px] font-extrabold border-indigo-400/50 bg-indigo-500/15 text-indigo-200 hover:bg-indigo-500/25 shrink-0">📨 Konter</button>`;
-    }
-
     let detailHtml='';
     if(opp.oppKind==='preset'){
       const showAtkPreset=Boolean(D.wRollCat==='Parieren'||D.wRollCat==='Blocken'||D.wRollCat==='Ausweichen'||opp.oppPreset==='attack');
@@ -1105,10 +1029,8 @@ export function renderDice(){
           ${kindBar}
           <span data-tip="${esc(sizeTip)}" class="px-1.5 py-0.5 rounded-md border text-[10px] font-extrabold tabular cursor-help shrink-0 ${sizeBadgeCls}">📏 ${esc(oppSizeInfo.formatted)}${(isHitRoll&&hitSizeDiff!==0)?` (${hitSizeDiff>0?`+${hitSizeDiff}V`:`+${Math.abs(hitSizeDiff)}N`})`:''}</span>
         </div>
-        ${duelRightHtml}
       </div>
       ${errMsg?`<div class="text-[10px] text-amber-300 font-bold">⚠️ ${esc(errMsg)}</div>`:''}
-      ${duelStatusBanner}
       ${detailHtml}
       <div class="text-[10px] font-bold text-indigo-300/90 text-right tabular truncate">${esc(hideOpp?`🔒 ${opp.oppName} • Details verborgen`:opp.oppBreak)}</div>
     </div>`;
@@ -1268,15 +1190,34 @@ export function renderDice(){
               </div>
             </div>
           </div>
-          ${isRng?`<div class="min-w-0">
-            <label class="block text-[9px] font-bold text-amber-400 uppercase mb-0.5">🎯 Munition</label>
-            <select data-dice-wp-edit="ammoId" data-wid="${esc(aw.id)}" class="inp w-full text-xs font-bold py-1"><option value="" ${!aw.ammoId?'selected':''}>— Keine Munition —</option>${(S.ammos||[]).map(am=>`<option value="${esc(am.id)}" ${aw.ammoId===am.id?'selected':''}>${esc(am.name||'Munition')} (${am.qty} Stk.)</option>`).join('')}</select>
+          ${isRng?`<div class="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+            <div class="min-w-0">
+              <label class="block text-[9px] font-bold text-amber-400 uppercase mb-0.5">🎯 Munition</label>
+              <select data-dice-wp-edit="ammoId" data-wid="${esc(aw.id)}" class="inp w-full text-xs font-bold py-1"><option value="" ${!aw.ammoId?'selected':''}>— Keine Munition —</option>${(S.ammos||[]).map(am=>`<option value="${esc(am.id)}" ${aw.ammoId===am.id?'selected':''}>${esc(am.name||'Munition')} (${am.qty} Stk.)</option>`).join('')}</select>
+            </div>
+            <div class="min-w-0">
+              <label class="block text-[9px] font-bold text-amber-400 uppercase mb-0.5">💥 Schadenstyp (Waffe)</label>
+              <select data-dice-wp-edit="dmgType" data-wid="${esc(aw.id)}" class="inp w-full text-xs font-bold py-1">
+                <option value="" ${!normDmgType(aw.dmgType)?'selected':''}>Auto (nach Werten)</option>
+                <option value="cut" ${normDmgType(aw.dmgType)==='cut'?'selected':''}>Schnitt</option>
+                <option value="pierce" ${normDmgType(aw.dmgType)==='pierce'?'selected':''}>Durchstoß</option>
+                <option value="impact" ${normDmgType(aw.dmgType)==='impact'?'selected':''}>Einschlag</option>
+                ${(Array.isArray(aw.customDmg)?aw.customDmg:[]).filter(c=>c&&String(c.label||'').trim()).map(c=>{
+                  const ck=`custom:${String(c.label).trim().toLowerCase()}`;
+                  return `<option value="${esc(ck)}" ${normDmgType(aw.dmgType)===ck?'selected':''}>${esc(String(c.label).trim())}</option>`;
+                }).join('')}
+              </select>
+            </div>
           </div>`:''}
           <div class="grid grid-cols-3 gap-1.5 tabular">
             <div><label class="block text-[9px] font-bold t-mut text-center mb-0.5">Schnitt</label><input data-dice-wp-inp="${esc(aw.id)}:dmgCut" type="text" value="${esc(aw.dmgCut)}" class="inp w-full text-center font-black py-1 text-xs"/></div>
             <div><label class="block text-[9px] font-bold t-mut text-center mb-0.5">Durchstoß</label><input data-dice-wp-inp="${esc(aw.id)}:dmgPierce" type="text" value="${esc(aw.dmgPierce)}" class="inp w-full text-center font-black py-1 text-xs"/></div>
             <div><label class="block text-[9px] font-bold t-mut text-center mb-0.5">Einschlag</label><input data-dice-wp-inp="${esc(aw.id)}:dmgImpact" type="text" value="${esc(aw.dmgImpact)}" class="inp w-full text-center font-black py-1 text-xs"/></div>
           </div>
+          ${isWeaponBlockable(aw)?`<div class="min-w-0">
+            <label class="block text-[9px] font-bold text-cyan-300 uppercase mb-0.5">🛡️ Blockzone (Std: Arm / Hand)</label>
+            <input data-dice-wp-inp="${esc(aw.id)}:blockZone" type="text" value="${esc(aw.blockZone||'')}" placeholder="Arm / Hand" class="inp w-full text-xs font-bold py-1"/>
+          </div>`:''}
         </div>`;
       }else if(ash&&D.wpEditOpen){
         const shPool=['lp','mlp','both'].includes(ash.dmgPool)?ash.dmgPool:'lp';
@@ -1312,6 +1253,10 @@ export function renderDice(){
               <select data-dice-sh-edit="skillId" data-sid="${esc(ash.id)}" class="inp w-full text-xs font-bold py-1"><option value="" ${!ash.skillId?'selected':''}>Keine (+0)</option>${(S.skills||[]).map(sk=>`<option value="${esc(sk.id)}" ${ash.skillId===sk.id?'selected':''}>${esc(sk.name||'Fert.')} (${fmtSign(getSkBonus(sk))})</option>`).join('')}</select>
             </div>
           </div>
+          <div class="min-w-0">
+            <label class="block text-[9px] font-bold text-cyan-300 uppercase mb-0.5">🛡️ Blockzone (Std: Arm / Hand)</label>
+            <input data-dice-sh-inp="${esc(ash.id)}:blockZone" type="text" value="${esc(ash.blockZone||'')}" placeholder="Arm / Hand" class="inp w-full text-xs font-bold py-1"/>
+          </div>
           <div class="grid grid-cols-3 gap-1.5 tabular">
             <div><label class="block text-[9px] font-bold t-mut text-center mb-0.5">Schnitt (Angr.)</label><input data-dice-sh-inp="${esc(ash.id)}:dmgCut" type="text" value="${esc(ash.dmgCut)}" class="inp w-full text-center font-black py-1 text-xs"/></div>
             <div><label class="block text-[9px] font-bold t-mut text-center mb-0.5">Durchstoß</label><input data-dice-sh-inp="${esc(ash.id)}:dmgPierce" type="text" value="${esc(ash.dmgPierce)}" class="inp w-full text-center font-black py-1 text-xs"/></div>
@@ -1319,6 +1264,42 @@ export function renderDice(){
           </div>
         </div>`;
       }
+
+      let dmgTypePreviewHtml='';
+      if(isHitMode&&activeItem&&wpApplies){
+        if(aw&&aw.wType==='ranged'){
+          const effAm=getEffectiveWeaponAmmo(aw,S);
+          const customAll=[...(Array.isArray(aw.customDmg)?aw.customDmg:[]),...(Array.isArray(effAm?.customDmg)?effAm.customDmg:[])];
+          const amDt=normDmgType(effAm?.dmgType);
+          const wpDt=normDmgType(aw?.dmgType);
+          if(amDt){
+            dmgTypePreviewHtml=`<div class="px-2 py-1 rounded-lg border border-amber-400/45 bg-amber-500/10 text-[10px] font-bold text-amber-200 flex flex-wrap items-center justify-between gap-1"><span>💥 Schadenstyp: <strong>${esc(getDmgTypeLabel(amDt,customAll))}</strong></span><span class="t-mut">via Munition (${esc(effAm?.name||'Munition')})</span></div>`;
+          }else if(wpDt){
+            dmgTypePreviewHtml=`<div class="px-2 py-1 rounded-lg border border-amber-400/45 bg-amber-500/10 text-[10px] font-bold text-amber-200 flex flex-wrap items-center justify-between gap-1"><span>💥 Schadenstyp: <strong>${esc(getDmgTypeLabel(wpDt,customAll))}</strong></span><span class="t-mut">via Fernkampfwaffe</span></div>`;
+          }else{
+            dmgTypePreviewHtml=`<div class="px-2 py-1 rounded-lg border bdr-line bg-black/20 text-[10px] t-mut flex flex-wrap items-center justify-between gap-1"><span>💥 Schadenstyp: <strong>Auto</strong></span><span>in ⚙️ Anpassen oder Munition wählbar</span></div>`;
+          }
+        }else{
+          const effAttr=aw?(isWeaponMassiv(aw)?'ST':(D.attrKey||aw.wAttr||'ST')):(D.attrKey||ash?.wAttr||'ST');
+          const tags=Array.isArray(activeItem.tags)?activeItem.tags:[];
+          const hasWk=tags.some(t=>/^wuchtklinge\b/i.test(String(t?.name||'').trim()));
+          const hasWp=tags.some(t=>/^wuchtpieke\b/i.test(String(t?.name||'').trim()));
+          const mappedDt=getMeleeAttrDmgType(effAttr);
+          if(hasWk){
+            dmgTypePreviewHtml=`<div class="px-2 py-1 rounded-lg border border-amber-400/45 bg-amber-500/10 text-[10px] font-bold text-amber-200 flex flex-wrap items-center justify-between gap-1"><span>💥 Schadenstyp: <strong>Einschlag-Schnitt</strong></span><span class="t-mut">Tag Wuchtklinge (${esc(effAttr)})</span></div>`;
+          }else if(hasWp){
+            dmgTypePreviewHtml=`<div class="px-2 py-1 rounded-lg border border-amber-400/45 bg-amber-500/10 text-[10px] font-bold text-amber-200 flex flex-wrap items-center justify-between gap-1"><span>💥 Schadenstyp: <strong>Einschlag-Durchstoß</strong></span><span class="t-mut">Tag Wuchtpieke (${esc(effAttr)})</span></div>`;
+          }else if(mappedDt){
+            dmgTypePreviewHtml=`<div class="px-2 py-1 rounded-lg border border-amber-400/45 bg-amber-500/10 text-[10px] font-bold text-amber-200 flex flex-wrap items-center justify-between gap-1"><span>💥 Schadenstyp: <strong>${esc(getDmgTypeLabel(mappedDt))}</strong></span><span class="t-mut">Attribut ${esc(effAttr)} (ST=Einschlag • PR=Durchstoß • GW=Schnitt)</span></div>`;
+          }
+        }
+      }
+
+      const handInfo=getHandAllocationInfo(S);
+      const handWarnHtml=handInfo.hasConflict?`<div class="px-2 py-1.5 rounded-lg border border-amber-400/55 bg-amber-500/12 text-[10px] space-y-0.5 min-w-0" data-tip="${esc(handInfo.hint)}">
+        <div class="font-extrabold text-amber-300">✋ ${esc(handInfo.headline)}</div>
+        <div class="text-amber-100/90 break-words">${esc(handInfo.itemsSummary)} <span class="t-mut">(erlaubt, z. B. bei &gt;2 Armen)</span></div>
+      </div>`:'';
 
       weaponRowHtml=`<div class="space-y-1.5 pt-1.5 border-t border-white/10 min-w-0">
         <div class="flex items-center gap-1.5 min-w-0">
@@ -1328,6 +1309,8 @@ export function renderDice(){
           ${activeItem?`<button type="button" data-action="toggle-dice-wp-edit" data-tip="${ash?'Schild direkt im Würfelassistenten anpassen':'Waffe direkt im Würfelassistenten anpassen (LP/mLP, Attribut, Fertigkeit, Munition, Schaden)'}" class="btn py-1 px-2 text-xs font-extrabold shrink-0 ${D.wpEditOpen?'btn-pri':''}">⚙️ <span class="hidden sm:inline">Anpassen</span></button>`:''}
         </div>
         ${blockInfoStripHtml}
+        ${dmgTypePreviewHtml}
+        ${handWarnHtml}
         ${aw?renderDiceMagazineStripHtml(aw):''}
         ${mismatchHtml}
         ${dwBarHtml}
@@ -1538,17 +1521,18 @@ export function rollW100(){
 export function renderBlockFollowUpBox(){
   const activeSh=(!isLobbyNeutralDice()&&D.shieldId)?(S.armors||[]).find(a=>a&&a.id===D.shieldId&&isArmorShield(a)):null;
   const activeBlkWp=(!isLobbyNeutralDice()&&!activeSh&&D.weaponId)?(S.weapons||[]).find(w=>w&&w.id===D.weaponId&&isWeaponBlockable(w)):null;
+  const bzLbl=getEffectiveBlockZoneLabel(activeSh||activeBlkWp);
   const blkMitHtml=activeSh
-    ?`<div class="px-2.5 py-1.5 rounded-lg border border-cyan-400/50 bg-cyan-500/12 text-[11px] font-bold text-cyan-200 tabular">🛡️ Schild-Block (<strong>${esc(String(activeSh.name||'').trim()||'Schild')}</strong>): gRP <strong>${esc(activeSh.grp)}</strong> • Schnitt ${esc(activeSh.protCut)} / Durchstoß ${esc(activeSh.protPierce)} / Einschlag ${esc(activeSh.protImpact)}${toInt(activeSh.mentalProt,0)?` / mRS ${esc(activeSh.mentalProt)}`:''} — <em>wird zu deiner normalen Zonenrüstung addiert!</em></div>`
+    ?`<div class="px-2.5 py-1.5 rounded-lg border border-cyan-400/50 bg-cyan-500/12 text-[11px] font-bold text-cyan-200 tabular">🛡️ Schild-Block (<strong>${esc(String(activeSh.name||'').trim()||'Schild')}</strong> • Blockzone: <strong>${esc(bzLbl)}</strong>): gRP <strong>${esc(activeSh.grp)}</strong> • Schnitt ${esc(activeSh.protCut)} / Durchstoß ${esc(activeSh.protPierce)} / Einschlag ${esc(activeSh.protImpact)}${toInt(activeSh.mentalProt,0)?` / mRS ${esc(activeSh.mentalProt)}`:''} — <em>wird zu deiner normalen Zonenrüstung addiert!</em></div>`
     :(activeBlkWp
-      ?`<div class="px-2.5 py-1.5 rounded-lg border border-amber-400/45 bg-amber-500/10 text-[11px] font-bold text-amber-200">🧱 Blockfähige Waffe (<strong>${esc(String(activeBlkWp.name||'').trim()||'Waffe')}</strong>): reduziert den erlittenen Schaden um <strong>−2</strong> (+ normale Zonenrüstung).</div>`
-      :'');
+      ?`<div class="px-2.5 py-1.5 rounded-lg border border-amber-400/45 bg-amber-500/10 text-[11px] font-bold text-amber-200">🧱 Blockfähige Waffe (<strong>${esc(String(activeBlkWp.name||'').trim()||'Waffe')}</strong> • Blockzone: <strong>${esc(bzLbl)}</strong>): reduziert den erlittenen Schaden um <strong>−2</strong> (+ normale Zonenrüstung).</div>`
+      :`<div class="px-2.5 py-1.5 rounded-lg border bdr-line bg-black/20 text-[11px] font-bold t-mut">🛡️ Standard-Blockzone: <strong>${esc(bzLbl)}</strong></div>`);
   return `<div class="subcard mt-2 p-3 border-2 border-emerald-500/50 bg-emerald-500/10 space-y-2 text-left">
     <div class="text-xs font-extrabold text-emerald-300 flex flex-wrap items-center justify-between gap-2">
       <span>🛡️ Erfolgreich geblockt!</span>
       <span class="px-2 py-0.5 rounded-md bg-amber-500/20 border border-amber-400/50 text-amber-200 text-[11px] font-black tabular">Angreifer: statisch 3 EG • kein Krit</span>
     </div>
-    <p class="text-[11px] t-mut leading-relaxed">Der Angriff gilt als mit <strong class="text-amber-200">3 EG</strong> (ohne kritischen Treffer) getroffen — <strong class="text-emerald-200">du bestimmst absolut die Trefferzone</strong> (Schild / blockfähige Waffe + dahinterliegende Rüstung).</p>
+    <p class="text-[11px] t-mut leading-relaxed">Der Angriff gilt als mit <strong class="text-amber-200">3 EG</strong> (ohne kritischen Treffer) getroffen — die Trefferzone wird durch die <strong class="text-emerald-200">Blockzone (${esc(bzLbl)})</strong> überschrieben.</p>
     ${blkMitHtml}
   </div>`;
 }
@@ -1570,6 +1554,15 @@ export function executeDiceRoll(opts={}){
   const effShieldId=isLobRoll?null:getEffectiveDiceShieldId();
   const rollerIsEnemy=Boolean(!isLobRoll&&isEnemySheet(S));
   const c1Name=isLobRoll?(CLOUD.currentUser?CLOUD.currentUser:'Gast'):(String(S.profile.name||'').trim()||(rollerIsEnemy?'Gegner':'Unbenannter Held'));
+  const combatHits=hooks.initCombatFromRoll?.({T,res,attackerName:c1Name})||[];
+  const fmtHitZoneSummary=h=>{
+    if(!h||!h.zoneName) return '';
+    const zFull=h.subZoneName?`${h.zoneName} → ${h.subZoneName}`:h.zoneName;
+    if(h.isBlocked) return `🛡️ Blockzone: ${zFull}${h.blockZoneSource?` (${h.blockZoneSource})`:''}`;
+    if(h.aimedZone) return `🎯 Gezielte Zone: ${zFull}`;
+    if(h.lastHzRoll!==null) return `🎯 Trefferzone: ${zFull} (W100 = ${h.lastHzRoll}${h.lastSubHzRoll!==null?`, Detail = ${h.lastSubHzRoll}`:''})`;
+    return `🎯 Trefferzone: ${zFull}`;
+  };
   const isVsOpp=Boolean(T.opp&&T.opp.ready);
   const hideOppLocal=Boolean(isVsOpp&&T.opp.hideDetails);
   const hideOppInFeed=Boolean(isVsOpp&&T.opp.isEnemy);
@@ -1614,18 +1607,31 @@ export function executeDiceRoll(opts={}){
       :`<div class="mt-1.5 text-[10px] font-bold text-indigo-300 tabular break-words">⚔️ ${esc(c1Name)}: ${T.c1AutoAdv}V/${T.c1AutoDis}N • ${esc(T.opp.oppName)}: ${T.oppAutoAdv}V→N / ${T.oppAutoDis}N→V</div>`)
     :'';
   const advSrcRowHtml=advSrcParts.length?`<div class="mt-2 pt-1.5 border-t border-white/10 flex flex-wrap items-center justify-center gap-1 text-[10px] min-w-0 break-words"><span class="font-extrabold t-mut mr-0.5">Vor./Nacht.:</span>${advSrcChipsHtml}</div>`:'';
+  let hzFeedSummary='';
   let baseHtml='';
   if(res.length===1){
     const x=res[0], isBlockedMiss=Boolean(isHitVsBlock&&!x.ok&&x.r!==100);
+    const h0=combatHits.find(h=>h.rollIdx===1)||null;
+    const hzTxt=fmtHitZoneSummary(h0);
+    if(hzTxt) hzFeedSummary=hzTxt;
+    const hzRowHtml=hzTxt
+      ?`<div class="mt-2 inline-flex flex-wrap items-center justify-center gap-1 px-2.5 py-1 rounded-lg border text-xs font-extrabold tabular ${h0?.isBlocked?'border-cyan-400/60 bg-cyan-500/15 text-cyan-200':'border-amber-400/55 bg-amber-500/15 text-amber-200'}">${esc(hzTxt)}</div>`
+      :'';
     const cls=x.crit?'crit-glow border-amber-400 bg-amber-500/15':x.ok?'border-emerald-500/60 bg-emerald-500/10':isBlockedMiss?'border-amber-400/75 bg-amber-500/10':'border-rose-500/60 bg-rose-500/10';
     const blkBanner=isBlockedMiss
-      ?`<div class="mt-2.5 pt-2 border-t border-white/10 text-xs font-extrabold text-amber-200">🛡️ Erfolgreich geblockt! → Zählt statisch als <span class="px-2 py-0.5 rounded bg-amber-500 text-slate-950 font-black">3 EG (kein Krit)</span> • Verteidiger bestimmt die Trefferzone.</div>`
+      ?`<div class="mt-2.5 pt-2 border-t border-white/10 text-xs font-extrabold text-amber-200">🛡️ Erfolgreich geblockt! → Zählt statisch als <span class="px-2 py-0.5 rounded bg-amber-500 text-slate-950 font-black">3 EG (kein Krit)</span> • Blockzone wird direkt übernommen.</div>`
       :'';
-    baseHtml=`<div class="subcard text-center p-4 border-2 ${cls}"><div class="text-[11px] font-bold t-mut break-words">${esc(rollTitle)} • Schwelle ${th}</div>${vsSideRowHtml}<div class="text-5xl font-black tabular my-1">🎲 ${x.r}${x.rollMod&&x.rawR!==undefined?`<span class="text-xs font-bold text-cyan-300 ml-1">(Wurf ${x.rawR}${fmtSign(x.rollMod)})</span>`:''}</div><div class="text-xs font-black uppercase ${x.crit?'text-amber-500':x.ok?'text-emerald-500':isBlockedMiss?'text-amber-300':'text-rose-500'}">${x.crit?'★ Kritischer Erfolg! ★':x.ok?'Erfolg':(x.r===100?'💀 Patzer (100)':(isBlockedMiss?'🛡️ Geblockt (Misserfolg)':'Misserfolg'))}</div><div class="mt-2"><span class="px-3.5 py-1 rounded-lg text-white font-extrabold text-sm tabular ${x.ok?'bg-emerald-600':isBlockedMiss?'bg-amber-600':'bg-rose-600'}">${x.ok?('EG: '+x.eg):(isBlockedMiss?'Geblockt → 3 EG (MEG: '+x.meg+')':'MEG: '+x.meg)}</span></div>${advSrcRowHtml}${blkBanner}</div>`;
+    baseHtml=`<div class="subcard text-center p-4 border-2 ${cls}"><div class="text-[11px] font-bold t-mut break-words">${esc(rollTitle)} • Schwelle ${th}</div>${vsSideRowHtml}<div class="text-5xl font-black tabular my-1">🎲 ${x.r}${x.rollMod&&x.rawR!==undefined?`<span class="text-xs font-bold text-cyan-300 ml-1">(Wurf ${x.rawR}${fmtSign(x.rollMod)})</span>`:''}</div><div class="text-xs font-black uppercase ${x.crit?'text-amber-500':x.ok?'text-emerald-500':isBlockedMiss?'text-amber-300':'text-rose-500'}">${x.crit?'★ Kritischer Erfolg! ★':x.ok?'Erfolg':(x.r===100?'💀 Patzer (100)':(isBlockedMiss?'🛡️ Geblockt (Misserfolg)':'Misserfolg'))}</div><div class="mt-2"><span class="px-3.5 py-1 rounded-lg text-white font-extrabold text-sm tabular ${x.ok?'bg-emerald-600':isBlockedMiss?'bg-amber-600':'bg-rose-600'}">${x.ok?('EG: '+x.eg):(isBlockedMiss?'Geblockt → 3 EG (MEG: '+x.meg+')':'MEG: '+x.meg)}</span></div>${hzRowHtml}${advSrcRowHtml}${blkBanner}</div>`;
   }else{
     const w=res.filter(x=>x.ok).length, c=res.filter(x=>x.crit).length, blkCnt=isHitVsBlock?res.filter(x=>!x.ok&&x.r!==100).length:0;
+    if(combatHits.length){
+      hzFeedSummary=combatHits.map(h=>{
+        const zFull=h.subZoneName?`${h.zoneName} → ${h.subZoneName}`:h.zoneName;
+        return `#${h.rollIdx}: ${h.isBlocked?`🛡️ ${zFull}`:`🎯 ${zFull}${h.lastHzRoll!==null?` (${h.lastHzRoll})`:''}`}`;
+      }).join(' • ');
+    }
     const multiSrcBox=(advSrcParts.length||isVsOpp)?`<div class="subcard py-1.5 px-2.5 space-y-1 text-[10px] min-w-0 break-words">${isVsOpp?`<div class="font-bold text-indigo-300 tabular break-words">${hideOppLocal?`⚔️ ${esc(rollTitle)} (Gegnerwerte verborgen)`:`⚔️ ${esc(rollTitle)} • ${esc(c1Name)} (${T.c1AutoAdv}V/${T.c1AutoDis}N) vs. ${esc(T.opp.oppName)} (${T.oppAutoAdv}V→N / ${T.oppAutoDis}N→V)`}</div>`:''}${advSrcParts.length?`<div class="flex flex-wrap items-center gap-1 min-w-0"><span class="font-extrabold t-mut mr-0.5">Vor./Nacht.:</span>${advSrcChipsHtml}</div>`:''}</div>`:'';
-    baseHtml=`<div class="space-y-1.5"><div class="subcard py-1.5 px-3 flex justify-between text-xs font-extrabold"><span>${D.cnt}× W100 (≤${th})</span><span>${w}/${D.cnt} Erfolge${blkCnt?` • 🛡️ ${blkCnt} geblockt`:''}${c?` • ★ ${c}`:''}</span></div><div class="grid grid-cols-2 gap-1.5">${res.map((x,i)=>{const isBlkM=Boolean(isHitVsBlock&&!x.ok&&x.r!==100);return `<div class="subcard p-2 flex justify-between items-center ${x.crit?'border-amber-400 bg-amber-500/15':x.ok?'border-emerald-500/50 bg-emerald-500/10':isBlkM?'border-amber-400/60 bg-amber-500/10':'border-rose-500/50 bg-rose-500/10'}"><span class="font-black tabular">#${i+1}: ${x.r}${x.rollMod&&x.rawR!==undefined?` (${x.rawR}${fmtSign(x.rollMod)})`:""}</span><span class="text-xs font-extrabold">${x.crit?'★ ':''}${x.ok?('EG '+x.eg):(isBlkM?'🛡️ 3 EG':'MEG '+x.meg)}</span></div>`;}).join('')}</div>${multiSrcBox}</div>`;
+    baseHtml=`<div class="space-y-1.5"><div class="subcard py-1.5 px-3 flex justify-between text-xs font-extrabold"><span>${D.cnt}× W100 (≤${th})</span><span>${w}/${D.cnt} Erfolge${blkCnt?` • 🛡️ ${blkCnt} geblockt`:''}${c?` • ★ ${c}`:''}</span></div><div class="grid grid-cols-2 gap-1.5">${res.map((x,i)=>{const isBlkM=Boolean(isHitVsBlock&&!x.ok&&x.r!==100);const hi=combatHits.find(h=>h.rollIdx===i+1)||null;const zFull=hi?(hi.subZoneName?`${hi.zoneName} → ${hi.subZoneName}`:hi.zoneName):'';const zPill=hi?`<div class="text-[10px] font-extrabold truncate ${hi.isBlocked?'text-cyan-300':'text-amber-300'}">${hi.isBlocked?'🛡️ ':'🎯 '}${esc(zFull)}${hi.lastHzRoll!==null?` (${hi.lastHzRoll})`:''}</div>`:'';return `<div class="subcard p-2 space-y-0.5 ${x.crit?'border-amber-400 bg-amber-500/15':x.ok?'border-emerald-500/50 bg-emerald-500/10':isBlkM?'border-amber-400/60 bg-amber-500/10':'border-rose-500/50 bg-rose-500/10'}"><div class="flex justify-between items-center gap-1"><span class="font-black tabular">#${i+1}: ${x.r}${x.rollMod&&x.rawR!==undefined?` (${x.rawR}${fmtSign(x.rollMod)})`:""}</span><span class="text-xs font-extrabold">${x.crit?'★ ':''}${x.ok?('EG '+x.eg):(isBlkM?'🛡️ 3 EG':'MEG '+x.meg)}</span></div>${zPill}</div>`;}).join('')}</div>${multiSrcBox}</div>`;
   }
   if(D.wRollCat==='Blocken'&&res.some(x=>x.ok)){
     UI.lastBlockBaseHtml=baseHtml;
@@ -1680,20 +1686,20 @@ export function executeDiceRoll(opts={}){
     cnt:D.cnt,
     res
   };
+  if(hzFeedSummary) livePayload.hzSummary=hzFeedSummary;
   if(isVsOpp){
     livePayload.vsCharId=T.opp.charId;
     livePayload.vsCharName=T.opp.oppName;
     livePayload.vsSummary=vsSummaryFeed;
   }
   publishLiveRoll(livePayload);
-  diceLogs.unshift({t:new Date().toLocaleTimeString('de-DE'),lbl:rollTitle,th,sum:res.map(x=>`${x.r}(${x.crit?'★':''}${x.ok?('EG'+x.eg):((isHitVsBlock&&x.r!==100)?'🛡️3EG':'MEG'+x.meg)})`).join(', '),advSrc:advSrcParts.join(', ')});
+  const logSum=res.map((x,i)=>{
+    const hi=combatHits.find(h=>h.rollIdx===i+1)||null;
+    const zSfx=hi?` [${hi.isBlocked?'🛡️':'🎯'}${hi.subZoneName?`${hi.zoneName}→${hi.subZoneName}`:hi.zoneName}${hi.lastHzRoll!==null?`/${hi.lastHzRoll}`:''}]`:'';
+    return `${x.r}(${x.crit?'★':''}${x.ok?('EG'+x.eg):((isHitVsBlock&&x.r!==100)?'🛡️3EG':'MEG'+x.meg)})${zSfx}`;
+  }).join(', ');
+  diceLogs.unshift({t:new Date().toLocaleTimeString('de-DE'),lbl:rollTitle,th,sum:logSum,advSrc:advSrcParts.join(', ')});
   if(diceLogs.length>40) diceLogs.length=40;
-  hooks.initCombatFromRoll?.({T,res,attackerName:c1Name});
-  if(DUEL.outgoing){
-    const wasWaiting=DUEL.outgoing.status==='waiting';
-    hooks.clearOutgoingDuel?.({notifyCancel:wasWaiting,silent:true});
-    applyDiceAutoAdvDis(false);
-  }
   if(!isLobbyNeutralDice()&&S.inspirationActive){
     S.inspirationActive=false;
     applyDiceAutoAdvDis(false);

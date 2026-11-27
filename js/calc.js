@@ -1108,7 +1108,8 @@ export function getAdvDisForContext(ctx={},M=null,sheet=S){
   const rawCat=ctx.wRollCat||(w?'Trefferwurf':sh?'Blocken':'Normaler Test');
   const cat=rawCat==='Parade'?'Parieren':rawCat;
   const oppDefCat=ctx.oppDefenseCat?(ctx.oppDefenseCat==='Parade'?'Parieren':ctx.oppDefenseCat):'';
-  const sk=ctx.skillId?(target.skills||[]).find(x=>x.id===ctx.skillId):null;
+  const effSkillId=ctx.skillId||(w?.skillId)||(sh?.skillId)||null;
+  const sk=effSkillId?(target.skills||[]).find(x=>x.id===effSkillId):null;
   const skNameLow=sk?String(sk.name||'').trim().toLowerCase():'';
   const skBaseLow=skNameLow.replace(/\s*\([^)]*\)\s*$/,'').trim();
   const ak=ctx.attrKey||(sk?sk.linkedAttr:null)||(w?getWeaponRollMeta(w,mods,target).attrKey:null)||(sh?getShieldRollMeta(sh,mods,target).attrKey:null);
@@ -1340,10 +1341,21 @@ export function findMatchingPreparation({attrKey='',sk=null,includeActionPrepara
   const ak=String(attrKey||'').trim();
   const skId=String(sk?.id||'').trim();
   const skNameLow=String(sk?.name||'').trim().toLowerCase();
+  const skBaseLow=skNameLow.replace(/\s*\([^)]*\)\s*$/,'').trim();
   if(sk&&(skId||skNameLow)){
-    const skHit=list.find(p=>p&&p.kind==='skill'&&((skId&&p.skillId===skId)||(skNameLow&&String(p.skillName||'').trim().toLowerCase()===skNameLow)));
+    const skHit=list.find(p=>{
+      if(!p||p.kind!=='skill') return false;
+      if(skId&&p.skillId===skId) return true;
+      const livePrepSk=p.skillId?(sheet?.skills||[]).find(s=>s&&s.id===p.skillId):null;
+      const pNameLow=String(livePrepSk?.name||p.skillName||'').trim().toLowerCase();
+      if(!pNameLow||!skNameLow) return false;
+      if(pNameLow===skNameLow) return true;
+      if(!pNameLow.includes('(')&&skBaseLow&&skBaseLow===pNameLow) return true;
+      return false;
+    });
     if(skHit){
-      const resolvedName=String(sk?.name||skHit.skillName||'Fertigkeit').trim()||'Fertigkeit';
+      const livePrepSk=skHit.skillId?(sheet?.skills||[]).find(s=>s&&s.id===skHit.skillId):null;
+      const resolvedName=String(sk?.name||livePrepSk?.name||skHit.skillName||'Fertigkeit').trim()||'Fertigkeit';
       return {prep:skHit,scope:'skill',skillName:resolvedName,label:`Fertigkeit (${resolvedName})`};
     }
   }
@@ -2246,6 +2258,37 @@ export function getWeaponDualWieldInfo(weapon,sheet=S){
     dis:role==='off'?2:1,
     peers
   };
+}
+
+export function getWeaponHandCount(weapon){
+  if(!weapon) return 1;
+  return (weapon.hand==='both'||weapon.grip==='2h')?2:1;
+}
+
+export function getHandAllocationInfo(sheet=S){
+  const target=sheet||S;
+  const items=[];
+  (target?.weapons||[]).forEach(w=>{
+    if(!w||w.equipped===false) return;
+    const hands=getWeaponHandCount(w);
+    const name=String(w.name||'').trim()||getWeaponSubtype(w.wType).label;
+    items.push({id:w.id,name,kind:'weapon',hands});
+  });
+  (target?.armors||[]).forEach(ar=>{
+    if(!ar||!isArmorShield(ar)||ar.equipped===false) return;
+    const name=String(ar.name||'').trim()||'Schild';
+    items.push({id:ar.id,name,kind:'shield',hands:1});
+  });
+  const totalHands=items.reduce((sum,it)=>sum+it.hands,0);
+  const has2H=items.some(it=>it.hands>=2);
+  const hasShield=items.some(it=>it.kind==='shield');
+  const hasConflict=totalHands>2;
+  const itemsSummary=items.map(it=>`${it.name} (${it.hands}H)`).join(' + ');
+  const headline=has2H
+    ?`Ungewöhnliche Handverteilung: ${totalHands} Hände belegt (2H-Waffe + weitere Ausrüstung)`
+    :`Ungewöhnliche Handverteilung: ${totalHands} Hände gleichzeitig belegt`;
+  const hint='Als regulärer 2-händiger Charakter kannst du nicht alle angelegten Waffen/Schilde gleichzeitig führen. Das Anlegen bleibt erlaubt (z. B. für Charaktere mit mehr als 2 Armen).';
+  return {hasConflict,totalHands,has2H,hasShield,items,itemsSummary,headline,hint};
 }
 
 export function getWeaponRollMeta(w,M=null,sheet=S){

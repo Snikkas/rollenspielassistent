@@ -8,10 +8,10 @@ import {
   hooks
 } from './ui-hooks.js';
 import {
-  S, D, UI, CLOUD, DUEL, COMBAT, LIVE_TAB_ID, diceLogs, getWeaponSubtype, isArmorShield, isWeaponBlockable, getCharCampaignId, getCharOwner, getActiveLiveCampaignId, canManageCampaign, isGlobalGM, isEnemySheet, getEnemyMeta, shouldHideOpponentDetails, toast, triggerNiceEasterEgg, logChron, save
+  S, D, UI, CLOUD, DUEL, COMBAT, LIVE_TAB_ID, diceLogs, getWeaponSubtype, isArmorShield, isWeaponBlockable, normDmgType, getMeleeAttrDmgType, getDmgTypeLabel, getCharCampaignId, getCharOwner, getActiveLiveCampaignId, canManageCampaign, isGlobalGM, isEnemySheet, getEnemyMeta, shouldHideOpponentDetails, toast, triggerNiceEasterEgg, logChron, save
 } from './state.js';
 import {
-  calcActiveMods, getSheetShields
+  calcActiveMods, getSheetShields, getWeaponRollMeta, getShieldRollMeta
 } from './calc.js';
 import {
   getCachedForeignSheet, publishLiveRoll, sendLiveBroadcast, applyCloudResourceDelta, isSecretRollActive
@@ -126,6 +126,40 @@ export function pickDefaultDamageType(opts, tags){
   return 'cut';
 }
 
+export function resolveDefaultDamageType({ weapon = null, atkShield = null, ammo = null, attrKey = '', opts = [], tags = [] } = {}){
+  const isRanged = Boolean(weapon && weapon.wType === 'ranged');
+  if(isRanged){
+    const ammoType = normDmgType(ammo?.dmgType);
+    if(ammoType && opts.some(o => o.key === ammoType)){
+      const amNm = String(ammo?.name || '').trim() || 'Munition';
+      return { key: ammoType, reason: `🎯 ${amNm} → ${getDmgTypeLabel(ammoType, ammo?.customDmg)}` };
+    }
+    const wpType = normDmgType(weapon?.dmgType);
+    if(wpType && opts.some(o => o.key === wpType)){
+      const wpNm = String(weapon?.name || '').trim() || 'Fernkampfwaffe';
+      return { key: wpType, reason: `🏹 ${wpNm} → ${getDmgTypeLabel(wpType, weapon?.customDmg)}` };
+    }
+    const fb = pickDefaultDamageType(opts, tags);
+    const fbLbl = opts.find(o => o.key === fb)?.shortLabel || opts.find(o => o.key === fb)?.label || getDmgTypeLabel(fb);
+    return { key: fb, reason: `🏹 Auto → ${fbLbl}` };
+  }
+  if(hasTagMatch(tags, /^wuchtklinge\b/i) && opts.some(o => o.key === 'impact_cut')){
+    return { key: 'impact_cut', reason: '⚔️ Wuchtklinge → Einschlag-Schnitt' };
+  }
+  if(hasTagMatch(tags, /^wuchtpieke\b/i) && opts.some(o => o.key === 'impact_pierce')){
+    return { key: 'impact_pierce', reason: '⚔️ Wuchtpieke → Einschlag-Durchstoß' };
+  }
+  const effAttr = String(attrKey || (atkShield ? getShieldRollMeta(atkShield).attrKey : (weapon ? getWeaponRollMeta(weapon).attrKey : '')) || '').trim().toUpperCase();
+  const attrDmg = getMeleeAttrDmgType(effAttr);
+  if(attrDmg && opts.some(o => o.key === attrDmg)){
+    const icon = atkShield ? '🛡️' : '⚔️';
+    return { key: attrDmg, reason: `${icon} Attribut ${effAttr} → ${getDmgTypeLabel(attrDmg)}` };
+  }
+  const fb = pickDefaultDamageType(opts, tags);
+  const fbLbl = opts.find(o => o.key === fb)?.shortLabel || opts.find(o => o.key === fb)?.label || getDmgTypeLabel(fb);
+  return { key: fb, reason: fbLbl };
+}
+
 export function resolveCombatTargetSheet(charId = COMBAT.targetCharId){
   const id = String(charId || '').trim();
   if(!id) return null;
@@ -157,6 +191,74 @@ export function getHitZoneSubZones(zoneObj){
   const znLow = String(zoneObj.zone || '').trim().toLowerCase();
   const defMatch = DEF_HZ.find(d => d.zone.toLowerCase() === znLow);
   return defMatch && Array.isArray(defMatch.subZones) ? defMatch.subZones : [];
+}
+
+export function resolveBlockZoneForTarget(blockItem, targetSheet){
+  const raw = String(blockItem?.blockZone || '').trim();
+  const eff = raw || 'Arm / Hand';
+  const hitZones = getTargetHitZones(targetSheet);
+  const findZoneCI = name => hitZones.find(z => String(z?.zone || '').trim().toLowerCase() === String(name || '').trim().toLowerCase()) || null;
+  const isGenericArmHand = !raw || /^(arm\s*\/\s*hand|arm|hand|schildarm)$/i.test(raw);
+  if(isGenericArmHand){
+    const preferRight = blockItem && !isArmorShield(blockItem) && blockItem.hand === 'main';
+    const armObj = (preferRight ? findZoneCI('Arm rechts') : findZoneCI('Arm links'))
+      || (preferRight ? findZoneCI('Arm links') : findZoneCI('Arm rechts'))
+      || hitZones.find(z => /\barm\b/i.test(String(z?.zone || '')))
+      || null;
+    if(armObj){
+      const zoneName = String(armObj.zone || '').trim();
+      const subZones = getHitZoneSubZones(armObj);
+      let subZoneName = '';
+      if(/hand/i.test(eff)){
+        const handSub = subZones.find(sz => String(sz?.zone || '').trim().toLowerCase() === 'hand');
+        if(handSub) subZoneName = String(handSub.zone || '').trim();
+      }
+      return {
+        zoneName,
+        subZoneName,
+        rawBlockZone: raw,
+        displayLabel: subZoneName ? `${zoneName} → ${subZoneName}` : zoneName
+      };
+    }
+    return { zoneName: eff, subZoneName: '', rawBlockZone: raw, displayLabel: eff };
+  }
+  const sepMatch = raw.match(/^([^:→]+?)\s*[:→]\s*(.+)$/);
+  if(sepMatch){
+    const mainPart = sepMatch[1].trim();
+    const subPart = sepMatch[2].trim();
+    const mainObj = findZoneCI(mainPart);
+    if(mainObj){
+      const zoneName = String(mainObj.zone || '').trim();
+      const subZones = getHitZoneSubZones(mainObj);
+      const subObj = subZones.find(sz => String(sz?.zone || '').trim().toLowerCase() === subPart.toLowerCase());
+      const subZoneName = subObj ? String(subObj.zone || '').trim() : subPart;
+      return {
+        zoneName,
+        subZoneName,
+        rawBlockZone: raw,
+        displayLabel: subZoneName ? `${zoneName} → ${subZoneName}` : zoneName
+      };
+    }
+  }
+  const exactObj = findZoneCI(raw);
+  if(exactObj){
+    const zoneName = String(exactObj.zone || '').trim();
+    return { zoneName, subZoneName: '', rawBlockZone: raw, displayLabel: zoneName };
+  }
+  return { zoneName: raw, subZoneName: '', rawBlockZone: raw, displayLabel: raw };
+}
+
+export function applyBlockItemZoneToHit(hit, blockItem, targetSheet){
+  if(!hit) return;
+  const resolved = resolveBlockZoneForTarget(blockItem, targetSheet);
+  hit.zoneName = resolved.zoneName;
+  hit.subZoneName = resolved.subZoneName;
+  hit.lastHzRoll = null;
+  hit.lastSubHzRoll = null;
+  hit.blockZoneUsed = true;
+  hit.blockZoneSource = blockItem
+    ? (String(blockItem.name || '').trim() || (isArmorShield(blockItem) ? 'Schild' : 'Blockfähige Waffe'))
+    : 'Block';
 }
 
 export function getPartialArmorsForMainZone(targetSheet, mainZoneName, subZones = []){
@@ -370,6 +472,7 @@ export function syncLegacyCombatFields(){
   COMBAT.blockShieldId = String(h0.blockShieldId || '');
   COMBAT.blockShieldName = String(h0.blockShieldName || '');
   COMBAT.dmgType = h0.dmgType || 'cut';
+  COMBAT.dmgTypeReason = h0.dmgTypeReason || '';
   COMBAT.pool = h0.pool === 'mlp' ? 'mlp' : 'lp';
   COMBAT.zoneName = h0.zoneName || '';
   COMBAT.subZoneName = h0.subZoneName || '';
@@ -420,12 +523,16 @@ export function calculateCombatDamage(hitOrIdx = 0){
   const targetSheet = resolveCombatTargetSheet(COMBAT.targetCharId);
   const targetM = targetSheet ? calcActiveMods(targetSheet) : null;
   const hitZones = getTargetHitZones(targetSheet);
-  const zoneObj = hitZones.find(z => String(z.zone || '').trim().toLowerCase() === String(hit.zoneName || '').trim().toLowerCase()) || hitZones[1] || hitZones[0];
-  const zoneName = zoneObj ? String(zoneObj.zone || '').trim() : (hit.zoneName || 'Rumpf');
+  const rawZone = String(hit.zoneName || '').trim();
+  const matchedZoneObj = rawZone
+    ? hitZones.find(z => String(z.zone || '').trim().toLowerCase() === rawZone.toLowerCase()) || null
+    : null;
+  const zoneObj = matchedZoneObj || (!rawZone ? (hitZones[1] || hitZones[0] || null) : null);
+  const zoneName = zoneObj ? String(zoneObj.zone || '').trim() : (rawZone || 'Rumpf');
   const subZones = getHitZoneSubZones(zoneObj);
   const rawSub = String(hit.subZoneName || '').trim();
   const subZoneMatch = rawSub ? subZones.find(sz => String(sz.zone || '').trim().toLowerCase() === rawSub.toLowerCase()) : null;
-  const subZoneName = subZoneMatch ? String(subZoneMatch.zone || '').trim() : '';
+  const subZoneName = subZoneMatch ? String(subZoneMatch.zone || '').trim() : (zoneObj ? '' : rawSub);
   const fullZoneName = subZoneName ? `${zoneName} → ${subZoneName}` : zoneName;
   const partialArmors = (pool !== 'mlp' && targetSheet) ? getPartialArmorsForMainZone(targetSheet, zoneName, subZones) : [];
   const targetShields = targetSheet ? getSheetShields(targetSheet) : [];
@@ -564,10 +671,12 @@ export function resetCombatState(){
   COMBAT.weaponId = null;
   COMBAT.shieldId = null;
   COMBAT.ammoId = null;
+  COMBAT.attrKey = '';
   COMBAT.attackerName = '';
   COMBAT.targetCharId = '';
   COMBAT.targetName = '';
   COMBAT.dmgType = 'cut';
+  COMBAT.dmgTypeReason = '';
   COMBAT.pool = 'lp';
   COMBAT.zoneName = '';
   COMBAT.subZoneName = '';
@@ -596,7 +705,7 @@ export function initCombatFromRoll({ T, res, isManualBlocked = false, isAtkBlk20
   const isWeaponHit = Boolean(manualBlk || D.wRollCat === 'Trefferwurf');
   if(!isWeaponHit){
     resetCombatState();
-    return;
+    return [];
   }
   const isLob = isLobbyNeutralDice();
   const initPool = D.atkPool === 'mlp' ? 'mlp' : 'lp';
@@ -608,6 +717,7 @@ export function initCombatFromRoll({ T, res, isManualBlocked = false, isAtkBlk20
   const ammo = (!isLob && weapon && weapon.wType === 'ranged')
     ? getEffectiveWeaponAmmo(weapon, S)
     : null;
+  const effAttrKey = String(D.attrKey || (atkShield ? getShieldRollMeta(atkShield).attrKey : (weapon ? getWeaponRollMeta(weapon).attrKey : '')) || '').trim().toUpperCase();
   const tags = getWeaponAllTags(atkItem, ammo);
   const nichtParierbar = hasTagMatch(tags, /^nicht\s+parierbar\b/i);
 
@@ -625,6 +735,10 @@ export function initCombatFromRoll({ T, res, isManualBlocked = false, isAtkBlk20
   const defShieldName = !isDefParryUnparryable
     ? (defShield ? (String(defShield.name || '').trim() || 'Schild') : (opp?.oppShieldName || ''))
     : '';
+  const defBlockWeapon = (!defShield && opp?.oppWeapon && (isDefParryUnparryable || isWeaponBlockable(opp.oppWeapon)))
+    ? opp.oppWeapon
+    : null;
+  const defBlockItem = defShield || defBlockWeapon || null;
   const oppHasBlockItem = isDefParryUnparryable
     || (!defShieldId && (Boolean(opp?.oppWeapon && isWeaponBlockable(opp.oppWeapon)) || opp?.oppBlockKind === 'item'));
 
@@ -674,14 +788,15 @@ export function initCombatFromRoll({ T, res, isManualBlocked = false, isAtkBlk20
 
   if(!resolvedHits.length){
     resetCombatState();
-    return;
+    return [];
   }
 
   const opts = getWeaponDamageOptions(atkItem, ammo);
-  const defDmgType = pickDefaultDamageType(opts, tags);
+  const resolvedDmg = resolveDefaultDamageType({ weapon, atkShield, ammo, attrKey: effAttrKey, opts, tags });
+  const defDmgType = resolvedDmg.key;
+  const defDmgReason = resolvedDmg.reason;
   const targetSheet = resolveCombatTargetSheet(targetCharId);
   const hitZones = getTargetHitZones(targetSheet);
-  const defZone = (hitZones[1]?.zone || hitZones[0]?.zone || 'Rumpf');
   const rawAimZone = (D.aimActive && T?.aimInfo?.zoneName) ? String(T.aimInfo.zoneName).trim() : '';
   const aimedZoneMatch = rawAimZone
     ? (hitZones.find(z => String(z?.zone || '').trim().toLowerCase() === rawAimZone.toLowerCase())?.zone || rawAimZone)
@@ -695,6 +810,8 @@ export function initCombatFromRoll({ T, res, isManualBlocked = false, isAtkBlk20
   COMBAT.weaponId = weapon?.id || null;
   COMBAT.shieldId = atkShield?.id || null;
   COMBAT.ammoId = ammo?.id || null;
+  COMBAT.attrKey = effAttrKey;
+  COMBAT.dmgTypeReason = defDmgReason;
   COMBAT.attackerName = attackerName;
   COMBAT.targetCharId = targetCharId;
   COMBAT.targetName = targetName;
@@ -704,38 +821,76 @@ export function initCombatFromRoll({ T, res, isManualBlocked = false, isAtkBlk20
   COMBAT.combinedOfferNote = '';
   COMBAT.combinedDirectApplying = false;
   COMBAT.combinedDirectAppliedNote = '';
-  COMBAT.hits = resolvedHits.map(rh => ({
-    id: 'hit_' + uid(),
-    rollIdx: rh.rollIdx,
-    rollVal: rh.rollVal,
-    isCrit: rh.isCrit,
-    eg: rh.eg,
-    egMult: 1,
-    baseEg: rh.eg,
-    isBlocked: rh.isBlocked,
-    blockReason: rh.blockReason || '',
-    blockShieldId: rh.blockShieldId || '',
-    blockShieldName: rh.blockShieldName || '',
-    blockItemRed: Boolean(rh.blockItemRed),
-    aimedZone: (!rh.isBlocked && aimedZoneMatch) ? aimedZoneMatch : '',
-    dmgType: defDmgType,
-    pool: initPool,
-    zoneName: (!rh.isBlocked && aimedZoneMatch) ? aimedZoneMatch : defZone,
-    subZoneName: '',
-    lastHzRoll: null,
-    lastSubHzRoll: null,
-    dmgMod: 0,
-    armorMod: 0,
-    posted: false,
-    offerId: '',
-    offerStatus: '',
-    offerNote: '',
-    directApplying: false,
-    directAppliedNote: '',
-    ammoSpent: false,
-    collapsed: false
-  }));
+  COMBAT.hits = resolvedHits.map(rh => {
+    let zoneName = '';
+    let subZoneName = '';
+    let lastHzRoll = null;
+    let lastSubHzRoll = null;
+    let blockZoneUsed = false;
+    let blockZoneSource = '';
+    if(rh.isBlocked){
+      const bz = resolveBlockZoneForTarget(defBlockItem, targetSheet);
+      zoneName = bz.zoneName;
+      subZoneName = bz.subZoneName;
+      blockZoneUsed = true;
+      blockZoneSource = defShield
+        ? (String(defShield.name || '').trim() || 'Schild')
+        : (defBlockWeapon ? (String(defBlockWeapon.name || '').trim() || 'Blockfähige Waffe') : 'Block');
+    }else if(aimedZoneMatch){
+      zoneName = aimedZoneMatch;
+    }else{
+      const hzRoll = rollW100();
+      if(hzRoll === 69) triggerNiceEasterEgg();
+      const hzMatch = matchHitZoneByRoll(hitZones, hzRoll) || hitZones[0];
+      zoneName = hzMatch ? String(hzMatch.zone || '').trim() : 'Rumpf';
+      lastHzRoll = hzRoll;
+      const subZones = getHitZoneSubZones(hzMatch);
+      const partialArmors = (initPool !== 'mlp' && targetSheet) ? getPartialArmorsForMainZone(targetSheet, zoneName, subZones) : [];
+      if(partialArmors.length > 0 && subZones.length > 0){
+        const subRoll = rollW100();
+        if(subRoll === 69) triggerNiceEasterEgg();
+        const subHit = matchHitZoneByRoll(subZones, subRoll) || subZones[0];
+        lastSubHzRoll = subRoll;
+        subZoneName = subHit ? String(subHit.zone || '').trim() : '';
+      }
+    }
+    return {
+      id: 'hit_' + uid(),
+      rollIdx: rh.rollIdx,
+      rollVal: rh.rollVal,
+      isCrit: rh.isCrit,
+      eg: rh.eg,
+      egMult: 1,
+      baseEg: rh.eg,
+      isBlocked: rh.isBlocked,
+      blockReason: rh.blockReason || '',
+      blockShieldId: rh.blockShieldId || '',
+      blockShieldName: rh.blockShieldName || '',
+      blockItemRed: Boolean(rh.blockItemRed),
+      blockZoneUsed,
+      blockZoneSource,
+      aimedZone: (!rh.isBlocked && aimedZoneMatch) ? aimedZoneMatch : '',
+      dmgType: defDmgType,
+      dmgTypeReason: defDmgReason,
+      pool: initPool,
+      zoneName,
+      subZoneName,
+      lastHzRoll,
+      lastSubHzRoll,
+      dmgMod: 0,
+      armorMod: 0,
+      posted: false,
+      offerId: '',
+      offerStatus: '',
+      offerNote: '',
+      directApplying: false,
+      directAppliedNote: '',
+      ammoSpent: false,
+      collapsed: false
+    };
+  });
   syncLegacyCombatFields();
+  return COMBAT.hits;
 }
 
 export function rollCombatHitZone(hitIdx = 0, { silentRender = false } = {}){
@@ -1597,7 +1752,10 @@ function renderSingleCombatHitBodyHtml(hitEntry, hitIdx, isMulti){
         : 'bdr-line bg-black/20 t-mut';
   const hiAttr = `data-hit-idx="${hitIdx}"`;
 
-  const zoneBtnsHtml = calc.hitZones.map(z => {
+  const isCustomZone = Boolean(calc.zoneName && !calc.hitZones.some(z => String(z.zone || '').trim().toLowerCase() === calc.zoneName.toLowerCase()));
+  const zoneBtnsHtml = (isCustomZone
+    ? `<button type="button" data-action="combat-set-zone" ${hiAttr} data-zone="${esc(calc.zoneName)}" data-tip="Individuelle Block-/Trefferzone: ${esc(calc.zoneName)}" class="btn py-1 px-2 text-[11px] font-extrabold btn-pri">🛡️ ${esc(calc.zoneName)}</button>`
+    : '') + calc.hitZones.map(z => {
     const zn = String(z.zone || '').trim();
     const act = zn.toLowerCase() === calc.zoneName.toLowerCase();
     return `<button type="button" data-action="combat-set-zone" ${hiAttr} data-zone="${esc(zn)}" data-tip="Trefferzone ${esc(zn)} (${esc(z.range || '')}${z.size ? ', ' + esc(z.size) : ''})" class="btn py-1 px-2 text-[11px] font-extrabold ${act ? 'btn-pri' : 'opacity-85 hover:opacity-100'}">${esc(zn)}${z.range ? ` <span class="text-[9px] opacity-75 tabular">(${esc(z.range)})</span>` : ''}</button>`;
@@ -1748,8 +1906,8 @@ function renderSingleCombatHitBodyHtml(hitEntry, hitIdx, isMulti){
 
     <div class="space-y-1.5 pt-1.5 border-t border-white/10 min-w-0">
       <div class="flex flex-wrap items-center justify-between gap-1.5">
-        <span class="text-[10px] font-extrabold t-mut uppercase tracking-wider">🎯 Trefferzone${hitEntry.aimedZone&&!hitEntry.isBlocked?` <span class="normal-case px-1.5 py-0.5 rounded bg-cyan-500/20 border border-cyan-400/50 text-cyan-200 font-black">Gezielt: ${esc(hitEntry.aimedZone)}</span>`:''}${isMlpPool ? ' <span class="font-semibold normal-case text-indigo-300/80">(bei mLP optional – mRS wirkt global)</span>' : ''}${hitEntry.lastHzRoll !== null ? ` • W100 = <strong class="text-amber-300">${hitEntry.lastHzRoll}</strong>` : ''}</span>
-        <button type="button" data-action="combat-roll-hz" ${hiAttr} class="btn py-0.5 px-2 text-[11px] font-extrabold border-amber-400/55 bg-amber-500/15 text-amber-200 hover:bg-amber-500/25">🎯 Trefferzone auswürfeln</button>
+        <span class="text-[10px] font-extrabold t-mut uppercase tracking-wider">🎯 Trefferzone${hitEntry.isBlocked?` <span class="normal-case px-1.5 py-0.5 rounded bg-cyan-500/20 border border-cyan-400/50 text-cyan-200 font-black">🛡️ Blockzone: ${esc(calc.fullZoneName)}${hitEntry.blockZoneSource?` (${esc(hitEntry.blockZoneSource)})`:''}</span>`:(hitEntry.aimedZone?` <span class="normal-case px-1.5 py-0.5 rounded bg-cyan-500/20 border border-cyan-400/50 text-cyan-200 font-black">Gezielt: ${esc(hitEntry.aimedZone)}</span>`:'')}${isMlpPool ? ' <span class="font-semibold normal-case text-indigo-300/80">(bei mLP optional – mRS wirkt global)</span>' : ''}${hitEntry.lastHzRoll !== null ? ` • W100 = <strong class="text-amber-300">${hitEntry.lastHzRoll}</strong>` : ''}</span>
+        <button type="button" data-action="combat-roll-hz" ${hiAttr} class="btn py-0.5 px-2 text-[11px] font-extrabold border-amber-400/55 bg-amber-500/15 text-amber-200 hover:bg-amber-500/25">${hitEntry.lastHzRoll !== null ? '🎲 Neu würfeln' : '🎯 Trefferzone auswürfeln'}</button>
       </div>
       <div class="flex flex-wrap gap-1 min-w-0">${zoneBtnsHtml}</div>
       ${subZoneSectionHtml}
@@ -1757,7 +1915,10 @@ function renderSingleCombatHitBodyHtml(hitEntry, hitIdx, isMulti){
 
     <div class="space-y-1.5 pt-1.5 border-t border-white/10 min-w-0">
       <div class="flex flex-wrap items-center justify-between gap-1.5">
-        <span class="text-[10px] font-extrabold t-mut uppercase tracking-wider">⚔️ Schadensart &amp; Waffenschaden</span>
+        <div class="flex flex-wrap items-center gap-1.5 min-w-0">
+          <span class="text-[10px] font-extrabold t-mut uppercase tracking-wider">⚔️ Schadensart &amp; Waffenschaden</span>
+          ${hitEntry.dmgTypeReason?`<span class="px-1.5 py-0.5 rounded bg-acc-soft border bdr-acc text-acc text-[10px] font-extrabold">${esc(hitEntry.dmgTypeReason)}</span>`:''}
+        </div>
         <div class="inline-flex rounded-lg p-0.5 bg-black/25 border bdr-line text-[10px]">
           <button type="button" data-action="combat-set-pool" ${hiAttr} data-pool="lp" class="px-2 py-0.5 rounded font-black ${calc.pool === 'lp' ? 'bg-rose-500/30 text-rose-200' : 't-mut'}">❤️ LP</button>
           <button type="button" data-action="combat-set-pool" ${hiAttr} data-pool="mlp" class="px-2 py-0.5 rounded font-black ${calc.pool === 'mlp' ? 'bg-purple-500/30 text-purple-200' : 't-mut'}">🧠 mLP</button>

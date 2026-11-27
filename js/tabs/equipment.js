@@ -8,10 +8,10 @@ import {
   hooks
 } from '../ui-hooks.js';
 import {
-  openCtxMenu, toast, save, getWeaponSubtype, isArmorShield, getArmorSubtype, fmtCustomValSummarySuffix, renderLinkedAmmoCustomDmgHtml, isWeaponMassiv, syncEquipmentToInventory, S, D, isMobileLayout, UI
+  openCtxMenu, toast, save, getWeaponSubtype, isArmorShield, getArmorSubtype, fmtCustomValSummarySuffix, renderLinkedAmmoCustomDmgHtml, isWeaponMassiv, getEffectiveBlockZoneLabel, normDmgType, getMeleeAttrDmgType, getDmgTypeLabel, syncEquipmentToInventory, S, D, isMobileLayout, UI
 } from '../state.js';
 import {
-  invalidateModsCache, calcActiveMods, getAdvDisForContext, getWeaponRollMeta, getShieldRollMeta, formatBlockModShort, formatBlockModLong, getWeaponDualWieldInfo, getEqModStatOptions, getEqModAdvDisOptions, formatEqModTargetLabel, formatEqModShort, getTagDesc, fmtAdvSrcLines, getAttrTot, getSkBonus, findEqItem, getMentalArmorSummary
+  invalidateModsCache, calcActiveMods, getAdvDisForContext, getWeaponRollMeta, getShieldRollMeta, formatBlockModShort, formatBlockModLong, getWeaponDualWieldInfo, getHandAllocationInfo, getEqModStatOptions, getEqModAdvDisOptions, formatEqModTargetLabel, formatEqModShort, getTagDesc, fmtAdvSrcLines, getAttrTot, getSkBonus, findEqItem, getMentalArmorSummary
 } from '../calc.js';
 import {
   applyDiceAutoAdvDis, syncDiceFromSheet, renderDice
@@ -159,19 +159,23 @@ export function openAddArmorMenu(anchorEl,ddKey,alignRight=false){
 export function openShieldAttrPicker(anchorEl,arId){
   const ar=(S.armors||[]).find(x=>x.id===arId); if(!ar) return;
   const M=calcActiveMods(), sm=getShieldRollMeta(ar,M);
-  const items=ATTRS.map(a=>({
-    label:`${a.k} – ${a.n}`,
-    badge:String(getAttrTot(a.k,M)),
-    active:sm.attrKey===a.k,
-    onClick:()=>{
-      ar.wAttr=a.k;
-      if(D.shieldId===ar.id){
-        D.attrKey=a.k;
-        syncDiceFromSheet(); if(D.open) renderDice();
+  const items=ATTRS.map(a=>{
+    const mDmg=getMeleeAttrDmgType(a.k);
+    return {
+      label:`${a.k} – ${a.n}`,
+      sub:mDmg?`Schildangriff → ${getDmgTypeLabel(mDmg)}schaden`:'',
+      badge:String(getAttrTot(a.k,M)),
+      active:sm.attrKey===a.k,
+      onClick:()=>{
+        ar.wAttr=a.k;
+        if(D.shieldId===ar.id){
+          D.attrKey=a.k;
+          syncDiceFromSheet(); if(D.open) renderDice();
+        }
+        hooks.renderMain?.(); save();
       }
-      hooks.renderMain?.(); save();
-    }
-  }));
+    };
+  });
   openCtxMenu({
     key:`eq-sh-attr:${arId}`,
     title:'Schild-Attribut wählen',
@@ -297,10 +301,13 @@ export function openWpAttrPicker(anchorEl,wId){
   if(wm.hasMassiv){
     items.push({type:'label',label:'Tag „Massiv“ aktiv → ST erzwungen'});
   }
+  const isMelee=w.wType!=='ranged';
   ATTRS.forEach(a=>{
     const tot=getAttrTot(a.k,M);
+    const mDmg=isMelee?getMeleeAttrDmgType(a.k):'';
     items.push({
       label:`${a.k} – ${a.n}`,
+      sub:mDmg?`Nahkampf → ${getDmgTypeLabel(mDmg)}schaden`:'',
       badge:String(tot),
       active:wm.attrKey===a.k,
       disabled:wm.hasMassiv&&a.k!=='ST',
@@ -1117,12 +1124,72 @@ export function renderWeaponRollBtns(w,wm,compact=false){
     </div>
   </div>`;
 }
+export function renderDmgTypePickerBar(kind,item,customArr=[]){
+  const cur=normDmgType(item?.dmgType);
+  const actName=kind==='ammo'?'set-am-dmgtype':'set-wp-dmgtype';
+  const autoLbl=kind==='ammo'?'Wie Waffe':'Auto';
+  const title=kind==='ammo'?'Schadenstyp (Munition):':'Schadenstyp (Waffe):';
+  const tip=kind==='ammo'
+    ?'Legt den Schadenstyp dieser Munition fest (überschreibt bei Fernkampfwaffen die Waffen-Einstellung).'
+    :'Legt den Standard-Schadenstyp dieser Fernkampfwaffe fest (wird ggf. von der aktiven Munition überschrieben).';
+  const opts=[
+    {k:'',l:autoLbl},
+    {k:'cut',l:'Schnitt'},
+    {k:'pierce',l:'Durchstoß'},
+    {k:'impact',l:'Einschlag'}
+  ];
+  (Array.isArray(customArr)?customArr:[]).forEach(cv=>{
+    const lbl=String(cv?.label||'').trim();
+    if(!lbl) return;
+    const ck=`custom:${lbl.toLowerCase()}`;
+    if(!opts.some(o=>o.k===ck)) opts.push({k:ck,l:lbl});
+  });
+  return `<div class="flex flex-wrap items-center gap-1.5 pt-1" data-tip="${esc(tip)}">
+    <span class="text-[10px] font-extrabold t-mut uppercase tracking-wider shrink-0">${title}</span>
+    <div class="flex flex-wrap items-center gap-1">
+      ${opts.map(o=>`<button type="button" data-action="${actName}" data-id="${esc(item.id)}" data-dmgtype="${esc(o.k)}" class="btn py-0.5 px-2 text-[11px] font-extrabold ${cur===o.k?'btn-pri':'opacity-80 hover:opacity-100'}">${esc(o.l)}</button>`).join('')}
+    </div>
+  </div>`;
+}
+export function renderBlockZoneFieldHtml(kind,item){
+  const cur=String(item?.blockZone||'').trim();
+  const eff=getEffectiveBlockZoneLabel(item);
+  const inpAttr=kind==='weapon'?`data-wpf="${esc(item.id)}:blockZone"`:`data-arf="${esc(item.id)}:blockZone"`;
+  const presets=[
+    {val:'',lbl:'Arm / Hand (Std)'},
+    {val:'Arm links',lbl:'Arm links'},
+    {val:'Arm rechts',lbl:'Arm rechts'},
+    {val:'Arm links: Hand',lbl:'Arm links: Hand'},
+    {val:'Arm rechts: Hand',lbl:'Arm rechts: Hand'},
+    {val:'Rumpf',lbl:'Rumpf'}
+  ];
+  return `<div class="p-2 rounded-xl border border-cyan-400/35 bg-cyan-500/8 space-y-1.5 min-w-0">
+    <div class="flex flex-wrap items-center justify-between gap-1.5">
+      <label class="text-[10px] font-extrabold text-cyan-300 uppercase tracking-wider" data-tip="Trefferzone, die bei einem Block mit diesem Gegenstand getroffen wird (überschreibt die zufällige Trefferzone). Leer = Standard „Arm / Hand“.">🛡️ Blockzone <span class="normal-case font-bold text-cyan-200/80">(aktiv: ${esc(eff)})</span></label>
+      <span class="text-[10px] t-mut">Freitext oder Schnellwahl</span>
+    </div>
+    <input ${inpAttr} type="text" value="${esc(cur)}" placeholder="Arm / Hand (Standard)" class="inp w-full text-xs font-bold py-1 px-2"/>
+    <div class="flex flex-wrap items-center gap-1">
+      ${presets.map(p=>{
+        const isSel=cur.toLowerCase()===p.val.toLowerCase();
+        return `<button type="button" data-action="set-block-zone" data-kind="${esc(kind)}" data-id="${esc(item.id)}" data-zone="${esc(p.val)}" class="btn py-0.5 px-2 text-[10px] font-extrabold ${isSel?'btn-pri':'opacity-80 hover:opacity-100'}">${esc(p.lbl)}</button>`;
+      }).join('')}
+    </div>
+  </div>`;
+}
 export function renderWeaponCard(w,idx,len){
   const M=calcActiveMods(), wm=getWeaponRollMeta(w,M), dw=getWeaponDualWieldInfo(w,S);
   const wSub=getWeaponSubtype(w.wType), isRng=w.wType==='ranged', isEq=w.equipped!==false;
   const hasMags=hasActiveMagazines(w);
   const magInfo=hasMags?getWeaponNextShotInfo(w,S):null;
   const linkedAmmo=isRng&&w.ammoId?S.ammos.find(a=>a.id===w.ammoId):null;
+  const effAmmo=isRng?(magInfo?.ammo||linkedAmmo||null):null;
+  const meleeAttrDmg=!isRng?getMeleeAttrDmgType(wm.attrKey):'';
+  const rngEffDmgKey=isRng?(normDmgType(effAmmo?.dmgType)||normDmgType(w.dmgType)):'' ;
+  const rngEffDmgLbl=rngEffDmgKey?getDmgTypeLabel(rngEffDmgKey,[...(w.customDmg||[]),...(effAmmo?.customDmg||[])]):'';
+  const dmgTypePillHtml=!isRng
+    ?(meleeAttrDmg?`<span class="pill cursor-default text-[11px] py-0.5 px-2 bdr-acc bg-acc-soft text-acc font-extrabold" data-tip="Nahkampfwaffen bestimmen den Schadenstyp über ihr Attribut: ST = Einschlag, PR = Durchstoß, GW = Schnitt">💥 ${wm.attrKey} → ${esc(getDmgTypeLabel(meleeAttrDmg))}</span>`:'')
+    :(rngEffDmgLbl?`<span class="pill cursor-default text-[11px] py-0.5 px-2 border-amber-400/50 bg-amber-500/15 text-amber-200 font-extrabold" data-tip="${normDmgType(effAmmo?.dmgType)?'Schadenstyp vorgegeben durch aktive Munition':'Standard-Schadenstyp dieser Fernkampfwaffe'}">💥 ${normDmgType(effAmmo?.dmgType)?'Munition':'Waffe'} → ${esc(rngEffDmgLbl)}</span>`:'');
   const colStyle=w.color?`style="color:${esc(w.color)}"`:'', winStyle=cardColorStyle(w);
   const wRaw=String(w.name||'').trim()||wSub.label;
   const hdrRollTip=esc(`Trefferwurf mit ${wRaw} starten (Pool: ${wm.attrKey} ${wm.attrVal}${wm.sk?` ${fmtSign(wm.skBonus)}`:''} = ${wm.pool}${dw.isDualWield?`\n⚔️ Mehrhändiger Kampf (${dw.label}): +${dw.dis} Nachteil${dw.dis>1?'e':''}`:''})`);
@@ -1151,6 +1218,8 @@ export function renderWeaponCard(w,idx,len){
       <div class="flex flex-wrap items-center gap-1.5 tabular min-w-0">
         <span class="pill cursor-default text-[11px] py-0.5 px-2">${esc(wSub.icon)} ${esc(wSub.label)}</span>
         ${wPoolBadge}
+        ${dmgTypePillHtml}
+        ${wm.hasBlock?`<span class="pill cursor-default text-[11px] py-0.5 px-2 border-cyan-400/45 bg-cyan-500/10 text-cyan-200 font-bold" data-tip="Blockzone bei Block mit dieser Waffe">🛡️ Block: ${esc(getEffectiveBlockZoneLabel(w))}</span>`:''}
         ${handBadge}
         ${dwBadge}
         <span class="pill cursor-default text-[11px] py-0.5 px-2 max-w-full whitespace-normal break-words">Schnitt ${esc(w.dmgCut)} • Durchstoß ${esc(w.dmgPierce)} • Einschlag ${esc(w.dmgImpact)}${fmtCustomValSummarySuffix(w.customDmg)}</span>
@@ -1177,7 +1246,7 @@ export function renderWeaponCard(w,idx,len){
         </div>
       </div>
       <div class="min-w-0">
-        <label class="block text-[10px] font-extrabold text-acc mb-0.5 truncate" data-tip="Pflicht-Attribut für Würfe mit dieser Waffe (Standard: PR bei Fernkampf, ST oder PR bei Nahkampf; wechselt bei Tag „Massiv“ automatisch auf ST)">ATTRIBUT ${wm.hasMassiv?`<span class="text-amber-400">• Massiv → ST</span>`:`<span class="t-mut font-semibold">(${isRng?'Std: PR':'Std: ST/PR'})</span>`}</label>
+        <label class="block text-[10px] font-extrabold text-acc mb-0.5 truncate" data-tip="${isRng?'Pflicht-Attribut für Fernkampf-Würfe (Standard: PR; Schadenstyp wird unten über Waffe/Munition gewählt)':'Pflicht-Attribut für Nahkampf-Würfe – bestimmt den Schadenstyp: ST = Einschlag, PR = Durchstoß, GW = Schnitt'}">ATTRIBUT ${wm.hasMassiv?`<span class="text-amber-400">• Massiv → ST</span>`:(!isRng&&meleeAttrDmg?`<span class="text-emerald-300">→ ${esc(getDmgTypeLabel(meleeAttrDmg))}</span>`:`<span class="t-mut font-semibold">(${isRng?'Std: PR':'ST/PR/GW'})</span>`)}</label>
         <button type="button" data-action="open-wp-attr-picker" data-id="${w.id}" aria-haspopup="menu" aria-expanded="false" class="inp w-full py-1.5 px-2 text-xs font-extrabold tabular flex items-center justify-between gap-2 text-left cursor-pointer hover:border-sky-400/70 ${wm.hasMassiv?'!border-amber-400/70 text-amber-300':''}"><span class="truncate">${wm.attrKey} – ${esc(ATTRS.find(a=>a.k===wm.attrKey)?.n||wm.attrKey)} (${wm.attrVal})</span><span class="t-mut text-[10px] shrink-0">▾</span></button>
       </div>
       <div class="min-w-0">
@@ -1187,11 +1256,13 @@ export function renderWeaponCard(w,idx,len){
     </div>
     ${dw.isDualWield?`<div class="px-2.5 py-1.5 rounded-lg border border-rose-400/45 bg-rose-500/10 text-[11px] font-extrabold text-rose-200 flex flex-wrap items-center justify-between gap-1.5"><span>⚔️ Mehrhändiger Kampf aktiv: <strong>${dw.label} (+${dw.dis} Nachteil${dw.dis>1?'e':''} auf Trefferwürfe)</strong></span><span class="text-[10px] opacity-80">2+ einhändige Waffen angelegt</span></div>`:''}
     <div class="p-2.5 rounded-xl border bdr-acc bg-acc-soft/25 flex flex-wrap items-center justify-between gap-2">
-      <div class="text-xs font-bold t-mut tabular min-w-0">
-        Pool: <strong class="text-acc">${wm.attrKey} ${wm.attrVal}${wm.sk?` ${fmtSign(wm.skBonus)}`:''} = ${wm.pool}</strong>
+      <div class="flex flex-wrap items-center gap-1.5 text-xs font-bold t-mut tabular min-w-0">
+        <span>Pool: <strong class="text-acc">${wm.attrKey} ${wm.attrVal}${wm.sk?` ${fmtSign(wm.skBonus)}`:''} = ${wm.pool}</strong></span>
+        ${dmgTypePillHtml}
       </div>
       ${renderWeaponRollBtns(w,wm,true)}
     </div>
+    ${wm.hasBlock?renderBlockZoneFieldHtml('weapon',w):''}
     <div class="space-y-1.5">
       <div class="flex flex-wrap items-center justify-between gap-2">
         <div class="flex flex-wrap items-center gap-2">
@@ -1204,6 +1275,7 @@ export function renderWeaponCard(w,idx,len){
         </div>
         <button type="button" data-action="add-weapon-dmg" data-id="${w.id}" data-tip="Benutzerdefinierten Schadenswert hinzufügen (z.B. Energie, Feuer)" class="btn py-0.5 px-2 text-[11px]">+ Wert</button>
       </div>
+      ${isRng?renderDmgTypePickerBar('weapon',w,w.customDmg):''}
       <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 tabular">
         <div class="min-w-0 p-1.5 rounded-lg bg-black/20 border bdr-line"><label class="block text-[10px] font-bold t-mut text-center mb-0.5" data-tip="Schnittschaden-Bonus (Ganze Zahl oder - für nicht möglich)">Schnitt</label><input data-wpf="${w.id}:dmgCut" type="text" value="${esc(w.dmgCut)}" placeholder="-" class="inp w-full min-w-0 text-center font-black py-1 px-1.5 text-xs"/></div>
         <div class="min-w-0 p-1.5 rounded-lg bg-black/20 border bdr-line"><label class="block text-[10px] font-bold t-mut text-center mb-0.5" data-tip="Durchstoßschaden-Bonus (Ganze Zahl oder - für nicht möglich)">Durchstoß</label><input data-wpf="${w.id}:dmgPierce" type="text" value="${esc(w.dmgPierce)}" placeholder="-" class="inp w-full min-w-0 text-center font-black py-1 px-1.5 text-xs"/></div>
@@ -1231,6 +1303,7 @@ export function renderWeaponCard(w,idx,len){
           <button type="button" data-action="ammo-step" data-id="${linkedAmmo.id}" data-delta="-1" class="btn bg-amber-500 text-slate-950 border-amber-400 py-1 px-2.5 text-[11px] font-black">🏹 −1 Schuss</button>
         </div>
         <div class="flex flex-wrap items-center gap-1.5 tabular">
+          ${normDmgType(linkedAmmo.dmgType)?`<span class="px-2 py-0.5 rounded-md bg-amber-500/20 border border-amber-400/50 text-[11px] font-black text-amber-200">💥 ${esc(getDmgTypeLabel(linkedAmmo.dmgType,linkedAmmo.customDmg))}</span>`:''}
           <span class="px-2 py-0.5 rounded-md bg-black/25 border bdr-line text-[11px] font-semibold">Schnitt: <strong data-linked-ammo-dmg="${linkedAmmo.id}:dmgCut" class="text-amber-300 font-black">${esc(linkedAmmo.dmgCut)}</strong></span>
           <span class="px-2 py-0.5 rounded-md bg-black/25 border bdr-line text-[11px] font-semibold">Durchstoß: <strong data-linked-ammo-dmg="${linkedAmmo.id}:dmgPierce" class="text-amber-300 font-black">${esc(linkedAmmo.dmgPierce)}</strong></span>
           <span class="px-2 py-0.5 rounded-md bg-black/25 border bdr-line text-[11px] font-semibold">Einschlag: <strong data-linked-ammo-dmg="${linkedAmmo.id}:dmgImpact" class="text-amber-300 font-black">${esc(linkedAmmo.dmgImpact)}</strong></span>
@@ -1267,10 +1340,13 @@ export function renderAmmoCard(am,idx,len){
     </div>
     ${renderEqItemMenuBtn('ammo',am.id)}
   </div>`;
+  const amDmgTypeKey=normDmgType(am.dmgType);
+  const amDmgTypeLbl=amDmgTypeKey?getDmgTypeLabel(amDmgTypeKey,am.customDmg):'';
   if(am.collapsed){
     return `<div data-eqitem="ammo:${am.id}" class="subcard py-2 px-2.5 sm:px-3 border-amber-500/30 space-y-1.5 min-w-0" ${winStyle}>
       ${hdrRow}
       <div class="flex flex-wrap items-center gap-1.5 tabular min-w-0">
+        ${amDmgTypeLbl?`<span class="pill cursor-default text-[11px] py-0.5 px-2 border-amber-400/50 bg-amber-500/15 text-amber-200 font-extrabold">💥 ${esc(amDmgTypeLbl)}</span>`:''}
         <span data-ammo-collapsed-dmg="${am.id}" class="pill cursor-default text-[11px] py-0.5 px-2 max-w-full whitespace-normal break-words">Schnitt ${esc(am.dmgCut)} • Durchstoß ${esc(am.dmgPierce)} • Einschlag ${esc(am.dmgImpact)}${fmtCustomValSummarySuffix(am.customDmg)}</span>
         ${magBadgeHtml}
         ${(am.tags||[]).length?`<span class="pill cursor-default text-[11px] py-0.5 px-2 text-amber-300">🏷️ ${am.tags.length}</span>`:''}
@@ -1285,6 +1361,7 @@ export function renderAmmoCard(am,idx,len){
         <span class="text-[10px] font-extrabold text-amber-400 uppercase tracking-wider">Munitions-Schaden</span>
         <button type="button" data-action="add-ammo-dmg" data-id="${am.id}" data-tip="Benutzerdefinierten Munitions-Schadenswert hinzufügen (z.B. Energie, Feuer)" class="btn py-0.5 px-2 text-[11px]">+ Wert</button>
       </div>
+      ${renderDmgTypePickerBar('ammo',am,am.customDmg)}
       <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 tabular">
         <div class="min-w-0 p-1.5 rounded-lg bg-black/20 border bdr-line"><label class="block text-[10px] font-bold t-mut text-center mb-0.5">Schnitt</label><input data-amf="${am.id}:dmgCut" type="text" value="${esc(am.dmgCut)}" placeholder="-" class="inp w-full min-w-0 text-center font-black py-1 px-1.5 text-xs"/></div>
         <div class="min-w-0 p-1.5 rounded-lg bg-black/20 border bdr-line"><label class="block text-[10px] font-bold t-mut text-center mb-0.5">Durchstoß</label><input data-amf="${am.id}:dmgPierce" type="text" value="${esc(am.dmgPierce)}" placeholder="-" class="inp w-full min-w-0 text-center font-black py-1 px-1.5 text-xs"/></div>
@@ -1304,6 +1381,8 @@ export function renderAmmoCard(am,idx,len){
 
 export function renderShieldCard(ar,idx,len){
   const M=calcActiveMods(), sm=getShieldRollMeta(ar,M);
+  const shAttrDmg=getMeleeAttrDmgType(sm.attrKey);
+  const shAttrDmgPill=shAttrDmg?`<span class="pill cursor-default text-[11px] py-0.5 px-2 bdr-acc bg-acc-soft text-acc font-extrabold" data-tip="Schildangriffe bestimmen den Schadenstyp über ihr Attribut: ST = Einschlag, PR = Durchstoß, GW = Schnitt">💥 ${sm.attrKey} → ${esc(getDmgTypeLabel(shAttrDmg))}</span>`:'';
   const colStyle=ar.color?`style="color:${esc(ar.color)}"`:'', winStyle=cardColorStyle(ar);
   const isEq=ar.equipped!==false;
   const shRaw=String(ar.name||'').trim()||'Schild';
@@ -1335,10 +1414,12 @@ export function renderShieldCard(ar,idx,len){
       <div class="flex flex-wrap items-center gap-1.5 tabular min-w-0">
         <span class="pill cursor-default text-[11px] py-0.5 px-2 border-cyan-400/50 bg-cyan-500/15 text-cyan-300 font-black">🛡️ Schild</span>
         <span class="pill cursor-default text-[11px] py-0.5 px-2 font-black ${bmCls}" data-tip="Block-Mod: ${esc(bmLong)} auf Blocken-Tests">🧱 Block ${esc(bmShort)}</span>
+        <span class="pill cursor-default text-[11px] py-0.5 px-2 border-cyan-400/40 bg-cyan-500/10 text-cyan-200 font-bold" data-tip="Blockzone beim Blocken mit diesem Schild">🎯 ${esc(getEffectiveBlockZoneLabel(ar))}</span>
         <span class="pill cursor-default text-[11px] py-0.5 px-2 text-emerald-400 font-black">gRP ${esc(ar.grp)}</span>
         ${mProtVal?`<span class="pill cursor-default text-[11px] py-0.5 px-2 border-indigo-400/50 bg-indigo-500/15 text-indigo-300 font-black">🧠 mRS ${esc(ar.mentalProt)}</span>`:''}
         <span class="pill cursor-default text-[11px] py-0.5 px-2 max-w-full whitespace-normal break-words">Schutz: Schnitt ${esc(ar.protCut)} • Durchstoß ${esc(ar.protPierce)} • Einschlag ${esc(ar.protImpact)}${fmtCustomValSummarySuffix(ar.customProt)}</span>
         ${hasAnyDmg?`<span class="pill cursor-default text-[11px] py-0.5 px-2 max-w-full whitespace-normal break-words border-amber-400/40 bg-amber-500/10 text-amber-200">⚔️ Schnitt ${esc(ar.dmgCut)} • Durchstoß ${esc(ar.dmgPierce)} • Einschlag ${esc(ar.dmgImpact)}${fmtCustomValSummarySuffix(ar.customDmg)}</span>`:''}
+        ${shAttrDmgPill}
         ${shPoolBadge}
         ${sm.sk?`<span class="pill cursor-default text-[11px] py-0.5 px-2 text-acc font-bold">🎯 ${esc(sm.sk.name||'Fertigkeit')} (${fmtSign(sm.skBonus)})</span>`:''}
         ${renderEqModsSummaryPills(ar)}
@@ -1360,7 +1441,7 @@ export function renderShieldCard(ar,idx,len){
         </div>
       </div>
       <div class="min-w-0">
-        <label class="block text-[10px] font-extrabold text-acc mb-0.5 truncate" data-tip="Attribut für Blocken- und Schildangriffs-Proben (Standard: ST)">ATTRIBUT <span class="t-mut font-semibold">(Std: ST)</span></label>
+        <label class="block text-[10px] font-extrabold text-acc mb-0.5 truncate" data-tip="Attribut für Blocken- und Schildangriffs-Proben (bestimmt beim Schildangriff den Schadenstyp: ST = Einschlag, PR = Durchstoß, GW = Schnitt)">ATTRIBUT ${shAttrDmg?`<span class="text-emerald-300">→ ${esc(getDmgTypeLabel(shAttrDmg))}</span>`:`<span class="t-mut font-semibold">(Std: ST)</span>`}</label>
         <button type="button" data-action="open-shield-attr-picker" data-id="${ar.id}" aria-haspopup="menu" aria-expanded="false" class="inp w-full py-1.5 px-2 text-xs font-extrabold tabular flex items-center justify-between gap-2 text-left cursor-pointer hover:border-cyan-400/70"><span class="truncate">${sm.attrKey} – ${esc(ATTRS.find(a=>a.k===sm.attrKey)?.n||sm.attrKey)} (${sm.attrVal})</span><span class="t-mut text-[10px] shrink-0">▾</span></button>
       </div>
       <div class="min-w-0">
@@ -1372,12 +1453,14 @@ export function renderShieldCard(ar,idx,len){
       <div class="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs font-bold t-mut tabular min-w-0">
         <span>Pool: <strong class="text-cyan-300">${sm.attrKey} ${sm.attrVal}${sm.sk?` ${fmtSign(sm.skBonus)}`:''} = ${sm.pool}</strong></span>
         <span class="px-1.5 py-0.5 rounded border text-[10px] font-black ${bmCls}">Block-Mod ${esc(bmShort)}</span>
+        ${shAttrDmgPill}
       </div>
       <div class="flex flex-wrap items-center gap-1.5 tabular w-full sm:w-auto sm:inline-flex sm:shrink-0 max-w-full">
         <button type="button" data-action="roll-shield" data-id="${ar.id}" data-wcat="Blocken" data-tip="${shTip('Blocken')}" class="btn btn-pri py-1 px-2.5 text-xs font-black whitespace-nowrap">🧱 Blocken <span class="px-1.5 py-0.5 rounded bg-black/25 text-[11px] font-black">${sm.pool}</span></button>
         <button type="button" data-action="roll-shield" data-id="${ar.id}" data-wcat="Trefferwurf" data-tip="${shTip('Trefferwurf')}" class="btn py-1 px-2.5 text-xs font-extrabold bdr-acc bg-acc-soft text-acc hover:bg-black/20 whitespace-nowrap">⚔️ Schildangriff</button>
       </div>
     </div>
+    ${renderBlockZoneFieldHtml('armor',ar)}
     <div class="pt-2 border-t bdr-line space-y-1.5">
       <div class="flex flex-wrap items-center justify-between gap-2">
         <div class="flex flex-wrap items-center gap-1.5 min-w-0">
@@ -1639,10 +1722,20 @@ export function renderEquipCategorySec(secKey,secIdx,totalSecs,hzNames,eqH){
     </div>
   </div>`;
 
+  const handInfo=getHandAllocationInfo(S);
+  const renderHandWarnBanner=(compact=false)=>handInfo.hasConflict?`<div class="p-2.5 rounded-lg border border-amber-400/60 bg-amber-500/12 text-xs space-y-1 min-w-0" role="status">
+    <div class="flex flex-wrap items-center justify-between gap-1.5">
+      <span class="font-extrabold text-amber-300">✋ ${esc(handInfo.headline)}</span>
+      <span class="px-1.5 py-0.5 rounded bg-amber-500/20 border border-amber-400/50 text-amber-200 text-[10px] font-black tabular shrink-0">${handInfo.totalHands} / 2 Hände</span>
+    </div>
+    <div class="text-[11px] font-semibold text-amber-100/90 break-words">${esc(handInfo.itemsSummary)}</div>
+    ${compact?'':`<div class="text-[11px] t-mut leading-snug">${esc(handInfo.hint)}</div>`}
+  </div>`:'';
+
   if(secKey==='weapons'){
     return `<section data-eqsec="weapons" class="card p-3 sm:p-4 space-y-3 min-w-0" ${winStyle}>
-      ${hdrCommon(`⚔️ Waffen (${S.weapons.length})`,renderAddWeaponDropdown('eq-add-weapon:sec','btn py-1 px-2.5 text-xs',true))}
-      ${!meta.collapsed?(!S.weapons.length?`<div class="py-4 text-center text-xs t-mut">Noch keine Waffen eingetragen.</div>`:`<div class="space-y-2.5">${S.weapons.map((w,i)=>renderWeaponCard(w,i,S.weapons.length)).join('')}</div>`):''}
+      ${hdrCommon(`⚔️ Waffen (${S.weapons.length})${handInfo.hasConflict?`<span class="ml-1.5 px-1.5 py-0.5 rounded-md border border-amber-400/60 bg-amber-500/15 text-amber-300 text-[10px] font-black tabular" data-tip="${esc(handInfo.itemsSummary+'\n'+handInfo.hint)}">✋ ${handInfo.totalHands}H</span>`:''}`,renderAddWeaponDropdown('eq-add-weapon:sec','btn py-1 px-2.5 text-xs',true))}
+      ${!meta.collapsed?`${renderHandWarnBanner(false)}${!S.weapons.length?`<div class="py-4 text-center text-xs t-mut">Noch keine Waffen eingetragen.</div>`:`<div class="space-y-2.5">${S.weapons.map((w,i)=>renderWeaponCard(w,i,S.weapons.length)).join('')}</div>`}`:''}
     </section>`;
   }
   if(secKey==='ammos'){
@@ -1658,7 +1751,7 @@ export function renderEquipCategorySec(secKey,secIdx,totalSecs,hzNames,eqH){
     const mRsBadge=mRs.total?`<span id="eqMentalArmorPill" data-tip="${esc(mRs.tip)}" class="ml-1.5 px-2 py-0.5 rounded-md border border-indigo-400/50 bg-indigo-500/15 text-indigo-300 text-[11px] font-black cursor-help tabular">🧠 mRS ${mRs.total}</span>`:`<span id="eqMentalArmorPill" class="hidden"></span>`;
     return `<section data-eqsec="armors" class="card p-3 sm:p-4 space-y-3 min-w-0" ${winStyle}>
       ${hdrCommon(`<span class="${meta.color?'':'text-emerald-400'}">🛡️ Rüstungen &amp; Schilde (${S.armors.length})</span>${shieldPill}${mRsBadge}`,renderAddArmorDropdown('eq-add-armor:sec','btn border-emerald-400/60 text-emerald-400 py-1 px-2.5 text-xs',true,'+ Rüstung ▾'))}
-      ${!meta.collapsed?(!S.armors.length?`<div class="py-3 text-center text-xs t-mut">Noch keine Rüstungen oder Schilde eingetragen.</div>`:`<div class="space-y-2.5">${S.armors.map((ar,i)=>renderArmorCard(ar,i,S.armors.length,hzNames)).join('')}</div>`):''}
+      ${!meta.collapsed?`${handInfo.hasShield?renderHandWarnBanner(true):''}${!S.armors.length?`<div class="py-3 text-center text-xs t-mut">Noch keine Rüstungen oder Schilde eingetragen.</div>`:`<div class="space-y-2.5">${S.armors.map((ar,i)=>renderArmorCard(ar,i,S.armors.length,hzNames)).join('')}</div>`}`:''}
     </section>`;
   }
   const invSecs=Array.isArray(S.invSections)?S.invSections:[];

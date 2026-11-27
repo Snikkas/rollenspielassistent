@@ -52,11 +52,34 @@ export const normEqMods=arr=>Array.isArray(arr)?arr.filter(x=>x&&typeof x==='obj
   const val=kind==='stat'?(target==='moveBase'?rawVal:(rawVal!==''?String(toInt(rawVal,-1)):'-1')):String(Math.max(1,Math.abs(toInt(rawVal,1))));
   return {id:String(x.id||'').trim()||uid(),kind,target,targetLabel:String(x.targetLabel||'').trim(),val};
 }):[];
+export const MELEE_ATTR_DMG_TYPE={ST:'impact',PR:'pierce',GW:'cut'};
+export const DMG_TYPE_LABELS={cut:'Schnitt',pierce:'Durchstoß',impact:'Einschlag',impact_cut:'Einschlag-Schnitt',impact_pierce:'Einschlag-Durchstoß'};
+export const normDmgType=raw=>{
+  const s=String(raw||'').trim();
+  if(!s) return '';
+  const low=s.toLowerCase();
+  if(['cut','pierce','impact','impact_cut','impact_pierce'].includes(low)) return low;
+  if(low.startsWith('custom:')&&low.slice(7).trim()) return `custom:${low.slice(7).trim()}`;
+  return '';
+};
+export const getMeleeAttrDmgType=attrKey=>MELEE_ATTR_DMG_TYPE[String(attrKey||'').trim().toUpperCase()]||'';
+export const getDmgTypeLabel=(key,customArr=[])=>{
+  const k=normDmgType(key);
+  if(!k) return '';
+  if(DMG_TYPE_LABELS[k]) return DMG_TYPE_LABELS[k];
+  if(k.startsWith('custom:')){
+    const low=k.slice(7);
+    const hit=(Array.isArray(customArr)?customArr:[]).find(c=>String(c?.label||'').trim().toLowerCase()===low);
+    return hit?String(hit.label).trim():(low.charAt(0).toUpperCase()+low.slice(1));
+  }
+  return '';
+};
 export const isWeaponMassiv=w=>Array.isArray(w?.tags)&&w.tags.some(t=>String(t?.name??t??'').trim().toLowerCase()==='massiv');
 export const isWeaponBlockable=w=>Array.isArray(w?.tags)&&w.tags.some(t=>/^blockf[äa]hig\b/i.test(String(t?.name??t??'').trim()));
-export const makeWeapon=(wType='melee')=>({id:uid(),name:'',color:'',bgColor:'',collapsed:false,equipped:true,hand:'',img:'',wType:normWeaponType(wType),wAttr:'PR',skillId:'',grip:'',ammoId:'',dmgPool:'lp',dmgCut:'0',dmgPierce:'0',dmgImpact:'0',customDmg:[],tags:[],eqMods:[],notes:''});
-export const makeAmmo=(name='',qty=20)=>({id:uid(),name,color:'',bgColor:'',collapsed:false,img:'',qty:toInt(qty,20),dmgCut:'0',dmgPierce:'0',dmgImpact:'0',customDmg:[],tags:[],notes:''});
-export const makeArmor=(arType='armor')=>({id:uid(),arType:normArmorType(arType),name:'',color:'',bgColor:'',collapsed:false,equipped:true,img:'',grp:'0',protCut:'0',protPierce:'0',protImpact:'0',mentalProt:'0',customProt:[],zones:[],extraZones:[],blockMod:'0',wAttr:'ST',skillId:'',dmgPool:'lp',dmgCut:'0',dmgPierce:'0',dmgImpact:'0',customDmg:[],tags:[],eqMods:[],notes:''});
+export const getEffectiveBlockZoneLabel=item=>String(item?.blockZone||'').trim()||'Arm / Hand';
+export const makeWeapon=(wType='melee')=>({id:uid(),name:'',color:'',bgColor:'',collapsed:false,equipped:true,hand:'',img:'',wType:normWeaponType(wType),wAttr:'PR',skillId:'',grip:'',ammoId:'',dmgPool:'lp',dmgType:'',blockZone:'',dmgCut:'0',dmgPierce:'0',dmgImpact:'0',customDmg:[],tags:[],eqMods:[],notes:''});
+export const makeAmmo=(name='',qty=20)=>({id:uid(),name,color:'',bgColor:'',collapsed:false,img:'',qty:toInt(qty,20),dmgType:'',dmgCut:'0',dmgPierce:'0',dmgImpact:'0',customDmg:[],tags:[],notes:''});
+export const makeArmor=(arType='armor')=>({id:uid(),arType:normArmorType(arType),name:'',color:'',bgColor:'',collapsed:false,equipped:true,img:'',grp:'0',protCut:'0',protPierce:'0',protImpact:'0',mentalProt:'0',customProt:[],zones:[],extraZones:[],blockMod:'0',blockZone:'',wAttr:'ST',skillId:'',dmgPool:'lp',dmgCut:'0',dmgPierce:'0',dmgImpact:'0',customDmg:[],tags:[],eqMods:[],notes:''});
 export const makeInvItem=(secId='')=>({id:uid(),name:'',color:'',bgColor:'',collapsed:false,equipped:false,img:'',category:'Inventar',qty:'1',notes:'',sectionId:String(secId||''),linkedEq:null,eqMods:[]});
 export const makeEqSecMeta=()=>({weapons:{collapsed:false,color:'',bgColor:''},ammos:{collapsed:false,color:'',bgColor:''},armors:{collapsed:false,color:'',bgColor:''},inventory:{collapsed:false,color:'',bgColor:''}});
 export const makeChrSecMeta=()=>({training:{collapsed:false,color:'',bgColor:''},skills:{collapsed:false,color:'',bgColor:''},powers:{collapsed:false,color:'',bgColor:''}});
@@ -132,7 +155,7 @@ export function defaultState(){
   return {
     version:11,charId:uid(),owner:'',campaignId:'default',sheetType:'character',enemyMeta:makeDefaultEnemyMeta(),cloudAutoSync:true,activeTab:'attributes',quickTab:'bestehen',phase:'ebbe',
     profile:{name:'',ancestry:'',concept:'',avatar:''},
-    appearance:{dark:true,mode:'global',editScope:'attributes',global:makeStyleSlot(),lobby:makeStyleSlot(),tabs:tabStyles},
+    appearance:{dark:true,lobbyDark:true,mode:'global',editScope:'attributes',global:makeStyleSlot(),lobby:makeStyleSlot(),tabs:tabStyles},
     attrColors:{...DEF_ATTR_COLS},secColors:{...DEF_SEC_COLS},
     artList:[...DEF_MAIN_ARTS],actionSubList:[...DEF_ACTION_SUBS],pwTagList:[...DEF_PW_TAGS],useResList:[...DEF_USERES],customStats:[],
     weaponTagList:clone(DEF_WEAPON_TAGS),armorTagList:clone(DEF_ARMOR_TAGS),ammoTagList:[],
@@ -169,10 +192,10 @@ export function clearDiceLogs(){ diceLogs.length=0; }
 let toastTimer=null;
 export const isMobileLayout=()=>window.matchMedia('(max-width: 767px), ((max-height: 540px) and (pointer: coarse))').matches;
 export const CTX_MENU={open:false,id:0,key:'',anchorEl:null,opts:null,callbacks:[],cleanupSwipe:null};
-export const DUEL={outgoing:null,incoming:[],damageOffers:[],reply:null,swipeCleanup:null};
-export const COMBAT={active:false,collapsed:false,hitOk:false,blockPrompt:false,blockPromptReason:'',isCrit:false,eg:0,egMult:1,baseEg:0,isBlocked:false,blockItemRed:false,blockShieldId:'',blockShieldName:'',weaponId:null,shieldId:null,ammoId:null,attackerName:'',targetCharId:'',targetName:'',dmgType:'cut',pool:'lp',zoneName:'',subZoneName:'',lastHzRoll:null,lastSubHzRoll:null,dmgMod:0,armorMod:0,posted:false,offerId:'',offerStatus:'',offerNote:'',directApplying:false,directAppliedNote:'',ammoSpent:false,hits:[],combinedPosted:false,combinedOfferId:'',combinedOfferStatus:'',combinedOfferNote:'',combinedDirectApplying:false,combinedDirectAppliedNote:''};
+export const DUEL={damageOffers:[]};
+export const COMBAT={active:false,collapsed:false,hitOk:false,blockPrompt:false,blockPromptReason:'',isCrit:false,eg:0,egMult:1,baseEg:0,isBlocked:false,blockItemRed:false,blockShieldId:'',blockShieldName:'',weaponId:null,shieldId:null,ammoId:null,attrKey:'',attackerName:'',targetCharId:'',targetName:'',dmgType:'cut',dmgTypeReason:'',pool:'lp',zoneName:'',subZoneName:'',lastHzRoll:null,lastSubHzRoll:null,dmgMod:0,armorMod:0,posted:false,offerId:'',offerStatus:'',offerNote:'',directApplying:false,directAppliedNote:'',ammoSpent:false,hits:[],combinedPosted:false,combinedOfferId:'',combinedOfferStatus:'',combinedOfferNote:'',combinedDirectApplying:false,combinedDirectAppliedNote:''};
 export function syncBodyScrollLock(){
-  document.body.style.overflow=(isMobileLayout()&&Boolean(D.open||CN.open||LD.open||INI.open||FBW.open||UI.modal||CTX_MENU.open||DUEL.reply))?'hidden':'';
+  document.body.style.overflow=(isMobileLayout()&&Boolean(D.open||CN.open||LD.open||INI.open||FBW.open||UI.modal||CTX_MENU.open))?'hidden':'';
 }
 export function positionFloatingMenu(menuEl,anchorEl,opts={}){
   if(!menuEl) return;
@@ -1571,13 +1594,13 @@ function normalizeSheetObject(raw, { isForeign = false } = {}){
   sheet.equipSecMeta={};
   DEF_EQ_SEC_ORDER.forEach(k=>{const im=raw.equipSecMeta?.[k]||{};sheet.equipSecMeta[k]={collapsed:Boolean(im.collapsed),color:isHex(im.color)?im.color:'',bgColor:isHex(im.bgColor)?im.bgColor:''};});
   const normTags=arr=>Array.isArray(arr)?arr.filter(t=>t&&(t.name||typeof t==='string')).map(t=>typeof t==='string'?{name:t,x:'1'}:{name:String(t.name),x:String(t.x??'1')}):[];
-  sheet.weapons=Array.isArray(raw.weapons)?raw.weapons.map(w=>{const wTags=normTags(w?.tags),hasMas=isWeaponMassiv({tags:wTags}),wType=normWeaponType(w?.wType),wAttr=hasMas?'ST':(ATTRS.some(a=>a.k===w?.wAttr)?w.wAttr:'PR'),skillId=(w?.skillId&&sheet.skills.some(s=>s.id===w.skillId))?String(w.skillId):'',dmgPool=['lp','mlp','both'].includes(w?.dmgPool)?w.dmgPool:'lp',grip=w?.grip==='1h'||w?.grip==='2h'?w.grip:'',hand=['main','off','both'].includes(w?.hand)?w.hand:(grip==='2h'?'both':''),equipped=w?.equipped!==undefined?Boolean(w.equipped):true;return {...makeWeapon(wType),...(w||{}),id:w?.id||uid(),color:isHex(w?.color)?w.color:'',bgColor:isHex(w?.bgColor)?w.bgColor:'',collapsed:Boolean(w?.collapsed),equipped,hand,img:String(w?.img||''),wType,wAttr,skillId,grip,ammoId:String(w?.ammoId||''),dmgPool,dmgCut:String(w?.dmgCut??'0'),dmgPierce:String(w?.dmgPierce??'0'),dmgImpact:String(w?.dmgImpact??'0'),customDmg:normEqCustomVals(w?.customDmg),tags:wTags,eqMods:normEqMods(w?.eqMods),notes:String(w?.notes||'')};}):def.weapons;
+  sheet.weapons=Array.isArray(raw.weapons)?raw.weapons.map(w=>{const wTags=normTags(w?.tags),hasMas=isWeaponMassiv({tags:wTags}),wType=normWeaponType(w?.wType),wAttr=hasMas?'ST':(ATTRS.some(a=>a.k===w?.wAttr)?w.wAttr:'PR'),skillId=(w?.skillId&&sheet.skills.some(s=>s.id===w.skillId))?String(w.skillId):'',dmgPool=['lp','mlp','both'].includes(w?.dmgPool)?w.dmgPool:'lp',dmgType=normDmgType(w?.dmgType),blockZone=String(w?.blockZone||'').trim(),grip=w?.grip==='1h'||w?.grip==='2h'?w.grip:'',hand=['main','off','both'].includes(w?.hand)?w.hand:(grip==='2h'?'both':''),equipped=w?.equipped!==undefined?Boolean(w.equipped):true;return {...makeWeapon(wType),...(w||{}),id:w?.id||uid(),color:isHex(w?.color)?w.color:'',bgColor:isHex(w?.bgColor)?w.bgColor:'',collapsed:Boolean(w?.collapsed),equipped,hand,img:String(w?.img||''),wType,wAttr,skillId,grip,ammoId:String(w?.ammoId||''),dmgPool,dmgType,blockZone,dmgCut:String(w?.dmgCut??'0'),dmgPierce:String(w?.dmgPierce??'0'),dmgImpact:String(w?.dmgImpact??'0'),customDmg:normEqCustomVals(w?.customDmg),tags:wTags,eqMods:normEqMods(w?.eqMods),notes:String(w?.notes||'')};}):def.weapons;
   const hzCanon=sheet.hitZones.map(z=>String(z?.zone||'').trim()).filter(Boolean);
   const hzSubCanon=sheet.hitZones.flatMap(z=>(Array.isArray(z?.subZones)?z.subZones:[]).map(sz=>{const zn=String(z?.zone||'').trim(), sn=String(sz?.zone||'').trim();return (zn&&sn)?`${zn}: ${sn}`:'';}).filter(Boolean));
   const canonZone=z=>{const cl=String(z||'').trim();if(!cl)return '';const hit=hzCanon.find(h=>h.toLowerCase()===cl.toLowerCase())||hzSubCanon.find(h=>h.toLowerCase()===cl.toLowerCase());return hit||cl;};
   const isStdOrSubZone=c=>hzCanon.some(h=>h.toLowerCase()===c.toLowerCase())||hzSubCanon.some(h=>h.toLowerCase()===c.toLowerCase());
-  sheet.armors=Array.isArray(raw.armors)?raw.armors.map(ar=>{const {customZones:_legacyCz,...arRest}=(ar&&typeof ar==='object'?ar:{});const zns=[],exZ=[];const addU=(arr,val)=>{const c=canonZone(val);if(c&&!arr.some(x=>x.toLowerCase()===c.toLowerCase()))arr.push(c);return c;};(Array.isArray(ar?.zones)?ar.zones:[]).forEach(z=>addU(zns,z));(Array.isArray(ar?.extraZones)?ar.extraZones:[]).forEach(z=>{const c=canonZone(z);if(c&&!isStdOrSubZone(c))addU(exZ,c);});String(_legacyCz||'').split(/[,;]+/).map(s=>s.trim()).filter(Boolean).forEach(cz=>{const c=addU(zns,cz);if(c&&!isStdOrSubZone(c))addU(exZ,c);});const arType=normArmorType(ar?.arType),wAttr=ATTRS.some(a=>a.k===ar?.wAttr)?ar.wAttr:'ST',skillId=(ar?.skillId&&sheet.skills.some(s=>s.id===ar.skillId))?String(ar.skillId):'',dmgPool=['lp','mlp','both'].includes(ar?.dmgPool)?ar.dmgPool:'lp',blockMod=ar?.blockMod!==undefined&&ar?.blockMod!==null&&String(ar.blockMod).trim()!==''?String(toInt(ar.blockMod,0)):'0';return {...makeArmor(arType),...arRest,id:ar?.id||uid(),arType,color:isHex(ar?.color)?ar.color:'',bgColor:isHex(ar?.bgColor)?ar.bgColor:'',collapsed:Boolean(ar?.collapsed),equipped:ar?.equipped!==undefined?Boolean(ar.equipped):true,img:String(ar?.img||''),grp:String(ar?.grp??'0'),protCut:String(ar?.protCut??'0'),protPierce:String(ar?.protPierce??'0'),protImpact:String(ar?.protImpact??'0'),mentalProt:String(ar?.mentalProt??'0'),customProt:normEqCustomVals(ar?.customProt),zones:zns,extraZones:exZ,blockMod,wAttr,skillId,dmgPool,dmgCut:String(ar?.dmgCut??'0'),dmgPierce:String(ar?.dmgPierce??'0'),dmgImpact:String(ar?.dmgImpact??'0'),customDmg:normEqCustomVals(ar?.customDmg),tags:normTags(ar?.tags),eqMods:normEqMods(ar?.eqMods),notes:String(ar?.notes||'')};}):def.armors;
-  sheet.ammos=Array.isArray(raw.ammos)?raw.ammos.map(am=>({...makeAmmo(),...(am||{}),id:am?.id||uid(),color:isHex(am?.color)?am.color:'',bgColor:isHex(am?.bgColor)?am.bgColor:'',collapsed:Boolean(am?.collapsed),img:String(am?.img||''),qty:Math.max(0,toInt(am?.qty,20)),dmgCut:String(am?.dmgCut??'0'),dmgPierce:String(am?.dmgPierce??'0'),dmgImpact:String(am?.dmgImpact??'0'),customDmg:normEqCustomVals(am?.customDmg),tags:normTags(am?.tags),notes:String(am?.notes||'')})):[];
+  sheet.armors=Array.isArray(raw.armors)?raw.armors.map(ar=>{const {customZones:_legacyCz,...arRest}=(ar&&typeof ar==='object'?ar:{});const zns=[],exZ=[];const addU=(arr,val)=>{const c=canonZone(val);if(c&&!arr.some(x=>x.toLowerCase()===c.toLowerCase()))arr.push(c);return c;};(Array.isArray(ar?.zones)?ar.zones:[]).forEach(z=>addU(zns,z));(Array.isArray(ar?.extraZones)?ar.extraZones:[]).forEach(z=>{const c=canonZone(z);if(c&&!isStdOrSubZone(c))addU(exZ,c);});String(_legacyCz||'').split(/[,;]+/).map(s=>s.trim()).filter(Boolean).forEach(cz=>{const c=addU(zns,cz);if(c&&!isStdOrSubZone(c))addU(exZ,c);});const arType=normArmorType(ar?.arType),wAttr=ATTRS.some(a=>a.k===ar?.wAttr)?ar.wAttr:'ST',skillId=(ar?.skillId&&sheet.skills.some(s=>s.id===ar.skillId))?String(ar.skillId):'',dmgPool=['lp','mlp','both'].includes(ar?.dmgPool)?ar.dmgPool:'lp',blockMod=ar?.blockMod!==undefined&&ar?.blockMod!==null&&String(ar.blockMod).trim()!==''?String(toInt(ar.blockMod,0)):'0',blockZone=String(ar?.blockZone||'').trim();return {...makeArmor(arType),...arRest,id:ar?.id||uid(),arType,color:isHex(ar?.color)?ar.color:'',bgColor:isHex(ar?.bgColor)?ar.bgColor:'',collapsed:Boolean(ar?.collapsed),equipped:ar?.equipped!==undefined?Boolean(ar.equipped):true,img:String(ar?.img||''),grp:String(ar?.grp??'0'),protCut:String(ar?.protCut??'0'),protPierce:String(ar?.protPierce??'0'),protImpact:String(ar?.protImpact??'0'),mentalProt:String(ar?.mentalProt??'0'),customProt:normEqCustomVals(ar?.customProt),zones:zns,extraZones:exZ,blockMod,blockZone,wAttr,skillId,dmgPool,dmgCut:String(ar?.dmgCut??'0'),dmgPierce:String(ar?.dmgPierce??'0'),dmgImpact:String(ar?.dmgImpact??'0'),customDmg:normEqCustomVals(ar?.customDmg),tags:normTags(ar?.tags),eqMods:normEqMods(ar?.eqMods),notes:String(ar?.notes||'')};}):def.armors;
+  sheet.ammos=Array.isArray(raw.ammos)?raw.ammos.map(am=>({...makeAmmo(),...(am||{}),id:am?.id||uid(),color:isHex(am?.color)?am.color:'',bgColor:isHex(am?.bgColor)?am.bgColor:'',collapsed:Boolean(am?.collapsed),img:String(am?.img||''),qty:Math.max(0,toInt(am?.qty,20)),dmgType:normDmgType(am?.dmgType),dmgCut:String(am?.dmgCut??'0'),dmgPierce:String(am?.dmgPierce??'0'),dmgImpact:String(am?.dmgImpact??'0'),customDmg:normEqCustomVals(am?.customDmg),tags:normTags(am?.tags),notes:String(am?.notes||'')})):[];
   const validAmmoIds=new Set(sheet.ammos.map(a=>a.id));
   sheet.weapons.forEach(w=>{
     if(w.ammoId&&!validAmmoIds.has(w.ammoId)) w.ammoId='';
@@ -2089,86 +2112,91 @@ export function applySessionTheme(opts={}){
   const isLoggedIn=Boolean(CLOUD.currentUser);
   const cid=String(S.charId||'').trim();
 
+  const buildDefaultTabs=()=>{
+    const tabsObj={};
+    TABS.forEach(t=>{tabsObj[t.id]=makeStyleSlot();});
+    return tabsObj;
+  };
+  const resolveCharTheme=(charEntry,localBgMap,customPals)=>{
+    if(charEntry){
+      const tabsObj={};
+      TABS.forEach(t=>{
+        tabsObj[t.id]=localBgMap
+          ?hydrateThemeSlotBg(charEntry.tabs?.[t.id],localBgMap,`char:${cid}:tab:${t.id}`)
+          :normalizeThemeSlot(charEntry.tabs?.[t.id],customPals);
+      });
+      return {
+        darkVal:Boolean(charEntry.dark),
+        modeVal:charEntry.mode==='perTab'?'perTab':'global',
+        globalSlot:localBgMap
+          ?hydrateThemeSlotBg(charEntry.global,localBgMap,`char:${cid}:global`)
+          :normalizeThemeSlot(charEntry.global,customPals),
+        tabsObj
+      };
+    }
+    if(allowSheetFallback&&fbAp){
+      const tabsObj={};
+      TABS.forEach(t=>{tabsObj[t.id]=normalizeThemeSlot(fbAp.tabs?.[t.id],customPals);});
+      return {
+        darkVal:fbAp.dark!==undefined?Boolean(fbAp.dark):true,
+        modeVal:fbAp.mode==='perTab'?'perTab':'global',
+        globalSlot:normalizeThemeSlot(fbAp.global,customPals),
+        tabsObj
+      };
+    }
+    return {
+      darkVal:true,
+      modeVal:'global',
+      globalSlot:makeStyleSlot(),
+      tabsObj:buildDefaultTabs()
+    };
+  };
+
   if(isLoggedIn){
     const uk=findUserKeyByName(CLOUD.currentUser);
     const userKey=uk||String(CLOUD.currentUser).trim();
     const tp=uk?normalizeThemePrefs(CLOUD.registry?.users?.[uk]?.themePrefs):null;
     const localBgMap=loadUserLocalBgMap(userKey);
     if(tp){
-      const customPals=clone(tp.customPalettes||[]);
-      S.customPalettes=customPals;
+      const customPals=normalizeCustomPalettesList([...(tp.customPalettes||[]),...(allowSheetFallback?fbPals:[])]);
+      S.customPalettes=clone(customPals);
+      const lobbyDark=Boolean(tp.dark);
       const lobbySlot=hydrateThemeSlotBg(tp.lobby,localBgMap,'lobby');
       const charEntry=(cid&&tp.sheetByChar?.[cid])?tp.sheetByChar[cid]:null;
-      let darkVal=tp.dark, modeVal='global', globalSlot=makeStyleSlot(), tabsObj={};
-      if(charEntry){
-        darkVal=forSheet?charEntry.dark:tp.dark;
-        modeVal=charEntry.mode;
-        globalSlot=hydrateThemeSlotBg(charEntry.global,localBgMap,`char:${cid}:global`);
-        TABS.forEach(t=>{tabsObj[t.id]=hydrateThemeSlotBg(charEntry.tabs?.[t.id],localBgMap,`char:${cid}:tab:${t.id}`);});
-      }else if(tp.sheetCustomized||!allowSheetFallback||!fbAp){
-        darkVal=tp.dark;
-        modeVal=tp.sheet.mode;
-        globalSlot=hydrateThemeSlotBg(tp.sheet.global,localBgMap,'sheet:global');
-        TABS.forEach(t=>{tabsObj[t.id]=hydrateThemeSlotBg(tp.sheet.tabs?.[t.id],localBgMap,`sheet:tab:${t.id}`);});
-      }else{
-        darkVal=tp.dark;
-        modeVal=fbAp.mode==='perTab'?'perTab':'global';
-        globalSlot=normalizeThemeSlot(fbAp.global,customPals);
-        TABS.forEach(t=>{tabsObj[t.id]=normalizeThemeSlot(fbAp.tabs?.[t.id],customPals);});
-      }
-      S.appearance={dark:darkVal,mode:modeVal,editScope:nextScope,global:globalSlot,lobby:lobbySlot,tabs:tabsObj};
+      const {darkVal,modeVal,globalSlot,tabsObj}=resolveCharTheme(charEntry,localBgMap,customPals);
+      S.appearance={dark:darkVal,lobbyDark,mode:modeVal,editScope:nextScope,global:globalSlot,lobby:lobbySlot,tabs:tabsObj};
     }else{
       const legLobby=getLegacyUserLobbySlot(userKey);
       const customPals=allowSheetFallback?fbPals:[];
       S.customPalettes=clone(customPals);
+      const lobbyDark=true;
       const lobbySlot=hydrateThemeSlotBg(normalizeThemeSlot(legLobby||makeStyleSlot(),customPals),localBgMap,'lobby');
-      let darkVal=true, modeVal='global', globalSlot=makeStyleSlot(), tabsObj={};
-      if(allowSheetFallback&&fbAp){
-        darkVal=fbAp.dark!==undefined?Boolean(fbAp.dark):true;
-        modeVal=fbAp.mode==='perTab'?'perTab':'global';
-        globalSlot=normalizeThemeSlot(fbAp.global,customPals);
-        TABS.forEach(t=>{tabsObj[t.id]=normalizeThemeSlot(fbAp.tabs?.[t.id],customPals);});
-      }else{
-        TABS.forEach(t=>{tabsObj[t.id]=makeStyleSlot();});
-      }
-      S.appearance={dark:darkVal,mode:modeVal,editScope:nextScope,global:globalSlot,lobby:lobbySlot,tabs:tabsObj};
+      const {darkVal,modeVal,globalSlot,tabsObj}=resolveCharTheme(null,null,customPals);
+      S.appearance={dark:darkVal,lobbyDark,mode:modeVal,editScope:nextScope,global:globalSlot,lobby:lobbySlot,tabs:tabsObj};
     }
     return;
   }
 
-  // Gast-Modus (nicht eingeloggt): strikt über separaten lokalen Key
+  // Gast-Modus (nicht eingeloggt): strikt über separaten lokalen Key, ebenfalls pro Charakterbogen getrennt
   const gp=loadGuestThemePrefs();
-  const guestPals=normalizeCustomPalettesList(allowSheetFallback&&!gp.updatedAtMs?[...(gp.customPalettes||[]),...fbPals]:(gp.customPalettes||[]));
+  const guestPals=normalizeCustomPalettesList([...(gp.customPalettes||[]),...(allowSheetFallback?fbPals:[])]);
   S.customPalettes=clone(guestPals);
+  const lobbyDark=Boolean(gp.dark);
   const lobbySlot=normalizeThemeSlot(gp.lobby,guestPals);
   const charEntry=(cid&&gp.sheetByChar?.[cid])?gp.sheetByChar[cid]:null;
-  let darkVal=gp.dark, modeVal='global', globalSlot=makeStyleSlot(), tabsObj={};
-  if(charEntry){
-    darkVal=forSheet?charEntry.dark:gp.dark;
-    modeVal=charEntry.mode;
-    globalSlot=normalizeThemeSlot(charEntry.global,guestPals);
-    TABS.forEach(t=>{tabsObj[t.id]=normalizeThemeSlot(charEntry.tabs?.[t.id],guestPals);});
-  }else if(gp.sheetCustomized||!allowSheetFallback||!fbAp){
-    darkVal=gp.dark;
-    modeVal=gp.sheet.mode;
-    globalSlot=normalizeThemeSlot(gp.sheet.global,guestPals);
-    TABS.forEach(t=>{tabsObj[t.id]=normalizeThemeSlot(gp.sheet.tabs?.[t.id],guestPals);});
-  }else{
-    darkVal=gp.updatedAtMs>0?gp.dark:(fbAp.dark!==undefined?Boolean(fbAp.dark):true);
-    modeVal=fbAp.mode==='perTab'?'perTab':'global';
-    globalSlot=normalizeThemeSlot(fbAp.global,guestPals);
-    TABS.forEach(t=>{tabsObj[t.id]=normalizeThemeSlot(fbAp.tabs?.[t.id],guestPals);});
-  }
-  S.appearance={dark:darkVal,mode:modeVal,editScope:nextScope,global:globalSlot,lobby:lobbySlot,tabs:tabsObj};
+  const {darkVal,modeVal,globalSlot,tabsObj}=resolveCharTheme(charEntry,null,guestPals);
+  S.appearance={dark:darkVal,lobbyDark,mode:modeVal,editScope:nextScope,global:globalSlot,lobby:lobbySlot,tabs:tabsObj};
 }
 export function persistCurrentThemeChange(opts={}){
   const rawScope=opts.scope||'auto';
-  const isLobbyTarget=rawScope==='lobby'||(rawScope==='auto'&&(UI.inLobby||S.appearance.editScope==='lobby'));
-  const isSheetTarget=rawScope==='sheet'||(rawScope==='auto'&&!isLobbyTarget)||(!UI.inLobby&&S.appearance.editScope!=='lobby'&&rawScope==='palettes');
+  const inLobbyScope=Boolean(UI.inLobby||S.appearance.editScope==='lobby');
+  const isLobbyTarget=rawScope==='lobby'||(rawScope==='auto'&&inLobbyScope)||(rawScope==='dark'&&inLobbyScope);
+  const isSheetTarget=rawScope==='sheet'||(rawScope==='auto'&&!isLobbyTarget)||(rawScope==='dark'&&!isLobbyTarget&&!UI.inLobby)||(!inLobbyScope&&rawScope==='palettes');
   const nowMs=Date.now();
   const curPals=normalizeCustomPalettesList(S.customPalettes||[]);
   S.customPalettes=curPals;
   const curLobby=normalizeThemeSlot(getLobbyStyleSlot(),curPals);
+  const curLobbyDark=S.appearance.lobbyDark!==undefined?Boolean(S.appearance.lobbyDark):Boolean(S.appearance.dark);
   const curSheet=normalizeThemeSheet({mode:S.appearance.mode,global:S.appearance.global,tabs:S.appearance.tabs},curPals);
   const cid=String(S.charId||'').trim();
 
@@ -2183,38 +2211,28 @@ export function persistCurrentThemeChange(opts={}){
     const baseTp=normalizeThemePrefs(curRec?.themePrefs)||createDefaultThemePrefs();
     const localBgMap=loadUserLocalBgMap(uk);
     baseTp.customPalettes=clone(curPals);
-    if(rawScope==='dark'){
-      baseTp.dark=Boolean(S.appearance.dark);
-      if(!UI.inLobby&&UI.sheetLoaded&&S.appearance.editScope!=='lobby'&&cid&&baseTp.sheetByChar?.[cid]){
-        baseTp.sheetByChar[cid].dark=baseTp.dark;
-        baseTp.sheetByChar[cid].updatedAtMs=nowMs;
-      }
-    }
-    if(isLobbyTarget||rawScope==='palettes'){
+    if(isLobbyTarget){
+      if(rawScope==='dark') baseTp.dark=curLobbyDark;
+      baseTp.lobby=clone(curLobby);
+    }else if(rawScope==='palettes'){
       baseTp.lobby=clone(curLobby);
     }
-    if(isSheetTarget){
-      baseTp.sheet=clone(curSheet);
-      baseTp.sheetCustomized=true;
-      if(UI.sheetLoaded&&cid){
-        baseTp.sheetByChar[cid]={
-          dark:Boolean(S.appearance.dark),
-          mode:curSheet.mode,
-          global:clone(curSheet.global),
-          tabs:clone(curSheet.tabs),
-          updatedAtMs:nowMs
-        };
-      }
+    if(isSheetTarget&&cid&&(!UI.inLobby||UI.sheetLoaded)){
+      baseTp.sheetByChar[cid]={
+        dark:Boolean(S.appearance.dark),
+        mode:curSheet.mode,
+        global:clone(curSheet.global),
+        tabs:clone(curSheet.tabs),
+        updatedAtMs:nowMs
+      };
     }
     if(opts.clearBgSlot){
       if(isLobbyTarget){
         delete localBgMap.lobby;
       }else if(S.appearance.mode==='perTab'){
         const tid=S.appearance.editScope||S.activeTab||'attributes';
-        delete localBgMap[`sheet:tab:${tid}`];
         if(cid) delete localBgMap[`char:${cid}:tab:${tid}`];
       }else{
-        delete localBgMap['sheet:global'];
         if(cid) delete localBgMap[`char:${cid}:global`];
       }
       saveUserLocalBgMap(uk,localBgMap);
@@ -2231,37 +2249,29 @@ export function persistCurrentThemeChange(opts={}){
     return;
   }
 
-  // Gast-Modus: ausschließlich lokal unter GUEST_THEME_KEY speichern (niemals User-Records verändern)
+  // Gast-Modus: ausschließlich lokal unter GUEST_THEME_KEY speichern (pro Charakterbogen getrennt)
   const gp=loadGuestThemePrefs();
   gp.customPalettes=clone(curPals);
-  if(rawScope==='dark'){
-    gp.dark=Boolean(S.appearance.dark);
-    if(!UI.inLobby&&UI.sheetLoaded&&cid&&gp.sheetByChar?.[cid]){
-      gp.sheetByChar[cid].dark=gp.dark;
-      gp.sheetByChar[cid].updatedAtMs=nowMs;
-    }
-  }
-  if(isLobbyTarget||rawScope==='palettes'){
+  if(isLobbyTarget){
+    if(rawScope==='dark') gp.dark=curLobbyDark;
+    gp.lobby=clone(curLobby);
+  }else if(rawScope==='palettes'){
     gp.lobby=clone(curLobby);
   }
-  if(isSheetTarget){
-    gp.sheet=clone(curSheet);
-    gp.sheetCustomized=true;
-    if(UI.sheetLoaded&&cid){
-      gp.sheetByChar[cid]={
-        dark:Boolean(S.appearance.dark),
-        mode:curSheet.mode,
-        global:clone(curSheet.global),
-        tabs:clone(curSheet.tabs),
-        updatedAtMs:nowMs
-      };
-    }
+  if(isSheetTarget&&cid&&(!UI.inLobby||UI.sheetLoaded)){
+    gp.sheetByChar[cid]={
+      dark:Boolean(S.appearance.dark),
+      mode:curSheet.mode,
+      global:clone(curSheet.global),
+      tabs:clone(curSheet.tabs),
+      updatedAtMs:nowMs
+    };
   }
   gp.updatedAtMs=nowMs;
   saveGuestThemePrefs(gp);
 }
 
-export function resolvePaletteColors(sc){
+export function resolvePaletteColors(sc,isLobbyCtx=false){
   if(sc?.customColors&&isHex(sc.customColors.bg)){
     const cc=sc.customColors;
     return [cc.isLt?1:0,cc.bg,cc.acc||'#0ea5e9',cc.acc2||'#6366f1',cc.txt||'#f1f5f9',cc.mut||'#94a3b8',cc.btnTxt||'#ffffff'];
@@ -2269,11 +2279,15 @@ export function resolvePaletteColors(sc){
   const cp=(S.customPalettes||[]).find(p=>p.id===sc?.palette);
   if(cp) return [cp.isLt?1:0,cp.bg,cp.acc,cp.acc2,cp.txt,cp.mut,cp.btnTxt];
   const pal=PALETTES[sc?.palette]||PALETTES.azur;
-  return S.appearance.dark?pal[3]:pal[4];
+  const useDark=isLobbyCtx
+    ?(S.appearance.lobbyDark!==undefined?Boolean(S.appearance.lobbyDark):Boolean(S.appearance.dark))
+    :Boolean(S.appearance.dark);
+  return useDark?pal[3]:pal[4];
 }
 
 export function syncPalDraftFromSlot(sc=getEditStyleSlot()){
-  const [isLt,bg,acc,acc2,txt,mut,btnTxt]=resolvePaletteColors(sc);
+  const isLobbyEdit=Boolean(UI.inLobby||S.appearance.editScope==='lobby');
+  const [isLt,bg,acc,acc2,txt,mut,btnTxt]=resolvePaletteColors(sc,isLobbyEdit);
   const cp=(S.customPalettes||[]).find(p=>p.id===sc?.palette);
   UI.palDraft={
     name:cp?cp.name:'',
@@ -2288,7 +2302,8 @@ export function syncPalDraftFromSlot(sc=getEditStyleSlot()){
 }
 
 export function applyTheme(){
-  const sc=getDisplayStyleSlot(), [isLt,bg,acc,acc2,txt,mut,btnTxt]=resolvePaletteColors(sc);
+  const isLobbyDisplay=Boolean(isEditingLobbyStyle()||UI.inLobby);
+  const sc=getDisplayStyleSlot(), [isLt,bg,acc,acc2,txt,mut,btnTxt]=resolvePaletteColors(sc,isLobbyDisplay);
   document.documentElement.classList.toggle('dark',!isLt);
   const st=document.documentElement.style;
   st.setProperty('--bg',bg); st.setProperty('--txt',txt); st.setProperty('--mut',mut); st.setProperty('--acc',acc); st.setProperty('--acc2',acc2); st.setProperty('--btnTxt',btnTxt);
